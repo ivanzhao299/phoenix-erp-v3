@@ -626,10 +626,20 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const p=input(150); p.items[0].allocations=[{dailyLogId:am,quantity:100,evidenceFileId:'FILE-HANDOVER'},
       {dailyLogId:pm,quantity:50,evidenceFileId:'FILE-HANDOVER'}];
     const d=await ready(p); await post(d);
+    const sourceBalances=async()=> (await service.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceBalances.filter(row=>row.gradeCode==='GRADE_1');
+    const before=[
+      {dailyLogId:am,shift:'AM',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:100,rawUsedQty:0,remaining:0},
+      {dailyLogId:pm,shift:'PM',gradeCode:'GRADE_1',confirmedQty:200,ordinaryNet:50,rawUsedQty:0,remaining:150},
+    ];
+    expect(await sourceBalances()).toEqual(before);
+    const exhausted=input(1);exhausted.items[0].allocations=[{dailyLogId:am,quantity:1}];
+    await expect(ready(exhausted)).rejects.toThrow('来源可入余额不足');
     const [segment]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1 AND daily_log_id=$2',[d.id,pm]);
     const { approved }=await reversal(d,[{allocationId:segment.id,quantity:30}]);
+    expect(await sourceBalances()).toEqual(before);
     const receipt=await post(approved); expect(receipt.totalReversed).toBe(30); expect(await post(approved)).toEqual(receipt);
     expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).grades.GRADE_1).toEqual({reported:300,posted:120,remaining:180});
+    expect(await sourceBalances()).toEqual([before[0],{...before[1],ordinaryNet:20,remaining:180}]);
     expect(await effectiveProductionReceiptQuantity(db.manager,am)).toBe(100);
     expect(await effectiveProductionReceiptQuantity(db.manager,pm)).toBe(20);
     expect((await effectiveExactProductionByGrade(db.manager,pm)).get('GRADE_1')).toBe(20);

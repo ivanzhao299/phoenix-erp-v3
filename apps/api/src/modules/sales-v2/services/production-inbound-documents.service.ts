@@ -39,6 +39,22 @@ type Document = Record<string, any>;
 type FrozenItem = InboundDraftItem & { skuCode: string; productCode: string; specCode: string;
   varietyCode: string | null; inventoryStatus: string; sources: FormalSourceAllocation[] };
 
+type SourceUsage = { ordinaryNet: number; rawUsedQty: number };
+type SourceUsageRow = { daily_log_id: string; grade_code: string; quantity: number };
+
+function sourceQuotaKey(dailyLogId: number | string, gradeCode: string) {
+  return `${dailyLogId}:${gradeCode}`;
+}
+
+function sourceQuota(confirmedQty: number, usage?: SourceUsage) {
+  const { ordinaryNet = 0, rawUsedQty = 0 } = usage ?? {};
+  const remaining = confirmedQty - ordinaryNet - rawUsedQty;
+  if (ordinaryNet < 0 || rawUsedQty < 0 || remaining < 0) {
+    throw new ConflictException({ code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED', message:'正式来源累计量异常，请核对原日报、入库、冲销和原始收蛋' });
+  }
+  return { confirmedQty, ordinaryNet, rawUsedQty, remaining };
+}
+
 const text = (value: unknown, name: string, max = 100): string => {
   if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > max) throw new BadRequestException(`${name}无效`);
   return value;
@@ -162,20 +178,25 @@ export class ProductionInboundDocumentsService {
     return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
   }
   private async usage(m: Pick<DataSource,'query'>, d: Document) {
-    const rows=await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
+    const rows: SourceUsageRow[] = await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
       FROM production_inbound_allocations a JOIN production_inbound_lines l ON l.document_id=a.document_id AND l.line_no=a.line_no
       JOIN production_inbound_documents doc ON doc.id=a.document_id
       WHERE doc.company_code=$1 AND doc.house_code=$2 AND doc.production_date=$3 AND doc.state='POSTED'
       GROUP BY a.daily_log_id,l.grade_code`, [d.company_code,d.house_code,d.production_date]);
+    const usage = new Map<string,SourceUsage>(rows.map(row => [
+      sourceQuotaKey(row.daily_log_id,row.grade_code), {ordinaryNet:row.quantity,rawUsedQty:0},
+    ]));
     const [schema]=await m.query("SELECT to_regclass('production_raw_receipt_segments') AS raw");
-    if(schema?.raw){
-      const raw=await m.query(`SELECT s.daily_log_id::text,s.grade_code,SUM(s.quantity)::int AS quantity FROM production_raw_receipt_segments s
+    if (schema?.raw) {
+      const raw: SourceUsageRow[] = await m.query(`SELECT s.daily_log_id::text,s.grade_code,SUM(s.quantity)::int AS quantity FROM production_raw_receipt_segments s
         JOIN production_raw_receipts r ON r.id=s.receipt_id WHERE r.company_code=$1 AND r.house_code=$2 AND r.production_date=$3
           AND r.state='POSTED' GROUP BY s.daily_log_id,s.grade_code`,[d.company_code,d.house_code,d.production_date]);
-      for(const item of raw){const existing=rows.find((r:any)=>r.daily_log_id===item.daily_log_id&&r.grade_code===item.grade_code);
-        if(existing)existing.quantity+=item.quantity;else rows.push(item);}
+      for (const item of raw) {
+        const key = sourceQuotaKey(item.daily_log_id,item.grade_code);
+        usage.set(key,{ordinaryNet:usage.get(key)?.ordinaryNet ?? 0,rawUsedQty:item.quantity});
+      }
     }
-    return rows;
+    return usage;
   }
   private async currentDocument(m: EntityManager, id: string) {
     const [d] = await m.query('SELECT *,production_date::text AS production_date,expected_posting_date::text AS expected_posting_date FROM production_inbound_documents WHERE id=$1 FOR UPDATE',[id]);
@@ -265,10 +286,10 @@ export class ProductionInboundDocumentsService {
           JOIN production_inbound_documents rd ON rd.id=a.document_id AND rd.state='POSTED' AND rd.kind='REVERSAL'
           JOIN production_inbound_lines l ON l.document_id=a.document_id AND l.line_no=a.line_no
           WHERE a.daily_log_id=$1 AND l.grade_code=$2 AND a.direction=-1`,[a.dailyLogId,a.gradeCode]);
-        const net=received-Number(released.n);const posted=compensations.find((r:any)=>Number(r.daily_log_id)===a.dailyLogId&&r.grade_code===a.gradeCode);
+        const net=received-Number(released.n);const posted=compensations.get(sourceQuotaKey(a.dailyLogId,a.gradeCode));
         // A physical confirmation records an observed handover; it does not reserve production quota.
         // Conflicting receipts are held by the posting transaction's current report/grade limits.
-        if(net<0||net<Number(posted?.quantity??0)||a.quantity>Number(report.eggs_by_grade[a.gradeCode]??0))throw new ConflictException('实物交接来源与已过账净量或该班次日报不一致');
+        if(net<0||net<(posted?.ordinaryNet??0)+(posted?.rawUsedQty??0)||a.quantity>Number(report.eggs_by_grade[a.gradeCode]??0))throw new ConflictException('实物交接来源与已过账净量或该班次日报不一致');
       }
       const [result]=await m.query(`WITH changed AS (UPDATE production_physical_handovers SET state='CONFIRMED',version=version+1,
         confirmed_by=$2,confirmed_at=now() WHERE id=$1 RETURNING *) SELECT * FROM changed`,[id,actor]);return result;
@@ -453,7 +474,7 @@ export class ProductionInboundDocumentsService {
     await this.handoverEvidence(m,d,handover.payload.sources,handover.created_by);
     const physicalRemaining=new Map<string,number>(handover.payload.sources.map((a:any)=>[`${a.dailyLogId}:${a.gradeCode}`,Number(a.quantity)]));
     const usage = await this.usage(m,d);
-    const used = new Map<string,number>(usage.map((r: any) => [`${r.daily_log_id}:${r.grade_code}`,Number(r.quantity)]));
+    const planned = new Map<string,number>();
     const items: FrozenItem[] = [];
     for (const item of d.payload.items as InboundDraftItem[]) {
       if (reports.length>1 && !item.allocations?.length) throw new ConflictException('多班交接必须逐段指定实际日报和证据，不自动把额度分摊写为精确来源');
@@ -463,9 +484,9 @@ export class ProductionInboundDocumentsService {
         gradeCode:item.gradeCode,specCode:item.specCode ?? 'LOOSE',usage:'stock' },m);
       const sources: FormalSourceAllocation[] = []; let remaining = item.quantity;
       for (const r of reports) {
-        const key = `${r.id}:${item.gradeCode}`; const consumed = used.get(key) ?? 0;
-        const capacity = Number(r.eggs_by_grade[item.gradeCode] ?? 0)-consumed;
-        if (consumed<0 || capacity<0) throw new ConflictException('正式来源累计量异常，请核对原入库及冲销');
+        const key = sourceQuotaKey(r.id,item.gradeCode);
+        const plannedQty = planned.get(key) ?? 0;
+        const capacity = sourceQuota(r.eggs_by_grade[item.gradeCode] ?? 0,usage.get(key)).remaining-plannedQty;
         const selected = item.allocations?.find(a => a.dailyLogId === Number(r.id));
         const physical=handover.payload.sources.find((a:any)=>a.dailyLogId===Number(r.id)&&a.gradeCode===item.gradeCode);
         const physicalCapacity=physicalRemaining.get(key)??0;
@@ -482,7 +503,7 @@ export class ProductionInboundDocumentsService {
             snapshot:{ ...r,evidenceFileId:physical.evidenceFileId,evidenceChecksum:physical.evidenceChecksum,handoverRef:d.handover_ref,
               handoverId:handover.id,handoverContentHash:handover.content_hash,handoverLineId:physical.id,
               issuedBy:handover.created_by,receivedBy:handover.confirmed_by } });
-          used.set(key,consumed+n); remaining-=n;
+          planned.set(key,plannedQty+n); remaining-=n;
           physicalRemaining.set(key,physicalCapacity-n);
         }
       }
@@ -997,20 +1018,26 @@ export class ProductionInboundDocumentsService {
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
       const scope = await this.lockDay(m,identity,false,false); const reports = await this.reports(m,identity);
-      const usage = await this.usage(m,identity); const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
-      for (const r of reports) for (const [grade,n] of Object.entries(r.eggs_by_grade)) {
-        const item = grades[grade] ??= { reported:0,posted:0,remaining:0 }; item.reported+=Number(n);
+      const usage = await this.usage(m,identity);
+      const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
+      const sourceBalances = [];
+      for (const r of reports) for (const [gradeCode,confirmedQty] of Object.entries<number>(r.eggs_by_grade)) {
+        const key = sourceQuotaKey(r.id,gradeCode);
+        const quota = sourceQuota(confirmedQty,usage.get(key));
+        usage.delete(key);
+        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,...quota});
+        const item = grades[gradeCode] ??= {reported:0,posted:0,remaining:0};
+        item.reported+=quota.confirmedQty;
+        item.posted+=quota.ordinaryNet+quota.rawUsedQty;
+        item.remaining+=quota.remaining;
       }
-      for (const row of usage) { const item = grades[row.grade_code] ??= { reported:0,posted:0,remaining:0 }; item.posted+=Number(row.quantity); }
-      for (const item of Object.values(grades)) {
-        item.remaining=item.reported-item.posted;
-        if (item.remaining<0 || item.posted<0) throw new ConflictException('正式额度异常，请核对原单及补偿');
-      }
+      if (usage.size) throw new ConflictException({code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED',
+        message:'存在无法核对日报或档位的已过账来源，请核对原单及补偿'});
       const stock = await stockByGrade(m,stockScope);
       for (const grade of Object.keys(grades)) {
         stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
       }
-      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,
+      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,
         stockBasisVersion:2,stockByGrade:stock,
         currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
           .map(([grade,v])=>[grade,v.attributableQty])),

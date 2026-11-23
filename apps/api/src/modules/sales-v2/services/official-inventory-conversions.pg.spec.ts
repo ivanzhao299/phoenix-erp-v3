@@ -125,12 +125,17 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   }
   it('converts an actual signed RAW segment into stock once, preserves provenance and never credits production twice',async()=>{
     const s=await source(),a=await approved(plan(s.segments[0].id));
+    const rawQuota=async()=> (await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceBalances
+      .find(row=>row.dailyLogId===Number(s.reportId)&&row.gradeCode==='GRADE_1');
+    const rawOnly={dailyLogId:Number(s.reportId),shift:'DAILY',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:0,rawUsedQty:100,remaining:0};
+    expect(await rawQuota()).toEqual(rawOnly);
     const result=await service.post(a.id,a.submit_key,a.content_hash);
     expect(result).toMatchObject({inputQuantity:100,outputQuantity:100,lossQuantity:0,costStatus:'PENDING_ALLOCATION'});
     expect(await counts()).toEqual({batches:1,ledger:1,inputs:1,outputs:1});
     const [b]=await db.query('SELECT *,official_inventory_allows(batch_no,company_code,warehouse_code,product_code,sku_code,material_code) AS visible FROM inv_batches');
     expect(b).toMatchObject({qty:'100',qty_available:'100',inventory_class:'STANDARD',status:'AVAILABLE',visible:true,unit_cost:'0.000000'});
     expect(await db.query('SELECT raw_segment_id FROM production_batch_raw_roots')).toEqual([{raw_segment_id:s.segments[0].id}]);
+    expect(await rawQuota()).toEqual(rawOnly);
     expect(await effectiveProductionReceiptQuantity(db.manager,s.reportId)).toBe(100);
     expect((await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).stockByGrade.GRADE_1).toMatchObject({
       attributableQty:100,warehouseQty:100,mixedBatchCount:0});
