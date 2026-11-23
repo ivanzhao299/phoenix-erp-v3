@@ -34,6 +34,17 @@ function RawOrigin({source}:{source:Source}) {
 export interface TraceFilter {gradeCode?:string;batchNo?:string;view:'warehouse'|'source'}
 export default function ProductionStockTrace({query,filter,onFilter,onDocument}:{query:string;filter:TraceFilter;onFilter:(filter:TraceFilter)=>void;onDocument:(id:string)=>void}) {
   const {t}=useLanguage();
+  const viewOptions = [
+    {view: 'source', label: t('productionJobs.viewsource')},
+    {view: 'warehouse', label: t('productionJobs.viewwarehouse')},
+  ] as const;
+  const attributionLabels: Record<string,string> = {
+    EXACT: t('productionJobs.EXACT'),
+    OTHER: t('productionJobs.OTHER'),
+    MIXED: t('productionJobs.MIXED'),
+    UNRESOLVED: t('productionJobs.UNRESOLVED'),
+    UNMEASURED: t('productionJobs.UNMEASURED'),
+  };
   const [batch,setBatch]=useState(filter.batchNo??''),[after,setAfter]=useState(''),[result,setResult]=useState<Result|null>(null);
   const [error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
@@ -50,13 +61,13 @@ export default function ProductionStockTrace({query,filter,onFilter,onDocument}:
     <form className={s.actions} onSubmit={event=>{event.preventDefault();onFilter({view:'warehouse',batchNo:batch.trim()||undefined});}}>
       <label className={s.field}>{t('productionJobs.batchNo')}<input value={batch} onChange={e=>setBatch(e.target.value)} maxLength={100}/></label>
       <button>{t('productionJobs.findBatch')}</button></form>
-    <div className={s.actions}>{(['source','warehouse'] as const).map(view=><button key={view} aria-pressed={filter.view===view} onClick={()=>onFilter({...filter,view})}>{t('productionJobs.view'+view)}</button>)}</div>
+    <div className={s.actions}>{viewOptions.map(({view,label})=><button key={view} aria-pressed={filter.view===view} onClick={()=>onFilter({...filter,view})}>{label}</button>)}</div>
     {filter.gradeCode&&<p>{t('productionInstallments.grade')} · {filter.gradeCode}</p>}
     {error?<p role="alert">{error} <button onClick={()=>loadPage(after)}>{t('common.refresh')}</button></p>:!result?<p role="status">{t('common.loading')}</p>:
       <>{!result.items.length&&<p>{t('productionJobs.empty')}</p>}{result.items.map(b=><article key={b.batchNo} className={s.card}>
         <strong className={s.wide}>{b.batchNo}</strong><p>{b.warehouseCode} / {b.locationCode??'—'} · {b.skuCode} · {b.status}</p>
         <p>{t('productionInstallments.current')} {b.batchQty} {b.unit} · {t('productionInstallments.available')} {b.availableQty} {b.unit}</p>
-        <p>{t('productionJobs.attributable')} {b.attributableQty??t('productionJobs.unknown')} · {t('productionJobs.'+b.attribution)}</p>
+        <p>{t('productionJobs.attributable')} {b.attributableQty??t('productionJobs.unknown')} · {attributionLabels[b.attribution]??t('productionJobs.unknown')}</p>
         {b.sources.map((source,i)=><div key={i} className={s.notice}><strong>{source.kind==='INBOUND'?t('productionInstallments.title'):t('productionRaw.source')}</strong>
           <p>{source.kind==='INBOUND'?<button onClick={()=>onDocument(source.documentId)}>{source.documentNo}</button>:<RawOrigin key={source.documentId} source={source}/>} · {source.handoverRef}</p>
           <p>{source.houseCode} · {source.flockNo} · {source.productionDate} · {source.gradeCode}</p>

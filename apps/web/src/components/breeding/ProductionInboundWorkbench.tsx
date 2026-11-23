@@ -133,7 +133,16 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     catch(cause){
       const e=cause as ApiError;
       const details=e.details;
-      const fields=details?Object.entries(details).map(([name,value])=>`${t('productionJobs.'+name)} ${value}`):[];
+      const detailLabels: Record<string,string> = {
+        gradeCode: t('productionJobs.gradeCode'),
+        dailyLogId: t('productionJobs.dailyLogId'),
+        remaining: t('productionJobs.remaining'),
+        currentVersion: t('productionJobs.currentVersion'),
+        documentNo: t('productionJobs.documentNo'),
+        blockingDocumentNo: t('productionJobs.blockingDocumentNo'),
+      };
+      const fields=Object.entries(details??{}).flatMap(([name,value])=>
+        detailLabels[name] ? [`${detailLabels[name]} ${value}`] : []);
       const hint=e.status===403?t('productionJobs.forbidden'):e.code==='NETWORK'||e.code==='SERVER'?t('productionJobs.uncertain'):'';
       const capacity=['PRODUCTION_GRADE_CAPACITY','PRODUCTION_HANDOVER_CAPACITY'].includes(e.businessCode??'');
       setError([capacity?t('productionJobs.capacity'):e.message,...fields,hint].filter(Boolean).join(' · '));
