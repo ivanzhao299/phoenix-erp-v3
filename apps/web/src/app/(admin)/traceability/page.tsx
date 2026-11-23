@@ -190,8 +190,8 @@ export default function TraceabilityPage() {
           }]} /></div>
           <div style={{
           marginTop: 6
-        }}><Table rows={Array.isArray(p.flocks) ? p.flocks.map(row => ({
-          ...row, breedDisplay: breedLabels[row.breed_code] || row.breed_type || row.breed_code,
+        }}><Table rows={Array.isArray(p.flocks) ? p.flocks.map((row: { breed_code?: string; breed_type?: string }) => ({
+          ...row, breedDisplay: breedLabels[row.breed_code ?? ""] || row.breed_type || row.breed_code,
         })) : []} cols={[{
             k: "flock_no",
             label: "鸡群"
