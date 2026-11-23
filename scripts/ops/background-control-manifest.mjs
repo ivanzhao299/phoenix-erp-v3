@@ -209,6 +209,7 @@ export class BackgroundManifestPublisher {
     this.readPublic = dependencies.readPublic || (() => readPublicManifest(this.directory, this.inspect));
     this.readCutoverPending = dependencies.readCutoverPending || (() => readCutoverPending(this.stateDirectory));
     this.readSchemaReleasePending=dependencies.readSchemaReleasePending||(()=>readSchemaReleasePending(this.stateDirectory));
+    this.verifyCutoverReleaseAuthority=dependencies.verifyCutoverReleaseAuthority||(()=>false);
     this.verifySchemaReleaseAuthority=dependencies.verifySchemaReleaseAuthority||(()=>false);
     // The durable generation high-water mark survives hold reconciliation.
     // Without it, clearing a stranded record resets the next fence to
@@ -238,7 +239,12 @@ export class BackgroundManifestPublisher {
       || !['FENCED', 'CODE_HOLD'].includes(manifest.phase) || record.manifestDigest !== projectionDigest(manifest)) fail('PUBLIC_PRIVATE_BINDING_MISMATCH');
     return { record, manifest };
   }
-  fence(binding, participants) {
+  nextGeneration(){
+    const value=Math.max(this.readPrivate()?.generation||0,this.readPublic()?.generation||0,this.readHighWater())+1;
+    if(!Number.isSafeInteger(value))fail('GENERATION_EXHAUSTED');
+    return value;
+  }
+  assertFenceStart(binding,participants) {
     validateBinding(binding); validateParticipants(participants, { targetSha: binding.previousFloorSha }); this.guard(); this.inspect(this.directory);
     const previous = this.readPrivate(); const publicPrevious = this.readPublic();
     const pending = this.readCutoverPending();
@@ -256,8 +262,10 @@ export class BackgroundManifestPublisher {
     if (publicPrevious && (publicPrevious.phase !== 'OPEN' || !previous || previous.generation !== publicPrevious.generation
       || previous.owner !== publicPrevious.owner || previous.targetSha !== publicPrevious.targetSha
       || publicPrevious.targetSha !== binding.previousFloorSha || previous.manifestDigest !== projectionDigest(publicPrevious))) fail('UNRECONCILED_PUBLIC_STATE');
-    const generation = Math.max(previous?.generation || 0, publicPrevious?.generation || 0, this.readHighWater()) + 1;
-    if (!Number.isSafeInteger(generation)) fail('GENERATION_EXHAUSTED');
+    return this.nextGeneration();
+  }
+  fence(binding,participants){
+    const generation=this.assertFenceStart(binding,participants);
     const manifest = { protocolVersion: 1, phase: 'FENCED', owner: binding.owner, generation, targetSha: binding.targetSha, participants };
     const record = { protocolVersion: 1, ...binding, generation, phase: 'PUBLISHING_FENCE', manifestDigest: projectionDigest(manifest), updatedAt: this.now() };
     this.writePrivate(record); // Crash before public fence cannot authorize any deploy.
@@ -271,6 +279,37 @@ export class BackgroundManifestPublisher {
     // No secret/raw failure text is persisted; callers use fixed reason codes.
     if (!/^[A-Z0-9_]{1,100}$/.test(reason)) fail('INVALID_REASON');
     this.writePrivate({ ...record, holdReason: reason, updatedAt: this.now() });
+  }
+  async openCompletedCutover(binding,participants,verify){
+    const {record,manifest}=this.assertOwned(binding);
+    const admit=()=>{
+      const pending=this.readCutoverPending();
+      if(binding.purpose!==CUTOVER_PURPOSE||pending?.schema!=='phoenix.production-cutover-pending/1'
+        ||pending.phase!=='PREPARED'||this.readSchemaReleasePending()!==null
+        ||this.verifyCutoverReleaseAuthority(binding,record.generation)!==true)fail('CUTOVER_DEDICATED_RECOVERY_REQUIRED');
+      assertSameBinding(pending,binding);
+    };
+    admit();validateParticipants(participants,{targetSha:binding.targetSha});
+    if(record.phase!=='FENCED'||manifest.phase!=='FENCED'||typeof verify!=='function'||await verify()!==true)fail('SUCCESS_RECEIPT_REQUIRED');
+    const current=this.assertOwned(binding);admit();
+    if(current.record.generation!==record.generation||current.record.manifestDigest!==record.manifestDigest)fail('OPEN_AUTHORITY_CHANGED');
+    const generation=record.generation+1;
+    if(!Number.isSafeInteger(generation))fail('GENERATION_EXHAUSTED');
+    const next={protocolVersion:1,phase:'OPEN',owner:record.owner,generation,targetSha:record.targetSha,participants};
+    this.writeHighWater(generation);
+    // The original owner and result remain in the private terminal receipt. The ordinary OPEN projection carries no pilot binding.
+    this.writePrivate({...next,previousFloorSha:binding.previousFloorSha,manifestDigest:projectionDigest(next),updatedAt:this.now()});
+    this.writePublic(next);return next;
+  }
+  assertCompletedCutoverOpen(binding,generation){
+    this.guard();
+    const record=this.readPrivate(),manifest=this.readPublic();
+    if(!record||!manifest||record.phase!=='OPEN'||manifest.phase!=='OPEN'||record.owner!==binding.owner
+      ||manifest.owner!==binding.owner||record.previousFloorSha!==binding.previousFloorSha||record.targetSha!==binding.targetSha
+      ||manifest.targetSha!==binding.targetSha||record.generation!==generation+1||manifest.generation!==record.generation
+      ||record.manifestDigest!==projectionDigest(manifest))fail('CUTOVER_PUBLIC_OPEN_UNPROVEN');
+    assertNoCutoverControlState(record);
+    return manifest;
   }
   async open(binding, participants, verifySuccess) {
     const { record } = this.assertOwned(binding);

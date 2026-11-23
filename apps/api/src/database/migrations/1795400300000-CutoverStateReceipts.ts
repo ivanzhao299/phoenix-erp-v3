@@ -58,15 +58,21 @@ export class CutoverStateReceipts1795400300000 implements MigrationInterface {
       CREATE TRIGGER trg_cutover_state_receipt_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON production_cutover_state_receipts
         FOR EACH STATEMENT EXECUTE FUNCTION reject_cutover_state_receipt_mutation();`);
     // Existing enrollments receive only the public origin projection. Later site enrollment must grant the same view.
-    const [environment]=await q.query('SELECT api_roles::text[] AS api_roles,issuer_role::text,executor_role::text FROM production_cutover_control_environments ORDER BY generation DESC LIMIT 1');
-    if(environment){
-      for(const role of [...environment.api_roles,environment.issuer_role,environment.executor_role]){
-        const quoted='"'+String(role).replace(/"/g,'""')+'"';
-        await q.query('REVOKE ALL ON production_cutover_state_origins,production_cutover_state_receipts FROM '+quoted);
-        if(environment.api_roles.includes(role)){
-          await q.query('GRANT SELECT ON production_cutover_state_origins TO '+quoted);
-          await q.query('GRANT SELECT, INSERT ON production_cutover_state_receipts TO '+quoted);
-        }
+    const principals=await q.query(`WITH current_environment AS (
+      SELECT * FROM production_cutover_control_environments ORDER BY generation DESC LIMIT 1
+    ), enrolled AS (
+      SELECT api.name,api.oid,true AS is_api FROM current_environment e
+        CROSS JOIN LATERAL unnest(e.api_roles,e.api_role_oids) api(name,oid)
+      UNION ALL SELECT issuer_role,issuer_role_oid,false FROM current_environment
+      UNION ALL SELECT executor_role,executor_role_oid,false FROM current_environment
+    )
+    SELECT r.rolname AS role,b.is_api FROM enrolled b JOIN pg_roles r ON r.oid=b.oid AND r.rolname=b.name`);
+    for(const {role,is_api} of principals){
+      const quoted='"'+String(role).replace(/"/g,'""')+'"';
+      await q.query('REVOKE ALL ON production_cutover_state_origins,production_cutover_state_receipts FROM '+quoted);
+      if(is_api){
+        await q.query('GRANT SELECT ON production_cutover_state_origins TO '+quoted);
+        await q.query('GRANT SELECT, INSERT ON production_cutover_state_receipts TO '+quoted);
       }
     }
   }

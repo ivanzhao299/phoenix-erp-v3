@@ -14,17 +14,21 @@
 
 ## 受控宿主
 
-执行使用保护宿主原有的 root / 固定目录 / FD9 排他锁，代码必须为干净 main 和指定发布 SHA。通过 `node scripts/ops/production-cutover-host.mjs execute` 处理已经批准的原意图。该命令没有传入连接串、任意命令或审批覆盖选项，也不安装网络围栏或切换部署。使用 `recover` 只读查回同一原意图；二者都保留外层围栏。
+使用保护宿主原有的 root / 固定目录 / FD9 排他锁，代码必须为干净 main 和指定发布 SHA。以下命令在同一批准范围内运行。
 
-现场前置材料由相应负责人交接，软件不会自行生成。以下是宿主固定状态目录的输入契约。
+1. `node scripts/ops/production-cutover-host.mjs prepare`。读取独立登记的现场授权，核对原 OPEN、运行镜像和参与者，创建 PREPARED 标记，安装该意图专属的内核入口围栏，发布 FENCED，再等待后台和已登记 API 写入者排空。输出 FENCED 后方可执行。
+2. `node scripts/ops/production-cutover-host.mjs execute`。执行原意图，输出 COMMITTED_OPEN 表示原结果已经再次只读核验，公开后台状态为 OPEN，专属内核围栏已移除，原 PREPARED 标记已归档。
+3. `node scripts/ops/production-cutover-host.mjs recover`。使用新数据库连接只读查回已经尝试的原意图。精确成功后恢复放行。UNPROVEN 或 HOLD 时保留已有保护和审计状态。独立签发人不得重新投递同一或不同的期初意图。
 
-1. 原 `cutover-pending.json` 为 PREPARED，purpose 为 PRODUCTION_CUTOVER，绑定 run owner、相同 floor/target SHA、manifestId、manifestVersion、admissionId、INIT/ATTACH、contentHash、snapshotSha256。核实真实当前鸡群、实物、在途、预占、首日、来源、仓库与财务双签。受控外层先完成入口围栏、原业务排空、后台参与者 FENCED，并保有原代次。
+现场前置材料由相应负责人交接。以下是宿主固定状态目录的输入契约。
+
+1. 独立授权中的 binding 绑定 purpose 为 PRODUCTION_CUTOVER、run owner、相同 floor/target SHA、manifestId、manifestVersion、admissionId、INIT/ATTACH、contentHash、snapshotSha256。核实真实当前鸡群、实物、在途、预占、首日、来源、仓库与财务双签。prepare 从该绑定自动创建 PREPARED，禁止手写或替换底层围栏状态。
 2. `cutover-source-attestation.json` 使用 schema `phoenix.cutover-source-attestation/1`，含 revision、imageId、treeSha256、reviewedBuildDigest、nativeAbiRehearsalDigest。由独立责任方对实际构建和该镜像内运行的工作器完成来源、ABI 复核。在原 API 运行镜像上按已有 runtime-bundle 准备和复验。使用不可变镜像、非 root UID、只读根、无容器网络和唯一 PG 套接字挂载运行。
-3. `cutover-drain-attestation.json` 使用 schema `phoenix.cutover-ingress-drain/1`，包含 owner、generation、manifestId、inFlightDrainDigest、approvedIngressCoverageDigest、networkId、interfaceIndex、ruleScope、kernelIdentitySha256。ruleScope 是现有受控 IPv4/TCP3100 围栏的 owner、bridge、subnet、port；内核标识是按 inet、bridge 顺序读取原始已安装表，经 maintenance-ingress-policy 的投影和 ingressIdentity 后的 canonicalDigest。记录实测入口覆盖、数据库在途和其他写入者清场凭证。宿主复查原内核规则与句柄、容器网络、API 代次、原后台参与者和注册 API 在途事务。
+3. `cutover-drain-attestation.json` 使用 schema `phoenix.cutover-ingress-drain/1`，包含 owner、generation、manifestId、inFlightDrainDigest、approvedIngressCoverageDigest、networkId、interfaceIndex、ruleScope。ruleScope 是现有受控 IPv4/TCP3100 围栏的 owner、bridge、subnet、port；ruleScope.owner 取原 binding 的 canonicalDigest 前 32 位。凭证记录批准的入口覆盖、在途排空办法和其他生产写入者清场；prepare 现场安装后，将 inet 与 bridge 真实内核句柄、参与者和后台排空摘要写入原意图 drain 回执。宿主每次重新核对实测内核规则、容器网络、原参与者和注册 API 在途事务。
 4. `cutover-host-authority.json` 使用 schema `phoenix.production-cutover-site-authority/1`，包含原 binding、fenceGeneration、environmentId、environmentGeneration、operatorId、deploymentEvidenceSha256、project、database、executorRole、clusterIdentifier、peerUid、peerGid、windowStart、windowEnd、bundle、treeSha256、sourceAttestationSha256、drainAttestationSha256。bundle 复用 bundleId、imageId、revision；摘要使用 production-maintenance-receipts 的 canonicalDigest。真实维护窗口最长 180 分钟。文件由既有独立信任链登记，专用签发人必须核对其摘要与现场许可，登记动作不由此命令授权。
 5. 数据库使用原控制环境、独立签发和执行角色。现场需提供受保护的 `/run/phoenix-cutover-postgres`，固定 public schema / 5432，以 peer 身份只映射到专用执行角色；挂载中只允许专用 socket 和锁文件。不得使用 API 登录、共享密码或超级用户。现有控制环境须允许应用读取 origin 视图和读取／插入启停回执。首次注册在迁移之后时由 DBA 按既有治理规则配置相同最小权限。
 6. 唯一尝试先写入 root 私有 `cutover-host-<admissionId>-attempt.json`。原执行后端取得两把会话锁后，宿主核验并写入同前缀的 `-backend.json`。独立原签发方按已有 admission 契约，仅对这个空闲后端和已登记的相同 admissionId、操作者、authoritySha256、围栏与盘点摘要投递。签发方须使用 DBS 原始 backend_start、pg_postmaster_start_time（或无损转换记录的微秒值）；许可有效期至多十分钟，工作器等待独立签发至多九十秒。任何一个环节未就绪，保留围栏并记录阻断。宿主不会自己签发。
-7. 结果不明只执行 `recover`。它建立新连接，以只读一致快照核对原准入、APPLIED 原生结果、舍域和期初申领、原始入库流水。ATTACH 使用已有期初。精确成功为 COMMITTED，缺少证明为 UNPROVEN 或 HOLD。结果写入私有 `-execute-result.json` 或 `-recover-result.json`。禁止重发新准入、删除 attempt、人工改状态、重复建期初。业务放行需现场发布负责人按批准的独立围栏恢复流程处理。
+7. 结果不明只执行 recover。它在只读一致快照核对原准入、APPLIED 原生结果、舍域和期初申领、原始入库流水。ATTACH 使用已有期初。成功后重新取得两把 SQL 租约，保存原结果及 OPEN 意图，才发布 OPEN、移除确认为本次安装的内核围栏并归档标记。中断在 OPEN 后、移除前时，recover 会重新核验原结果与原 OPEN 意图后完成移除及归档。若准备中断并缺少排空回执，或私有和公开投影无法证明属于同次变更，保留围栏并转原发布负责人核对，禁止改写状态文件。
 
 ## 发布核验的有效权限
 

@@ -38,5 +38,5 @@ test('opaque site documents or changes to source/deployment identity fail closed
 });
 test('ordinary invocation cannot initialize a worker or activate a pilot',()=>{
   const run=spawnSync(process.execPath,['scripts/ops/production-cutover-host.mjs'],{encoding:'utf8'});
-  assert.equal(run.status,2);assert.equal(run.stdout,'');assert.equal(run.stderr,'PRODUCTION_CUTOVER=HOLD;fence=RETAINED\n');
+  assert.equal(run.status,2);assert.equal(run.stdout,'');assert.equal(run.stderr,'PRODUCTION_CUTOVER=HOLD\n');
 });

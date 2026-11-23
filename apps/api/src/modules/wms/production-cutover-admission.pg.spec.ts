@@ -158,7 +158,24 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     }finally{if(writer.isTransactionActive)await writer.rollbackTransaction();await writer.release();await challenger.release();}
   }
   it('accepts only an independently registered NOLOGIN control owner and closes registry/issuer/consumer privileges',async()=>{
-    await bootstrap();apiDb=await connect(roles.api);issuerDb=await connect(roles.issuer);executorDb=await connect(roles.executor);
+    await bootstrap();
+    const ddl=new CutoverStateReceipts1795400300000(),q=db.createQueryRunner();await q.connect();
+    const renamed=roles.api+'_original';
+    const recreate=async()=>{await ddl.down(q);await ddl.up(q);};
+    try{
+      await q.startTransaction();
+      await q.query(`ALTER ROLE ${identifier(roles.api)} RENAME TO ${identifier(renamed)}`);
+      await q.query(`CREATE ROLE ${identifier(roles.api)} NOLOGIN`);
+      await recreate();
+      const [privilege]=await q.query(`SELECT has_table_privilege($1,'production_cutover_state_origins','SELECT') AS view,
+        has_table_privilege($1,'production_cutover_state_receipts','INSERT') AS receipt`,[roles.api]);
+      expect(privilege).toEqual({view:false,receipt:false});
+      await q.query(`DROP ROLE ${identifier(roles.api)}`);
+      await q.query(`ALTER ROLE ${identifier(renamed)} RENAME TO ${identifier(roles.api)}`);
+      await recreate();
+      await q.commitTransaction();
+    }finally{if(q.isTransactionActive)await q.rollbackTransaction();await q.release();}
+    apiDb=await connect(roles.api);issuerDb=await connect(roles.issuer);executorDb=await connect(roles.executor);
     expect((await executorDb.query('SELECT session_user AS actor'))[0].actor).toBe(roles.executor);
     for(const connection of [apiDb,executorDb])await expect(connection.query('INSERT INTO production_cutover_apply_admissions(id) VALUES($1)',[randomUUID()])).rejects.toThrow('permission denied');
     await expect(issuerDb.query('SELECT consume_production_cutover_admission($1,$2)',[randomUUID(),'a'.repeat(64)])).rejects.toThrow('permission denied');
