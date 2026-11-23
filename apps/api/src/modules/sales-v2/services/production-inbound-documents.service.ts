@@ -1,3 +1,4 @@
+import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -206,7 +207,9 @@ export class ProductionInboundDocumentsService {
         if(!old||old.state!=='CANCELLED'||old.house_code!==input.houseCode||old.production_date!==input.eggDate)throw new ConflictException('重新签认须明确引用同舍同日已受控废止的原交接');
       }else if(input.replacesId)throw new ConflictException('被替换的原交接不存在');
       const identity={company_code:input.companyCode,house_code:input.houseCode,production_date:input.eggDate,payload:{warehouseCode:input.warehouseCode}};
-      const scope=await this.lockDay(m,identity);const reports=await this.reports(m,identity);
+      const scope=await this.lockDay(m,identity);
+      await assertFlockOpenForHandover(m,input.companyCode,input.houseCode,input.eggDate);
+      const reports=await this.reports(m,identity);
       const sources=input.segments.map(a=>{
         count(a.quantity);count(a.dailyLogId);text(a.gradeCode,'等级');text(a.evidenceFileId,'原证据');
         const r=reports.find(r=>Number(r.id)===a.dailyLogId);
@@ -364,6 +367,7 @@ export class ProductionInboundDocumentsService {
       const identity = { company_code:p.companyCode,house_code:p.houseCode,production_date:p.eggDate,payload:p.payload };
       const scope = await this.lockDay(m,identity);
       const existing = await findExisting(m); if (existing.length) return recover(existing);
+      await assertFlockOpenForHandover(m,p.companyCode,p.houseCode,p.eggDate);
       if(p.handoverRef)await assertHandoverNotClaimedByRaw(m,p.companyCode,p.handoverRef,true);
       const id = randomUUID();
       const [d] = await m.query(`INSERT INTO production_inbound_documents(id,document_no,company_code,house_code,

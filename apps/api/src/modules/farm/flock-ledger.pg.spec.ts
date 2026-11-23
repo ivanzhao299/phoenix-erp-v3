@@ -310,6 +310,65 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await expect(post(await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2'}))).rejects.toThrow('同日');
     expect((await bal()).house_code).toBe('HA');
   });
+  it('requires signed cleaning business dates before admission and transfer, including legacy capacity houses',async()=>{
+    const overview=await s.overview(scope);
+    expect(overview.find((h:any)=>h.house_code==='HA').turnaround_history_review).toBe(true);
+    expect(overview.find((h:any)=>h.house_code==='HA2').turnaround_history_review).toBe(false);
+    await baseline();
+    await post(await create({kind:'CULL',flockNo:'FA',quantity:100,positionCode:'P1',businessDate:'2026-11-11'}));
+    await post(await create({kind:'CLOSE',flockNo:'FA',expectedVersion:1,businessDate:'2026-11-11'}));
+    await expect(post(await create({kind:'CLEAN_START',expectedHouseVersion:1,businessDate:'2026-11-10'}))).rejects.toThrow('业务日期');
+    await post(await create({kind:'CLEAN_START',expectedHouseVersion:1,businessDate:'2026-11-13'}));
+    await expect(post(await create({kind:'CLEAN_ACCEPT',expectedHouseVersion:2,businessDate:'2026-11-12'}))).rejects.toThrow('业务日期');
+    await post(await create({kind:'CLEAN_ACCEPT',expectedHouseVersion:2,businessDate:'2026-11-14'}));
+    const admission={kind:'ADMIT',quantity:80,expectedHouseVersion:3,sourceKind:'SUPPLIER',
+      sourceCode:'SUPPLIER-1',sourceReceipt:'RECEIPT-NEW',breedCode:'BREED',placementAge:120};
+    await expect(post(await create({...admission,businessDate:'2026-11-12'}))).rejects.toThrow('业务日期');
+    expect(await count('brd_flock_admission_receipts')).toBe(0);
+
+    await clean('HA2');
+    const other=await post(await create({...admission,houseCode:'HA2',sourceReceipt:'RECEIPT-HA2',expectedHouseVersion:1,businessDate:'2026-11-10'}));
+    await expect(post(await create({kind:'TRANSFER',flockNo:other.flock_no,houseCode:'HA2',targetHouseCode:'HA',businessDate:'2026-11-12'}))).rejects.toThrow('业务日期');
+    const next=await post(await create({...admission,businessDate:'2026-11-14'}));
+    expect((await ds.query('SELECT began_on::text FROM brd_flock_occupancies WHERE flock_no=$1',[next.flock_no]))[0].began_on).toBe('2026-11-14');
+  });
+  it('places a READY house with prior use but no signed vacancy in historical review',async()=>{
+    await clean('HA2');
+    await ds.query("INSERT INTO brd_flocks(flock_no,house_code,status,current_qty) VALUES('ARCHIVE','HA2','RETIRED',0)");
+    expect((await s.overview(scope)).find((h:any)=>h.house_code==='HA2').turnaround_history_review).toBe(true);
+    const admit=await create({kind:'ADMIT',houseCode:'HA2',quantity:10,expectedHouseVersion:1,sourceCode:'SUPPLIER-1',
+      sourceReceipt:'ARCHIVE-REVIEW',breedCode:'BREED',placementAge:120});
+    await expect(post(admit)).rejects.toMatchObject({response:{code:'FLOCK_HOUSE_HISTORY_REVIEW'}});
+    expect(await count('brd_flock_admission_receipts')).toBe(0);
+  });
+  it('holds a correction that would change a witnessed transfer and keeps same-day deaths at their source',async()=>{
+    await baseline();await clean('HA2');
+    const death=await post(await create({kind:'MORTALITY',flockNo:'FA',quantity:10,disposalMethod:'dispose',receiver:'vet',businessDate:'2026-11-11'}));
+    const transfer=await post(await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2',expectedVersion:1,businessDate:'2026-11-11'}));
+    const correction=await create({kind:'REVERSE',flockNo:'FA',originalDocumentId:death.id,expectedVersion:2,businessDate:'2026-11-13'});
+    await expect(post(correction)).rejects.toMatchObject({response:{code:'FLOCK_TRANSFER_CORRECTION_HOLD',originalDocumentId:death.id,transferDocumentId:transfer.id}});
+    expect(await bal()).toMatchObject({house_code:'HA2',quantity:90,version:2});
+    expect(await ds.query(`SELECT o.house_code,SUM(e.quantity_delta)::int AS qty FROM brd_flock_events e
+      JOIN brd_flock_occupancies o ON e.occupancy_id=o.id GROUP BY o.house_code ORDER BY o.house_code`)).toEqual([{house_code:'HA',qty:0},{house_code:'HA2',qty:90}]);
+    await ds.query(`INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,occupancy_id)
+      SELECT 'FA','HA2','2026-11-11','DAILY',id FROM brd_flock_occupancies WHERE house_code='HA2'`);
+    await post(await create({kind:'ADJUST',flockNo:'FA',houseCode:'HA2',quantity:1,expectedVersion:2,businessDate:'2026-11-14'}));
+    expect((await ds.query("SELECT mortality_qty FROM brd_daily_logs WHERE house_code='HA2'"))[0].mortality_qty).toBe(0);
+    expect((await ds.query("SELECT house_code FROM brd_flock_events WHERE kind='MORTALITY'"))[0].house_code).toBe('HA');
+  });
+  it('serializes a witnessed transfer racing a historical correction at the same flock version',async()=>{
+    await baseline();await clean('HA2');
+    const death=await post(await create({kind:'MORTALITY',flockNo:'FA',quantity:10,disposalMethod:'dispose',receiver:'vet',businessDate:'2026-11-11'}));
+    const move=await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2',expectedVersion:1,businessDate:'2026-11-12'});
+    const correction=await create({kind:'REVERSE',flockNo:'FA',originalDocumentId:death.id,expectedVersion:1,businessDate:'2026-11-12'});
+    const results=await Promise.allSettled([post(move),post(correction)]);
+    expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+    const current=await bal();
+    const balances=await ds.query(`SELECT o.house_code, SUM(e.quantity_delta)::int AS qty FROM brd_flock_events e
+      JOIN brd_flock_occupancies o ON e.occupancy_id=o.id GROUP BY o.house_code`);
+    expect(balances.find((row:any)=>row.house_code===current.house_code).qty).toBe(current.quantity);
+    expect(balances.filter((row:any)=>row.house_code!==current.house_code).every((row:any)=>row.qty===0)).toBe(true);
+  });
   it('requires zero close, independent cleaning and next-day new flock with preserved history',async()=>{
     await baseline();
     const close=await create({kind:'CLOSE',flockNo:'FA',businessDate:'2026-11-11'});

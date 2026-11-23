@@ -38,6 +38,8 @@ import { ForecastAnalyticsService } from '../../analytics/services/forecast-anal
 import { installEmptyCutoverClosureFixture } from './production-cutover-closure.pg-fixture';
 import { ProductionCutoverController } from '../../wms/production-cutover.controller';
 import { ProductionCutoverService } from '../../wms/production-cutover.service';
+import { FlockLifecycleController } from '../../farm/flock-lifecycle.controller';
+import { FlockLifecycleService } from '../../farm/flock-lifecycle.service';
 import { FarmController } from '../../farm/farm.controller';
 import { FarmService } from '../../farm/farm.service';
 import { Body, Controller, Get, INestApplication, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
@@ -130,7 +132,16 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       UPDATE product_grades SET grade_name=grade_code;
       CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');
-      CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date);`);
+      CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date,end_date date);
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_lay_rate numeric;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS dirty_eggs int,ADD COLUMN IF NOT EXISTS broken_eggs int;
+      INSERT INTO sys_menu VALUES('MENU_FARM_DATA');
+      INSERT INTO fixture_permissions VALUES('MAKER','MENU_FARM_DATA:V'),('MAKER','MENU_FLOCK_CREATE:E'),
+        ('MAKER','MENU_FLOCK_POST:E'),('MAKER','MENU_FLOCK_CLOSE:A'),('REVIEWER','MENU_FARM_DATA:V'),
+        ('REVIEWER','MENU_FLOCK_APPROVE:A'),('REVIEWER','MENU_FLOCK_CLOSE:A'),('MAKER','MENU_FLOCK_CLEAN:A'),('REVIEWER','MENU_FLOCK_CLEAN:A');
+      INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by)
+        VALUES('FILE-close','ACTIVE','PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HOUSE-A','COMP-A','SITE-A','maker'),
+          ('FILE-close-A2','ACTIVE','PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HOUSE-A2','COMP-A','SITE-A','maker');`);
     await db.query(`ALTER TABLE pkg_source_batches ADD COLUMN batch_code text,ADD COLUMN source_inbound_no text,ADD COLUMN shift_id int,
       ADD COLUMN total_qty int,ADD COLUMN dirty_qty int DEFAULT 0,ADD COLUMN cracked_qty int DEFAULT 0,ADD COLUMN batch_status text;
       CREATE TABLE pkg_work_shifts(id int PRIMARY KEY,site_id text,production_date date,is_test boolean);`);
@@ -140,6 +151,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const continuation = db.createQueryRunner();
     try { await new ProductionDocumentContinuations1795400100000().up(continuation); }
     finally { await continuation.release(); }
+    await db.query('ALTER TABLE brd_vaccinations ADD COLUMN flock_no text,ADD COLUMN status text,ADD COLUMN actual_date date');
     // Replace only the empty closure contracts with the real owned transfer schema for actual handovers.
     await db.query('DROP TABLE wms_transfer_items;DROP TABLE wms_transfer');
     const transfers=db.createQueryRunner();await transfers.connect();
@@ -185,7 +197,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+      controllers:[FlockLifecycleController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
         FinanceCreditNoteAdapter,SalesOrderLifecycleService,
         {provide:ReturnOrdersService,inject:[ClsService,FinanceCreditNoteAdapter,EggInventoryService,SalesOrderLifecycleService],
           useFactory:(cls:ClsService,finance:FinanceCreditNoteAdapter,inventory:EggInventoryService,lifecycle:SalesOrderLifecycleService)=>
@@ -343,6 +355,91 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await api(3,'post',`/handovers/${h.id}/confirm`).send({version:h.version,contentHash:h.content_hash}).expect(201);
     return {companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:day,warehouseCode:'WH-A',sourceBatchId:'1',handoverId:h.id,intentKey:randomUUID()};
   }
+  const lifecycle=(id:number,method:'get'|'post',path:string)=>request(app.getHttpServer())[method]('/api/v3/farm/flock-lifecycle'+path).auth(token(id),{type:'bearer'});
+  const blockers=(id=1)=>lifecycle(id,'get',`/occupancies/HTTP-OCC/close-blockers?businessDate=${singaporeBusinessDate()}`);
+  async function approvedFlockDocument(input:Record<string,unknown>){
+    const created=(await lifecycle(1,'post','/documents').send({houseCode:'HOUSE-A',flockNo:'FLOCK-A',businessDate:singaporeBusinessDate(),
+      reason:'Synthetic flock close fixture',sourceKey:randomUUID(),responsible:'keeper',evidence:['FILE-close'],...input}).expect(201)).body.data;
+    await lifecycle(1,'post',`/documents/${created.id}/submit`).send({version:created.version}).expect(201);
+    return (await lifecycle(2,'post',`/documents/${created.id}/approve`).send({version:created.version+1}).expect(201)).body.data;
+  }
+  it.each(['ordinary','raw'] as const)('closes only after actual %s handover posting and preserves scoped evidence',async route=>{
+    const ordinary=route==='ordinary'?await signedDraft():undefined;
+    const raw=route==='raw'?await signedRaw():undefined;
+    const [handover]=await db.query('SELECT id,handover_ref FROM production_physical_handovers');
+    const [balance]=await db.query("SELECT version FROM brd_flock_balances WHERE flock_no='FLOCK-A'");
+    const cull=await approvedFlockDocument({kind:'CULL',quantity:1000,positionCode:'HOLD-A',expectedVersion:balance.version});
+    await lifecycle(1,'post',`/documents/${cull.id}/post`).send({version:cull.version}).expect(201);
+    const close=await approvedFlockDocument({kind:'CLOSE',expectedVersion:balance.version+1,
+      finalProductionStatus:singaporeBusinessDate()===day?'REPORTED':'CONFIRMED_ZERO'});
+    const closeAction=()=>lifecycle(1,'post',`/documents/${close.id}/post`).send({version:close.version});
+    await blockers(6).expect(404);
+    const earlier=(await lifecycle(1,'get','/occupancies/HTTP-OCC/close-blockers?businessDate=2026-11-17').expect(200)).body.data;
+    expect(earlier).toContainEqual({reference:handover.handover_ref,reason:'AFTER_CLOSE_DATE'});
+    const outstanding=(await blockers().expect(200)).body.data;
+    expect(outstanding).toContainEqual({reference:handover.handover_ref,reason:'AWAITING_POSTING'});
+    const failed=(await closeAction().expect(409)).body;
+    expect(failed).toMatchObject({code:'FLOCK_HANDOVER_CLOSE_HOLD',blockers:outstanding});
+    if(ordinary){
+      await api(1,'post',`/${ordinary.ready.id}/post`).send({submitKey:ordinary.ready.submit_key,contentHash:ordinary.ready.content_hash}).expect(201);
+    } else if(raw){
+      const receipt=(await rawApi(1).send(raw).expect(201)).body;
+      const ready=(await rawApi(1,`/${receipt.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
+      await rawApi(2,`/${receipt.id}/approve`).send({version:ready.version,contentHash:ready.content_hash}).expect(201);
+      await rawApi(1,`/${receipt.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201);
+      await api(1,'post','').send({...draft(),handoverRef:handover.handover_ref}).expect(409);
+    }
+    expect((await blockers().expect(200)).body.data).toEqual([]);
+    // Previous occupation and today's unsourced legacy document must be distinguished.
+    await db.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,ended_on,capacity_snapshot,opened_document_id)
+      VALUES('OLD-HTTP-OCC','OTHER-FLOCK','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-12','2026-11-17',5000,'HTTP-BASELINE')`);
+    for(const [date,ref] of [['2026-11-16','PRIOR-OCCUPATION'],[day,'REVIEW-MISSING-SOURCE']]){
+      await db.query(`INSERT INTO production_physical_handovers(id,company_code,house_code,production_date,scope_id,handover_ref,content_hash,creation_hash,payload,created_by)
+        SELECT $1,company_code,house_code,$2,scope_id,$3,content_hash,creation_hash,'{"warehouseCode":"WH-A"}','fixture' FROM production_physical_handovers WHERE id=$4`,
+        [randomUUID(),date,ref,handover.id]);
+    }
+    expect((await blockers().expect(200)).body.data).toEqual([{reference:'REVIEW-MISSING-SOURCE',reason:'SOURCE_MISMATCH'}]);
+    await closeAction().expect(409);
+    const [ambiguous]=await db.query("SELECT id FROM production_physical_handovers WHERE handover_ref='REVIEW-MISSING-SOURCE'");
+    await api(2,'post',`/handovers/${ambiguous.id}/cancel`).send({version:1,reason:'Reconciled unmatched fixture handover'}).expect(201);
+    if(ordinary){
+      const [closing,creating]=await Promise.all([closeAction(),api(1,'post','').send(draft())]);
+      expect([closing.status,creating.status].sort()).toEqual([201,409]);
+      if(creating.status===201){
+        expect(closing.body.blockers).toContainEqual({reference:creating.body.document_no,reason:'OPEN_DOCUMENT'});
+        await api(1,'post',`/${creating.body.id}/cancel`).send({version:creating.body.version}).expect(201);
+      } else expect(creating.body.code).toBe('FLOCK_HANDOVER_CLOSED');
+    }
+    expect((await closeAction().expect(201)).body.data.status).toBe('POSTED');
+    expect((await db.query("SELECT closed_on::text AS day FROM brd_flock_balances WHERE flock_no='FLOCK-A'"))[0].day).toBe(singaporeBusinessDate());
+    const newDocument=await api(1,'post','').send(draft()).expect(409);
+    expect(newDocument.body.code).toBe('FLOCK_HANDOVER_CLOSED');
+    const [source]=await db.query('SELECT id FROM brd_daily_logs ORDER BY id');
+    const file=(await upload(1).expect(201)).body.fileId;
+    const newHandover=await api(1,'post','/handovers').send({companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:day,
+      warehouseCode:'WH-A',handoverRef:randomUUID(),segments:[{dailyLogId:source.id,gradeCode:'GRADE_1',quantity:1,evidenceFileId:file}]}).expect(409);
+    expect(newHandover.body.code).toBe('FLOCK_HANDOVER_CLOSED');
+    if(ordinary)expect((await api(1,'post','').send(ordinary.p).expect(201)).body.id).toBe(ordinary.ready.id);
+    await db.query("UPDATE brd_flocks SET status='LAYING',current_qty=1000 WHERE flock_no='FLOCK-A'");
+  });
+  it('settles outstanding handovers of the same flock at a previously occupied house',async()=>{
+    const {ready,handover}=await signedDraft();
+    async function postFlock(input:Record<string,unknown>){
+      const doc=await approvedFlockDocument(input);
+      await lifecycle(1,'post',`/documents/${doc.id}/post`).send({version:doc.version}).expect(201);
+    }
+    try {
+      for(const kind of ['CLEAN_START','CLEAN_ACCEPT'])await postFlock({kind,houseCode:'HOUSE-A2',expectedHouseVersion:0,expectedVersion:0,evidence:['FILE-close-A2']});
+      await postFlock({kind:'TRANSFER',targetHouseCode:'HOUSE-A2',expectedVersion:0});
+      const [newHouse]=await db.query("SELECT id FROM brd_flock_occupancies WHERE flock_no='FLOCK-A' AND ended_on IS NULL");
+      const outstanding=(await lifecycle(1,'get',`/occupancies/${newHouse.id}/close-blockers?businessDate=${singaporeBusinessDate()}`).expect(200)).body.data;
+      expect(outstanding).toContainEqual({reference:handover.handover_ref,reason:'AWAITING_POSTING'});
+      await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201);
+      expect((await lifecycle(1,'get',`/occupancies/${newHouse.id}/close-blockers?businessDate=${singaporeBusinessDate()}`).expect(200)).body.data).toEqual([]);
+    } finally {
+      await db.query("UPDATE brd_flocks SET house_code='HOUSE-A',farm_code='FARM-A',site_code='SITE-A' WHERE flock_no='FLOCK-A'");
+    }
+  });
   let conversionPdf:Buffer;
   const conversionEndpoint='/api/v2/inventory/conversions';
   const conversionApi=(id:number,path='',method:'get'|'post'='post')=>request(app.getHttpServer())[method](conversionEndpoint+path).auth(token(id),{type:'bearer'});
