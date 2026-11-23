@@ -1365,7 +1365,9 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     expect(balance.sourceBalances).toEqual(expect.arrayContaining([expect.objectContaining({
       dailyLogId:expect.any(Number),shift:'DAILY',gradeCode:'GRADE_1',confirmedQty:1000,ordinaryNet:100,rawUsedQty:0,remaining:900,
     })]));
-    expect(balance.sourceBalances.some((row:{gradeCode:string})=>row.gradeCode==='GRADE_5')).toBe(false);
+    expect(balance.sourceBalances).toEqual(expect.arrayContaining([expect.objectContaining({
+      gradeCode:'GRADE_5',confirmedQty:0,ordinaryNet:0,rawUsedQty:0,remaining:0,
+    })]));
     await api(4,'get','/balance?'+query.replace(day,'2026-11-16')).expect(409);
     await api(6,'get','/balance?'+query).expect(403);
     const page=(suffix='')=>api(4,'get','/stock-batches?'+query+suffix);
