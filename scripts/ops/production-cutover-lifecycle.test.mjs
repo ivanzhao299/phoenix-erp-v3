@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {createServer} from 'node:http';
 import {BackgroundManifestPublisher} from './background-control-manifest.mjs';
 import {BackgroundFenceCoordinator} from './background-control-coordinator.mjs';
 import {ingressSurface,pilotLifecycle,runCutoverWorker,validateSiteAuthority} from './production-cutover-host.mjs';
@@ -19,7 +20,7 @@ let seq=0,op,receipt;const emit=value=>console.log(JSON.stringify(value));
 rl.on('line',line=>{const v=JSON.parse(line);seq++;
 if(seq===1){op=v.operation;receipt={manifestId:v.permit.manifestId,mode:v.permit.mode,contentHash:v.permit.contentHash,totalOpening:4};
 emit({step:'BACKEND',backend:{pid:482,database_oid:'123',start_micros:'1111',server_micros:'1000'}});}
-else if(seq===2&&v.step==='CONTINUE'&&op==='recover'){emit({step:'OUTCOME',outcome:{status:'COMMITTED',receipt}});rl.close();}
+else if(seq===2&&v.step==='CONTINUE'&&op==='recover'){emit({step:'OUTCOME',outcome:process.argv[1]==='absent'?{status:'UNPROVEN'}:{status:'COMMITTED',receipt}});rl.close();}
 else if(seq===2&&v.step==='CONTINUE'||seq===3&&v.step==='VERIFIED'){emit({step:'RECHECK'});}
 else if(seq===4&&v.step==='VERIFIED'){emit({step:'OUTCOME',outcome:process.argv[1]==='lost'?{status:'UNPROVEN'}:{status:'COMMITTED',receipt}});rl.close();}
 else process.exit(9);});`;
@@ -29,7 +30,7 @@ function fixture(t,number,{lost=false,interruptRelease=false}={}){
     admissionId:'11000000-0000-4000-8000-000000000001',manifestId:'22000000-0000-4000-8000-000000000002',
     manifestVersion:2,mode:'INIT',contentHash:sum,snapshotSha256:sum}};
   const owner=canonicalDigest(binding).slice(0,32),events=[],held=new Set();
-  let bridgeProjection=[],connected=true,attempts=0,freshReaders=0,rechecks=0;
+  let bridgeProjection=[],visibleCommit=!lost,connected=true,attempts=0,freshReaders=0,rechecks=0;
   const values=new Map(),read=k=>values.get(k)??null,write=(k,v)=>values.set(k,structuredClone(v));
   if(native)shell('/sbin/ip',['link','add',bridge,'type','bridge']);
   t.after(()=>{if(native){
@@ -109,21 +110,31 @@ function fixture(t,number,{lost=false,interruptRelease=false}={}){
         worker:(op,check)=>{
           if(op==='execute')attempts++;else freshReaders++;
           return runCutoverWorker({operation:op,a,permit,control:session,check:async()=>{rechecks++;await check();},
-            launch:()=>spawn(process.execPath,['-e',childProgram,lost?'lost':'normal'],{stdio:['pipe','pipe','pipe']}),
+            launch:()=>spawn(process.execPath,['-e',childProgram,op==='recover'&&!visibleCommit?'absent':lost?'lost':'normal'],{stdio:['pipe','pipe','pipe']}),
             onBackend:v=>write('backend',v)});
         }});
     }finally{await coordinator.close();}
   }
-  return {run,read,events,ingress,counts:()=>({attempts,freshReaders,rechecks})};
+  return {run,read,events,ingress,showCommit:()=>{visibleCommit=true;},counts:()=>({attempts,freshReaders,rechecks})};
 }
 
 test('prepared pilot creates dedicated FENCED and COMMITTED_OPEN transitions',async t=>{
   const f=fixture(t,1);
-  assert.equal(await f.run('prepare'),'FENCED');assert.equal(f.read('pending').phase,'PREPARED');assert.equal(f.ingress().families().length,2);
+  const ingressProbe=()=>fetch('http://127.0.0.1:3100',{signal:AbortSignal.timeout(500)});
+  if(native){
+    const server=createServer((_,res)=>res.end('owned'));
+    await new Promise(resolve=>server.listen(3100,'127.0.0.1',resolve));
+    t.after(()=>{server.closeAllConnections();server.close();});
+    assert.equal(await (await ingressProbe()).text(),'owned');
+  }
+  assert.equal(await f.run('prepare'),'FENCED');
+  if(native)await assert.rejects(ingressProbe(),{name:'TimeoutError'});
+  assert.equal(f.read('pending').phase,'PREPARED');assert.equal(f.ingress().families().length,2);
   assert.equal(await f.run('execute'),'COMMITTED_OPEN');
   assert.deepEqual(f.events,['INSTALL','FENCED','OPEN','RELEASE','ARCHIVE']);
   assert.deepEqual(f.counts(),{attempts:1,freshReaders:1,rechecks:2});
   assert.equal(f.ingress().families().length,0);assert.equal(f.read('pending'),null);assert.equal(f.read('archived').phase,'PREPARED');
+  if(native)assert.equal(await (await ingressProbe()).text(),'owned');
 });
 
 test('lost COMMIT acknowledgement retains both fences and permits only original read-only reconciliation',async t=>{
@@ -131,8 +142,11 @@ test('lost COMMIT acknowledgement retains both fences and permits only original 
   assert.equal(await f.run('prepare'),'FENCED');assert.equal(await f.run('execute'),'UNPROVEN');
   assert.equal(f.read('public').phase,'FENCED');assert.equal(f.ingress().families().length,2);assert.ok(f.read('attempt'));
   await assert.rejects(f.run('execute'),/USE_ORIGINAL_RECOVERY/);
+  assert.equal(await f.run('recover'),'UNPROVEN');
+  assert.equal(f.read('public').phase,'FENCED');assert.equal(f.ingress().families().length,2);
+  f.showCommit();
   assert.equal(await f.run('recover'),'COMMITTED_OPEN');
-  assert.deepEqual(f.counts(),{attempts:1,freshReaders:2,rechecks:2});assert.equal(f.read('pending'),null);
+  assert.deepEqual(f.counts(),{attempts:1,freshReaders:3,rechecks:2});assert.equal(f.read('pending'),null);
 });
 
 test('interruption after proven OPEN keeps owned ingress and exact original recovery can release it',async t=>{
