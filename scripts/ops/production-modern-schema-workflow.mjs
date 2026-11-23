@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { publicModernSchemaRunnerIdentityFailure, requestModernSchemaIdentityToken, verifyModernSchemaRunnerIdentityChannel } from './production-modern-schema-identity.mjs';
 import { isFailedModernSchemaPreparation } from './production-modern-schema-public-preparation.mjs';
 
+import {parseSuccessorAction,validPublicInspection} from './production-modern-schema-successor.mjs';
 const repo = 'ivanzhao299/phoenix-erp-v3';
 const host = '47.236.122.224';
 const fingerprint = 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI';
@@ -43,13 +44,14 @@ const staticKeys = ['schema', 'owner', 'targetSha'];
 
 function fromEnv(env) {
   const ownerInput = env.MODERN_SCHEMA_RESUME_OWNER ?? '';
-  if (ownerInput && !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/, ownerInput)) throw fail('EXACT_RESUME_OWNER_REQUIRED');
-  const resuming = ownerInput !== '';
+  const successor=parseSuccessorAction(ownerInput);
+  if (ownerInput && !successor && !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/, ownerInput)) throw fail('EXACT_RESUME_OWNER_REQUIRED');
+  const resuming = ownerInput !== '' && !successor;
   const targetSha = resuming ? env.APPROVED_CONFIG_FLOOR_SHA : env.GITHUB_SHA;
   if (Object.entries(required).some(([key, value]) => env[key] !== value) ||
       !match(sha, env.GITHUB_SHA) || env.GITHUB_WORKFLOW_SHA !== env.GITHUB_SHA ||
       !match(sha, targetSha) || env.APPROVED_CONFIG_FLOOR_SHA !== targetSha ||
-      !match(sha, env.APPROVED_PREVIOUS_FLOOR_SHA) || env.APPROVED_PREVIOUS_FLOOR_SHA === targetSha ||
+      !(successor?.kind==='inspect'&&env.APPROVED_PREVIOUS_FLOOR_SHA==='')&&!match(sha, env.APPROVED_PREVIOUS_FLOOR_SHA) || env.APPROVED_PREVIOUS_FLOOR_SHA === targetSha ||
       !match(/^[1-9][0-9]{0,19}$/, env.GITHUB_RUN_ID) ||
       !match(/^[1-9][0-9]{0,9}$/, env.GITHUB_RUN_ATTEMPT) ||
       env.MAINTENANCE_RELEASE_INPUT || env.SKU_SOURCE_EFFECTIVE_DATE || env.SKU_SOURCE_PLAN_SHA256 ||
@@ -73,8 +75,9 @@ function fromEnv(env) {
     ROTATE_CHANJET_CREDENTIALS: 'false',
     ONE_TIME_CONFIG_FLOOR_TRANSITION: 'false',
   };
+  if (successor) hostEnv.MODERN_SCHEMA_1123_ACTION=ownerInput;
   if (resuming) hostEnv.MODERN_SCHEMA_EXECUTION_SHA = env.GITHUB_SHA;
-  return { targetSha, owner, hostEnv, resuming };
+  return { targetSha, owner, hostEnv, resuming, successor };
 }
 
 function parsePublic(value, keys, schema, binding, phase) {
@@ -112,6 +115,12 @@ export async function runModernSchemaWorkflow(env, dependencies) {
         'phoenix.modern-schema-public-preparation-hold/v1', binding, 'PREPARATION_COMMAND_FAILED');
       if (!isFailedModernSchemaPreparation(hold,binding)) throw fail('PREPARATION_COMMAND_FAILED');
       throw fail('PREPARATION_' + hold.failure);
+    }
+    if(binding.successor?.kind==='inspect'){
+      let preview;
+      try{preview=JSON.parse(hostPreparation.stdout);}catch{throw fail('INSPECTION_RECEIPT');}
+      if(!validPublicInspection(preview,binding))throw fail('INSPECTION_RECEIPT');
+      return preview;
     }
     const preparation = parsePublic(hostPreparation.stdout, ['preparationSha256', 'prepared'],
       'phoenix.modern-schema-public-preparation/v1', binding, 'PREPARATION_RECEIPT');
@@ -211,7 +220,7 @@ export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {})
         const allowed = operatorRecovery ? ['recover-original', 'recover-target'] : ['prepare', 'run', 'finalize'];
         if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
-          const timeoutMinutes = operation === 'run' ? 184 : 34;
+          const timeoutMinutes = operation === 'run' ? 184 : (operation==='prepare'&&hostEnv.MODERN_SCHEMA_1123_ACTION?75:34);
           return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, timeoutMinutes * 60 * 1000) };
         } catch (error) {
           // Discard stderr and never include child command lines or exception data.
@@ -236,7 +245,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       requestToken: requestModernSchemaIdentityToken,
     });
     console.log(JSON.stringify(result));
-    if (result.outcome !== 'SUCCESS') process.exitCode = 1;
+    if(result.outcome!=='SUCCESS'&&result.schema!=='phoenix.remediation-1123-public-inspection/v1')process.exitCode=1;
   } catch (error) {
     console.error('MODERN_SCHEMA_WORKFLOW_HOLD=' + (workflowFailures.get(error) ?? 'TRANSPORT_OR_IDENTITY_UNVERIFIED'));
     process.exitCode = 1;

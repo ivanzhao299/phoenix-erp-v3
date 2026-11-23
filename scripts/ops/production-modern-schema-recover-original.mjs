@@ -388,7 +388,7 @@ export async function finalizeCommittedModernSchemaRecoveredOriginal({context:in
       catalogBefore.schemaSha256!==beforeCatalog.schemaSha256||catalogAfter.schemaSha256!==beforeCatalog.schemaSha256||
       released.automaticRetry!==false)fail('RECOVERY_FORWARD_EVIDENCE_CHANGED');
   assertNoCutoverControlState(ordinary);
-  const beforeOff=defaultOffEvidenceFromFacts(context.runtimeSha,before,{stage:'BEFORE_SCHEMA',floor:preparation.floor});
+  const beforeOff=defaultOffEvidenceFromFacts(context.runtimeSha,before,{stage:'BEFORE_SCHEMA',floor:preparation.floor,plan:context});
   const archive={schema:'phoenix.modern-schema-recovered-forward-archive/v1',owner:context.owner,contextDigest,
     recoveredSha:context.runtimeSha,attemptedTargetSha:context.targetSha,preparationSha256,pending,committed,
     ordinaryControlSha256:canonicalDigest(ordinary),originalLedgerSha256:context.beforeLedgerSha256,

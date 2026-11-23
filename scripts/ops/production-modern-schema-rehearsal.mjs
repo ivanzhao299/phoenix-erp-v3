@@ -186,7 +186,7 @@ class Capsule {
   if(!same(ledger.legacy,old.legacy)||ledger.typeorm.length!==old.typeorm.length+this.plan.pendingMigrations.length
     ||!old.typeorm.every(row=>ledger.typeorm.some(next=>same(row,next)))||!this.plan.pendingMigrations.every(unit=>ledger.typeorm.filter(row=>row.name===unit.effectiveName&&String(row.timestamp)===String(unit.timestamp)).length===1))fail('EXACT_CLONE_AFTER_LEDGER_REQUIRED');
   this.afterLedgerSha256=digest(JSON.stringify(ledger));
-  this.defaultOff=defaultOffEvidenceFromFacts(this.plan.targetSha,this.after,{floor:{chanjetPolicy:'HOLD',readonlyApproval:null}});
+  this.defaultOff=defaultOffEvidenceFromFacts(this.plan.targetSha,this.after,{plan:this.plan,floor:{chanjetPolicy:'HOLD',readonlyApproval:null}});
  }
  async marker(role,kind){const sql=`SELECT 'schema-${this.owner}-${role}-${kind}' AS boundary`;await this.client.query(sql);return `SELECT row_to_json(phoenix_read_row)::text FROM (${sql}\n) AS phoenix_read_row`;}
  async probe(id,program){return JSON.parse(await this.text(['exec',id,'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','/usr/local/bin/node','-e',program],'probe'));}
@@ -295,9 +295,13 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
   fail('EXACT_PROTECTED_REHEARSAL_REQUIRED');
  const directory=privateRuntime.createDirectory(owner,stage+'-rehearsal'),capsule=new Capsule({...input,directory},dependencies);let evidence;
  try{
+  const started=performance.now();
   capsule.checkRecoveryWindow();await capsule.setup();
+  const restoreMs=Math.max(1,Math.ceil(performance.now()-started));
   capsule.checkRecoveryWindow();await capsule.migrate();
+  const originalStart=performance.now();
   capsule.checkRecoveryWindow();const original=await capsule.runtime('original-api',runtimeImageId,plan.runtimeSha);
+  const originalReadyMs=Math.max(1,Math.ceil(performance.now()-originalStart));
   capsule.checkRecoveryWindow();const candidate=await capsule.runtime('candidate-api',plan.candidateImageId,plan.targetSha);
   const fullDigest=capsule.migrationAfter.facts.allDataSha256;
   if([original.beforeFactsSha256,original.afterFactsSha256,candidate.beforeFactsSha256,candidate.afterFactsSha256].some(digest=>digest!==fullDigest))fail('REHEARSAL_RUNTIME_FACTS_CHAIN_CHANGED');
@@ -305,7 +309,7 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
   // proves every original column unchanged through the final capture.
   const final=capsule.after;assertModernSchemaBusinessUnchanged(capsule.before,final);
   evidence={schema:'phoenix.modern-schema-isolated-rehearsal/v1',owner,runtimeSha:plan.runtimeSha,targetSha:plan.targetSha,candidateImageId:plan.candidateImageId,
-   beforeLedgerSha256:plan.beforeLedgerSha256,pendingPlanSha256:canonicalDigest(plan.pendingMigrations),outcome:'PASS',originalRuntimeReady:true,candidateReady:true,
+   restoreMs,originalReadyMs,rehearsalMs:Math.ceil(performance.now()-started),beforeLedgerSha256:plan.beforeLedgerSha256,pendingPlanSha256:canonicalDigest(plan.pendingMigrations),outcome:'PASS',originalRuntimeReady:true,candidateReady:true,
    businessFactsUnchanged:true,backgroundWrites:0,isolatedRestore:true,productionMutation:false,backupSha256:backup.receipt.backup.sha256,
    afterLedgerSha256:capsule.afterLedgerSha256,originalRuntimeProofSha256:canonicalDigest(original),candidateRuntimeProofSha256:canonicalDigest(candidate),
    cloneBusinessFactsSha256:final.businessDataSha256,defaultOffEvidence:capsule.defaultOff,resources:capsule.resources,

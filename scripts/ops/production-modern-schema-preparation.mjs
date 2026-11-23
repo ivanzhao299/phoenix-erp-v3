@@ -17,7 +17,7 @@ import {assertInitialModernSchemaProfile,captureModernSchemaFacts,defaultOffEvid
 import {collectConfirmedLegacyScope,CONFIRMED_MODERN_SCHEMA_DIRECTIVE} from './production-modern-schema-confirmed-scope.mjs';
 import {collectLegacyEggAuditEvidence} from './production-legacy-egg-audit-evidence.mjs';
 import {modernSchemaMigrationEvidenceDigest,compareStableLegacyAudit} from './production-modern-schema-audit-recheck.mjs';
-import {collectModernSchemaHostSurface,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
+import {inspectModernSchemaContainer,collectModernSchemaHostSurface,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {closeModernSchemaPreparationReadClient,createModernSchemaBackup} from './production-modern-schema-backup.mjs';
 import {rehearseModernSchemaRelease} from './production-modern-schema-rehearsal.mjs';
 import {readCommittedModernSchemaDeploymentBody} from './production-modern-schema-body-source.mjs';
@@ -25,9 +25,23 @@ import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {observeModernSchemaDiskSpace} from './production-modern-schema-disk.mjs';
 import {verifyModernSchemaStage} from './production-modern-schema-stage.mjs';
 import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
+import {readRuntimeAccess} from './production-modern-schema-runtime-access.mjs';
+import {frozenGroupsDigest,readCompletedModernSchemaPredecessor} from './production-modern-schema-predecessor.mjs';
+import {parseSuccessorAction,successorDecisions,successorBinding,successorRuntime,validateSuccessorInspection} from './production-modern-schema-successor.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_PREPARATION_HOLD='+code);};
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-export function modernSchemaDispatchFromEnvironment(env){
+function readProtectedInspectionFloor(){
+ verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
+ return secureJson(path.join(CONTRACT.stateDirectory,'floor.json')).floorSha;
+}
+export function modernSchemaDispatchFromEnvironment(env,readFloor=readProtectedInspectionFloor){
+ if(env.MODERN_SCHEMA_1123_ACTION==='inspect1123'&&env.APPROVED_PREVIOUS_FLOOR_SHA===''){
+  const floor=readFloor();
+  if(!/^[a-f0-9]{40}$/.test(floor??'')||floor===env.TARGET_SHA)fail('EXACT_PROTECTED_FLOOR_REQUIRED');
+  // The host entry and guardProduction read the same process environment.
+  // Only the read-only inspect route may bind this value from protected state.
+  env.APPROVED_PREVIOUS_FLOOR_SHA=floor;
+ }
  const fixed={DEPLOY_MODE:'api',BUILD_API:'true',BUILD_WEB:'false',RUN_MIG:'false',APPROVE_PRODUCTION:'true',PRESERVE_ARTIFACTS:'true',ROTATE_CHANJET_CREDENTIALS:'false',ONE_TIME_CONFIG_FLOOR_TRANSITION:'false'};
  if(Object.entries(fixed).some(([key,value])=>env[key]!==value)||!/^([a-f0-9]{40})$/.test(env.TARGET_SHA??'')||env.APPROVED_CONFIG_FLOOR_SHA!==env.TARGET_SHA
   ||!/^([a-f0-9]{40})$/.test(env.APPROVED_PREVIOUS_FLOOR_SHA??'')||env.APPROVED_PREVIOUS_FLOOR_SHA===env.TARGET_SHA
@@ -55,6 +69,8 @@ function assertLatest(root,dispatch){
 export async function prepareModernSchemaRelease(env,dependencies={}){
  let currentStage,primary;
  const stage=name=>{currentStage=name;dependencies.onStage?.(name);};stage('BOOTSTRAP');
+ const selection=env.MODERN_SCHEMA_1123_ACTION??'',action=parseSuccessorAction(selection);
+ if(selection&&!action)fail('EXACT_DELEGATED_ACTION_REQUIRED');
  const dispatch=modernSchemaDispatchFromEnvironment(env),root=dependencies.root??CONTRACT.repository,directory=dependencies.directory??CONTRACT.stateDirectory;
  const stagedSource=verifyModernSchemaStage(dispatch);
  const guard=dependencies.guard??(()=>verifyContext(root,directory)),runtime=dependencies.privateRuntime??new ModernSchemaPrivateRuntime(),store=dependencies.store??new ModernSchemaRegistry();
@@ -74,10 +90,24 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
  try{
   if(!dependencies.client){await client.start();started=true;runtime.children.add({...pinModernSchemaChild(client.child),outcome:'ACTIVE_READ_CHANNEL'});}
   stage('PLAN');const observed=await collectModernSchemaPlan(client,{...dispatch,runtimeSha:runtimePins.api.revision,candidateImageId},{root,guard});
-  const {plan,database,imageProof}=observed;assertInitialModernSchemaProfile(dispatch.floorSha,plan);
+  const {plan,database,imageProof}=observed;
+  if(Boolean(action)!==(plan.runtimeSha===successorRuntime))fail('EXACT_DELEGATED_ACTION_REQUIRED');
+  const binding=action?successorBinding(dispatch.floorSha,plan):null;
+  let webImageId;
+  if(action){
+   const webRef='ghcr.io/ivanzhao299/phoenix-erp-v3/web:sha-'+dispatch.targetSha;
+   await runtime.run({binary:'/usr/bin/docker',args:['pull',webRef],directory:privateDirectory,stem:'candidate-web-pull',timeoutMs:600000});
+   const [id,revision]=docker(['image','inspect',webRef,'--format','{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}']).split(' ');
+   if(!/^sha256:[a-f0-9]{64}$/.test(id)||revision!==dispatch.targetSha)fail('EXACT_WEB_IMAGE_REQUIRED');
+   webImageId=id;
+  }
+  const predecessor=action?readCompletedModernSchemaPredecessor(store,plan):null;
+  const successor=action?.kind==='approve'?successorDecisions(store,selection,dispatch.floorSha,plan):null;
+  const apiAccess=action?await readRuntimeAccess(client,background.actual,dispatch.targetSha):null;
+  if(!action)assertInitialModernSchemaProfile(dispatch.floorSha,plan);
   const {rows:[size]}=await client.query('SELECT pg_database_size(current_database())::text AS bytes');
   const disk=observeModernSchemaDiskSpace({databaseBytes:size.bytes});
-  stage('HOST_SURFACE');const ownedResources=[imageProof],surface=collectModernSchemaHostSurface(initial,{guard,ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
+  stage('HOST_SURFACE');const ownedResources=[imageProof],surface=collectModernSchemaHostSurface(initial,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
   const {rows:[{observation}]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);
   const executors=classifyModernSchemaDatabaseExecutors(JSON.parse(observation),{runtimeAddress:surface.runtimeAddress});
   stage('BACKUP');const backup=await createModernSchemaBackup({owner:dispatch.owner,stage:'prepare',client,databasePin:initial.containers.db,privateRuntime:runtime});
@@ -90,14 +120,34 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   const after=captureSnapshot({phase:'PRE_SNAPSHOT',runId:dispatch.owner,runAttempt:dispatch.owner.split('-')[1],targetSha:dispatch.targetSha,floorSha:dispatch.targetSha,deployMode:'api'});
   if(!same(initial.containers,after.containers)||git(root,['rev-parse','HEAD'])!==rootHeadSha||!same(secureJson(path.join(directory,'floor.json')),floor)
    ||!same(secureJson(path.join(directory,'active.json')),active)||!same(observeModernSchemaOriginalBackground(after,floor).record,background.record))fail('PREPARATION_RUNTIME_OR_FLOOR_MOVED');
-  stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
+  stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,freshSurface))fail('PREPARATION_HOST_SURFACE_MOVED');
   const {rows:[latestExecutors]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);classifyModernSchemaDatabaseExecutors(JSON.parse(latestExecutors.observation),{runtimeAddress:surface.runtimeAddress});
   const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha);
-  stage('HISTORICAL_AUDIT');const source=await collectConfirmedLegacyScope(client,{targetSha:dispatch.targetSha}),facts=await captureModernSchemaFacts(client),off=defaultOffEvidenceFromFacts(dispatch.targetSha,facts,{stage:'BEFORE_SCHEMA',floor});
+  stage('HISTORICAL_AUDIT');const source=await collectConfirmedLegacyScope(client,{targetSha:dispatch.targetSha}),facts=await captureModernSchemaFacts(client),off=defaultOffEvidenceFromFacts(dispatch.targetSha,facts,{stage:'BEFORE_SCHEMA',floor,plan});
   // The formal window begins after the expensive read-only preparation
  // facts. The protected audit and every effect still fall inside it.
- const start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+INITIAL_MODERN_SCHEMA_WINDOW_MS).toISOString()};
+ if(action&&predecessor.afterFrozenGroupsSha256!==frozenGroupsDigest(source.originalAudit))fail('HISTORICAL_CUSTODY_CHANGED');
+ if(action?.kind==='inspect'){
+  const databaseIdentity={name:database.name,schema:database.schema,systemIdentifier:database.systemIdentifier};
+  const inspectedAudit=await collectLegacyEggAuditEvidence(client,{targetSha:plan.targetSha,floorSha:dispatch.floorSha,runningApiSha:plan.runtimeSha,
+    ledgerSha256:plan.beforeLedgerSha256,migrationEvidenceSha256:modernSchemaMigrationEvidenceDigest(plan),databaseIdentity,manifest:source.manifest});
+  if(inspectedAudit.evidence.reason!=='MATCHED_CLAIM_PENDING_INDEPENDENT_REVIEW'||inspectedAudit.evidence.originalConclusion!=='HOLD'||
+   inspectedAudit.evidence.manifestSha256!==canonicalDigest(source.manifest)||inspectedAudit.evidence.releaseAuthorized!==false||
+   frozenGroupsDigest(inspectedAudit.originalAudit)!==predecessor.afterFrozenGroupsSha256)fail('HISTORICAL_REFERENCE_COVERAGE_CHANGED');
+  const {restoreMs,originalReadyMs,rehearsalMs}=rehearsal.evidence;
+  const content={schema:'phoenix.remediation-1123-inspection/v1',owner:dispatch.owner,binding,restoreMs,originalReadyMs,rehearsalMs,
+   webImageId,apiAccess,auditEvidenceSha256:inspectedAudit.evidence.evidenceSha256,capturedAt:new Date().toISOString(),historicalAudit:'HOLD',historicalQuantity:60,businessActivation:false,productionMutation:false,
+   predecessorSha256:canonicalDigest(predecessor),testManifestSha256:canonicalDigest(source.manifest),rehearsalSha256:canonicalDigest(rehearsal.evidence),
+   defaultOffEvidenceSha256:canonicalDigest(off),hostSurfaceSha256:canonicalDigest(surface),runtimeImageId:runtimePins.api.imageId,
+   resourcePins:ownedResources.map(record=>({...record,identitySha256:canonicalDigest(inspectModernSchemaContainer(record.containerId))}))};
+  const inspection=validateSuccessorInspection({...content,inspectionSha256:canonicalDigest(content)},binding);
+  guard();assertLatest(root,dispatch);store.immutable('schema-release-1123-inspect-'+dispatch.owner+'.json',inspection);
+  return {schema:'phoenix.remediation-1123-public-inspection/v1',owner:dispatch.owner,targetSha:dispatch.targetSha,
+   inspectionSha256:inspection.inspectionSha256,pilotStatus:apiAccess.pilotStatus,binding,webImageId,runtimeImageId:runtimePins.api.imageId,restoreMs,originalReadyMs,rehearsalMs,predecessorSha256:inspection.predecessorSha256};
+ }
+ if(successor&&(successor.apiAccessSha256!==canonicalDigest(apiAccess)||successor.webImageId!==webImageId||successor.runtimeImageId!==runtimePins.api.imageId||successor.testManifestSha256!==canonicalDigest(source.manifest)||successor.predecessorSha256!==canonicalDigest(predecessor)))fail('PREVIEW_SCOPE_CHANGED');
+ const start=Date.now(),window=successor?.approval.window??{start:new Date(start).toISOString(),end:new Date(start+INITIAL_MODERN_SCHEMA_WINDOW_MS).toISOString()};
  const databaseIdentity={name:database.name,schema:database.schema,systemIdentifier:database.systemIdentifier};
   const context={schema:'phoenix.modern-schema-release-context/v1',owner:dispatch.owner,floorSha:dispatch.floorSha,runtimeSha:plan.runtimeSha,targetSha:dispatch.targetSha,window,
    databaseIdentitySha256:canonicalDigest(databaseIdentity),runtimeSnapshotSha256:canonicalDigest(initial.containers),candidateImageId,
@@ -111,7 +161,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   compareStableLegacyAudit({context,reviewed:reviewedAudit,fresh:reviewedAudit,frozenManifest:source.manifest,sampleStartedAt:reviewedAudit.evidence.capturedAt,sampleFinishedAt:reviewedAudit.evidence.capturedAt});
   const content={schema:'phoenix.modern-schema-preparation/v1',context,confirmedScopeInput:source.confirmedScopeInput,manifest:source.manifest,reviewedAudit,
    sourceDirectiveSha256:canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE),oldRuntimeCompatibility:rehearsal.evidence,defaultOffEvidence:off,ingressScope:surface.ingressScope,
-   hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,rootHeadSha,floor,active,plan,ownedResources,
+   ...(successor?{successorDecisions:successor,predecessor,apiAccess}:{}),hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,rootHeadSha,floor,active,plan,ownedResources,
    backupReceiptPath:backup.receiptPath,backupReceiptSha256:canonicalDigest(backup.receipt),rehearsalDirectory:rehearsal.directory,
    bodySource:{bodySha256:body.bodySha256,workflowSha256:body.workflowSha256}};
   const record={...content,preparationSha256:canonicalDigest(content)};validateModernSchemaPreparation(record);

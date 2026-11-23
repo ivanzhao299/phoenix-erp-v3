@@ -3,6 +3,7 @@
 import {CONTRACT,secureJson} from './production-config-guard.mjs';import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
+import {successorPlan} from './production-modern-schema-successor.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_FACTS_HOLD='+code);};
 const quote=value=>'"'+value.replaceAll('"','""')+'"';
 const BLOCK_ROWS=1024;
@@ -20,6 +21,11 @@ const HASH=/^[a-f0-9]{64}$/;
 const nativeRowHashSql="encode(sha256(convert_to(to_jsonb(phoenix_original_row)::text,'UTF8')),'hex')";
 const tools=new Set(['migrations','schema_migrations','typeorm_metadata','sys_dict']);
 const defaults=['production_cutover_scopes','production_batch_qualifications','production_cutover_apply_admissions','production_cutover_apply_results'];
+// DRAFT manifests/signatures may be prepared without enabling a house. The
+// authoritative scope, domain, admission, opening and state receipts prove OFF.
+const successorDefaults=[...defaults,'production_inventory_domains','production_inventory_domain_states',
+ 'production_opening_domain_claims','production_cutover_state_receipts'];
+function offTables(plan){return successorPlan(plan)?successorDefaults:defaults;}
 export const INITIAL_MODERN_SCHEMA_PROFILE=Object.freeze({floorSha:'101916efbcd60956c9f8321d4859931049f966c3',runtimeSha:'cb42966edfa717b0984936951143d84973c1a263',
  sourceUnits:125,runtimeUnits:105,pendingCount:20,sourceInventorySha256:'c061666c12adc75ae20fbc68d76af9c69be81ce107fa9c728b7acf0e0824ce91',runtimeInventorySha256:'131d1302535ab3493b060b5c52d05e9ed70606c290c43f1d9301e8ff44a7787c'});
 /** This first release does not broaden the default receipt trust boundary. A
@@ -323,11 +329,15 @@ export async function captureModernSchemaFactsPair(client,{projection,withinSnap
 export function assertModernSchemaBusinessUnchanged(before,after){
  if(!same(before.database,after.database)||before.businessDataSha256!==after.businessDataSha256)fail('ORIGINAL_BUSINESS_FACTS_CHANGED');return true;
 }
-export function defaultOffEvidenceFromFacts(targetSha,facts,{stage='AFTER_SCHEMA',floor}={}){
+export function defaultOffEvidenceFromFacts(targetSha,facts,{stage='AFTER_SCHEMA',floor,plan}={}){
  if(!/^[a-f0-9]{40}$/.test(targetSha??'')||!['BEFORE_SCHEMA','AFTER_SCHEMA'].includes(stage))fail('EXACT_OFF_EVIDENCE_SCOPE_REQUIRED');
  const policy=floor??secureJson(path.join(CONTRACT.stateDirectory,'floor.json'));
  if(policy.chanjetPolicy!=='HOLD'||policy.readonlyApproval!==null)fail('CHANJET_HOLD_REQUIRED');
- const counts=defaults.map(table=>{const observed=facts.tables.find(row=>row.schema==='public'&&row.table===table)??facts.newTables.find(row=>row.schema==='public'&&row.table===table);
+ const counts=offTables(plan).map(table=>{const observed=facts.tables.find(row=>row.schema==='public'&&row.table===table)??facts.newTables.find(row=>row.schema==='public'&&row.table===table);
+  if(stage==='BEFORE_SCHEMA'&&successorPlan(plan)){
+   const introduced=table==='production_cutover_state_receipts';
+   if(introduced===Boolean(observed))fail('SUCCESSOR_SCOPE_TABLE_PRESENCE_CHANGED');
+  }
   if(stage==='AFTER_SCHEMA'&&!observed)fail('TARGET_SCOPE_TABLE_MISSING');if(observed&&observed.rows!==0)fail('BUSINESS_ACTIVATION_ALREADY_PRESENT');
   return {table,presence:observed?'PRESENT_ZERO':'ABSENT_BEFORE_SCHEMA',rows:0};});
  return {schema:'phoenix.modern-schema-default-off-evidence/v1',targetSha,featureRollout:'OFF',scopeRows:0,qualificationRows:0,admissionRows:0,cutoverResultRows:0,
@@ -335,11 +345,12 @@ export function defaultOffEvidenceFromFacts(targetSha,facts,{stage='AFTER_SCHEMA
 }
 /** Recheck only the rollout authorities after ingress release. Exempt GETs may
  * initialize unrelated schema; they cannot be mistaken for rollout evidence. */
-export async function captureModernSchemaDefaultOff(client,targetSha,{floor}={}){
+export async function captureModernSchemaDefaultOff(client,targetSha,{floor,plan}={}){
  if(!/^[a-f0-9]{40}$/.test(targetSha??''))fail('EXACT_OFF_EVIDENCE_SCOPE_REQUIRED');
  const policy=floor??secureJson(path.join(CONTRACT.stateDirectory,'floor.json'));
  if(policy.chanjetPolicy!=='HOLD'||policy.readonlyApproval!==null)fail('CHANJET_HOLD_REQUIRED');
- const {rows}=await client.query(defaults.map(table=>`SELECT '${table}'::text AS table,count(*)::text AS rows FROM public.${quote(table)}`).join(' UNION ALL ')+' ORDER BY 1');
- if(rows.length!==defaults.length||!rows.every(row=>defaults.includes(row.table)&&row.rows==='0')||new Set(rows.map(row=>row.table)).size!==defaults.length)fail('BUSINESS_ACTIVATION_ALREADY_PRESENT');
+ const required=offTables(plan);
+ const {rows}=await client.query(required.map(table=>`SELECT '${table}'::text AS table,count(*)::text AS rows FROM public.${quote(table)}`).join(' UNION ALL ')+' ORDER BY 1');
+ if(rows.length!==required.length||!rows.every(row=>required.includes(row.table)&&row.rows==='0')||new Set(rows.map(row=>row.table)).size!==required.length)fail('BUSINESS_ACTIVATION_ALREADY_PRESENT');
  return {schema:'phoenix.modern-schema-live-default-off/v1',targetSha,observedTables:rows,featureRollout:'OFF',chanjetPolicy:'HOLD',verified:true,readOnly:true};
 }

@@ -12,6 +12,7 @@ import {readPublicManifest} from './background-control-manifest.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {publicModernSchemaPreparationFailure} from './production-modern-schema-public-preparation.mjs';
 
+import {validPublicInspection} from './production-modern-schema-successor.mjs';
 const fail = () => { throw Error('MODERN_SCHEMA_ENTRY_HOLD'); };
 
 export async function readModernSchemaRunRequest(stream) {
@@ -82,6 +83,10 @@ export async function runModernSchemaEntry(args, env, stdin, dependencies = {}) 
       const result = await (dependencies.prepare ?? prepareModernSchemaRelease)(env, {
         onStage(stage) { phase = stage; },
       });
+      if(env.MODERN_SCHEMA_1123_ACTION==='inspect1123'){
+        if(!validPublicInspection(result,binding))fail();
+        return {result,exitCode:0};
+      }
       if (result?.schema !== 'phoenix.modern-schema-public-preparation/v1' || result.owner !== owner || result.targetSha !== targetSha ||
           result.prepared !== true || typeof result.preparationSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.preparationSha256) ||
           Object.keys(result).sort().join(',') !== 'owner,preparationSha256,prepared,schema,targetSha') fail();

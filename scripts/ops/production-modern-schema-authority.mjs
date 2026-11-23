@@ -8,6 +8,7 @@ import {inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './prod
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {LEGACY_EGG_SCOPE_CLASSIFICATIONS} from './production-legacy-egg-audit-evidence.mjs';
 import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
+import {successorBinding,successorPlan,successorRuntime,successorTransportCeilingMs} from './production-modern-schema-successor.mjs';
 const SHA=/^[a-f0-9]{40}$/,HASH=/^[a-f0-9]{64}$/,OWNER=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const token=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,199}$/.test(value);
 const record=value=>value&&Object.getPrototypeOf(value)===Object.prototype&&Object.values(Object.getOwnPropertyDescriptors(value)).every(d=>Object.hasOwn(d,'value'));
@@ -38,7 +39,9 @@ export function validateModernSchemaContext(value){
   ||(value.originalConclusion==='HOLD'?!match(HASH,value.testManifestSha256):value.testManifestSha256!==null))fail('EXACT_REVIEW_EVIDENCE_REQUIRED');
  validateModernSchemaMigrationPlan(Object.fromEntries(modernSchemaMigrationPlanFields.map(key=>[key,value[key]])));
  const duration=Date.parse(value.window.end)-Date.parse(value.window.start),profile=INITIAL_MODERN_SCHEMA_PROFILE;
- if(duration>30*60*1000&&(![INITIAL_MODERN_SCHEMA_WINDOW_MS,...INITIAL_HISTORICAL_WINDOWS_MS].includes(duration)||value.originalConclusion!=='HOLD'||
+ if(value.runtimeSha===successorRuntime)successorBinding(value.floorSha,value);
+ if(value.runtimeSha===successorRuntime && (!successorPlan(value)||value.originalConclusion!=='HOLD'||duration>successorTransportCeilingMs))fail('EXACT_SUCCESSOR_REQUIRED');
+ if(value.runtimeSha!==successorRuntime&&duration>30*60*1000&&(![INITIAL_MODERN_SCHEMA_WINDOW_MS,...INITIAL_HISTORICAL_WINDOWS_MS].includes(duration)||value.originalConclusion!=='HOLD'||
   value.floorSha!==profile.floorSha||value.runtimeSha!==profile.runtimeSha||value.pendingMigrations.length!==profile.pendingCount||
   value.sourceInventorySha256!==profile.sourceInventorySha256||value.runtimeInventorySha256!==profile.runtimeInventorySha256||
   !same(value.pendingMigrations.map(unit=>unit.path).sort(),value.changedMigrationPaths)))fail('EXACT_CONTEXT_REQUIRED');
@@ -72,7 +75,7 @@ export function validateRegisteredModernSchemaApproval(grant,input,now=Date.now(
  const fields=['schema','repository','authorizationOrigin','authorizationRef','authorizationDigest','context','contextDigest','scope','sourceReviewSha256',
   'frozenRegistrationSha256','technicalReview','registeredAt','expiresAt'];
  if(!exact(grant,fields)||grant.schema!=='phoenix.modern-schema-release-approval/v1'||grant.repository!=='ivanzhao299/phoenix-erp-v3'
-  ||grant.authorizationOrigin!=='TRUSTED_INTERACTIVE_USER'||grant.authorizationRef!=='MODERN_DEFAULT_OFF_SCHEMA_RELEASE'
+  ||grant.authorizationOrigin!==(context.runtimeSha===successorRuntime?'DELEGATED_WORKFLOW_DISPATCH':'TRUSTED_INTERACTIVE_USER')||grant.authorizationRef!==(context.runtimeSha===successorRuntime?'REMEDIATION_1123_USER_WINDOW':'MODERN_DEFAULT_OFF_SCHEMA_RELEASE')
   ||!match(HASH,grant.authorizationDigest)||!match(HASH,grant.sourceReviewSha256)||!same(grant.context,context)
   ||grant.contextDigest!==canonicalDigest(context)||!same(grant.scope,MODERN_SCHEMA_SCOPE)
   ||!iso(grant.registeredAt)||Date.parse(grant.registeredAt)>now||grant.expiresAt!==context.window.end

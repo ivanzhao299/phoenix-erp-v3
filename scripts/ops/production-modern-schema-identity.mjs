@@ -85,6 +85,7 @@ export async function collectModernSchemaLiveJob(identity,dependencies={}){
  const repository=value=>String(value?.id)===REPO_ID&&value.full_name===REPO&&String(value.owner?.id)===OWNER_ID;
  const validRun=value=>String(value?.id)===identity.runId&&String(value.run_attempt)===identity.attempt&&repository(value.repository)&&repository(value.head_repository)
   &&actor(value.actor)&&actor(value.triggering_actor)&&value.head_sha===binding.targetSha&&value.head_branch==='main'&&value.event==='workflow_dispatch'
+  &&(!dependencies.successor||value.display_title===dependencies.successor.selection)
   &&value.path===WORKFLOW&&value.status==='in_progress'&&value.conclusion===null;
  const latest=await read(runPath),attempt=await read(runPath+'/attempts/'+identity.attempt);
  if(!validRun(latest)||!validRun(attempt))fail('LIVE_DISPATCH_ATTEMPT_MISMATCH');
@@ -94,11 +95,53 @@ export async function collectModernSchemaLiveJob(identity,dependencies={}){
  if(jobs.length!==1)fail('EXACT_CHECK_JOB_REQUIRED');const job=jobs[0];
  if(String(job.run_id)!==identity.runId||job.head_sha!==binding.targetSha||job.name!=='Deploy · api'||job.status!=='in_progress'||job.conclusion!==null
   ||!Number.isSafeInteger(job.id)||job.id<1)fail('LIVE_API_JOB_MISMATCH');
+ let candidateCiSha256;
+ if(dependencies.successor){
+  const ciId=dependencies.successor.approval.ciRunId;
+  if(!/^[1-9][0-9]{0,19}$/.test(ciId)||ciId===identity.runId)fail('CANDIDATE_CI_REQUIRED');
+  const ciPath=base+'/actions/runs/'+ciId,ci=await read(ciPath);
+  if(String(ci.id)!==ciId||!repository(ci.repository)||!repository(ci.head_repository)||ci.head_sha!==binding.targetSha||
+     ci.head_branch!=='main'||ci.event!=='push'||ci.path!==WORKFLOW||ci.status!=='completed'||ci.conclusion!=='success'||
+     !Number.isSafeInteger(ci.run_attempt)||ci.run_attempt<1)fail('CANDIDATE_CI_REQUIRED');
+  const checks=await read(ciPath+'/attempts/'+ci.run_attempt+'/jobs?per_page=100&page=1');
+  if(!Array.isArray(checks.jobs)||checks.total_count!==checks.jobs.length||checks.total_count>100)fail('COMPLETE_CANDIDATE_CI_REQUIRED');
+  const selected=['Type-check & Regression','Build & Push api','Build & Push web'].map(name=>{
+   const matches=checks.jobs.filter(item=>item.name===name);
+   if(matches.length!==1)fail('COMPLETE_CANDIDATE_CI_REQUIRED');
+   const [item]=matches;
+   if(String(item.run_id)!==ciId||item.head_sha!==binding.targetSha||item.status!=='completed'||item.conclusion!=='success'||
+    !Array.isArray(item.steps)||name.startsWith('Build & Push')&&!item.steps.some(s=>s.name==='Build & push '+name.split(' ').at(-1)+' image'&&s.conclusion==='success'))fail('CANDIDATE_CI_REQUIRED');
+   return {id:item.id,name,conclusion:item.conclusion};
+  });
+  const acceptanceId=dependencies.successor.approval.acceptanceRunId;
+  if(!/^[1-9][0-9]{0,19}$/.test(acceptanceId)||[ciId,identity.runId].includes(acceptanceId))fail('CANDIDATE_ACCEPTANCE_REQUIRED');
+  const acceptancePath=base+'/actions/runs/'+acceptanceId,acceptance=await read(acceptancePath);
+  if(String(acceptance.id)!==acceptanceId||!repository(acceptance.repository)||!repository(acceptance.head_repository)||
+    acceptance.path!=='.github/workflows/production-remediation-acceptance.yml'||!['push','workflow_dispatch'].includes(acceptance.event)||
+    acceptance.head_sha!==ci.head_sha||acceptance.head_branch!=='main'||acceptance.status!=='completed'||acceptance.conclusion!=='success'||
+    !Number.isSafeInteger(acceptance.run_attempt)||acceptance.run_attempt<1)fail('CANDIDATE_ACCEPTANCE_REQUIRED');
+  const acceptanceJobs=await read(acceptancePath+'/attempts/'+acceptance.run_attempt+'/jobs?per_page=100&page=1');
+  if(!Array.isArray(acceptanceJobs.jobs)||acceptanceJobs.total_count!==acceptanceJobs.jobs.length||acceptanceJobs.total_count>100)fail('CANDIDATE_ACCEPTANCE_REQUIRED');
+  const acceptanceSteps=[
+   ['PostgreSQL 18 / transactions','Run transaction, role and migration acceptance'],
+   ['PostgreSQL 18 / transactions','Verify pilot ingress in a disposable network namespace'],
+   ['PostgreSQL 18 / browser','Exercise desktop and mobile Chromium'],
+   ['Previous API and historical receipts on the expanded schema','Rehearse the deployed database and a cold installation'],
+  ];
+  const verified=acceptanceSteps.map(([name,step])=>{
+   const matches=acceptanceJobs.jobs.filter(j=>j.name===name);
+   if(matches.length!==1||String(matches[0].run_id)!==acceptanceId||matches[0].head_sha!==ci.head_sha||
+     matches[0].status!=='completed'||matches[0].conclusion!=='success'||
+     !matches[0].steps?.some(s=>s.name===step&&s.conclusion==='success'))fail('CANDIDATE_ACCEPTANCE_REQUIRED');
+   return {id:matches[0].id,name:matches[0].name,step};
+  });
+  candidateCiSha256=canonicalDigest({id:ciId,attempt:ci.run_attempt,targetSha:ci.head_sha,jobs:selected,acceptanceId,acceptanceAttempt:acceptance.run_attempt,verified});
+ }
  const final=await read(runPath+'/attempts/'+identity.attempt),finalJob=await read(base+'/actions/jobs/'+job.id);
  if(!validRun(final)||finalJob.id!==job.id||finalJob.check_run_url!==job.check_run_url||finalJob.run_id!==job.run_id||finalJob.head_sha!==job.head_sha
   ||finalJob.name!==job.name||finalJob.status!=='in_progress'||finalJob.conclusion!==null||performance.now()-started>60000
   ||!Number.isFinite(Date.parse(identity.expiresAt))||now()>=Date.parse(identity.expiresAt))fail('LIVE_IDENTITY_EXPIRED_OR_MOVED');
- return {...structuredClone(identity),triggeringActorVerified:true,jobId:String(job.id),jobName:job.name,serverFactsSha256:canonicalDigest({latest,attempt,list,final,finalJob}),observedAt:new Date(now()).toISOString()};
+ return {...structuredClone(identity),...(dependencies.successor?{candidateCiSha256,delegatedSelection:dependencies.successor.selection}:{}),triggeringActorVerified:true,jobId:String(job.id),jobName:job.name,serverFactsSha256:canonicalDigest({latest,attempt,list,final,finalJob}),observedAt:new Date(now()).toISOString()};
 }
 function actionsIdentityChannel(env){
  const raw=env.ACTIONS_ID_TOKEN_REQUEST_URL,credential=env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;

@@ -4,6 +4,9 @@ import fs from 'node:fs';import path from 'node:path';
 import {CONTRACT,verifyContext,secureJson,git,requireCleanMain,guardProduction} from './production-config-guard.mjs';
 import {captureRuntime,executionEnv} from './capture-production-runtime.mjs';import {captureSnapshot} from './production-deployment-evidence.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
+import {readRuntimeAccess} from './production-modern-schema-runtime-access.mjs';
+import {readCompletedModernSchemaPredecessor} from './production-modern-schema-predecessor.mjs';
+import {successorDecisions, successorRuntime,successorWebReserveMs} from './production-modern-schema-successor.mjs';
 import {readRegisteredModernSchemaApproval} from './production-modern-schema-authority.mjs';
 import {ModernSchemaRegistry,registerModernSchemaRelease,validateModernSchemaPreparation} from './production-modern-schema-registration.mjs';
 import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
@@ -161,16 +164,23 @@ export function createModernSchemaFirstHoldEvidence(now=()=>performance.now()){
   },
  };
 }
-export function assertModernSchemaWindowBudget({end,factsElapsedMs,operation,inFlightMs=0},now=Date.now()){
+export function assertModernSchemaWindowBudget({end,factsElapsedMs,operation,inFlightMs=0,recoveryReserveMs=0},now=Date.now()){
  // Both paths need two further original-database scans. The fixed margin
  // covers their separate migration/switch or original-recovery operations.
  const remainingMs=Date.parse(end)-now;
  const fixedMargin=operation==='ddl'?240000:150000;
- const requiredMs=Math.ceil(factsElapsedMs*2*1.15)+fixedMargin+inFlightMs;
+ const requiredMs=Math.max(Math.ceil(factsElapsedMs*2*1.15)+fixedMargin,recoveryReserveMs)+inFlightMs;
  if(!['ddl','recoverOriginal'].includes(operation)||!Number.isSafeInteger(factsElapsedMs)||factsElapsedMs<=0||
   !Number.isSafeInteger(inFlightMs)||inFlightMs<0||!Number.isSafeInteger(remainingMs)||remainingMs<requiredMs){
   fail(operation==='ddl'?'INSUFFICIENT_WINDOW_BEFORE_DDL':'INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL');
  }
+}
+export function assertSuccessorFenceBudget(preparation,now=Date.now()){
+ if(!preparation.successorDecisions)return;
+ const timing=preparation.successorDecisions,measured=preparation.oldRuntimeCompatibility;
+ const recovery=Math.max(timing.recoveryReserveMs,Math.ceil((measured.restoreMs+measured.originalReadyMs)*1.25)+150000);
+ const required=Math.max(timing.rehearsalMs,measured.rehearsalMs)+recovery+successorWebReserveMs;
+ if(!Number.isSafeInteger(required)||Date.parse(preparation.context.window.end)-now<required)fail('INSUFFICIENT_WINDOW_BEFORE_FENCE');
 }
 function latest(dispatch){requireCleanMain(CONTRACT.repository);if(git(CONTRACT.repository,['rev-parse','origin/main'],{timeoutMs:10000})!==dispatch.targetSha
  ||git(CONTRACT.repository,['ls-remote','origin','refs/heads/main'],{timeoutMs:10000}).split(/\s/)[0]!==dispatch.targetSha)fail('LATEST_APPROVED_MAIN_CHANGED');}
@@ -223,7 +233,7 @@ export async function superviseModernSchemaRelease(env,input){
  };
  const admitHeldRecovery=()=>watch.observeRecoveryHost(()=>native({allowHeld:true}));
  const stopHeartbeat=async()=>{await closeHeartbeat?.();closeHeartbeat=null;if(fatal)throw fatal;};
- const windowBudget=(operation,inFlightMs)=>assertModernSchemaWindowBudget({end:context.window.end,factsElapsedMs:beforeFactsElapsedMs,operation,inFlightMs});
+ const windowBudget=(operation,inFlightMs)=>assertModernSchemaWindowBudget({end:context.window.end,factsElapsedMs:beforeFactsElapsedMs,operation,inFlightMs:(inFlightMs??0)+(operation==='ddl'&&preparation.successorDecisions?successorWebReserveMs:0),recoveryReserveMs:preparation.successorDecisions?Math.max(preparation.successorDecisions.recoveryReserveMs,Math.ceil((preparation.oldRuntimeCompatibility.restoreMs+preparation.oldRuntimeCompatibility.originalReadyMs)*1.25)+150000):0});
  const advance=async(from,to,evidence,options)=>{
   await native();
   if(to==='DDL_STARTED')windowBudget('ddl');
@@ -280,8 +290,14 @@ export async function superviseModernSchemaRelease(env,input){
   const background=observeModernSchemaOriginalBackground(pre,preparation.floor);
   if(!same(background.record,preparation.originalBackground.record)||!same(background.manifest,preparation.originalBackground.manifest))fail('ORIGINAL_OPEN_CHANGED');
   const observed=await collectModernSchemaPlan(client,{owner:context.owner,targetSha:context.targetSha,runtimeSha:context.runtimeSha,candidateImageId:context.candidateImageId});
-  assertInitialModernSchemaProfile(context.floorSha,observed.plan);if(!same(observed.plan,preparation.plan))fail('COMPLETE_PLAN_OR_LEDGER_CHANGED');ownedResources.push(observed.imageProof);
-  const surface=collectModernSchemaHostSurface(pre,{ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
+  if(context.runtimeSha===successorRuntime){
+   if(!same(await readRuntimeAccess(client,background.actual,context.targetSha),preparation.apiAccess))fail('PREVIEW_RUNTIME_AUTHORITY_CHANGED');
+   const decisions=successorDecisions(store,env.MODERN_SCHEMA_1123_ACTION,context.floorSha,observed.plan);
+   if(!same(readCompletedModernSchemaPredecessor(store,observed.plan),preparation.predecessor)||!same(decisions,preparation.successorDecisions))fail('PROTECTED_CANDIDATE_DECISIONS_CHANGED');
+   if(Date.parse(context.window.end)-Date.now()<decisions.recoveryReserveMs+decisions.rehearsalMs+successorWebReserveMs)fail('INSUFFICIENT_WINDOW_BEFORE_DRAIN');
+  }else assertInitialModernSchemaProfile(context.floorSha,observed.plan);
+  if(!same(observed.plan,preparation.plan))fail('COMPLETE_PLAN_OR_LEDGER_CHANGED');ownedResources.push(observed.imageProof);
+  const surface=collectModernSchemaHostSurface(pre,{ownedResources,predecessorResources:preparation.predecessor?.resources,successorStore:preparation.successorDecisions?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,preparation.hostSurface))fail('PRE_EFFECT_HOST_SURFACE_CHANGED');
   const ownedReadSessions=[];
   for(const reader of [client,watchClient]){
@@ -297,11 +313,12 @@ export async function superviseModernSchemaRelease(env,input){
   runtime.publishJson(path.join(directory,`deploy-${context.owner}-pre-evidence.json`),pre);
   // No external effect precedes a successful claim. Preserve partial local
   // evidence without sending a failed claim into the original-S guardian.
+  assertSuccessorFenceBudget(preparation);
   const proposedState=new ModernSchemaReleaseState(context,input.preparationSha256),claimed=proposedState.claim();state=proposedState;originalProcess=claimed.supervisor;
   publisher=new BackgroundManifestPublisher({}, {verifySchemaReleaseAuthority:(binding,operation)=>{
    runtime.guard();readRegisteredModernSchemaApproval(context);const pending=state.read();assertSameBinding(pending,binding);
    if(originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true||pending.status!=='RUNNING')return false;
-   if(operation==='FENCE')return pending.phase==='REGISTERED';
+   if(operation==='FENCE'){assertSuccessorFenceBudget(preparation);return pending.phase==='REGISTERED';}
    return operation==='OPEN'&&pending.phase==='INGRESS_RELEASED'&&!!rootLease&&assertModernSchemaLeaseStillOriginal(rootLease)===true
     &&!!openCommitIntent&&same(store.read(`schema-release-open-commit-intent-${context.owner}.json`),openCommitIntent)
     &&pending.receiptSha256===openCommitIntent.pendingReceiptSha256&&canonicalDigest(publisher.readPrivate())===openCommitIntent.fencedControlSha256
@@ -329,6 +346,7 @@ export async function superviseModernSchemaRelease(env,input){
    }
    return true;
   }});
+  assertSuccessorFenceBudget(preparation);
   const installed=await ingress.install();await advance('DRAINED','INGRESS_FENCED',{ingressObservation:installed});watch.start();
   await disk();await watch.observe();await coordinator.verifyQuiescent();
   const original=pre.containers.api;
@@ -425,14 +443,19 @@ export async function superviseModernSchemaRelease(env,input){
   const probe=inspectApiParticipant({containerId:candidateId,revision:context.targetSha,allowedKinds:[...HOLD_KINDS],bootId:JSON.parse((await import('node:child_process')).execFileSync('/usr/bin/docker',['exec',candidateId,'node','-e',"fetch('http://127.0.0.1:3100/api/internal/background/status',{signal:AbortSignal.timeout(2000)}).then(r=>r.json()).then(x=>process.stdout.write(JSON.stringify(x))).catch(()=>process.exit(64))"],{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:65536,stdio:['ignore','pipe','pipe']})).bootId},preparation.floor.project);
   const candidateParticipants=[participantOf(probe)],formalDeploymentFile=path.join(directory,`deploy-${context.owner}.json`),formal=secureJson(formalDeploymentFile);
   if(verifyCompletedDeployment(state.binding,candidateParticipants)!==true)fail('ACTUAL_FORMAL_SUCCESS_REQUIRED');
+  if(preparation.successorDecisions){
+   const apiAccess=await watch.serially(()=>readRuntimeAccess(client,probe,context.targetSha,preparation.apiAccess));
+   store.immutable('schema-release-1123-api-access-'+context.owner+'.json',{targetSha:context.targetSha,contextDigest:canonicalDigest(context),apiAccess});
+   await watch.observe();
+  }
   await advance('API_BODY','API_VERIFIED',{schemaReceiptSha256:canonicalDigest(effect.bundle),formalDeploymentFile,formalDeploymentSha256:canonicalDigest(formal),candidateParticipants,bodyStdoutSha256:body.stdout.sha256,bodyStderrSha256:body.stderr.sha256});
   verifyModernSchemaStage(dispatch);await advance('API_VERIFIED','OPEN_INTENT',{schemaReceiptSha256:canonicalDigest(effect.bundle),formalDeploymentSha256:canonicalDigest(formal),candidateParticipants});
   await watch.stop();await watch.observe();
   const preOpenFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,preOpenFacts);
-  if(!same(defaultOffEvidenceFromFacts(context.targetSha,preOpenFacts),effect.bundle.defaultOffEvidence))fail('PRE_OPEN_DEFAULT_OFF_CHANGED');
+  if(!same(defaultOffEvidenceFromFacts(context.targetSha,preOpenFacts,{plan:context}),effect.bundle.defaultOffEvidence))fail('PRE_OPEN_DEFAULT_OFF_CHANGED');
   const preOpenFactsFile=path.join(directory,`schema-release-pre-open-facts-${context.owner}.json`);runtime.publishJson(preOpenFactsFile,preOpenFacts);
   const released=await ingress.releaseBeforeOpen();
-  const preOpenOff=await captureModernSchemaDefaultOff(client,context.targetSha),preOpenOffFile=path.join(directory,`schema-release-pre-open-off-${context.owner}.json`);runtime.publishJson(preOpenOffFile,preOpenOff);
+  const preOpenOff=await captureModernSchemaDefaultOff(client,context.targetSha,{plan:context}),preOpenOffFile=path.join(directory,`schema-release-pre-open-off-${context.owner}.json`);runtime.publishJson(preOpenOffFile,preOpenOff);
   if((await captureModernSchemaLedger(client)).sha256!==effect.bundle.afterLedgerSha256)fail('PRE_OPEN_LEDGER_CHANGED');
   await advance('OPEN_INTENT','INGRESS_RELEASED',{ingressReleaseReceipt:released,fencedPublicManifestSha256:canonicalDigest(publisher.readPublic()),preOpenFactsFile,preOpenFactsSha256:canonicalDigest(preOpenFacts),preOpenOffFile,preOpenOffSha256:canonicalDigest(preOpenOff)});
   openCommitIntent=await prepareModernSchemaOpenCommit({state,context,preparationSha256:input.preparationSha256,rootLease,ingressReleaseReceipt:released,admit:async()=>{await native();await watch.observe();return true;}});
