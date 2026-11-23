@@ -10,7 +10,7 @@ import s from './ProductionInboundWorkbench.module.css';
 const endpoint='/v2/inventory/raw-collection-receipts';
 export interface RawHandover {id:string;state:string;handover_ref:string;payload:{warehouseCode:string;rawCollection?:{
   sourceBatchId:string;batchCode:string;shiftId:string;sourceSnapshot:{received_qty:string}}}}
-interface Receipt {company_code:string;house_code:string;production_date:string;warehouse_code:string;id:string;document_no:string;source_batch_id:string;state:string;version:number;created_by:string;ready_by?:string;expected_posting_date?:string;approved_by?:string;approved_at?:string;content_hash:string;submit_key:string;
+export interface RawReceipt {company_code:string;house_code:string;production_date:string;warehouse_code:string;id:string;document_no:string;source_batch_id:string;state:string;version:number;created_by:string;ready_by?:string;expected_posting_date?:string;approved_by?:string;approved_at?:string;content_hash:string;submit_key:string;
   payload?:{quantity?:number;source?:{batch_code:string;shift_id:string};sources?:Array<{id:string;dailyLogId:number;gradeCode:string;quantity:number}>};receipt?:{quantity:number;postingDate:string;inventoryCreated:false};segments?:Array<{id:string;daily_log_id:string;grade_code:string;quantity:number}>}
 export interface RawSource {id:string;batch_code:string;received_qty:string}
 export function RawCollectionSourcePicker({sources,value,disabled,onChange}:{sources:RawSource[];value:string;disabled:boolean;onChange:(value:string)=>void}){
@@ -22,19 +22,19 @@ export function RawCollectionSourcePicker({sources,value,disabled,onChange}:{sou
 export default function RawCollectionReceipts({company,house,date,warehouse,active,busy,handovers,run}:{company:string;house:string;date:string;warehouse:string;
   active:boolean;busy:boolean;handovers:RawHandover[];run:(fn:()=>Promise<void>)=>Promise<void>}){
   const {t}=useLanguage(),p=usePermission('MENU_PROD_INBOUND'),{codeMap:states}=useDictOptions('PRODUCTION_RAW_RECEIPT_STATE');
-  const [rows,setRows]=useState<Receipt[]>([]),[selected,setSelected]=useState<Receipt|null>(null),[error,setError]=useState('');
+  const [rows,setRows]=useState<RawReceipt[]>([]),[selected,setSelected]=useState<RawReceipt|null>(null),[error,setError]=useState('');
   const generation=useRef(0);
   const actor=String(p.user.userId??p.user.id??''),storage=`raw-collection:v1:${actor}`;
   const refresh=useCallback(async(isCurrent:()=>boolean=()=>true)=>{
     const turn=++generation.current;if(!company||!house||!date||!warehouse){setRows([]);return;}
     const qs=new URLSearchParams({companyCode:company,houseCode:house,productionDate:date,warehouseCode:warehouse});
-    const result=await request<Receipt[]>(`${endpoint}?${qs}`);if(turn===generation.current&&isCurrent())setRows(result);
+    const result=await request<RawReceipt[]>(`${endpoint}?${qs}`);if(turn===generation.current&&isCurrent())setRows(result);
   },[company,house,date,warehouse]);
   useEffect(()=>{let alive=true;Promise.resolve().then(()=>{if(alive)return refresh(()=>alive);}).catch(e=>{if(alive)setError(e.message);});
     return()=>{alive=false;};},[refresh,handovers]);
   useEffect(()=>{Promise.resolve().then(()=>setSelected(null));},[company,house,date,warehouse]);
-  const send=(path:string,body:unknown)=>request<Receipt>(`${endpoint}${path}`,{method:'POST',body:JSON.stringify(body)});
-  const load=async(id:string)=>{const turn=generation.current;const d=await request<Receipt>(`${endpoint}/${id}`);if(turn!==generation.current||d.company_code!==company||d.house_code!==house||d.production_date!==date||d.warehouse_code!==warehouse)return d;setSelected(d);return d;};
+  const send=(path:string,body:unknown)=>request<RawReceipt>(`${endpoint}${path}`,{method:'POST',body:JSON.stringify(body)});
+  const load=async(id:string)=>{const turn=generation.current;const d=await request<RawReceipt>(`${endpoint}/${id}`);if(turn!==generation.current||d.company_code!==company||d.house_code!==house||d.production_date!==date||d.warehouse_code!==warehouse)return d;setSelected(d);return d;};
   const action=(fn:()=>Promise<void>)=>run(async()=>{setError('');await fn();await refresh();});
   const savedKey=(name:string)=>{const k=`${storage}:${name}`;let v=sessionStorage.getItem(k);if(!v){v=crypto.randomUUID();sessionStorage.setItem(k,v);}return v;};
   return <section className={s.card} aria-label={t('productionRaw.title','原始收蛋凭证')}>

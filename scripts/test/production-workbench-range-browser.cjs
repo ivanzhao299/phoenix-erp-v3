@@ -37,10 +37,11 @@ async function scenario(browser, mobile) {
     await page.route(stem+'?**', route=>route.fulfill({json:[]}));
     await page.route(stem+'/handovers?**', route=>route.fulfill({json:[]}));
     await page.route(stem+'/balance?**', route=>route.fulfill({json:{scopeState:state,stockBasisVersion:2,grades:{T12:{reported:0,posted:0,remaining:0}},stockByGrade:{T12:{attributableQty:null,warehouseQty:7,mixedBatchCount:1}},reports:[]}}));
+    await page.route('**/raw-collection-receipts/fixture-raw', route=>route.fulfill({json:{state:'POSTED',payload:{source:{batch_code:'ORIGIN-T12'}},receipt:{quantity:7,postingDate:'2026-11-18'}}}));
     let queriedTrace;
     await page.route(stem+'/stock-batches?**', route=>{
       queriedTrace=new URL(route.request().url()).searchParams;
-      return route.fulfill({json:{items:[{batchNo:'TRACE-T12',warehouseCode:'WH-A',locationCode:'LOC-A',skuCode:'TEST-EGG',unit:'EA',status:'AVAILABLE',batchQty:7,availableQty:7,attributableQty:null,attribution:'MIXED',sources:[{kind:'RAW',documentNo:'RAW-T12',handoverRef:'HAND-T12',dailyLogId:'21',occupancyId:'OCC-T12',houseCode:'HOUSE-A',gradeCode:'T12',productionDate:'2026-11-18',flockNo:'FLOCK-T12'}]}],nextCursor:null}});
+      return route.fulfill({json:{items:[{batchNo:'TRACE-T12',warehouseCode:'WH-A',locationCode:'LOC-A',skuCode:'TEST-EGG',unit:'EA',status:'AVAILABLE',batchQty:7,availableQty:7,attributableQty:null,attribution:'MIXED',sources:[{kind:'RAW',documentId:'fixture-raw',documentNo:'RAW-T12',handoverRef:'HAND-T12',dailyLogId:'21',occupancyId:'OCC-T12',houseCode:'HOUSE-A',gradeCode:'T12',productionDate:'2026-11-18',flockNo:'FLOCK-T12'}]}],nextCursor:null}});
     });
     await page.goto(base+(mobile?'/mobile':'/breeding')+'/production-inbound');
     const house=page.getByLabel('鸡舍',{exact:true}),date=page.getByLabel('生产日期',{exact:true}),warehouse=page.getByLabel('交库仓库',{exact:true});
@@ -50,6 +51,8 @@ async function scenario(browser, mobile) {
     await page.getByRole('button',{name:'T12',exact:true}).click();await expect(page.locator('#stock-trace')).toContainText('OCC-T12');
     await expect(page.locator('#stock-trace')).toContainText('混合来源');expect(queriedTrace.get('gradeCode')).toBe('T12');
     expect(queriedTrace.get('view')).toBe('source');expect(queriedTrace.get('warehouseCode')).toBe('WH-A');
+    await page.getByRole('button',{name:'RAW-T12',exact:true}).click();
+    await expect(page.locator('#stock-trace')).toContainText('ORIGIN-T12');
     hold=true;await date.fill('2026-11-19');await expect.poll(()=>typeof held).toBe('function');
     await house.selectOption('HOUSE-A2');await expect(page.getByText('范围尚未核实，请刷新。')).toBeVisible();held();
     await expect(add).toBeDisabled();await expect(page.getByText('TRACE-T12')).toHaveCount(0);
