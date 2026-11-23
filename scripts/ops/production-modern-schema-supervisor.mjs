@@ -1,3 +1,5 @@
+import {readHeldHandoff,checkHeldNative,checkHeldWindow} from './production-remediation-fence-transfer.mjs';
+import {guardInterruptedEdge} from './production-remediation-interrupted-boot.mjs';
 /** Concrete original modern session: schema prelude -> reviewed formal API
  * body -> real OPEN -> ingress release -> ordinary trusted terminal state. */
 import fs from 'node:fs';import path from 'node:path';
@@ -190,6 +192,13 @@ export async function superviseModernSchemaRelease(env,input){
  const preparation=store.read(`schema-release-preparation-${dispatch.owner}.json`),validated=validateModernSchemaPreparation(preparation),context=validated.context;
  if(preparation.preparationSha256!==input.preparationSha256||context.targetSha!==dispatch.targetSha||context.owner!==dispatch.owner||context.floorSha!==dispatch.floorSha)fail('EXACT_PROTECTED_PREPARATION_REQUIRED');
  if(!same(preparation.stagedSource,verifyModernSchemaStage(dispatch)))fail('PREPARED_SOURCE_GRAPH_CHANGED');
+ const handoff=preparation.successorDecisions?readHeldHandoff(store,dispatch.targetSha):null;
+ let retainedNative=null;
+ if(handoff){
+  if(canonicalDigest(handoff.entry)!==preparation.handoffSha256)fail('HELD_PREPARATION_CHANGED');
+  checkHeldWindow(handoff,context.window);
+  retainedNative=await checkHeldNative({handoff,store,runtime,admit:async()=>{runtime.guard();return true;}});
+ }
  const sessionDirectory=runtime.createDirectory(context.owner,'session');
  await registerModernSchemaRelease({owner:context.owner,preparationSha256:input.preparationSha256,identityToken:input.identityToken},{identityDependencies:{credential:input.githubReadToken}});
  input.identityToken=null;input.githubReadToken=null;
@@ -206,6 +215,7 @@ export async function superviseModernSchemaRelease(env,input){
   if(state)assertSameBinding(state.read(),state.binding);return true;};
  const native=async({allowHeld=false}={})=>{
   const observeHost=()=>{
+   if(handoff){guardInterruptedEdge(directory);retainedNative?.recheck();}
    runtime.guard();
    if(allowHeld){
     const pending=state?.read();
@@ -450,6 +460,7 @@ export async function superviseModernSchemaRelease(env,input){
    await watch.observe();
   }
   await advance('API_BODY','API_VERIFIED',{schemaReceiptSha256:canonicalDigest(effect.bundle),formalDeploymentFile,formalDeploymentSha256:canonicalDigest(formal),candidateParticipants,bodyStdoutSha256:body.stdout.sha256,bodyStderrSha256:body.stderr.sha256});
+  if(handoff)retainedNative.recheck();
   verifyModernSchemaStage(dispatch);await advance('API_VERIFIED','OPEN_INTENT',{schemaReceiptSha256:canonicalDigest(effect.bundle),formalDeploymentSha256:canonicalDigest(formal),candidateParticipants});
   await watch.stop();await watch.observe();
   const preOpenFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,preOpenFacts);

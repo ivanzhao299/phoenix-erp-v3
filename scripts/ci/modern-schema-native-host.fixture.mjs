@@ -1,3 +1,5 @@
+import {retireVerifiedIngress} from '../ops/production-remediation-fence-transfer.mjs';
+import {captureModernSchemaFacts} from '../ops/production-modern-schema-facts.mjs';
 /** An isolated VM integration check. Native host control, kernel packets and
  * PostgreSQL sessions are real. No production registration or deploy runs. */
 import assert from 'node:assert/strict';
@@ -174,6 +176,61 @@ async function main(){
     assert.equal(closed.outcome,'ORIGINAL_SESSION_ABSENT');
     progress('NATIVE_INGRESS_RELEASE_PRECEDES_DURABLE_PUBLIC_OPEN_AND_NATIVE_S_CLOSE');
     assert.equal(store.read('background-control.json').phase,'OPEN');
+    // Subsequent, independent control sessions exercise an interrupted boot.
+    // Both native fences protect the same historical API until the replacement
+    // is verified. A separate client continuously samples the public origin.
+    const edge=docker('run','-d','--name','phoenix-handoff-edge','--network',network,
+      '--entrypoint','sh','nginx:1.28-alpine','-ec',
+      "echo 'server { listen 80; return 503; }' > /etc/nginx/conf.d/default.conf; exec nginx -g 'daemon off;'");
+    const edgeIp=getIp(edge);
+    const observer=docker('run','-d','--network',network,sourceImage,'node','-e',`
+      let failed=0,total=0;
+      async function probe(){try{if((await fetch('http://${edgeIp}/login',{signal:AbortSignal.timeout(1000)})).status!==503)failed++;}catch{failed++;}total++;console.log(total+':'+failed);}
+      (async()=>{for(;;){await probe();await new Promise(r=>setTimeout(r,90));}})();`);
+    const edgeUp=()=>{
+      const logs=docker('logs','--tail','1',observer);
+      assert.match(logs,/^[1-9][0-9]*:0$/);
+    };
+    for(let n=0;n<40&&!docker('logs','--tail','1',observer);n++)await pause(100);
+    edgeUp();
+    const scope=surface.ingressScope;
+    const one=new ModernSchemaControlSession(),two=new ModernSchemaControlSession();
+    const first={...context,owner:'98766-1'},second={...context,owner:'98767-1'};
+    try{
+     await one.start();assert.ok(await one.tryLock(1));assert.ok(await one.tryLock(2));
+     const leaseA=await pinOriginalModernSchemaSession(one,first);
+     const a=new ModernSchemaIngress({context:first,scope,privateRuntime,admit:()=>one.query(originalModernSchemaSessionPredicate(leaseA))});
+     const oldProof=await a.install();edgeUp();
+     const before=await captureModernSchemaFacts(client);
+     const originalBoot=inspectModernSchemaContainer(newId).state.StartedAt;
+     assert.equal(docker('stop','-t','10',newId),newId);assert.equal(docker('start',newId),newId);await waitForHealth(newId);
+     assert.notEqual(inspectModernSchemaContainer(newId).state.StartedAt,originalBoot);
+     assert.deepEqual(peerProbe(getIp(newId),NEW),denied);
+     await two.start();assert.equal(await two.tryLock(1),false);
+     const exitA=await closeModernSchemaOriginalSession({coordinator:{close:()=>one.close()},lease:leaseA,client,guard});
+     assert.equal(exitA.outcome,'ORIGINAL_SESSION_ABSENT');
+     assert.ok(await two.tryLock(1));assert.ok(await two.tryLock(2));
+     const leaseB=await pinOriginalModernSchemaSession(two,second);
+     assert.notDeepEqual(leaseA,leaseB);assert.deepEqual(leaseA.database,leaseB.database);
+     const checkLease=()=>two.query(originalModernSchemaSessionPredicate(leaseB));
+     assert.deepEqual(before,await captureModernSchemaFacts(client));edgeUp();
+     const b=new ModernSchemaIngress({context:second,scope,privateRuntime,admit:checkLease});
+     const newProof=await b.install();
+     const args={ingress:a,proof:oldProof,store,runtime:privateRuntime,owner:second.owner,
+      binding:{oldOwner:first.owner,newIdentity:newProof.identitySha256,verifiedSha256:canonicalDigest(before)},verify:async()=>{edgeUp();return checkLease();}};
+     await assert.rejects(retireVerifiedIngress({authorizeRemoval:()=>{},...args,verify:async()=>false}),/COMPLETED_WEB_AND_EDGE_REQUIRED/);
+     assert.equal(a.names().length,2);assert.equal(b.names().length,2);
+     await b.releaseBeforeOpen();
+     assert.equal(b.names().length,0);assert.equal(a.names().length,2);
+     assert.deepEqual(probe('127.0.0.1',NEW),denied);assert.deepEqual(peerProbe(getIp(newId),NEW),denied);edgeUp();
+     await retireVerifiedIngress({authorizeRemoval:()=>{},...args,apply:async file=>{run('/usr/sbin/nft',['--json','--file',file]);throw Error('LOST_ACK');}});
+     assert.equal(a.names().length,0);
+     await retireVerifiedIngress({authorizeRemoval:()=>{},...args,apply:()=>assert.fail('sealed replay repeated nft')});
+     assert.equal(probe('127.0.0.1',NEW).status,200);edgeUp();
+     const exitB=await closeModernSchemaOriginalSession({coordinator:{close:()=>two.close()},lease:leaseB,client,guard});
+     assert.equal(exitB.outcome,'ORIGINAL_SESSION_ABSENT');
+     progress('TWO_NATIVE_LEASES_RESTART_AND_FENCE_TRANSFER_KEEP_PUBLIC_503');
+    }finally{await Promise.allSettled([one.close(),two.close()]);}
     receipt.outcome='PASS_NATIVE_HOST_COMPONENT_CHAIN';
     receipt.formalDeploymentBodyAndOidcExercised=false;save();
   }catch(error){

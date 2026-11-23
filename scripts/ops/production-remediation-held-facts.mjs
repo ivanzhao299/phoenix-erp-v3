@@ -2,6 +2,7 @@
  * cannot start a release, change a manifest, invoke a migration or remove ingress. */
 import fs from 'node:fs';
 import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -47,7 +48,8 @@ export function compareHeldFacts(before,after){
   changedTables:group('tables','table'),changedSequences:group('sequences','name'),releaseAuthorized:false};
 }
 
-export function assertHeldEdge(directory){
+let lastProbe=0;
+export function assertHeldEdge(directory,{forceProbe=false}={}){
  const conf='/etc/nginx/conf.d/erp.eggslao.com.conf';
  const st=fs.lstatSync(conf);
  assert(st.isFile()&&st.uid===0&&st.gid===0&&st.nlink===1&&(st.mode&0o777)===0o644&&sha(fs.readFileSync(conf))===edgePin,'VHOST_CHANGED');
@@ -60,6 +62,24 @@ export function assertHeldEdge(directory){
  const intent=receipt('intent.json'),drained=receipt('workers-drained.json');
  assert(intent.owner===heldOwner&&intent.held===edgePin&&drained.owner===heldOwner&&drained.held===edgePin&&
   Object.keys(intent.workers).length>0&&Object.keys(drained.workers).length>0,'EDGE_DRAIN_RECEIPT');
+ const master=fs.readFileSync('/run/nginx.pid','utf8').trim();
+ assert(/^[1-9][0-9]*$/.test(master),'NGINX_MASTER_PID');
+ const children=fs.readFileSync('/proc/'+master+'/task/'+master+'/children','utf8').trim().split(/\s+/);
+ const current={};
+ for(const pid of children){
+  if(!/^[1-9][0-9]*$/.test(pid))continue;
+  if(fs.readFileSync('/proc/'+pid+'/cmdline').includes(Buffer.from('nginx: worker process')))
+   current[pid]=fs.readFileSync('/proc/'+pid+'/stat','utf8').split(/\)\s/).at(-1).trim().split(/\s+/)[19];
+ }
+ assert(same(current,drained.workers),'ACTIVE_NGINX_WORKERS_CHANGED');
+ if(forceProbe||performance.now()-lastProbe>=20000||lastProbe===0){
+  for(const url of ['http://erp.eggslao.com/','https://erp.eggslao.com/','https://erp.eggslao.com/login','https://erp.eggslao.com/api/health']){
+   const code=execFileSync('/usr/bin/curl',['-q','--noproxy','*','--resolve','erp.eggslao.com:80:127.0.0.1','--resolve','erp.eggslao.com:443:127.0.0.1','--max-time','4','-sS','-o','/dev/null','-w','%{http_code}',url],
+    {env:{PATH:'/usr/bin:/bin'},encoding:'utf8',timeout:5000,stdio:['ignore','pipe','pipe']});
+   assert(code==='503','ACTIVE_PUBLIC_VHOST_CHANGED');
+  }
+  lastProbe=performance.now();
+ }
  for(const [pid,tick] of Object.entries(intent.workers)){
   assert(/^[1-9][0-9]*$/.test(pid),'EDGE_WORKER_PID');
   const file='/proc/'+pid+'/stat';

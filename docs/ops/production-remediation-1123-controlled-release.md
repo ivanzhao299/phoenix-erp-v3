@@ -114,3 +114,9 @@ Web 首次切换验证原 API 成功凭证、当前双镜像、专属候选、�
 事故原运行 `45144287071-1` 保留 `FRESH_RECHECKED/HOLD`。公网 HTTP 和 HTTPS 的 Phoenix 虚拟主机于新加坡时间 19:26 排空旧 worker，首页、登录与健康路径均经外部复核返回 503。取证时须同时保有该配置和原生 inet、bridge 两道 API 围栏。
 
 在主干运行 `production-modern-original-recovery.yml`，选择 `inspect_held_facts=true`、`approve_stopped_original=false`、`approve_forward_api=false`，输入原运行和它的完整目标 SHA。取证在新的数据库双锁租约下，用只读重复读快照核对原第 5 步封存的完整逐表及序列记录。输出 MATCH、DIFFERENCE 或 HOLD，含差异对象数或失败代码。成功后核实本次租约已退出。三个结果均保留停机状态。后续接管还须单独取得受控恢复、迁移和双端发布回执。
+
+### 围栏内接管与 Web 验收
+
+`45168560404-1` 取证成功，原租约与取证租约均已退出。主干上的 `production-modern-original-recovery.yml` 先选择 `rehearse_held_takeover=true`，其余操作均为 false。填写原运行、原目标和 `held_inspection_owner`。演练核验至状态变更前，保留原容器、围栏与后台清单，确认新租约已退出后产生 HANDOFF_REHEARSED。实际接管另开运行，选择 `approve_held_takeover=true` 并填写 `held_rehearsal_owner`。程序核对同一主干提交、原运行、取证和现场演练回执。新作业先核对原启动命令、容器启动纳秒时间、原 0–5 步、不存在后续 DDL 意图、停机时保护的数据库目录、业务事实和原生租约，再在新双锁下复测。内部后台清单只授予空任务列表。旧 API 同一次启动持续运行，外侧 503 和两道旧原生围栏持续有效。
+
+在新目标的独立核验和主干构建均通过后，按本手册已有次序执行 inspect、approve、web。旧 native 围栏覆盖整个 API 发布和 Web 切换。Web 在正式候选 API 容器内核验就绪。封存同版 API 与 Web 成功回执后，才可按原 nft 身份撤下旧原生围栏。确认丢失时以相同 `web1123-<api-owner>` 查回，必须有正确的删除意图及双族状态。外层 Nginx 维护页另行验收并恢复。本次绝对截止为 2026-11-23 23:07:52 新加坡时间。

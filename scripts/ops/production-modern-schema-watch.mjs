@@ -1,3 +1,4 @@
+import {isHeldResource,verifyHeldIsolation} from './production-remediation-held-resources.mjs';
 /** Serial native observation throughout the original-S session. New/changed
  * actors are never adopted by name, PPID, application_name or a JSON flag. */
 import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {ChildProcess,execFileSync} from 'node:child_process';
@@ -225,6 +226,12 @@ export class ModernSchemaExecutorWatch {
   }catch{fail('HISTORICAL_COMPOSE_ARTIFACT_CHANGED');}
  }
  verifyContainers(values){
+  const heldResources=(this.preparation.hostSurface.inertArtifacts??[]).filter(isHeldResource);
+  verifyHeldIsolation(heldResources,this.run);
+  for(const pin of heldResources){
+   const actual=values.find(candidate=>candidate.id===pin.id);
+   if(!actual||canonicalDigest(actual)!==pin.identitySha256)fail('HELD_RESOURCE_REMOVED_OR_CHANGED');
+  }
   this.#verifyRetainedInventory(values);
   const historical=this.#verifyHistoricalCompose(values);
   const pre=this.preparation.originalSnapshot.containers,byId=new Map(values.map(value=>[value.id,value]));let runtimeAddress=this.preparation.hostSurface.runtimeAddress;
@@ -577,6 +584,12 @@ export class ModernSchemaExecutorWatch {
   this.runtime.guard();const pending=this.state.read();
   if(this.running||!['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED'].includes(pending.phase)||pending.status!=='HOLD'||this.state.ddlIntentExists()||typeof admit!=='function'||await admit()!==true)fail('SAME_LEASE_PRE_DDL_RECOVERY_HOST_REQUIRED');
   const values=this.containers(),pre=this.preparation.originalSnapshot.containers,known=new Set([pre.api.id,pre.web.id,pre.db.id,...this.resources.keys()]);
+  const heldResources=(this.preparation.hostSurface.inertArtifacts??[]).filter(isHeldResource);
+  verifyHeldIsolation(heldResources,this.run);
+  for(const pin of heldResources){
+   const actual=values.find(candidate=>candidate.id===pin.id);
+   if(!actual||canonicalDigest(actual)!==pin.identitySha256)fail('HELD_RESOURCE_REMOVED_OR_CHANGED');
+  }
   this.#verifyRetainedInventory(values);
   this.#verifyHistoricalCompose(values);
   for(const value of values){

@@ -197,6 +197,27 @@ function recoveredInventoryPreparation(container,owner,revision,{directory,readR
   pin:{classification:RETAINED_RECOVERED_INVENTORY_CLASSIFICATION,probeStage:pin.stage,recoveryEvidenceSha256:canonicalDigest(evidence)}};
 }
 function retainedInventoryPreparation(container,owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedPrepareReceipt,readPrepared=readProtectedPrepareReceipt,readRecovered=readProtectedPrepareReceipt,absent=protectedAbsent}={}){
+ if(owner==='45144287071-1'&&revision==='98dfab3411fbddb8c1646f2db20df2799291cd3d'&&
+    !absent(path.join(directory,'schema-release-1123-handoff-'+owner+'.json'))){
+  const read=(name,limit=65536)=>readRecovered(path.join(directory,name),limit);
+  const anchor=read('schema-release-1123-handoff-'+owner+'.json').value;
+  const archived=read('schema-release-operator-archive-'+anchor.recoveryOwner+'.json').value;
+  const step=read('schema-release-step-'+owner+'-3-r-stop-intent.json').value;
+  const {value:{preparationSha256,...prepared},completedAtMs}=read('schema-release-preparation-'+owner+'.json',8*1024*1024);
+  const early=container.id==='2934361c8930967bb06cc132f78ee0866e74c9f9b3a4e60bbe5f58349cbfece8';
+  const late=container.id==='9c518200e4f495df408ac705ac1c692fd3f75914d75e330c765c06047c0fbb7c';
+  const start=Date.parse(container.state.StartedAt),end=Date.parse(container.state.FinishedAt),stopped=Date.parse(step.recordedAt);
+  const planned=prepared.ownedResources.filter(r=>r.role==='readonly-inventory');
+  if((!early&&!late)||anchor.owner!==owner||anchor.outerIngressHeld!==true||anchor.archiveSha256!==canonicalDigest(archived)||
+    archived.pending.stateDigest!=='c8415dc078bcfa3546e47f567031adb5495632a76a17ab86a7abab3178d4c9dc'||
+    archived.pending.schemaRelease.preparationSha256!==preparationSha256||canonicalDigest(prepared)!==preparationSha256||
+    preparationSha256!=='9df223b69e845f63f3b517c77ff847d8d65269bd1ab5d207dcae0affbeb61b91'||
+    planned.length!==1||(planned[0].containerId===container.id)!==early||planned[0].inventorySha256!==prepared.context.candidateInventorySha256||
+    planned[0].imageId!==container.imageId||canonicalDigest(container)!==(early?'f4d2116c244df51bbe323db5b1272f426bacda41b40d53096ce165e6cf3d647d':'c6da7b7a5be0568ccf01d5dc7249e24b9c532c1a53637d79368e6e4da23dd824')||
+    !(start>0&&end>=start&&Number.isFinite(stopped))||(early?end>completedAtMs:start<completedAtMs||end>stopped))hold('HELD_INVENTORY_SOURCE');
+  return {completedAtMs:stopped,expectedInventorySha256:planned[0].inventorySha256,pin:{classification:RETAINED_RECOVERED_INVENTORY_CLASSIFICATION,
+    probeStage:early?'prepare':'supervise',recoveryEvidenceSha256:canonicalDigest(anchor)}};
+ }
  if(owner===PREDECESSOR_OWNER&&revision===PREDECESSOR_SHA&&!absent(path.join(directory,'schema-release-forward-api-terminal-'+owner+'.json'))){
   const prior=name=>readRecovered(path.join(directory,'schema-release-'+name+'-'+owner+'.json'),8*1024*1024);
   const {value:terminal}=prior('forward-api-terminal'),{value:intent}=prior('forward-api-intent');

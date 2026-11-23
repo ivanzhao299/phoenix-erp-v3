@@ -1,12 +1,13 @@
 /** Controlled forward recovery of an exact pre-DDL HOLD under a fresh lease. */
 import fs from 'node:fs';
+import {exactHeldAttempt,guardInterruptedEdge,interruptedBoot} from './production-remediation-interrupted-boot.mjs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {CONTRACT,git,verifyContext} from './production-config-guard.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-import {assertRegularFile} from './production-trusted-paths.mjs';
+import {assertRegularFile,readPinnedFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {assertSameBinding,atomicPublicManifest,PUBLIC_DIRECTORY,readPublicManifest,validateBinding,validateManifest} from './background-control-manifest.mjs';
@@ -53,7 +54,7 @@ function putOnce(store,name,value){
  requireThat(same(store.read(name),value),'IMMUTABLE_OPERATOR_EVIDENCE_CHANGED');
 }
 
-async function finishPublished({store,runtime,ingress,admission,session,lease,guard,closeLease,owner,prior,target,context,pending,previousFenced,policy}){
+async function finishPublished({store,runtime,ingress,admission,session,lease,guard,closeLease,owner,prior,target,context,pending,previousFenced,policy,heldInspection}){
  const key=kind=>`schema-release-operator-${kind}-${prior}.json`;
  const record=store.read(key('recovery-intent'));
  const intent=store.read(key('open-intent'));
@@ -81,7 +82,18 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
    targetSha:context.runtimeSha,generation,participants:[participant]})&&same(validateBinding(ordinary),{...prepared.originalBackground.record,
    generation,phase:'OPEN',manifestDigest:orderedDigest(manifest),updatedAt:ordinary.updatedAt}),'PROTECTED_OPERATOR_OPEN_INTENT_REQUIRED');
  let adoptedOwnership;
- if(isExpiredVerifiedOriginal(pending)){
+ if(heldInspection){
+  guardInterruptedEdge(store.directory);
+  const inspection=store.read('schema-release-held-facts-'+heldInspection+'.json');
+  const original=store.read('schema-release-original-recovery-intent-'+owner+'.json');
+  requireThat(exactHeldAttempt(pending)&&record.heldInspection===heldInspection&&verified.verification.inspectionOwner===heldInspection&&
+   same(participant.allowedKinds,[])&&verified.verification.startedAt===interruptedBoot&&
+   same(verified.verification.originalFencedParticipant,{...prepared.originalBackground.participant,bootId:participant.bootId})&&
+   record.originalFencedBootSha256===null&&verified.verification.inspectionSha256===canonicalDigest(inspection)&&
+   verified.verification.originalIntentSha256===canonicalDigest(original)&&verified.verification.factsSha256===inspection.result.before&&
+   inspection.result.outcome==='MATCH'&&verified.verification.hostProcessesSha256?.length===64,'INTERRUPTED_ORIGINAL_RECHECK_REQUIRED');
+ }else if(record.heldInspection){hold('EXPLICIT_HELD_HANDOFF_REQUIRED');}
+ else if(isExpiredVerifiedOriginal(pending)){
   const priorProof=store.read(`schema-release-original-recovery-verified-${owner}.json`);
   adoptedOwnership=readVerifiedRecoveryOwnership(store,pending,priorProof);
   requireThat(record.adoptedRecoveryProofSha256===canonicalDigest(priorProof)&&
@@ -106,6 +118,13 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   const installed=store.read(`schema-release-ingress-installed-${owner}.json`);
   requireThat(ingress.names().length===2&&canonicalDigest(ingressIdentity(ingress.tables()))===installed.identitySha256,
    'ORIGINAL_NATIVE_INGRESS_CHANGED');
+  if(heldInspection){
+   const inc=inspectModernSchemaContainer(api.id);
+   requireThat(inc.imageId===api.image&&inc.state.StartedAt===startedAt,'INTERRUPTED_BOOT_CHANGED');
+   if(same(inc.restartPolicy,{Name:'no',MaximumRetryCount:0})&&policy.Name!=='no'){
+    await admission();docker(['update','--restart='+policy.Name,api.id]);
+   }
+  }
   const active=inspectModernSchemaContainer(api.id),actual=inspectApiParticipant(participant,prepared.floor.project);
   const status=verifyParticipantStatus(actual,participant,previousFenced);
   requireThat(active.imageId===api.image&&active.state.StartedAt===startedAt&&same(active.restartPolicy,policy)&&
@@ -144,6 +163,11 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   };
  await verifyOpen();
  await ingress.check('OPERATOR_FORWARD_OPEN');
+ const installed=store.read(`schema-release-ingress-installed-${owner}.json`);
+ const nativeRetained=()=>ingress.names().length===2&&canonicalDigest(ingressIdentity(ingress.tables()))===installed.identitySha256;
+ if(heldInspection){
+  requireThat(intent.nativeRemoveSha256===null&&intent.retainedNativeIdentitySha256===installed.identitySha256&&nativeRetained(),'PERSISTENT_NATIVE_REQUIRED');
+ }else{
  const remove={nftables:['bridge','inet'].map(family=>({delete:{table:{family,name:ingress.compiled.table}}}))};
  const removeFile=store.file(key('remove-owned-ingress'));
  requireThat(intent.nativeRemoveSha256===canonicalDigest(remove),'EXACT_NATIVE_REMOVE_INTENT_REQUIRED');
@@ -154,6 +178,7 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   try{execute('/usr/sbin/nft',['--json','--file',removeFile]);}catch{}
  }
  requireThat(ingress.names().length===0,'OWNED_INGRESS_RELEASE_UNVERIFIED');
+ }
  await verifyOpen();
  const open={schema:'phoenix.modern-operator-original-open/v1',owner,recoveryOwner:prior,manifest,
   originalRuntimeSha:context.runtimeSha,formalTargetSuccess:false,intentSha256:canonicalDigest(intent)};
@@ -174,18 +199,28 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
    savedExit.transportClosed===true&&same(savedExit.nativeObservation,priorExit.nativeObservation),'COMMITTED_LEASE_EXIT_CHANGED');
  }finally{await observer.close();}
  guard();
- requireThat(publicMatches()&&ingress.names().length===0,'FINAL_PUBLIC_ORIGINAL_CHANGED');
+ requireThat(publicMatches()&&(heldInspection?nativeRetained():ingress.names().length===0),'FINAL_PUBLIC_ORIGINAL_CHANGED');
  const saved={schema:'phoenix.modern-operator-pre-ddl-recovery-archive/v1',owner,recoveryOwner:prior,pending,
+  ...(heldInspection?{heldInspection,outerIngressHeld:true,allowedKinds:[]}:{}),
   originalRuntimeSha:context.runtimeSha,requestedTargetSha:target,formalTargetSuccess:false,schemaChanged:false,markerArchived:true,
   publicOpenSha256:canonicalDigest(open)};
  putOnce(store,archive,saved);
+ if(heldInspection){
+  guardInterruptedEdge(store.directory);
+  requireThat(nativeRetained(),'PERSISTENT_NATIVE_REQUIRED');
+  putOnce(store,'schema-release-1123-handoff-'+owner+'.json',{
+   schema:'phoenix.1123-interrupted-handoff/v1',owner,recoveryOwner:prior,executionSha:record.executionSha,
+   pendingSha256:canonicalDigest(pending),inspectionOwner:heldInspection,verifiedSha256:canonicalDigest(verified),
+   archiveSha256:canonicalDigest(saved),ingressIdentitySha256:installed.identitySha256,generation,
+   backgroundGrants:[],outerIngressHeld:true,formalTargetSuccess:false});
+ }
  const pendingName='schema-release-pending.json';
  if(store.exists(pendingName)){
   guard();fs.unlinkSync(store.file(pendingName));
  }
  runtime.syncDirectory(store.directory);
  requireThat(!store.exists(pendingName)&&publicMatches(),'TERMINAL_PENDING_CLEANUP_FAILED');
- return 'ORIGINAL_OPEN';
+ return heldInspection?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN';
 }
 
 async function recover(env){
@@ -212,11 +247,30 @@ async function recover(env){
  const residual=isResidualStopIntent(pending,store);
  const fresh=pending.phase==='FRESH_RECHECKED';
  const adopting=isExpiredVerifiedOriginal(pending);
+ const rehearsing=env.OPERATOR_RECOVERY_MODE==='rehearse-held';
+ const handoff=env.OPERATOR_RECOVERY_MODE==='handoff-held';
+ const heldInspection=(rehearsing||handoff)?env.OPERATOR_HELD_INSPECTION:'';
+ if(rehearsing||handoff){
+  requireThat(ownerShape.test(heldInspection??'')&&![owner,recoveryOwner,prior].includes(heldInspection)&&exactHeldAttempt(pending),'EXACT_INTERRUPTED_SCOPE');
+  guardInterruptedEdge(store.directory);
+  if(rehearsing)requireThat(!prior&&!env.OPERATOR_HELD_REHEARSAL,'STANDALONE_REHEARSAL_REQUIRED');
+  if(handoff){
+   const witness=env.OPERATOR_HELD_REHEARSAL;
+   requireThat(ownerShape.test(witness??'')&&![owner,recoveryOwner,heldInspection].includes(witness),'EXACT_REHEARSAL_REQUIRED');
+   const proof=store.read('schema-release-held-rehearsal-'+witness+'.json');
+   const formal=JSON.parse(readPinnedFile(path.join(store.directory,'.transport-'+witness+'-recover-rehearse-held.receipt'),{contract:CONTRACT}));
+   requireThat(proof.schema==='phoenix.held-takeover-rehearsal/v1'&&proof.owner===owner&&proof.recoveryOwner===witness&&proof.executionSha===executionSha&&
+    proof.heldInspection===heldInspection&&proof.pendingSha256===canonicalDigest(pending)&&proof.verification.inspectionOwner===heldInspection&&
+    proof.verification.startedAt===interruptedBoot&&proof.leaseExit.outcome==='ORIGINAL_SESSION_ABSENT'&&proof.leaseExit.transportClosed===true&&
+    proof.leaseExit.originalLeaseSha256===proof.verification.recoveryLeaseSha256&&proof.publicHeld===true&&proof.migrationAuthorized===false&&
+    same(formal,{schema:'phoenix.modern-original-recovery-public/v1',originalOwner:owner,recoveryOwner:witness,formalTargetSuccess:false,outcome:'HANDOFF_REHEARSED'}),'SAME_REVISION_REHEARSAL_REQUIRED');
+  }
+ }
  const priorParticipant=prep.originalBackground.participant;
  const originalStep=store.read(`schema-release-step-${owner}-${residual?'3-r-stop-intent':'4-r-stopped'}.json`);
  const stop=originalStep.payload.evidence.runtimeStopReceipt;
  const provedStalledStop=stop?.stalledShutdown&&originalStopExitIsProved(stop,context);
- const recoverAlreadyStopped=!adopting&&!started&&(!closed||fresh||residual||provedStalledStop);
+ const recoverAlreadyStopped=!heldInspection&&!adopting&&!started&&(!closed||fresh||residual||provedStalledStop);
  const originalPolicy=residual?originalStep.payload.evidence.originalRestartPolicy:stop.originalRestartPolicy;
  const originalProof=store.read(`schema-release-ingress-installed-${owner}.json`);
  const supervisor=readLinuxProcessIdentity(process.pid),deadline=Date.now()+25*60*1000;
@@ -233,11 +287,12 @@ async function recover(env){
     closed?.outcome==='ORIGINAL_SESSION_ABSENT'&&closed.originalLeaseSha256===canonicalDigest(pending.lease))&&
   typed.phase==='FENCED'&&fenced.phase==='FENCED'&&typed.owner===owner&&fenced.owner===owner&&fenced.targetSha===target&&
   typed.manifestDigest===orderedDigest(fenced)&&(generationBefore.generation===fenced.generation||(prior&&generationBefore.generation===fenced.generation+1))&&
-  (adopting||recoverAlreadyStopped||started?.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&
+  (heldInspection||adopting||recoverAlreadyStopped||started?.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&
     started.participant.containerId===api.id&&started.participant.revision===context.runtimeSha&&
     started.pendingSha256===canonicalDigest(pending)&&started.fencedSha256===canonicalDigest(fenced))&&
   ['no','always','unless-stopped'].includes(originalPolicy.Name)&&originalPolicy.MaximumRetryCount===0,'EXACT_HELD_ORIGINAL_REQUIRED');
  const unchanged=()=>{
+  if(heldInspection)guardInterruptedEdge(store.directory);
   verifyContext(root,directory);
   requireThat(Date.now()<deadline&&same(readLinuxProcessIdentity(process.pid),supervisor)&&
    (markerPresent?same(store.read(pendingName),pending)&&same(pinnedStat(fs.lstatSync(pendingPath)),pinnedStat(initialStat)):
@@ -274,14 +329,34 @@ async function recover(env){
    return identity;
   };
   const complete=async(commitOwner)=>finishPublished({store,runtime,ingress,admission,session,lease:recoveryLease,guard:unchanged,
-   closeLease:async()=>{await verifier?.close();verifier=null;closing=true;},owner,prior:commitOwner,target,context,pending,previousFenced:fenced,policy:originalPolicy});
+   closeLease:async()=>{await verifier?.close();verifier=null;closing=true;},owner,prior:commitOwner,target,context,pending,previousFenced:fenced,policy:originalPolicy,heldInspection});
   if(prior){
    requireThat(priorIntent&&(same(readPublicManifest(),priorIntent.manifest)||same(readPublicManifest(),fenced)),'PREVIOUS_EXACT_OPEN_INTENT_REQUIRED');
    return await complete(prior);
   }
   await observeFence();
   verifier=await createModernSchemaOperatorRecoveryVerifier({owner,recoveryOwner,recoveryLease,requireAdmission:admission,observeFences:observeFence,
-   controlChild:session.child});
+   controlChild:session.child,heldInspection});
+  if(rehearsing){
+   const verification=await verifier.verifyInterruptedOriginal();
+   const next=inspectApiParticipant(priorParticipant,prep.floor.project);
+   const status=verifyParticipantStatus(next,verification.participant,fenced);
+   requireThat(verification.startedAt===next.startedAt&&next.imageId===api.image&&status.phase==='FENCED'&&
+    sameOperatorControlSession(verification.controlSession,status.controlSession)&&status.inFlight===0&&status.taskGraphs===0&&status.pendingChildren===0&&
+    await session.verifyParticipants([{...status.controlSession,bootId:verification.participant.bootId}])===true,'REHEARSAL_FENCED_PARTICIPANT');
+   await verifier.verifyHostBeforeOpen();await observeFence();await verifier.close();verifier=null;closing=true;
+   const observer=new ModernSchemaReadClient();let leaseExit;
+   try{
+    await observer.start();
+    leaseExit=await closeModernSchemaOriginalSession({coordinator:{close:()=>session.close()},lease:recoveryLease,client:observer,guard:unchanged});
+   }finally{await observer.close();}
+   requireThat(leaseExit.outcome==='ORIGINAL_SESSION_ABSENT'&&leaseExit.transportClosed===true,'REHEARSAL_NEW_LEASE_EXIT');
+   unchanged();readHeld();
+   requireThat(ingress.names().length===2&&canonicalDigest(ingressIdentity(ingress.tables()))===originalProof.identitySha256,'REHEARSAL_NATIVE');
+   store.immutable('schema-release-held-rehearsal-'+recoveryOwner+'.json',{schema:'phoenix.held-takeover-rehearsal/v1',owner,recoveryOwner,executionSha,
+    heldInspection,pendingSha256:canonicalDigest(pending),verification,leaseExit,publicHeld:true,migrationAuthorized:false});
+   return 'HANDOFF_REHEARSED';
+  }
   if(started){
    await verifier.verifyFencedBoot();
    const incumbent=inspectModernSchemaContainer(api.id),fencedApi=inspectApiParticipant(started.participant,prep.floor.project);
@@ -294,6 +369,7 @@ async function recover(env){
   store.immutable(newKey('recovery-intent'),{schema:'phoenix.modern-operator-recovery-intent/v1',owner,recoveryOwner,target,executionSha,
    newSupervisor:supervisor,newLease:recoveryLease,previousLeaseSha256:canonicalDigest(pending.lease),pendingSha256:canonicalDigest(pending),
     reviewedSourceSha256:established.sha256,originalFencedBootSha256:started?canonicalDigest(started):null,migrationAuthorized:false,
+    ...(heldInspection?{heldInspection,heldRehearsal:env.OPERATOR_HELD_REHEARSAL}:{}),
     ...(priorRecovery?{adoptedRecoveryProofSha256:canonicalDigest(priorRecovery),
        adoptedOwnershipSha256:readVerifiedRecoveryOwnership(store,pending,priorRecovery).sha256}:{})});
   await admission();await observeFence();
@@ -313,7 +389,9 @@ async function recover(env){
    await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&data.state.Pid===0&&data.state.ExitCode===0);
   }
   let verification;
-  if(adopting){
+  if(heldInspection){
+   verification=await verifier.verifyInterruptedOriginal();
+  }else if(adopting){
    verification=await verifier.verifyAdoptedOriginal();
   }else{
    const stopped=await verifier.captureStopped();
@@ -329,15 +407,15 @@ async function recover(env){
   }
   await observeFence();
   const next=inspectApiParticipant(priorParticipant,prep.floor.project);
-  const participant={...priorParticipant,bootId:next.status.bootId};
+  const participant={...priorParticipant,bootId:next.status.bootId,...(heldInspection?{allowedKinds:[]}: {})};
   const status=verifyParticipantStatus(next,participant,fenced);
   requireThat(same(verification.participant,participant)&&verification.startedAt===next.startedAt&&sameOperatorControlSession(verification.controlSession,status.controlSession)&&
    participant.bootId!==(started?.participant.bootId??priorParticipant.bootId)&&next.imageId===api.image&&status.phase==='FENCED'&&status.inFlight===0&&
    status.taskGraphs===0&&status.pendingChildren===0&&await session.verifyParticipants([{...status.controlSession,bootId:participant.bootId}])===true,'DATA_VERIFIED_ORIGINAL_NOT_QUIESCENT');
   store.immutable(newKey('original-verified'),{schema:'phoenix.modern-operator-original-verified/v1',owner,recoveryOwner,verification,
    runtimeSha:context.runtimeSha,participant,startedAt:next.startedAt,newLeaseSha256:canonicalDigest(recoveryLease),formalTargetSuccess:false});
-  if(!adopting&&originalPolicy.Name!=='no')docker(['update','--restart='+originalPolicy.Name,api.id]);
-  requireThat(same(inspectModernSchemaContainer(api.id).restartPolicy,originalPolicy),'EXACT_ORIGINAL_RESTART_POLICY_REQUIRED');
+  if(!adopting&&!heldInspection&&originalPolicy.Name!=='no')docker(['update','--restart='+originalPolicy.Name,api.id]);
+  requireThat(same(inspectModernSchemaContainer(api.id).restartPolicy,heldInspection?{Name:'no',MaximumRetryCount:0}:originalPolicy),'EXACT_ORIGINAL_RESTART_POLICY_REQUIRED');
   await observeFence();
   const generation=fenced.generation+1;
   requireThat(Number.isSafeInteger(generation),'GENERATION_EXHAUSTED');
@@ -347,12 +425,19 @@ async function recover(env){
   requireThat(!ordinary.purpose&&!ordinary.schemaRelease&&!ordinary.cutover&&ordinary.targetSha===context.runtimeSha,'EXACT_ORDINARY_RUNTIME_AUTHORITY_REQUIRED');
   const remove={nftables:['bridge','inet'].map(family=>({delete:{table:{family,name:ingress.compiled.table}}}))};
   const removeFile=path.join(directory,newKey('remove-owned-ingress'));
-  runtime.publishJson(removeFile,remove);
+  if(!heldInspection)runtime.publishJson(removeFile,remove);
   store.immutable(newKey('open-intent'),{schema:'phoenix.modern-operator-open-intent/v1',owner,recoveryOwner,previousControl:typed,previousProjection:fenced,
-   pendingSha256:canonicalDigest(pending),ordinary,manifest,verifiedSha256:canonicalDigest(store.read(newKey('original-verified'))),nativeRemoveSha256:canonicalDigest(remove)});
+   pendingSha256:canonicalDigest(pending),ordinary,manifest,verifiedSha256:canonicalDigest(store.read(newKey('original-verified'))),nativeRemoveSha256:heldInspection?null:canonicalDigest(remove),
+   ...(heldInspection?{retainedNativeIdentitySha256:originalProof.identitySha256}:{})});
   await observeFence();
   await verifier.verifyHostBeforeOpen();
   await admission();readHeld();
+  if(heldInspection&&originalPolicy.Name!=='no'){
+   requireThat(inspectModernSchemaContainer(api.id).state.StartedAt===interruptedBoot,'HANDOFF_BOOT_MOVED');
+   docker(['update','--restart='+originalPolicy.Name,api.id]);
+   requireThat(same(inspectModernSchemaContainer(api.id).restartPolicy,originalPolicy),'HANDOFF_RESTART_POLICY');
+   await admission();readHeld();
+  }
   atomicState(store.file('background-control.json'),ordinary);
   await admission();
   requireThat(same(readPublicManifest(),fenced)&&same(store.read('background-control.json'),ordinary)&&
@@ -405,5 +490,5 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const result=forward?{schema:'phoenix.modern-forward-api-public/v1',originalOwner,recoveryOwner,targetSha,defaultOff:true,outcome}:
   {schema:'phoenix.modern-original-recovery-public/v1',originalOwner,recoveryOwner,formalTargetSuccess:false,outcome};
  console.log(JSON.stringify(result));
- if(outcome!==(forward?'TARGET_OPEN':'ORIGINAL_OPEN'))process.exitCode=1;
+ if(outcome!==(forward?'TARGET_OPEN':process.env.OPERATOR_RECOVERY_MODE==='rehearse-held'?'HANDOFF_REHEARSED':process.env.OPERATOR_RECOVERY_MODE==='handoff-held'?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN'))process.exitCode=1;
 }

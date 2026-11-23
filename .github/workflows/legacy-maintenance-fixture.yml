@@ -401,6 +401,7 @@ jobs:
           test -x /usr/sbin/nft
           docker pull node:20-alpine
           docker pull "postgres:${MODERN_HOST_FIXTURE_PG_MAJOR}-alpine"
+          docker pull nginx:1.28-alpine
       - name: Real host lock, kernel packets and native PostgreSQL continuity
         run: bash scripts/ci/modern-schema-native-host.sh
       - uses: actions/upload-artifact@v4

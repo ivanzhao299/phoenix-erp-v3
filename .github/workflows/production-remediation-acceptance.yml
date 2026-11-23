@@ -200,5 +200,5 @@ jobs:
           docker pull postgres:16.14-alpine
           docker pull postgres:18-alpine
           docker pull nginx:1.28-alpine
-          node --test scripts/ops/production-remediation-held-facts.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
+          node --test scripts/ops/production-remediation-{held-facts,handoff}.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
           python3 scripts/ci/production-remediation-edge-hold.test.py

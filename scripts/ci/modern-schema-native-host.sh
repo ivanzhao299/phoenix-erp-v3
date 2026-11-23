@@ -35,7 +35,7 @@ for ((attempt=0; attempt<40; attempt++)); do
   sleep 1
 done
 docker exec "$fixture" docker info --format '{{.Driver}}'
-docker save "postgres:$pg_major-alpine" node:20-alpine | docker exec -i "$fixture" docker load >/dev/null
+docker save "postgres:$pg_major-alpine" node:20-alpine nginx:1.28-alpine | docker exec -i "$fixture" docker load >/dev/null
 
 docker exec "$fixture" sh -ecs '
   root=$1
