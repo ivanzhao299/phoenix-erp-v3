@@ -133,6 +133,11 @@ export async function runSuccessorWeb(phase,env){
  // If formal SUCCESS and the protected seal exist, a fresh invocation can
  // confirm an uncertain delete without repeating either deployment.
  const seal=store.read(sealedName);
+ const approvalEnd=Date.parse(store.read('schema-release-preparation-'+consumed.owner+'.json').context.window.end);
+ const authorizeRemoval=()=>{
+  if(!Number.isFinite(approvalEnd)||Date.now()>=approvalEnd)fail();
+  guardHeldContinuation(handoff,store.directory);
+ };
  const verify=async()=>{
   store.guard();assertHeldEdge(store.directory,{forceProbe:true});
   if(checkSuccessorWeb('admit',env,{store})!==receiptOnly||!same(store.read(sealedName),seal)||
@@ -144,7 +149,7 @@ export async function runSuccessorWeb(phase,env){
  const proof=store.read('schema-release-ingress-installed-'+heldOwner+'.json');
  await ingress.check('COMPLETED_WEB_NATIVE_RETIRE');
  if(proof.identitySha256!==witness.ingressIdentitySha256)fail();
- await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,authorizeRemoval:()=>guardHeldContinuation(handoff,store.directory),
+ await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,authorizeRemoval,
   binding:{originalOwner:heldOwner,targetSha:target,webOwner:seal.webOwner,apiOwner:consumed.owner,
    archiveSha256:witness.archiveSha256,webSealSha256:canonicalDigest(seal)}});
  return result;
