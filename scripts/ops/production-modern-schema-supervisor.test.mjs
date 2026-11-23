@@ -116,3 +116,20 @@ test('a host executor hold records only numeric identity, fixed families and dig
  error.nativeHostProcess.kind='private unexpected kind';
  assert.equal(createModernSchemaFirstHoldEvidence(()=>0).record(error,'EXECUTOR_WATCH').nativeHostProcess,undefined);
 });
+
+test('early native failure records its guarded transition without logging error contents',()=>{
+ for(const [stage,error,code,type] of [
+  ['DRAINED_COMMIT',Error('HANDOFF_TRANSFER_HOLD=INGRESS_CHANGED'),'HANDOFF_TRANSFER_HOLD=INGRESS_CHANGED',undefined],
+  ['PRIMARY_READ_CHANNEL',Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_OWNED_READ_CHANNEL_REQUIRED'),'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_OWNED_READ_CHANNEL_REQUIRED',undefined],
+  ['NATIVE_WATCH_INITIALIZE',new TypeError('private executor information'),'UNCLASSIFIED','TypeError'],
+  ['NATIVE_FENCE_BUDGET',Error('MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_FENCE'),'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_FENCE',undefined],
+ ]){
+  const evidence=createModernSchemaFirstHoldEvidence(()=>0);
+  evidence.enter(stage);
+  const recorded=evidence.record(error,'SUPERVISOR');
+  assert.equal(recorded.stage,stage);
+  assert.equal(recorded.code,code);
+  assert.equal(recorded.errorType,type);
+  assert.doesNotMatch(JSON.stringify(recorded),/private executor/);
+ }
+});

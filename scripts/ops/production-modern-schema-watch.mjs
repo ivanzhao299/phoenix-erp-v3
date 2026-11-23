@@ -358,16 +358,20 @@ export class ModernSchemaExecutorWatch {
     }
    }
    if(descendant||!potential(row))continue;const digest=canonicalDigest(row);
-   if(initialize){if(!this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest))fail('UNREGISTERED_HOST_EXECUTOR');this.foreignProcesses.set(row.pid,digest);}
-   else if(this.foreignProcesses.get(row.pid)!==digest&&proveLateCandidate?.(row)!==true){
+   const registered=initialize
+    ?this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest)
+    :this.foreignProcesses.get(row.pid)===digest||proveLateCandidate?.(row)===true;
+   if(!registered){
     const parent=census.get(row.ppid);
-    throw Object.assign(Error('MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'),{nativeHostProcess:{
+    const code=initialize?'UNREGISTERED_HOST_EXECUTOR':'NEW_OR_CHANGED_HOST_EXECUTOR';
+    throw Object.assign(Error('MODERN_SCHEMA_WATCH_HOLD='+code),{nativeHostProcess:{
      pid:row.pid,ppid:row.ppid,kind:processKind(row.exe),parentKind:processKind(parent?.exe),
      identitySha256:digest,argvSha256:row.argvSha256,groupSha256:row.cgroupSha256,
      erpControlReference:row.erpControlReference===true,registeredParent:!!parent&&this.foreignProcesses.get(parent.pid)===canonicalDigest(parent),
      ownedDumpParent:this.readCommand?.entry?.pin?.pid===row.ppid,
     }});
    }
+   if(initialize)this.foreignProcesses.set(row.pid,digest);
   }
   if(pendingExit)throw pendingExit;
  }

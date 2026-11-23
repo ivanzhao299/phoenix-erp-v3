@@ -35,11 +35,31 @@ const fail=code=>{throw Error('MODERN_SCHEMA_SUPERVISOR_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const participantOf=actual=>({containerId:actual.containerId,revision:actual.revision,bootId:actual.status.bootId,allowedKinds:[...HOLD_KINDS]});
 const HOLD_STAGES=[
- 'BEFORE_STOPPED_PROOF','R_STOPPED_STEP','FRESH_CONFIRMED_SCOPE','FRESH_AUDIT_EVIDENCE','FRESH_REFERENCE_EVIDENCE','FRESH_AUDIT_COMPARE','FRESH_LEDGER',
+ 'BEFORE_STOPPED_PROOF','DRAINED_COMMIT','NATIVE_WATCH_CONSTRUCT','PRIMARY_READ_CHANNEL','WATCH_READ_CHANNEL','NATIVE_WATCH_INITIALIZE',
+ 'NATIVE_WATCH_HEARTBEAT','NATIVE_INGRESS_CONSTRUCT','NATIVE_FENCE_BUDGET','NATIVE_INGRESS_INSTALL','R_STOPPED_STEP','FRESH_CONFIRMED_SCOPE','FRESH_AUDIT_EVIDENCE','FRESH_REFERENCE_EVIDENCE','FRESH_AUDIT_COMPARE','FRESH_LEDGER',
  'BEFORE_CATALOG_ADMISSION','BEFORE_CATALOG_OUTPUT','BEFORE_CATALOG_CHILD_ADMISSION','BEFORE_CATALOG_DUMP','BEFORE_CATALOG_RECEIPT',
  'FENCED_DISK','FENCED_BACKUP','FENCED_REHEARSAL','FINAL_PRE_DDL_RECHECK','DDL_AND_AFTER',
 ];
+const EARLY_NATIVE_STAGES=new Set(HOLD_STAGES.slice(1,HOLD_STAGES.indexOf('R_STOPPED_STEP')));
 const HOLD_CODES=new Set([
+ 'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_FENCE',
+ 'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_PREPARATION_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_OWNED_READ_CHANNEL_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_HOST_EXECUTOR',
+ 'MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_FOREIGN_CONTAINER',
+ 'MODERN_SCHEMA_WATCH_HOLD=HELD_RESOURCE_REMOVED_OR_CHANGED',
+ 'MODERN_SCHEMA_WATCH_HOLD=HISTORICAL_COMPOSE_ARTIFACT_CHANGED',
+ 'MODERN_SCHEMA_LEASE_HOLD=ORIGINAL_CONTROL_CHANNEL_NOT_IDLE',
+ 'MODERN_SCHEMA_LEASE_HOLD=SYNCHRONOUS_OBSERVATION_REQUIRED',
+ 'MODERN_SCHEMA_LEASE_HOLD=OBSERVATION_CONTROL_REENTRY_FORBIDDEN',
+ 'HANDOFF_TRANSFER_HOLD=INGRESS_CHANGED',
+ 'HANDOFF_TRANSFER_HOLD=CUMULATIVE_CUTOFF',
+ 'HELD_RESOURCES_HOLD=CLONE_ISOLATION_SET',
+ 'HELD_RESOURCES_HOLD=CLONE_ISOLATION_CHANGED',
+ 'MODERN_SCHEMA_INGRESS_HOLD=EXACT_NATIVE_SCOPE_REQUIRED',
+ 'MODERN_SCHEMA_INGRESS_HOLD=ORIGINAL_BRIDGE_CHANGED',
+ 'MODERN_SCHEMA_INGRESS_HOLD=ORIGINAL_NETWORK_CHANGED',
+ 'MODERN_SCHEMA_INGRESS_HOLD=NATIVE_KERNEL_OBSERVATION_OR_EFFECT_UNRESOLVED',
  'MODERN_SCHEMA_SUPERVISOR_HOLD=FROZEN_CONFIRMED_CASE_CHANGED',
  'MODERN_SCHEMA_SUPERVISOR_HOLD=FENCED_LEDGER_CHANGED',
  'MODERN_SCHEMA_SUPERVISOR_HOLD=FENCED_AUDIT_BOUNDARY_CHANGED',
@@ -137,14 +157,14 @@ export function createModernSchemaFirstHoldEvidence(now=()=>performance.now()){
   record(error,source){
    if(first)return first;
    if(!['SUPERVISOR','EXECUTOR_WATCH','LEASE_HEARTBEAT'].includes(source))fail('INVALID_PRIVATE_HOLD_SOURCE');
-   let code='UNCLASSIFIED',nativeProcessReason=null,nativeHostProcess=null;
+   let code='UNCLASSIFIED',nativeProcessReason=null,nativeHostProcess=null,errorType=null;
    try{
     const message=error?.message;
     if(HOLD_CODES.has(message))code=message;
     const reason=error?.nativeProcessCensusReason;
     if(message==='MAINTENANCE_HOLD=ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED'&&
      ['PERMISSION_DENIED','IDENTITY_UNVERIFIED','EXISTENCE_UNVERIFIED','PROC_ENTRY_CHURN_PERSISTS'].includes(reason))nativeProcessReason=reason;
-    if(message==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'){
+    if(['MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR','MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_HOST_EXECUTOR'].includes(message)){
      const sample=error.nativeHostProcess,kinds=['UNAVAILABLE','PYTHON','SHELL','NODE','POSTGRES_TOOL','JAVA','DOCKER','OTHER'];
      if(sample&&Number.isSafeInteger(sample.pid)&&sample.pid>1&&Number.isSafeInteger(sample.ppid)&&sample.ppid>=0&&
       kinds.includes(sample.kind)&&kinds.includes(sample.parentKind)&&
@@ -154,12 +174,16 @@ export function createModernSchemaFirstHoldEvidence(now=()=>performance.now()){
        erpControlReference:sample.erpControlReference===true,registeredParent:sample.registeredParent===true,ownedDumpParent:sample.ownedDumpParent===true});
      }
     }
+    if(code==='UNCLASSIFIED'&&EARLY_NATIVE_STAGES.has(stage)){
+     const name=error?.name;
+     if(['TypeError','ReferenceError','SyntaxError','RangeError'].includes(name))errorType=name;
+    }
     if(code==='UNCLASSIFIED'&&['BEFORE_CATALOG_OUTPUT','BEFORE_CATALOG_RECEIPT'].includes(stage)){
      const errno=error?.code;
      if(['EACCES','EEXIST','EIO','EMFILE','ENFILE','ENOENT','ENOSPC','EPERM','EROFS'].includes(errno))code='CATALOG_FILE_'+errno;
     }
    }catch{/* Even an error without readable fields receives a bounded code. */}
-   first=Object.freeze({source,code,...(nativeProcessReason?{nativeProcessReason}:{}),...(nativeHostProcess?{nativeHostProcess}:{}),
+   first=Object.freeze({source,code,...(errorType?{errorType}:{}),...(nativeProcessReason?{nativeProcessReason}:{}),...(nativeHostProcess?{nativeHostProcess}:{}),
     ...current(),priorStages:Object.freeze(elapsed.map(item=>Object.freeze(item)))});
    return first;
   },
@@ -339,13 +363,22 @@ export async function superviseModernSchemaRelease(env,input){
   assertSuccessorFenceBudget(preparation);
   const drain=await coordinator.fenceAndDrain();runtime.children.add(pinModernSchemaChild(session.child));rootLease=await pinOriginalModernSchemaSession(session,context);
   const drainReceipt=await persistModernSchemaOriginalDrain({context,preparationSha256:input.preparationSha256,rootLease,coordinator,privateRuntime:runtime,drain,admit:()=>native()});
+  enter('DRAINED_COMMIT');
   await advance('REGISTERED','DRAINED',{drain,drainReceipt,originalLease:rootLease},{lease:rootLease});
+  enter('NATIVE_WATCH_CONSTRUCT');
   watch=new ModernSchemaExecutorWatch({context,preparation:{...preparation,ownedResources},state,rootLease,session,client:watchClient,privateRuntime:runtime,admit:()=>native()});
-  await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);await watch.initialize();
+  enter('PRIMARY_READ_CHANNEL');
+  await watch.registerReadTransport(client);
+  enter('WATCH_READ_CHANNEL');
+  await watch.registerReadTransport(watchClient);
+  enter('NATIVE_WATCH_INITIALIZE');
+  await watch.initialize();
+  enter('NATIVE_WATCH_HEARTBEAT');
   closeHeartbeat=watch.startLeaseHeartbeat(error=>{
    fatal??=error;
    firstHold.record(error,error===watch.failed?'EXECUTOR_WATCH':'LEASE_HEARTBEAT');
   });
+  enter('NATIVE_INGRESS_CONSTRUCT');
   ingress=new ModernSchemaIngress({context,scope:preparation.ingressScope,privateRuntime:runtime,admit:async operation=>{
    if(recovering&&operation==='OBSERVE')return admitHeldRecovery();
    await native();
@@ -357,8 +390,12 @@ export async function superviseModernSchemaRelease(env,input){
    }
    return true;
   }});
+  enter('NATIVE_FENCE_BUDGET');
   assertSuccessorFenceBudget(preparation);
-  const installed=await ingress.install();await advance('DRAINED','INGRESS_FENCED',{ingressObservation:installed});watch.start();
+  enter('NATIVE_INGRESS_INSTALL');
+  const installed=await ingress.install();
+  await advance('DRAINED','INGRESS_FENCED',{ingressObservation:installed});watch.start();
+  enter('BEFORE_STOPPED_PROOF');
   await disk();await watch.observe();await coordinator.verifyQuiescent();
   const original=pre.containers.api;
   originalRestartPolicy=JSON.parse((await import('node:child_process')).execFileSync('/usr/bin/docker',['inspect',original.id,'--format','{{json .HostConfig.RestartPolicy}}'],{env:executionEnv(),encoding:'utf8',timeout:5000,stdio:['ignore','pipe','pipe']}));
