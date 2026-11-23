@@ -61,6 +61,9 @@ async function scenario(browser, mobile) {
     await expect(page.getByText('所选日期早于正式首日，仅可查历史记录。')).toBeVisible();await expect(add).toBeDisabled();
     state='SUSPENDED';await date.fill('2026-11-18');await warehouse.selectOption('WH-A');
     await expect(page.getByText('该范围暂停新写入，历史回执仍可查看。')).toBeVisible();await expect(add).toBeDisabled();
+    const conversions=page.getByRole('region',{name:'实际分级、包装与在制品',exact:true});
+    await expect(conversions).toBeVisible();
+    await expect(conversions.getByRole('button',{name:'保存实际作业草稿',exact:true})).toBeDisabled();
     await page.getByLabel('实物交接编号',{exact:true}).fill('PRIVATE-MAKER-T12');
     await page.reload();await expect(page.getByLabel('实物交接编号',{exact:true})).toHaveValue('PRIVATE-MAKER-T12');
     const viewer=await login('view_only');await page.evaluate(install,viewer);
