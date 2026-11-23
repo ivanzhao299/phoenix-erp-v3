@@ -4,7 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireAnyMenu, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ProductionCutoverService } from './production-cutover.service';
-import { CreateCutoverDto, EditCutoverDto, CutoverBoundaryDto, CutoverIdDto, CutoverSignDto, CutoverVersionDto } from './production-cutover.dto';
+import { CutoverStateDto, CutoverStateReceiptParams, CreateCutoverDto, EditCutoverDto, CutoverBoundaryDto, CutoverIdDto, CutoverSignDto, CutoverVersionDto } from './production-cutover.dto';
 
 const readers=[{menu:'MENU_PROD_INBOUND',perm:'V' as const},{menu:'MENU_PROD_INBOUND',perm:'A' as const},{menu:'MENU_FIN2_AR_LEDGER',perm:'E' as const}];
 @Controller('api/v2/inventory/production-cutovers')
@@ -37,6 +37,13 @@ export class ProductionCutoverController {
   @Post(':id/sign') @RequireAnyMenu([{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_FIN2_AR_LEDGER',perm:'E'}])
   @UseGuards(new StrictBodyGuard(CutoverSignDto))
   sign(@Param() p:CutoverIdDto,@Body() body:CutoverSignDto){return this.cutovers.sign(p.id,body);}
+  @Get(':id/state-boundary') @RequireAnyMenu(readers)
+  stateBoundary(@Param() p:CutoverIdDto,@Query('houseCode') house?:string){return this.cutovers.statePreview(p.id,house);}
+  @Get(':id/state-receipts/:intentKey') @RequireAnyMenu(readers)
+  stateReceipt(@Param() p:CutoverStateReceiptParams){return this.cutovers.stateReceipt(p.id,p.intentKey);}
+  @Post(':id/state') @RequireMenu('MENU_PROD_INBOUND','A')
+  @UseGuards(new StrictBodyGuard(CutoverStateDto))
+  changeState(@Param() p:CutoverIdDto,@Body() body:CutoverStateDto){return this.cutovers.changeState(p.id,body);}
   @Post(':id/cancel') @RequireMenu('MENU_PROD_INBOUND','E')
   @UseGuards(new StrictBodyGuard(CutoverVersionDto))
   cancel(@Param() p:CutoverIdDto,@Body() body:CutoverVersionDto){return this.cutovers.cancel(p.id,body.version);}

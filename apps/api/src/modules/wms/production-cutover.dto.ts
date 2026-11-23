@@ -71,3 +71,13 @@ export class CutoverSignDto {
   @IsString() @MaxLength(128) evidenceFileId!:string;
   @IsString() @MaxLength(1000) reason!:string;
 }
+export class CutoverStateDto {
+  @IsOptional() @IsString() @Matches(/\S/) @MaxLength(128) houseCode?:string;
+  @IsIn(['ACTIVE','SUSPENDED']) state!:'ACTIVE'|'SUSPENDED';
+  @IsUUID() intentKey!:string;
+  @Matches(/^[a-f0-9]{64}$/) boundaryHash!:string;
+  @ValidateIf(o=>o.state==='ACTIVE'||o.pauseIntentKey!==undefined) @IsUUID() pauseIntentKey?:string;
+  @IsString() @MaxLength(128) evidenceFileId!:string;
+  @Matches(/\S/) @MaxLength(1000) reason!:string;
+}
+export class CutoverStateReceiptParams extends CutoverIdDto { @IsUUID() intentKey!:string; }

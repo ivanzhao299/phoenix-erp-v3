@@ -12,6 +12,9 @@ import { cutoverEvidenceHash, CutoverEvidenceBoundary, inspectProductionCutoverE
 import { CUTOVER_PROVENANCE_SIGNER, CutoverProvenanceSigner } from './cutover-cross-company-proof';
 import { openingCostDecimal } from './opening-cost-decimal';
 
+import { previewCutoverState,changeCutoverState } from './production-cutover-state';
+import { CutoverStateDto } from './production-cutover.dto';
+
 export interface CutoverCountLine {
   skuCode:string;productCode:string;gradeCode:string;specCode:string;locationCode:string;quantity:number;
   stockStatus:string;productionDate:string|null;expireDate:string|null;costStatus:'UNKNOWN'|'CONFIRMED';
@@ -380,6 +383,38 @@ export class ProductionCutoverService {
       return signature;
     });
   }
+  private async pilotController(m:EntityManager,actor:string,username:string,lock=false){
+    const [enrolled]=await m.query(`SELECT 1 FROM sys_user u JOIN sys_user_role ur ON u.user_id=ur.user_id
+        JOIN sys_role r ON r.role_id=ur.role_id WHERE u.user_id::text=$1 AND u.username=$2
+        AND COALESCE(to_jsonb(u)->>'status','') IN ('1','ACTIVE') AND coalesce(ur.is_visible,true)
+        AND r.role_code='ROLE_PRODUCTION_PILOT_CONTROL' AND r.status='ACTIVE'
+        ${lock?'FOR SHARE OF u,ur,r NOWAIT':''}`,[actor,username]);
+    return !!enrolled;
+  }
+  async stateReceipt(id:string,intentKey:string){
+    const d=await this.identity(id);this.authorize(d.company_code,d.warehouse_code);
+    const [row]=await this.db.query('SELECT receipt FROM production_cutover_state_receipts WHERE manifest_id=$1 AND intent_key=$2',[id,intentKey]);
+    if(!row)throw new NotFoundException('未找到本单对应的启停回执');
+    return row.receipt;
+  }
+  async statePreview(id:string,houseCode?:string){
+    const d=await this.identity(id);
+    const {actor,username}=this.authorize(d.company_code,d.warehouse_code);
+    const user=this.cls.get('user') as any;
+    const boundary=await previewCutoverState(this.db.manager,d,houseCode);
+    return {...boundary,canManage:hasPerm(user?.permissions,'MENU_PROD_INBOUND','A')&&await this.pilotController(this.db.manager,actor,username)};
+  }
+
+  async changeState(id:string,body:CutoverStateDto){
+    const d=await this.identity(id);
+    const {actor,username}=this.authorize(d.company_code,d.warehouse_code,'A');
+    return this.db.transaction('READ COMMITTED',async m=>{
+      const enrolled=await this.pilotController(m,actor,username,true);
+      if(!enrolled)throw new ForbiddenException('CUTOVER_EXPLICIT_PILOT_CONTROLLER_REQUIRED');
+      return changeCutoverState(m,d,body,actor,async()=>(await this.proofs(m,d,[body.evidenceFileId],username))[0]);
+    });
+  }
+
   async cancel(id:string,version:number){
     const identity=await this.identity(id);this.authorize(identity.company_code,identity.warehouse_code,'E');
     const rows=await this.db.query(`WITH changed AS(UPDATE production_cutover_manifests SET state='CANCELLED',version=version+1

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import CutoverExecutionReceipt from './CutoverExecutionReceipt';
+import ProductionCutoverStatePanel from './ProductionCutoverStatePanel';
 import PageHeader from '@/components/PageHeader';
 import { CompanySelector, HouseSelector, WarehouseSelector, ProductSelector, SkuSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import DictSelect from '@/components/shared-selectors/DictSelect';
@@ -200,6 +201,8 @@ function ActorCutoverWorkbench(){
         })}>{t('productionCutover.sign','签认冻结原单')}</button>
       </>}
     </section>}
+    {selected?.state==='APPLIED'&&<ProductionCutoverStatePanel key={selected.id+actor} id={selected.id} actor={actor}
+      company={selected.company_code} warehouse={selected.warehouse_code} houses={selected.boundary.houses.map(h=>h.houseCode)}/>}
     {documents.length>0&&<section className={s.card}><h2>{t('productionCutover.existing','已有盘点')}</h2>{documents.map(d=><p key={d.id}><button disabled={busy} onClick={()=>run(()=>load(d.id))}>{d.document_no} · {states[d.state]??d.state}</button></p>)}</section>}
   </main>;
 }
