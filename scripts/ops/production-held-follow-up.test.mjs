@@ -140,6 +140,11 @@ test('a lost Web acknowledgement can be read back only against the exact prior W
 test('dispatch checks precede side effects and replay never reaches deployment', () => {
   const file = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
   const index = name => file.indexOf(name, file.indexOf('            unset MODERN_SCHEMA_BODY_SUPERVISED'));
+  for (const job of ['test:', 'build-push:']) {
+    const start = file.indexOf(`\n  ${job}`);
+    assert.match(file.slice(start, file.indexOf('    runs-on:', start)), /held_receipt_only != 'true'/);
+  }
+
   assert.ok(index('stage_held_follow_up') < index('perform_deployment()'));
   assert.ok(index('HELD_WEB_RECEIPT_VERIFIED') < index('perform_deployment()'));
   assert.ok(index('held_follow_up before\n              assert_target_main\n              production_state switch api') > index('production_state begin'));

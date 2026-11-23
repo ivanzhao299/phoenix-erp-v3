@@ -127,6 +127,7 @@ jobs:
       build_api:   ${{ steps.decide.outputs.build_api }}
       run_test:    ${{ steps.decide.outputs.run_test }}
       run_mig:     ${{ steps.decide.outputs.run_mig }}
+      held_receipt_only: ${{ steps.decide.outputs.held_receipt_only }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -281,6 +282,9 @@ jobs:
               web) [[ "$HELD_FOLLOW_UP" =~ ^web-[1-9][0-9]{0,19}-[1-9][0-9]{0,9}(-verify-[1-9][0-9]{0,19}-[1-9][0-9]{0,9})?$ ]] && test -z "$APPROVED_CONFIG_FLOOR_SHA$APPROVED_PREVIOUS_FLOOR_SHA" || exit 25 ;;
               *) exit 25 ;;
             esac
+            if [[ "$HELD_FOLLOW_UP" == *-verify-* ]]; then
+              echo "held_receipt_only=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
           if [[ "$MODERN_SCHEMA_RESUME_OWNER" = web1123-* ]]; then
@@ -372,7 +376,7 @@ jobs:
   test:
     name: Type-check & Regression
     needs: detect-changes
-    if: needs.detect-changes.outputs.run_test == 'true' && !inputs.modern_schema_resume_owner
+    if: needs.detect-changes.outputs.run_test == 'true' && !inputs.modern_schema_resume_owner && needs.detect-changes.outputs.held_receipt_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -633,6 +637,7 @@ jobs:
     if: |
       success() &&
       !inputs.modern_schema_resume_owner &&
+      needs.detect-changes.outputs.held_receipt_only != 'true' &&
       (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       github.ref == 'refs/heads/main' &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
@@ -809,7 +814,7 @@ jobs:
       (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
       ((!inputs.modern_schema_resume_owner && needs.build-push.result == 'success') ||
        (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped') ||
-       (inputs.mode == 'web' && startsWith(inputs.modern_schema_resume_owner, 'web1123-') && needs.build-push.result == 'skipped')) &&
+       (inputs.mode == 'web' && (startsWith(inputs.modern_schema_resume_owner, 'web1123-') || needs.detect-changes.outputs.held_receipt_only == 'true') && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ startsWith(inputs.modern_schema_resume_owner, 'approve1123-') && 360 || inputs.modern_schema_resume_owner == 'inspect1123' && 275 || inputs.modern_schema_release && 230 || 40 }}
@@ -1347,7 +1352,7 @@ jobs:
             echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Send deploy notification
-        if: always() && !inputs.modern_schema_resume_owner
+        if: always() && !inputs.modern_schema_resume_owner && needs.detect-changes.outputs.held_receipt_only != 'true'
         env:
           WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}
