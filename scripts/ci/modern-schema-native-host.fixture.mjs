@@ -5,7 +5,8 @@ import {captureModernSchemaFacts} from '../ops/production-modern-schema-facts.mj
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawn} from 'node:child_process';
+import {once} from 'node:events';
 import {randomUUID} from 'node:crypto';
 import {CONTRACT, verifyContext} from '../ops/production-config-guard.mjs';
 import {executionEnv} from '../ops/capture-production-runtime.mjs';
@@ -13,7 +14,7 @@ import {canonicalDigest} from '../ops/production-maintenance-receipts.mjs';
 import {ModernSchemaPrivateRuntime} from '../ops/production-modern-schema-private.mjs';
 import {ModernSchemaRegistry} from '../ops/production-modern-schema-registration.mjs';
 import {ModernSchemaReadClient} from '../ops/production-modern-schema-read-client.mjs';
-import {ModernSchemaControlSession, originalModernSchemaSessionPredicate, pinOriginalModernSchemaSession} from '../ops/production-modern-schema-session-lease.mjs';
+import {ModernSchemaControlSession, originalModernSchemaSessionPredicate, pinOriginalModernSchemaSession,verifyOriginalModernSchemaAdmission} from '../ops/production-modern-schema-session-lease.mjs';
 import {ModernSchemaIngress} from '../ops/production-modern-schema-ingress.mjs';
 import {ModernSchemaExecutorWatch} from '../ops/production-modern-schema-watch.mjs';
 import {collectModernSchemaHostSurface, inspectModernSchemaContainer} from '../ops/production-modern-schema-executors.mjs';
@@ -118,12 +119,20 @@ async function main(){
     assert.equal(await session.tryLock(1),true);assert.equal(await session.tryLock(2),true);
     privateRuntime.children.add(pinModernSchemaChild(session.child));
     const lease=await pinOriginalModernSchemaSession(session,context);
-    const admit=async()=>{guard();return session.query(originalModernSchemaSessionPredicate(lease));};
+    const admit=()=>verifyOriginalModernSchemaAdmission({session,lease,observeHost:guard});
     await watchClient.start();
     const watch=new ModernSchemaExecutorWatch({context,preparation:{originalSnapshot,hostSurface:surface,floor:{project:'phoenix-erp'},ownedResources:[]},
       state:{read:()=>({phase,status:'RUNNING'})},rootLease:lease,session,client:watchClient,privateRuntime,admit});
-    await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);
     setPhase('DRAINED');
+    await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);
+    const late=spawn(process.execPath,['-e','process.stdout.write("READY");setInterval(()=>{},1000)'],{stdio:['ignore','pipe','ignore']});
+    try{
+     await once(late.stdout,'data');
+     await assert.rejects(watch.initialize(),/MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_HOST_EXECUTOR/);
+    }finally{
+     if(late.exitCode===null&&late.signalCode===null){const exited=once(late,'exit');late.kill();await exited;}
+    }
+    progress('LATE_UNPINNED_EXECUTOR_REJECTED_AFTER_DRAIN_ON_REAL_DUAL_LEASE');
     const initial=await watch.initialize();assert.ok(initial.executors.runtimeSessionPids.length>=1);
     progress('FD9_PUBLIC_FENCED_NATIVE_ORIGINAL_DUAL_PG_SESSION_WATCH');
     const getIp=id=>Object.values(inspectModernSchemaContainer(id).networks)[0].IPAddress;

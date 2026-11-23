@@ -177,7 +177,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   compareStableLegacyAudit({context,reviewed:reviewedAudit,fresh:reviewedAudit,frozenManifest:source.manifest,sampleStartedAt:reviewedAudit.evidence.capturedAt,sampleFinishedAt:reviewedAudit.evidence.capturedAt});
   const content={schema:'phoenix.modern-schema-preparation/v1',context,confirmedScopeInput:source.confirmedScopeInput,manifest:source.manifest,reviewedAudit,
    sourceDirectiveSha256:canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE),oldRuntimeCompatibility:rehearsal.evidence,defaultOffEvidence:off,ingressScope:surface.ingressScope,
-   ...(successor?{successorDecisions:successor,predecessor,apiAccess}:{}),hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,...(handoff?{handoffSha256:canonicalDigest(handoff.entry)}:{}),rootHeadSha,floor,active,plan,ownedResources,
+   ...(successor?{successorDecisions:successor,predecessor,apiAccess}:{}),hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,...(handoff?{handoffSha256:handoff.handoffSha256}:{}),rootHeadSha,floor,active,plan,ownedResources,
    backupReceiptPath:backup.receiptPath,backupReceiptSha256:canonicalDigest(backup.receipt),rehearsalDirectory:rehearsal.directory,
    bodySource:{bodySha256:body.bodySha256,workflowSha256:body.workflowSha256}};
   const record={...content,preparationSha256:canonicalDigest(content)};validateModernSchemaPreparation(record);

@@ -217,7 +217,7 @@ export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {})
       '-l', env.MODERN_SCHEMA_SSH_USER, host];
     return {
       exchange(operation, stdin) {
-        const allowed = operatorRecovery ? ['recover-original', 'recover-target', 'check-held', 'handoff-held', 'rehearse-held'] : ['prepare', 'run', 'finalize'];
+        const allowed = operatorRecovery ? ['recover-original', 'recover-target', 'check-held', 'handoff-held', 'rehearse-held', 'rehearse-drained', 'settle-drained'] : ['prepare', 'run', 'finalize'];
         if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
           const selection = hostEnv.MODERN_SCHEMA_1123_ACTION;

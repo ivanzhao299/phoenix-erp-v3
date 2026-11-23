@@ -34,13 +34,17 @@ export const ordinarySuccessorWindowMs = 180 * 60_000;
 const incidentStart = Date.parse('2026-11-23T09:07:52Z');
 const originalIncidentDeadline = incidentStart + successorTransportCeilingMs;
 export const successorIncidentDeadline = incidentStart + 720 * 60_000;
+export const drainedFreshGrantStart = Date.parse('2026-11-23T18:42:48Z');
+export const drainedFreshGrantEnd = Date.parse('2026-11-24T09:07:52Z');
 // The cumulative incident deadline and a single hosted job have different limits.
 
 export function validSuccessorWindow(start, end) {
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return false;
   if(end-start<=ordinarySuccessorWindowMs)return true;
  if(start>=incidentStart&&end<=originalIncidentDeadline)return true;
- return start>=originalIncidentDeadline&&end<=successorIncidentDeadline&&end-start<=successorTransportCeilingMs;
+ if(end-start>successorTransportCeilingMs)return false;
+ return (start>=originalIncidentDeadline&&end<=successorIncidentDeadline)||
+  (start>=drainedFreshGrantStart&&end<=drainedFreshGrantEnd);
 }
 
 export function checkSuccessorRunnerDeadline(window, jobStartedAt) {
