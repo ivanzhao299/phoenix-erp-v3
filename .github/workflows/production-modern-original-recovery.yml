@@ -15,6 +15,11 @@ on:
         description: 'Recovery run and attempt with a verified original OPEN intent'
         required: false
         type: string
+      inspect_held_facts:
+        description: 'Compare the 1123 fenced database to its frozen baseline'
+        required: false
+        type: boolean
+        default: false
       approve_forward_api:
         description: 'Complete the exact verified API handoff after DDL'
         required: false
@@ -37,7 +42,7 @@ concurrency:
 jobs:
   recover:
     name: Verify and recover the approved API
-    if: github.ref == 'refs/heads/main' && inputs.approve_stopped_original != inputs.approve_forward_api
+    if: github.ref == 'refs/heads/main' && ((inputs.inspect_held_facts && !inputs.approve_stopped_original && !inputs.approve_forward_api) || (!inputs.inspect_held_facts && inputs.approve_stopped_original != inputs.approve_forward_api))
     runs-on: ubuntu-latest
     timeout-minutes: 36
     environment: production
@@ -49,6 +54,7 @@ jobs:
           ORIGINAL_ATTEMPTED_SHA: ${{ inputs.original_attempted_sha }}
           OPERATOR_COMMITTED_OWNER: ${{ inputs.committed_recovery_owner }}
           APPROVE_STOPPED_ORIGINAL: ${{ inputs.approve_stopped_original }}
+          INSPECT_HELD_FACTS: ${{ inputs.inspect_held_facts }}
           APPROVE_FORWARD_API: ${{ inputs.approve_forward_api }}
           MODERN_SCHEMA_WEB_READ_TOKEN: ${{ github.token }}
           MODERN_SCHEMA_SSH_USER: ${{ secrets.DEPLOY_USER }}

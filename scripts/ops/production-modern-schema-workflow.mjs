@@ -217,10 +217,20 @@ export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {})
       '-l', env.MODERN_SCHEMA_SSH_USER, host];
     return {
       exchange(operation, stdin) {
-        const allowed = operatorRecovery ? ['recover-original', 'recover-target'] : ['prepare', 'run', 'finalize'];
+        const allowed = operatorRecovery ? ['recover-original', 'recover-target', 'check-held'] : ['prepare', 'run', 'finalize'];
         if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
-          const timeoutMinutes = operation === 'run' ? 184 : (operation==='prepare'&&hostEnv.MODERN_SCHEMA_1123_ACTION?75:34);
+          const selection = hostEnv.MODERN_SCHEMA_1123_ACTION;
+          const approval = selection ? parseSuccessorAction(selection) : null;
+          let timeoutMinutes = operation === 'prepare' && selection ? 75 : 34;
+          if (operation === 'run') {
+            timeoutMinutes = 184;
+            if (approval?.kind === 'approve') {
+              const remainingMs = Date.parse(approval.window.end) - Date.now();
+              if (remainingMs <= 0) throw fail('WINDOW_EXPIRED');
+              timeoutMinutes = Math.ceil(remainingMs / 60_000) + 4;
+            }
+          }
           return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, timeoutMinutes * 60 * 1000) };
         } catch (error) {
           // Discard stderr and never include child command lines or exception data.

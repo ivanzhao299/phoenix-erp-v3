@@ -15,9 +15,12 @@ const fail=code=>{throw Error('ORIGINAL_RECOVERY_WORKFLOW_HOLD='+code);};
 export function runModernOriginalRecoveryWorkflow(env,deps={}){
  const attempt=env.ORIGINAL_RELEASE_OWNER,recovery=env.GITHUB_RUN_ID+'-'+env.GITHUB_RUN_ATTEMPT;
  const target=env.ORIGINAL_ATTEMPTED_SHA,execution=env.GITHUB_SHA,prior=env.OPERATOR_COMMITTED_OWNER??'';
+ const inspecting=env.INSPECT_HELD_FACTS==='true';
  const forward=env.APPROVE_FORWARD_API==='true';
+ if(inspecting&&(attempt!=='45144287071-1'||target!=='98dfab3411fbddb8c1646f2db20df2799291cd3d'||prior!==''||
+   env.APPROVE_STOPPED_ORIGINAL!=='false'||env.APPROVE_FORWARD_API!=='false'))fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  if(forward ? env.APPROVE_STOPPED_ORIGINAL!=='false'||prior!==''||!forwardApiRecoveryAllowed(attempt,target,recovery,execution)
-   : env.APPROVE_STOPPED_ORIGINAL!=='true')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
+   : !inspecting&&env.APPROVE_STOPPED_ORIGINAL!=='true')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  if(Object.entries(fixed).some(([key,value])=>env[key]!==value)||!owner.test(attempt??'')||!owner.test(recovery)||attempt===recovery||
   !sha.test(target??'')||!sha.test(execution??'')||execution!==env.GITHUB_WORKFLOW_SHA||(prior!==''&&(!owner.test(prior)||[attempt,recovery].includes(prior))))fail('EXACT_GITHUB_RECOVERY_REQUIRED');
  const registryToken=env.MODERN_SCHEMA_WEB_READ_TOKEN;
@@ -25,9 +28,20 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
  const ssh=(deps.createSsh??createProductionSsh)(env,{TARGET_SHA:target,MODERN_SCHEMA_EXECUTION_SHA:execution,
   ORIGINAL_RELEASE_OWNER:attempt,OPERATOR_RECOVERY_OWNER:recovery,OPERATOR_COMMITTED_OWNER:prior},{operatorRecovery:true});
  try{
-  const result=ssh.exchange(forward?'recover-target':'recover-original',forward?registryToken+'\n':'');
+  const result=ssh.exchange(inspecting?'check-held':forward?'recover-target':'recover-original',forward?registryToken+'\n':'');
   if(result.status===24)fail('RECOVERY_LOCK_BUSY');
   let content;try{content=JSON.parse(result.stdout);}catch{fail('BOUND_RECOVERY_RECEIPT_REQUIRED');}
+  if(inspecting){
+   const keys=Object.keys(content??{}).sort().join(',');
+   const validComparison=keys==='after,before,changedSequences,changedTables,outcome,releaseAuthorized'&&
+    content.before==='cca24f95e5f524c40d2a7f0fb447557cebfeaa0548551328f42b81abe2ed1a7e'&&/^[a-f0-9]{64}$/.test(content.after)&&
+    [content.changedSequences,content.changedTables].every(n=>Number.isSafeInteger(n)&&n>=0)&&
+    (content.outcome==='MATCH'?content.before===content.after&&!content.changedTables&&!content.changedSequences:
+     content.outcome==='DIFFERENCE'&&content.before!==content.after);
+   const validHold=keys==='code,outcome,releaseAuthorized'&&content.outcome==='HOLD'&&/^[A-Z_]+_HOLD=[A-Z0-9_]+$/.test(content.code);
+   if((!validComparison&&!validHold)||content.releaseAuthorized!==false||(result.status===0)!==(content.outcome==='MATCH'))fail('BOUND_HELD_FACTS_RECEIPT_REQUIRED');
+   return {...content,originalOwner:attempt,recoveryOwner:recovery};
+  }
   if(forward){
    if(!content||Object.getPrototypeOf(content)!==Object.prototype||
     Object.keys(content).sort().join(',')!=='defaultOff,originalOwner,outcome,recoveryOwner,schema,targetSha'||
@@ -46,6 +60,6 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- try{const value=runModernOriginalRecoveryWorkflow(process.env);console.log(JSON.stringify(value));if(!['ORIGINAL_OPEN','TARGET_OPEN'].includes(value.outcome))process.exitCode=1;}
+ try{const value=runModernOriginalRecoveryWorkflow(process.env);console.log(JSON.stringify(value));if(!['ORIGINAL_OPEN','TARGET_OPEN','MATCH'].includes(value.outcome))process.exitCode=1;}
  catch(error){console.error(/^ORIGINAL_RECOVERY_WORKFLOW_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'ORIGINAL_RECOVERY_WORKFLOW_HOLD=UNVERIFIED');process.exitCode=1;}
 }

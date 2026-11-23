@@ -71,7 +71,7 @@ digest=$(field inspectionSha256)
 
 ## 3. 批准精确窗口并发布 API
 
-以下估算包含两次完整取证耗时、一次额外演练、实测恢复与旧 API 就绪时间的 125%、150 秒恢复余量、180 秒 Web 余量及 10 分钟调度余量。按分钟向上取整。协调人在此步骤通过其真实账号提交精确的开始和结束时间。若估算超过 180 分钟，保持 HOLD 并检查实测耗时。
+以下估算包含两次完整取证耗时、一次额外演练、实测恢复与旧 API 就绪时间的 125%、150 秒恢复余量、180 秒 Web 余量及 10 分钟调度余量。按分钟向上取整。协调人在此步骤通过其真实账号提交精确的开始和结束时间。常规审批上限为 180 分钟。11 月 23 日事故延长至原批准起点 17:07:52 后 360 分钟，即当天 23:07:52（新加坡时间）。排队、演练、旧服务恢复、API 和 Web 都计入这段总时间。已消费的原批准、原租约及历史数据保持原值。只调整时限不能接管处于 HOLD 的发布。
 
 ```bash
 elapsed=$(gh api "repos/$GH_REPO/actions/runs/$inspect_id" --jq '[.run_started_at,.updated_at] | join(" ")')
@@ -83,7 +83,7 @@ ready_ms=$(field originalReadyMs)
 rehearsal_ms=$(field rehearsalMs)
 needed=$((2*inspect_seconds + (rehearsal_ms+999)/1000 + (5*(restore_ms+ready_ms)+3999)/4000 + 150 + 180 + 600))
 minutes=$(((needed+59)/60))
-test "$minutes" -le 180
+test "$minutes" -le 180  # 常规新发布；已消费的事故由单独接管流程处理
 start=$(date -u +%s)
 end=$((start+minutes*60))
 selection="approve1123-$inspect_owner-$digest-$ci-$uat-$start-$end"
@@ -108,3 +108,9 @@ gh run view "$web_id" --json url,headSha,conclusion,jobs
 Web 首次切换验证原 API 成功凭证、当前双镜像、专属候选、业务访问证据和维护窗口剩余时间。首次切换后，原 Web 在窗口内写入检查记录，标准部署状态机完成正式 SUCCESS，随后才封存。若主机进程或 CI 在标准 SUCCESS 与封存间中断，重新执行本节同一命令即可。新 run 在部署入口以当前双镜像、实际 active、原 Web 完整 SUCCESS 摘要、原 API 终验及原批准记录核对旧回执，只封存原 Web owner。这个动作允许跨窗，命中后提前结束，镜像和容器均不切换。途中留下未结交易、只有 SWITCHING、凭证被撤销或任一事实改变时继续 HOLD。
 
 记录三次运行链接、API/Web 运行镜像与 OCI revision、三项迁移回执、原始审计 HOLD、默认关闭和试点状态。正式分次入库的业务开关保持关闭。
+
+### 11 月 23 日围栏内的数据库取证
+
+事故原运行 `45144287071-1` 保留 `FRESH_RECHECKED/HOLD`。公网 HTTP 和 HTTPS 的 Phoenix 虚拟主机于新加坡时间 19:26 排空旧 worker，首页、登录与健康路径均经外部复核返回 503。取证时须同时保有该配置和原生 inet、bridge 两道 API 围栏。
+
+在主干运行 `production-modern-original-recovery.yml`，选择 `inspect_held_facts=true`、`approve_stopped_original=false`、`approve_forward_api=false`，输入原运行和它的完整目标 SHA。取证在新的数据库双锁租约下，用只读重复读快照核对原第 5 步封存的完整逐表及序列记录。输出 MATCH、DIFFERENCE 或 HOLD，含差异对象数或失败代码。成功后核实本次租约已退出。三个结果均保留停机状态。后续接管还须单独取得受控恢复、迁移和双端发布回执。

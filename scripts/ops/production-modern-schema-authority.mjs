@@ -8,7 +8,7 @@ import {inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './prod
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {LEGACY_EGG_SCOPE_CLASSIFICATIONS} from './production-legacy-egg-audit-evidence.mjs';
 import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
-import {successorBinding,successorPlan,successorRuntime,successorTransportCeilingMs} from './production-modern-schema-successor.mjs';
+import {successorBinding,successorPlan,successorRuntime,validSuccessorWindow} from './production-modern-schema-successor.mjs';
 const SHA=/^[a-f0-9]{40}$/,HASH=/^[a-f0-9]{64}$/,OWNER=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const token=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,199}$/.test(value);
 const record=value=>value&&Object.getPrototypeOf(value)===Object.prototype&&Object.values(Object.getOwnPropertyDescriptors(value)).every(d=>Object.hasOwn(d,'value'));
@@ -40,7 +40,7 @@ export function validateModernSchemaContext(value){
  validateModernSchemaMigrationPlan(Object.fromEntries(modernSchemaMigrationPlanFields.map(key=>[key,value[key]])));
  const duration=Date.parse(value.window.end)-Date.parse(value.window.start),profile=INITIAL_MODERN_SCHEMA_PROFILE;
  if(value.runtimeSha===successorRuntime)successorBinding(value.floorSha,value);
- if(value.runtimeSha===successorRuntime && (!successorPlan(value)||value.originalConclusion!=='HOLD'||duration>successorTransportCeilingMs))fail('EXACT_SUCCESSOR_REQUIRED');
+ if(value.runtimeSha===successorRuntime && (!successorPlan(value)||value.originalConclusion!=='HOLD'||!validSuccessorWindow(Date.parse(value.window.start),Date.parse(value.window.end))))fail('EXACT_SUCCESSOR_REQUIRED');
  if(value.runtimeSha!==successorRuntime&&duration>30*60*1000&&(![INITIAL_MODERN_SCHEMA_WINDOW_MS,...INITIAL_HISTORICAL_WINDOWS_MS].includes(duration)||value.originalConclusion!=='HOLD'||
   value.floorSha!==profile.floorSha||value.runtimeSha!==profile.runtimeSha||value.pendingMigrations.length!==profile.pendingCount||
   value.sourceInventorySha256!==profile.sourceInventorySha256||value.runtimeInventorySha256!==profile.runtimeInventorySha256||

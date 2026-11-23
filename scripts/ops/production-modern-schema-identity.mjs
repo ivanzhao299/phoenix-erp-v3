@@ -1,6 +1,7 @@
 /** GitHub-signed dispatch identity only. Neither environment membership nor
  * this token is an owner instruction, independent approval, or release grant. */
 import {createHash,createPublicKey,verify} from 'node:crypto';
+import {checkSuccessorRunnerDeadline} from './production-modern-schema-successor.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 const REPO='ivanzhao299/phoenix-erp-v3',REPO_ID='1239767008',OWNER_ID='154717306';
 const DELEGATE={id:'7245339',login:'emvia'},WORKFLOW='.github/workflows/deploy.yml';
@@ -97,6 +98,7 @@ export async function collectModernSchemaLiveJob(identity,dependencies={}){
   ||!Number.isSafeInteger(job.id)||job.id<1)fail('LIVE_API_JOB_MISMATCH');
  let candidateCiSha256;
  if(dependencies.successor){
+  checkSuccessorRunnerDeadline(dependencies.successor.approval.window,job.started_at);
   const ciId=dependencies.successor.approval.ciRunId;
   if(!/^[1-9][0-9]{0,19}$/.test(ciId)||ciId===identity.runId)fail('CANDIDATE_CI_REQUIRED');
   const ciPath=base+'/actions/runs/'+ciId,ci=await read(ciPath);
