@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import * as postingClock from '../../wms/temp-production-reversal';
+import { ProductionDocumentContinuations1795400100000 } from '../../../database/migrations/1795400100000-ProductionDocumentContinuations';
 import { assertOfficialInventoryBatches, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
 import { inspectProductionCutoverEvidence, readProductionCutoverEvidence } from '../../wms/production-cutover-evidence';
 import { cutoverEvidenceHash } from '../../wms/production-cutover-evidence';
@@ -51,6 +53,9 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       CREATE TABLE mst_materials(material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
       CREATE TABLE prc2_receipts(id bigint PRIMARY KEY,receipt_no text,company_code text,warehouse_code text,status text);
       CREATE TABLE prc2_receipt_items(id bigint PRIMARY KEY,receipt_id bigint REFERENCES prc2_receipts(id),item_code text,actual_qty numeric,unit text);`);
+    const continuation = db.createQueryRunner();
+    try { await new ProductionDocumentContinuations1795400100000().up(continuation); }
+    finally { await continuation.release(); }
     const transfer=db.createQueryRunner();await transfer.connect();try{await new AlignWmsTransactionForms1787731200000().up(transfer);await new UpgradeWmsTransferLifecycle1787965200000().up(transfer);}finally{await transfer.release();}
     const defect=db.createQueryRunner();await defect.connect();try{await new AddWmsDefectDisposition1794405000000().up(defect);}finally{await defect.release();}
     await db.query(`CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);
@@ -70,10 +75,13 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
   afterAll(async () => { if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); } });
   async function resetFixture(mode:"DAILY"|"AMPM"="DAILY",reportDay:string=day,baselineDay='2026-11-17') {
-    await db.query(`TRUNCATE production_source_state_events,production_inventory_domain_states,prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
+    // Clear only this test-owned schema, including append-only continuation history.
+    await db.query(`ALTER TABLE production_inbound_reissues DISABLE TRIGGER trg_reissue_truncate;
+      TRUNCATE production_source_state_events,production_inventory_domain_states,prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
       production_opening_receipts,production_inbound_days,production_batch_roots,production_batch_qualifications,
       production_inventory_domains,production_cutover_scopes,inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,
       brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
+      ALTER TABLE production_inbound_reissues ENABLE TRIGGER trg_reissue_truncate;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
       VALUES('SYNTHETIC-BASELINE','SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','${baselineDay}','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
@@ -391,6 +399,225 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const approved=await service.approveReversal(frozen.id,frozen.version,frozen.content_hash,clearance.id);
     return { frozen,approved,clearance };
   }
+
+  async function lastMonthEnd(): Promise<string> {
+    const [row]=await db.query(`SELECT (date_trunc('month',clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-1)::text AS day`);
+    return row.day;
+  }
+  async function waitForBlockedBy(pid: number) {
+    for (let i=0;i<200;i++) {
+      const [row]=await db.query('SELECT pid FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) LIMIT 1',[pid]);
+      if (row) return Number(row.pid);
+      await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    throw new Error('Expected a second PostgreSQL connection to wait on the fixture lock');
+  }
+
+  it('T09 atomically retains one successor, preserves keys, and rolls back an injected link failure',async()=>{
+    const key=randomUUID(),previous=await lastMonthEnd();
+    const clock=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue(previous);
+    let d:any;
+    try { d=await ready(); } finally { clock.mockRestore(); }
+    await db.query(`ALTER TABLE production_inbound_reissues ADD CONSTRAINT injected_link_failure CHECK(false)`);
+    try { await expect(service.reissue(d.id,d.version,key)).rejects.toThrow('injected_link_failure'); }
+    finally { await db.query('ALTER TABLE production_inbound_reissues DROP CONSTRAINT injected_link_failure'); }
+    expect((await service.get(d.id)).state).toBe('READY');
+    expect(await db.query('SELECT id FROM production_inbound_documents WHERE intent_key=$1',[key])).toEqual([]);
+    const outcomes=await Promise.all([service.reissue(d.id,d.version,key),service.reissue(d.id,d.version,randomUUID())]);
+    expect(outcomes.map(o=>o.outcome).sort()).toEqual(['DRAFT','EXISTING']);
+    expect(outcomes[0].documentId).toBe(outcomes[1].documentId);
+    await expect(db.query('TRUNCATE production_inbound_reissues')).rejects.toThrow('PRODUCTION_REISSUE_IMMUTABLE');
+    await expect(db.query('TRUNCATE production_inbound_documents CASCADE')).rejects.toThrow('PRODUCTION_REISSUE_IMMUTABLE');
+    const next=await service.get(outcomes[0].documentId);
+    expect(next).toMatchObject({state:'DRAFT',handover_ref:d.handover_ref,submit_key:null,content_hash:null,version:1});
+    expect((await service.get(d.id))).toMatchObject({state:'CANCELLED',submit_key:d.submit_key,intent_key:d.intent_key});
+    const rollback=db.createQueryRunner();
+    try {await expect(new ProductionDocumentContinuations1795400100000().down(rollback)).rejects.toThrow('PRODUCTION_CONTINUATION_DOWN_BLOCKED');}
+    finally {await rollback.release();}
+    expect((await service.reissue(d.id,d.version,key)).documentId).toBe(next.id);
+    const frozen=await service.ready(next.id,next.version,randomUUID()),receipt=await post(frozen);
+    expect((await service.reissue(frozen.id,1,key))).toEqual({outcome:'POSTED',documentId:frozen.id,receipt});
+    expect(await totals()).toMatchObject({batches:1,lines:1,ledgers:1});
+  });
+
+  it('T09 returns the exact receipt when an in-flight post commits ahead of reissue',async()=>{
+    const doc=await ready(),q=db.createQueryRunner();
+    await db.query(`CREATE FUNCTION hold_fixture_post() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN PERFORM pg_advisory_xact_lock(91123,9); RETURN NEW; END $$;
+      CREATE TRIGGER hold_fixture_post BEFORE UPDATE ON production_inbound_documents
+        FOR EACH ROW WHEN (NEW.state='POSTED') EXECUTE FUNCTION hold_fixture_post()`);
+    try {
+      await q.startTransaction();
+      await q.query('SELECT pg_advisory_xact_lock(91123,9)');
+      const [{pid}]=await q.query('SELECT pg_backend_pid() AS pid');
+      const posting=post(doc),postingPid=await waitForBlockedBy(pid);
+      const reissuing=service.reissue(doc.id,doc.version,randomUUID());
+      await waitForBlockedBy(postingPid);
+      await q.commitTransaction();
+      const receipt=await posting;
+      expect(await reissuing).toEqual({outcome:'POSTED',documentId:doc.id,receipt});
+      expect(await db.query('SELECT 1 FROM production_inbound_reissues')).toEqual([]);
+    } finally {
+      if(q.isTransactionActive)await q.rollbackTransaction();await q.release();
+      await db.query('DROP TRIGGER hold_fixture_post ON production_inbound_documents;DROP FUNCTION hold_fixture_post()');
+    }
+  });
+
+  it('T09 serializes a manual cancellation against reissue without orphaning a successor',async()=>{
+    const clock=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue(await lastMonthEnd());
+    let d:any;try { d=await ready(); } finally {clock.mockRestore();}
+    const outcomes=await Promise.allSettled([service.cancel(d.id,d.version),service.reissue(d.id,d.version,randomUUID())]);
+    expect(outcomes.filter(o=>o.status==='fulfilled')).toHaveLength(1);
+    const docs=await db.query('SELECT id,state FROM production_inbound_documents');
+    const links=await db.query('SELECT predecessor_id,successor_id FROM production_inbound_reissues');
+    expect(docs.filter((x:any)=>x.state==='DRAFT')).toHaveLength(links.length);
+    if (links.length) expect(links).toEqual([{predecessor_id:d.id,successor_id:docs.find((x:any)=>x.state==='DRAFT').id}]);
+  });
+
+  it('T08 rejects ordinary frozen quantities after a separately signed period closes and reopens',async()=>{
+    const doc=await ready(),maker=actor,periodMonth=postingClock.singaporeBusinessDate().slice(0,7);
+    actor={userId:2,username:'approver',permissions:['MENU_FIN2_AR_LEDGER:E,A']};
+    const p={companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth,evidenceFileId:'FILE-FINANCE',reason:'Synthetic signing change'};
+    await service.setPostingPeriod({...p,state:'CLOSED',expectedVersion:1});
+    await service.setPostingPeriod({...p,state:'OPEN',expectedVersion:2});
+    actor=maker;
+    await expect(post(doc)).rejects.toMatchObject({response:{code:'PRODUCTION_PERIOD_CHANGED'}});
+    expect((await service.get(doc.id)).state).toBe('READY');expect(await totals()).toMatchObject({batches:0,ledgers:0});
+  });
+
+  it.each(['INBOUND','REVERSAL'])('T08 final commit rejects prior month %s after a real lock wait',async kind=>{
+    const prior=await lastMonthEnd(),maker=actor;
+    let original:any,segment:any;
+    if(kind==='REVERSAL') {
+      original=await ready();await post(original);
+      [segment]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[original.id]);
+      actor={userId:2,username:'approver',permissions:['MENU_FIN2_AR_LEDGER:E']};
+      await service.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:prior.slice(0,7),state:'OPEN',expectedVersion:0,
+        evidenceFileId:'FILE-FINANCE',reason:'Synthetic previous month period for boundary simulation'});actor=maker;
+    }
+    // Application preflight still observes the last day of the prior month. PostgreSQL uses its actual wall clock at COMMIT.
+    const clock=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue(prior);
+    const blocker=db.createQueryRunner();
+    let frozen:any;
+    try {
+      frozen=kind==='INBOUND'?await ready():(await reversal(original,[{allocationId:segment.id,quantity:100}])).approved;
+      const before=await totals();
+      await blocker.startTransaction();
+      const [{pid}]=await blocker.query('SELECT pg_backend_pid() AS pid');
+      if(kind==='INBOUND') await blocker.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`production-period:COMP-A:${prior.slice(0,7)}`]);
+      else await blocker.query('SELECT batch_no FROM inv_batches FOR UPDATE');
+      const posting=post(frozen).then(()=>'',e=>String(e.message));
+      await waitForBlockedBy(pid);await blocker.commitTransaction();
+      expect(await posting).toContain('PRODUCTION_POSTING_DAY_CHANGED');
+      expect(await totals()).toEqual(before);
+      expect((await service.get(frozen.id)).state).toBe(kind==='INBOUND'?'READY':'APPROVED');
+    } finally {
+      if(blocker.isTransactionActive) await blocker.rollbackTransaction();
+      await blocker.release();clock.mockRestore();
+    }
+    actor=maker;
+    const successor=await service.reissue(frozen.id,frozen.version,randomUUID());
+    const d=await service.get(successor.documentId);
+    expect(d).toMatchObject({state:'DRAFT',approved_by:null,approval_evidence:null,submit_key:null});
+    if (kind==='REVERSAL') {
+      expect(d.original_document_id).toBe(original.id);
+      const refrozen=await service.ready(d.id,d.version,randomUUID());
+      await expect(post(refrozen)).rejects.toThrow('审核');
+      expect(await db.query('SELECT 1 FROM production_financial_clearances WHERE document_id=$1',[d.id])).toEqual([]);
+    }
+  });
+
+  it('T07 both lock orders serialize JSON quality registration and complete reversal, including escaped failed items',async()=>{
+    await db.query('CREATE TABLE qa_inspections(id int PRIMARY KEY,status text,items_json jsonb,fail_items_json text)');
+    const q=db.createQueryRunner();
+    try {
+      await new ProductionDocumentContinuations1795400100000().up(q);
+      const original=await ready(),receipt=await post(original),batch=receipt.batches[0].batchNo;
+      const [segment]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[original.id]);
+      const {approved}=await reversal(original,[{allocationId:segment.id,quantity:100}]);
+      await q.startTransaction();
+      const [{pid}]=await q.query('SELECT pg_backend_pid() AS pid');
+      await q.query('INSERT INTO qa_inspections VALUES(1,$1,$2,NULL)',['IN_PROGRESS',JSON.stringify([{batch_no:batch}])]);
+      const reversalFirst=post(approved).then(()=>null,e=>e.getResponse().code);
+      await waitForBlockedBy(pid);await q.commitTransaction();
+      expect(await reversalFirst).toBe('PRODUCTION_REVERSAL_DOWNSTREAM_HOLD');
+      await q.query('UPDATE qa_inspections SET status=$1,items_json=NULL,fail_items_json=$2',['UNKNOWN',JSON.stringify(JSON.stringify([{id:batch}]))]);
+      await expect(post(approved)).rejects.toMatchObject({response:{code:'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD'}});
+      await q.query("UPDATE qa_inspections SET status='VOID'");
+      const real=(service as any).postReversal.bind(service);
+      let unlock!:()=>void,locked!:(pid:number)=>void;
+      const release=new Promise<void>(done=>{unlock=done;});
+      const holding=new Promise<number>(done=>{locked=done;});
+      const hook=jest.spyOn(service as any,'postReversal').mockImplementation(async(...args:any[])=>{
+        const result=await real(...args);
+        const [{pid}]=await args[0].query('SELECT pg_backend_pid() AS pid');locked(pid);await release;return result;
+      });
+      try {
+        const reversing=post(approved);await holding;
+        const inspection=q.query("UPDATE qa_inspections SET status='PENDING'").then(()=>'',e=>String(e.message));
+        expect(await inspection).toContain('PRODUCTION_QUALITY_BATCH_BUSY');unlock();
+        expect((await reversing).totalReversed).toBe(100);
+        await expect(q.query("UPDATE qa_inspections SET status='PENDING'")).rejects.toThrow('PRODUCTION_QUALITY_BATCH_REVERSED');
+      } finally {unlock();hook.mockRestore();}
+      expect((await q.query('SELECT status FROM qa_inspections'))[0].status).toBe('VOID');
+    } finally {
+      if(q.isTransactionActive)await q.rollbackTransaction();await q.release();
+      await db.query('DROP TABLE qa_inspections');
+    }
+  });
+
+  it('T07 old API batch then QA row lock cannot deadlock a QA updater already holding that row',async()=>{
+    await db.query('CREATE TABLE qa_non_conformance(id int PRIMARY KEY,batch_no text,status text)');
+    const qa=db.createQueryRunner(),old=db.createQueryRunner();
+    try {
+      await new ProductionDocumentContinuations1795400100000().up(qa);
+      const receipt=await post(await ready()),batch=receipt.batches[0].batchNo;
+      await db.query("INSERT INTO qa_non_conformance VALUES(1,$1,'VOID')",[batch]);
+      await qa.startTransaction();await old.startTransaction();
+      await qa.query('SELECT 1 FROM qa_non_conformance WHERE id=1 FOR UPDATE');
+      const [{pid}]=await qa.query('SELECT pg_backend_pid() AS pid');
+      await old.query('SELECT 1 FROM inv_batches WHERE batch_no=$1 FOR UPDATE',[batch]);
+      const oldLookup=old.query('SELECT status FROM qa_non_conformance WHERE batch_no=$1 FOR SHARE',[batch]);
+      await waitForBlockedBy(pid);
+      await expect(qa.query("UPDATE qa_non_conformance SET status='OPEN' WHERE id=1")).rejects.toThrow('PRODUCTION_QUALITY_BATCH_BUSY');
+      await qa.rollbackTransaction();
+      expect(await oldLookup).toEqual([{status:'VOID'}]);await old.commitTransaction();
+    } finally {
+      if(qa.isTransactionActive)await qa.rollbackTransaction();if(old.isTransactionActive)await old.rollbackTransaction();
+      await qa.release();await old.release();await db.query('DROP TABLE qa_non_conformance');
+    }
+  });
+
+  it.each([10,100])('T07 database protects older writers that do not scan QA JSON, including reversal of %i eggs',async quantity=>{
+    await db.query('CREATE TABLE qa_inspections(id int PRIMARY KEY,status text,items_json jsonb,fail_items_json jsonb)');
+    const q=db.createQueryRunner();
+    try {
+      await new ProductionDocumentContinuations1795400100000().up(q);
+      const original=await ready(),receipt=await post(original),batch=receipt.batches[0].batchNo;
+      const [segment]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[original.id]);
+      const {approved}=await reversal(original,[{allocationId:segment.id,quantity}]);
+      // Simulate the pre-migration API's missing JSON scan. The DB must reject even when every application check passes.
+      const old=jest.spyOn(service as any,'validateReversal').mockImplementation(async(m:any)=>({
+        original,batches:await m.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE',[batch])}));
+      try {
+        await q.startTransaction();
+        const [{pid}]=await q.query('SELECT pg_backend_pid() AS pid');
+        await q.query("INSERT INTO qa_inspections VALUES(1,'PENDING',NULL,$1)",[JSON.stringify([{source:original.document_no}])]);
+        const writing=post(approved).then(()=>'',e=>String(e.message));
+        await waitForBlockedBy(pid);await q.commitTransaction();
+        expect(await writing).toContain('PRODUCTION_REVERSAL_DOWNSTREAM_HOLD');
+        expect((await service.get(approved.id)).state).toBe('APPROVED');
+        expect(Number((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty)).toBe(100);
+        await q.query("UPDATE qa_inspections SET status='CANCELLED'");
+        expect((await post(approved)).totalReversed).toBe(quantity);
+        const register=()=>q.query("UPDATE qa_inspections SET status='PENDING'");
+        if(quantity===100) await expect(register()).rejects.toThrow('PRODUCTION_QUALITY_BATCH_REVERSED');
+        else {await register();expect(Number((await q.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty)).toBe(90);}
+      } finally {old.mockRestore();}
+    } finally {
+      if(q.isTransactionActive)await q.rollbackTransaction();await q.release();await db.query('DROP TABLE qa_inspections');
+    }
+  });
 
   it('AM100 / PM200 → 150(100/50) → reverse PM30 → PM180; sources and quota count compensation once', async () => {
     await resetFixture('AMPM');

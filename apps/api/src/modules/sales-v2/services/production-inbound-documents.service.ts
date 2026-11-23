@@ -460,7 +460,8 @@ export class ProductionInboundDocumentsService {
         const physical=handover.payload.sources.find((a:any)=>a.dailyLogId===Number(r.id)&&a.gradeCode===item.gradeCode);
         const physicalCapacity=physicalRemaining.get(key)??0;
         const n = item.allocations ? selected?.quantity ?? 0 : Math.min(remaining,capacity,physicalCapacity);
-        if(n>physicalCapacity)throw new ConflictException('拟入分段超过收发双方签认的实际交接数量');
+        if(n>physicalCapacity)throw new ConflictException({code:'PRODUCTION_HANDOVER_CAPACITY',gradeCode:item.gradeCode,
+          dailyLogId:r.id,remaining:physicalCapacity,message:'拟入分段超过收发双方签认的实际交接数量'});
         if (n>capacity) throw new ConflictException({ code:'PRODUCTION_GRADE_CAPACITY',gradeCode:item.gradeCode,
           dailyLogId:r.id,remaining:capacity,message:`${item.gradeCode} 来源可入余额不足` });
         if (n>0) {
@@ -483,6 +484,16 @@ export class ProductionInboundDocumentsService {
     if([...physicalRemaining.values()].some(n=>n!==0))throw new ConflictException('本单必须完整承接该次实物交接；请核对遗漏档位或分段');
     return { items,profile };
   }
+  private async inboundPeriodVersion(m: EntityManager, company: string, postingDate: string): Promise<number> {
+    const month=postingDate.slice(0,7);
+    await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`production-period:${company}:${month}`]);
+    const [period]=await m.query(`SELECT state,version FROM production_posting_periods
+      WHERE company_code=$1 AND period_month=$2 FOR SHARE`,[company,month]);
+    if (period?.state==='CLOSED') throw new ConflictException({code:'PRODUCTION_PERIOD_CLOSED',
+      message:'当前生产记账期间已经关账，停止新过账'});
+    // Ordinary inbound has always supported an implicit open period.
+    return period?.version ?? 0;
+  }
   async ready(id: string, version: number, submitKey: string) {
     text(submitKey,'提交键'); const before = await this.identity(id);
     return this.db.transaction(async m => {
@@ -490,9 +501,10 @@ export class ProductionInboundDocumentsService {
       const d = await this.currentDocument(m,id); this.version(d,version);
       if (d.state !== 'DRAFT') throw new ConflictException('仅草稿可冻结');
       if (d.kind === 'REVERSAL') return this.readyReversal(m,d,submitKey,scope);
-      const frozen = await this.freezeItems(m,d,reports);
-      const payload = { ...d.payload,...frozen,scopeVersion:scope.version };
       const postingDate = singaporeBusinessDate();
+      const periodVersion=await this.inboundPeriodVersion(m,d.company_code,postingDate);
+      const frozen = await this.freezeItems(m,d,reports);
+      const payload = { ...d.payload,...frozen,scopeVersion:scope.version,periodVersion };
       const digest = productionContentHash({ documentNo:d.document_no,company:d.company_code,house:d.house_code,
         productionDate:d.production_date,scopeId:scope.id,postingDate,payload });
       const [result] = await m.query(`WITH changed AS (UPDATE production_inbound_documents SET state='READY',version=version+1,
@@ -506,6 +518,78 @@ export class ProductionInboundDocumentsService {
       await this.lockDay(m,before,false); const d = await this.currentDocument(m,id); this.version(d,version);
       if (['POSTED','CANCELLED'].includes(d.state)) throw new ConflictException('单据已过账或已取消');
       const [result] = await m.query("WITH changed AS (UPDATE production_inbound_documents SET state='CANCELLED',version=version+1 WHERE id=$1 RETURNING *) SELECT * FROM changed", [id]); return result;
+    });
+  }
+  /** Stable request identity and the old document survive an unknown HTTP outcome. */
+  async reissue(id: string, version: number, intentKey: string) {
+    text(intentKey, '续制意图');
+    const before = await this.identity(id);
+    const posted = (doc: Document) => ({ outcome: 'POSTED' as const, documentId: doc.id, receipt: doc.receipt });
+    if (before.state === 'POSTED') return posted(before);
+    return this.db.transaction(async m => {
+      await this.lockCreation(m, before.company_code, intentKey, before.handover_ref);
+      const scope = await this.lockDay(m, before, false, false);
+      const old = await this.currentDocument(m, id);
+      if (old.state === 'POSTED') return posted(old);
+      const perms = (this.cls.get('user') as any)?.permissions;
+      if (!hasPerm(perms, 'MENU_PROD_INBOUND', 'C') || !hasPerm(perms, 'MENU_PROD_INBOUND', 'E')) {
+        throw new ForbiddenException('续制须具备创建与编辑权限');
+      }
+      const [link] = await m.query(`SELECT successor_id FROM production_inbound_reissues
+        WHERE predecessor_id=$1`, [id]);
+      const [usedIntent] = await m.query('SELECT id FROM production_inbound_documents WHERE company_code=$1 AND intent_key=$2',
+        [old.company_code, intentKey]);
+      if (usedIntent && usedIntent.id !== link?.successor_id) throw new ConflictException('续制须使用独立的新意图');
+      if (link) return { outcome: 'EXISTING' as const, documentId: link.successor_id };
+      this.version(old, version);
+      if (scope.state !== 'ACTIVE' || !['READY', 'APPROVED'].includes(old.state)) {
+        throw new ConflictException('仅启用范围内的未过账冻结单可续制');
+      }
+      const [clock] = await m.query("SELECT (clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date::text AS today");
+      if (old.expected_posting_date >= clock.today) throw new ConflictException('仅可续制已跨记账日的冻结单');
+      let payload: Document;
+      let hash: string;
+      if (old.kind === 'INBOUND') {
+        const draft = this.normalize({ companyCode:old.company_code, houseCode:old.house_code, eggDate:old.production_date,
+          handoverRef:old.handover_ref, warehouseCode:old.payload.warehouseCode, locationCode:old.payload.locationCode,
+          intentKey, remark:old.payload.remark, evidenceFileIds:old.payload.evidenceFileIds,
+          items:this.sourceDraftItems(old.payload.items) });
+        payload = draft.payload;
+        hash = productionContentHash({company:draft.companyCode,house:draft.houseCode,day:draft.eggDate,
+          handoverRef:draft.handoverRef,payload});
+      } else {
+        const {warehouseCode,locationCode,reason,evidenceFileIds,evidenceChecksums,originalContentHash,items} = old.payload;
+        // The protected physical evidence is still bound to its original uploader. All approvals are acquired anew.
+        payload = {warehouseCode,locationCode,reason,evidenceFileIds,evidenceChecksums,originalContentHash,items,
+          evidenceOwnerId:old.payload.evidenceOwnerId ?? old.created_by};
+        const segments = items.flatMap((item:Document) => item.sources.map((a:Document) =>
+          ({allocationId:a.originalAllocationId,quantity:a.quantity})));
+        hash = productionContentHash({originalId:old.original_document_id,intentKey,reason,segments,evidenceFileIds});
+      }
+      const next = randomUUID();
+      const actor = this.actor();
+      await m.query("UPDATE production_inbound_documents SET state='CANCELLED',version=version+1 WHERE id=$1", [id]);
+      await m.query(`INSERT INTO production_inbound_documents
+        (id,document_no,company_code,house_code,production_date,scope_id,kind,original_document_id,intent_key,
+          handover_ref,creation_hash,payload,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [next, `${old.kind==='INBOUND'?'PIN':'PIR'}-${next}`, old.company_code, old.house_code, old.production_date,
+          scope.id, old.kind, old.original_document_id, intentKey, old.handover_ref, hash, JSON.stringify(payload), actor]);
+      await m.query(`INSERT INTO production_inbound_reissues
+        (predecessor_id,successor_id,company_code,intent_key,predecessor_version,requested_by) VALUES($1,$2,$3,$4,$5,$6)`,
+        [id,next,old.company_code,intentKey,version,actor]);
+      return {outcome:'DRAFT' as const, documentId:next};
+    });
+  }
+
+  private sourceDraftItems(items: FrozenItem[]): InboundDraftItem[] {
+    return items.map(item => ({gradeCode:item.gradeCode,specCode:item.specCode,quantity:item.quantity,
+      allocations:item.sources.map(a => ({dailyLogId:a.dailyLogId,quantity:a.quantity,evidenceFileId:String(a.snapshot.evidenceFileId)}))}));
+  }
+
+  private requireCurrentPostingDate(d: Document): void {
+    if (d.expected_posting_date !== singaporeBusinessDate()) throw new ConflictException({
+      code:'PRODUCTION_POSTING_DAY_CHANGED', documentId:d.id, message:'已跨新加坡记账日，请按原单续制后重新核对'
     });
   }
   private checkSubmission(d: Document, key: string, hash: string) {
@@ -526,15 +610,13 @@ export class ProductionInboundDocumentsService {
       if (d.state === 'POSTED') return d.receipt;
       if (d.kind === 'REVERSAL') return this.postReversal(m,d,actor);
       if (d.state !== 'READY') throw new ConflictException('交库单尚未冻结或状态已变化');
-      if (d.expected_posting_date !== singaporeBusinessDate()) throw new ConflictException('已跨新加坡记账日，请重新编辑并确认冻结');
-      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`production-period:${d.company_code}:${d.expected_posting_date.slice(0,7)}`]);
-      const [period]=await m.query(`SELECT state FROM production_posting_periods WHERE company_code=$1 AND period_month=$2 FOR SHARE`,
-        [d.company_code,d.expected_posting_date.slice(0,7)]);
-      if(period?.state==='CLOSED')throw new ConflictException('当前生产记账期间已经关账，停止新过账');
-      const recheck = await this.freezeItems(m,{ ...d,payload:{ ...d.payload,items:d.payload.items.map((item: FrozenItem) => ({
-        gradeCode:item.gradeCode,specCode:item.specCode,quantity:item.quantity,
-        allocations:item.sources.map(a => ({dailyLogId:a.dailyLogId,quantity:a.quantity,evidenceFileId:String(a.snapshot.evidenceFileId)})),
-      })) } },reports);
+      this.requireCurrentPostingDate(d);
+      const periodVersion=await this.inboundPeriodVersion(m,d.company_code,d.expected_posting_date);
+      // Old frozen documents lack a period snapshot. Version 2+ proves an intervening close/reopen or change.
+      if (d.payload.periodVersion===undefined ? periodVersion>1 : d.payload.periodVersion!==periodVersion) {
+        throw new ConflictException({code:'PRODUCTION_PERIOD_CHANGED',message:'冻结后记账期间已变化，请重新核对单据'});
+      }
+      const recheck = await this.freezeItems(m,{ ...d,payload:{ ...d.payload,items:this.sourceDraftItems(d.payload.items) } },reports);
       const items = d.payload.items as FrozenItem[];
       if (recheck.items.some((item,i) => item.skuCode !== items[i].skuCode || item.productCode !== items[i].productCode
         || item.varietyCode !== items[i].varietyCode || item.inventoryStatus !== items[i].inventoryStatus
@@ -628,13 +710,13 @@ export class ProductionInboundDocumentsService {
   private async validateReversal(m: EntityManager,d: Document) {
     const original = await this.identity(d.original_document_id,m);
     if (original.state!=='POSTED' || original.kind!=='INBOUND' || original.content_hash!==d.payload.originalContentHash) throw new ConflictException('原单凭证或摘要不一致');
-    const [creator]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[d.created_by]);
+    const [creator]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[d.payload.evidenceOwnerId ?? d.created_by]);
     const evidence=await m.query(`SELECT file_id,checksum FROM file_metadata WHERE file_id=ANY($1::text[])
       AND status='ACTIVE' AND deleted_at IS NULL AND module_code='PRODUCTION_INBOUND' AND owner_type='HOUSE'
       AND owner_id=$2 AND company_code=$3 AND uploaded_by=$4 AND visibility IN ('PROTECTED','PRIVATE')
       AND checksum ~ '^[a-f0-9]{64}$' ORDER BY file_id FOR SHARE`,
     [d.payload.evidenceFileIds,d.house_code,d.company_code,creator?.username ?? '']);
-    if (evidence.length!==d.payload.evidenceFileIds.length||d.state!=='DRAFT'
+    if (evidence.length!==d.payload.evidenceFileIds.length||(d.state!=='DRAFT'||d.payload.evidenceChecksums!=null)
       && stableProductionJson(evidence)!==stableProductionJson(d.payload.evidenceChecksums)) throw new ConflictException('冲销实物交接及差异证据已失效或变化');
     if (d.state==='DRAFT') d.payload.evidenceChecksums=evidence;
     const batchNos=(d.payload.items as any[]).map(i => i.batchNo).sort();
@@ -651,7 +733,7 @@ export class ProductionInboundDocumentsService {
       const originalRemaining=Number(item.originalLineQuantity)-Number(reversed.quantity);
       if (!batch || batch.company_code!==d.company_code || batch.warehouse_code!==d.payload.warehouseCode
         || batch.location_code!==d.payload.locationCode || Number(batch.qty)!==originalRemaining || batch.status!==item.inventoryStatus
-        || Number(batch.qty_available)!==(item.inventoryStatus==='AVAILABLE'?originalRemaining:0) || item.quantity>originalRemaining) {
+        || Number(batch.qty_available)!==(item.inventoryStatus==='AVAILABLE'?originalRemaining:0) ) {
         throw new ConflictException('原批实物、状态或可用量已有下游变动/占用，先完成核对和解除');
       }
       for (const a of item.sources) {
@@ -661,8 +743,12 @@ export class ProductionInboundDocumentsService {
             WHERE r.original_allocation_id=original.id AND r.direction=-1),0)::int AS reversed
           FROM production_inbound_allocations original WHERE original.id=$1 AND original.document_id=$2
             AND original.line_no=$3 AND original.direction=1`, [a.originalAllocationId,original.id,item.originalLineNo]);
-        if (!row || Number(row.daily_log_id)!==a.dailyLogId || row.source_link_id!==a.sourceLinkId
-          || a.quantity>Number(row.quantity)-Number(row.reversed)) throw new ConflictException('冲销累计超过原来源分段或来源身份已变化');
+        if (!row || Number(row.daily_log_id)!==a.dailyLogId || row.source_link_id!==a.sourceLinkId) {
+          throw new ConflictException('原冲销分段身份已变化');
+        }
+        const remaining=Number(row.quantity)-Number(row.reversed);
+        if (a.quantity>remaining) throw new ConflictException({code:'PRODUCTION_REVERSAL_CAPACITY',
+          message:'冲销累计超过原来源分段',gradeCode:item.gradeCode,dailyLogId:a.dailyLogId,remaining});
       }
     }
     if ((await m.query('SELECT 1 FROM production_batch_roots WHERE root_batch_no=ANY($1::text[]) LIMIT 1',[batchNos])).length) {
@@ -672,18 +758,28 @@ export class ProductionInboundDocumentsService {
     const referenceFields: Record<string,string[]>={ wms_outbound:['batch_no'],wms_outbound_items:['batch_no'],
       wms_transfer:['batch_no'],wms_transfer_items:['source_batch_no','target_batch_no'],wms_stocktake:['batch_no','item'],
       wms_defect_dispositions:['batch_no','target_batch_no'],store_sale_allocations:['batch_no'],
-      sal_order_item_batch_allocations:['batch_no'],qa_product_inspections:['batch_no'],qa_non_conformance:['batch_no'],lbl_records:['batch_no'],
+      sal_order_item_batch_allocations:['batch_no'],qa_product_inspections:['batch_no'],qa_non_conformance:['batch_no'],qa_inspections:['batch_no'],lbl_records:['batch_no'],
       pkg_source_batches:['batch_code','source_inbound_no'] };
     for (const [table,fields] of Object.entries(referenceFields)) {
       const [exists]=await m.query('SELECT to_regclass($1) AS relation',[table]); if (!exists?.relation) continue;
+      const quality=table.startsWith('qa_');
+      if (quality) {
+        const [guard]=await m.query(`SELECT 1 FROM pg_trigger WHERE tgrelid=to_regclass($1)
+          AND tgname='trg_quality_production_refs' AND tgenabled IN ('O','A')`,[table]);
+        if (!guard) throw new ConflictException({code:'PRODUCTION_QUALITY_LOCK_UNAVAILABLE',
+          message:'质检引用尚未启用批次锁，请联系质检负责人'});
+      }
+      const jsonReferences=table==='qa_inspections'
+        ? " OR production_inspection_refs(to_jsonb(ref)->>'items_json',to_jsonb(ref)->>'fail_items_json') && $1::text[]"
+        : '';
       const rows=await m.query(`SELECT to_jsonb(ref) AS fact FROM ${table} ref
-        WHERE (${fields.map(field=>`btrim(to_jsonb(ref)->>'${field}')=ANY($1::text[])`).join(' OR ')}) FOR SHARE`,
+        WHERE (${fields.map(field=>`btrim(to_jsonb(ref)->>'${field}')=ANY($1::text[])`).join(' OR ')}${jsonReferences}) ${quality?'':'FOR SHARE'}`,
       [[...batchNos,original.document_no]]);
       for (const { fact } of rows) {
         if (table==='sal_order_item_batch_allocations' && Number(fact.outbound_qty ?? 0)===0
           && Number(fact.reserved_qty ?? 0)<=Number(fact.released_qty ?? 0)) continue;
-        if (!['CANCELLED','CANCELED','VOID'].includes(String(fact.status ?? fact.batch_status ?? '').toUpperCase())) {
-          throw new ConflictException({ code:'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD',message:'原单仍有下游、质检或在途引用，请先核对解除',table });
+        if (!['CANCELLED','CANCELED','VOID'].includes(String(fact.status ?? fact.batch_status ?? '').trim().toUpperCase())) {
+          throw new ConflictException({ code:'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD',message:quality?'原单仍有质检引用，请联系质检负责人核对解除':'原单仍有下游或在途引用，请先核对解除' });
         }
       }
     }
@@ -771,7 +867,7 @@ export class ProductionInboundDocumentsService {
       await this.lockDay(m,before); await this.reports(m,before);
       const d=await this.currentDocument(m,id); this.version(d,version);
       if (d.kind!=='REVERSAL'||d.state!=='READY'||d.content_hash!==contentHash||d.created_by===actor) throw new ConflictException('原单冲销须绑定冻结摘要且不得自批');
-      if (d.expected_posting_date!==singaporeBusinessDate()) throw new ConflictException('冲销已跨记账日，请取消后重新确认');
+      this.requireCurrentPostingDate(d);
       await this.validateReversal(m,d);
       const clearance=await this.financialClearance(m,d,financialClearanceId);
       const evidence={ clearanceId:clearance.id,financialReviewer:clearance.signed_by,
@@ -782,9 +878,9 @@ export class ProductionInboundDocumentsService {
     });
   }
   private async postReversal(m: EntityManager,d: Document,actor: string) {
+    this.requireCurrentPostingDate(d);
     if (d.state!=='APPROVED'||d.approved_by===d.created_by||d.approved_hash!==d.content_hash||!d.approval_evidence
-      ||d.approval_evidence.reviewer!==d.approved_by||d.approval_evidence.contentHash!==d.content_hash
-      || d.expected_posting_date!==singaporeBusinessDate()) throw new ConflictException('冲销须有同日、同摘要的独立业务及财务审核');
+      ||d.approval_evidence.reviewer!==d.approved_by||d.approval_evidence.contentHash!==d.content_hash) throw new ConflictException('冲销须有同日、同摘要的独立业务及财务审核');
     if (!(await m.query("SELECT 1 FROM sys_user WHERE user_id::text=$1 AND status::text IN ('1','ACTIVE') FOR SHARE",[d.approved_by])).length) {
       throw new ConflictException('独立审核人身份已失效，请重新核验');
     }

@@ -10,7 +10,7 @@ import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ProductionInboundDocumentsService } from '../services/production-inbound-documents.service';
 import { CreateProductionInboundDto, EditProductionInboundDto, PostProductionInboundDto,
   ProductionDocumentIdDto, ProductionDocumentVersionDto, ReadyProductionInboundDto,
-  CreateProductionReversalDto, ApproveProductionReversalDto, RecordProductionFinancialClearanceDto,
+  CreateProductionReversalDto, ReissueProductionDocumentDto, ApproveProductionReversalDto, RecordProductionFinancialClearanceDto,
   CreatePhysicalHandoverDto, ConfirmPhysicalHandoverDto, CancelPhysicalHandoverDto, ProductionPostingPeriodDto } from '../dto/production-inbound-document.dto';
 
 @Controller('api/v2/inventory/production-inbound-documents')
@@ -98,6 +98,11 @@ export class ProductionInboundDocumentsController {
   @Post(':id/cancel') @RequireMenu('MENU_PROD_INBOUND','E')
   @UseGuards(new StrictBodyGuard(ProductionDocumentVersionDto))
   cancel(@Param() p: ProductionDocumentIdDto,@Body() body: ProductionDocumentVersionDto) { return this.documents.cancel(p.id,body.version); }
+  @Post(':id/reissue') @RequireMenu('MENU_PROD_INBOUND','V')
+  @UseGuards(new StrictBodyGuard(ReissueProductionDocumentDto))
+  reissue(@Param() p:ProductionDocumentIdDto,@Body() body:ReissueProductionDocumentDto) {
+    return this.documents.reissue(p.id,body.version,body.intentKey);
+  }
   @Post(':id/reversals') @RequireMenu('MENU_PROD_INBOUND','C')
   @UseGuards(new StrictBodyGuard(CreateProductionReversalDto))
   createReversal(@Param() p: ProductionDocumentIdDto,@Body() body: CreateProductionReversalDto) { return this.documents.createReversal(p.id,body); }

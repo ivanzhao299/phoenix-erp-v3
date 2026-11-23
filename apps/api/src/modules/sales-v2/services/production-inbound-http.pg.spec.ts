@@ -24,6 +24,8 @@ import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migr
 import { CUTOVER_PROVENANCE_SIGNER } from '../../wms/cutover-cross-company-proof';
 import { WmsService } from '../../wms/wms.service';
 import 'reflect-metadata';
+import * as postingClock from '../../wms/temp-production-reversal';
+import { ProductionDocumentContinuations1795400100000 } from '../../../database/migrations/1795400100000-ProductionDocumentContinuations';
 import { AnalyticsController } from '../../analytics/analytics.controller';
 import { GroupAnalyticsService } from '../../analytics/services/group-analytics.service';
 import { FinanceAnalyticsService } from '../../analytics/services/finance-analytics.service';
@@ -135,6 +137,9 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const rawMigration=db.createQueryRunner();await rawMigration.connect();
     try{await new OfficialRawCollectionReceipts1795005390930().up(rawMigration);}finally{await rawMigration.release();}
     await installEmptyCutoverClosureFixture(db);
+    const continuation = db.createQueryRunner();
+    try { await new ProductionDocumentContinuations1795400100000().up(continuation); }
+    finally { await continuation.release(); }
     // Replace only the empty closure contracts with the real owned transfer schema for actual handovers.
     await db.query('DROP TABLE wms_transfer_items;DROP TABLE wms_transfer');
     const transfers=db.createQueryRunner();await transfers.connect();
@@ -202,12 +207,15 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   async function resetState(emptyReports=false){
     await resetManagedSalesFixture(db);
     await db.query("UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND';UPDATE md_egg_source_profiles SET status='ACTIVE'");
-    await db.query(`TRUNCATE production_conversion_documents,production_conversion_inputs,production_conversion_outputs,production_conversion_inventory_debits,
+    // Clear only this test-owned schema, including append-only continuation history.
+    await db.query(`ALTER TABLE production_inbound_reissues DISABLE TRIGGER trg_reissue_truncate;
+      TRUNCATE production_conversion_documents,production_conversion_inputs,production_conversion_outputs,production_conversion_inventory_debits,
       production_batch_raw_roots,production_batch_derivation_parents,wms_defect_dispositions,
       production_raw_receipt_segments,production_raw_receipts,pkg_source_batches,pkg_work_shifts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
+      ALTER TABLE production_inbound_reissues ENABLE TRIGGER trg_reissue_truncate;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
         VALUES('HTTP-BASELINE','HTTP-SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
@@ -254,6 +262,31 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const ready=(await api(1,'post',`/${d.id}/ready`).send({version:d.version,submitKey:randomUUID()}).expect(201)).body;
     return {p,ready,file,handover};
   }
+  it('T08/T09 returns structured day conflicts, requires create and edit, and replays an authorized posted receipt',async()=>{
+    const previous=(await db.query(`SELECT ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-1)::text AS day`))[0].day;
+    const clock=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue(previous);
+    let old:any;
+    try {
+      old=(await signedDraft()).ready;
+      const late=await api(1,'post',`/${old.id}/post`).send({submitKey:old.submit_key,contentHash:old.content_hash}).expect(409);
+      expect(late.body.code).toBe('PRODUCTION_POSTING_DAY_CHANGED');
+    } finally {clock.mockRestore();}
+    const intentKey=randomUUID(),url=`/${old.id}/reissue`,body={version:old.version,intentKey};
+    await api(4,'post',url).send(body).expect(403);
+    await api(6,'post',url).send(body).expect(403);
+    await api(1,'post',url).send({...body,unexpected:'x'}).expect(400);
+    const first=(await api(1,'post',url).send(body).expect(201)).body;
+    expect(first.outcome).toBe('DRAFT');
+    expect((await api(1,'post',url).send(body).expect(201)).body).toEqual({...first,outcome:'EXISTING'});
+    const next=(await api(1,'post',`/${first.documentId}/ready`).send({version:1,submitKey:randomUUID()}).expect(201)).body;
+    const receipt=(await api(1,'post',`/${next.id}/post`).send({submitKey:next.submit_key,contentHash:next.content_hash}).expect(201)).body;
+    const tomorrow=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue('2099-01-01');
+    try {
+      expect((await api(4,'post',`/${next.id}/reissue`).send(body).expect(201)).body).toEqual({outcome:'POSTED',documentId:next.id,receipt});
+      await api(6,'post',`/${next.id}/reissue`).send(body).expect(403);
+    } finally {tomorrow.mockRestore();}
+  });
+
   const cutoverEndpoint='/api/v2/inventory/production-cutovers';
   const cutoverApi=(id:number,path='',method:'get'|'post'|'patch'='post')=>request(app.getHttpServer())[method](cutoverEndpoint+path).auth(token(id),{type:'bearer'});
   const cutoverUpload=(id:number,warehouse='WH-A',company='COMP-A')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})

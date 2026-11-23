@@ -32,6 +32,9 @@ export class EditProductionInboundDto extends CreateProductionInboundDto {
 export class ProductionDocumentVersionDto {
   @IsInt() @Min(1) version!: number;
 }
+export class ReissueProductionDocumentDto extends ProductionDocumentVersionDto {
+  @IsString() @MaxLength(100) intentKey!: string;
+}
 export class ReadyProductionInboundDto extends ProductionDocumentVersionDto {
   @IsString() @MaxLength(100) submitKey!: string;
 }

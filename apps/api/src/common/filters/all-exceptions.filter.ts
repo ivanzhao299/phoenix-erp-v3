@@ -73,6 +73,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // PostgreSQL 数据库错误 — 映射友好消息，隐藏内部细节
     const err = exception as any;
     const pgCode: string | undefined = err?.code;
+    if ((pgCode ?? err?.driverError?.code) === '23514') {
+      const guard = String(err?.driverError?.message ?? err?.message);
+      if (guard === 'PRODUCTION_POSTING_DAY_CHANGED') {
+        return res.status(409).json({ code: guard, message: '已跨新加坡记账日，请按原单续制后重新核对' });
+      }
+      if (guard === 'PRODUCTION_QUALITY_BATCH_BUSY') {
+        return res.status(409).json({ code: guard, message: '批次正在办理质检或冲销，请查询原单后重试' });
+      }
+      if (guard === 'PRODUCTION_QUALITY_LOCK_UNAVAILABLE' || guard === 'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD') {
+        return res.status(409).json({ code: guard, message: '须先由质检负责人核对批次引用后再办理冲销' });
+      }
+      if (guard === 'PRODUCTION_QUALITY_BATCH_REVERSED') {
+        return res.status(409).json({ code: guard, message: '引用的生产批次已全部冲销，请核对原批及质检依据' });
+      }
+    }
     if ((pgCode ?? err?.driverError?.code) === '23514'
       && String(err?.message ?? '').includes('OFFICIAL_INVENTORY_')) {
       return res.status(409).json({ code: 'OFFICIAL_INVENTORY_SOURCE_REJECTED',
