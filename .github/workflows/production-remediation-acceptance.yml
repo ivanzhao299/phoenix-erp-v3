@@ -137,7 +137,8 @@ jobs:
         env:
           BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          before="${BEFORE:-HEAD^1}"
+          # A manual candidate rehearsal always starts from the deployed predecessor.
+          before="${BEFORE:-6bb88544275dfef591cb96c0078f73e88496433b}"
           if git diff --quiet "$before" HEAD -- 'apps/api/src/database/migrations/1795400*.ts'; then
             echo 'required=false' >> "$GITHUB_OUTPUT"
           else
