@@ -9,7 +9,7 @@ const {chromium}=web('@playwright/test');
 
 (async()=>{
   const built=await vite('esbuild').build({absWorkingDir:root,bundle:true,write:false,outfile:'panel.js',jsx:'automatic',
-    define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_API_URL':'""'},
+    define:{'process.env.NODE_ENV':'"production"','process.env':'{}'},
     stdin:{resolveDir:root,loader:'tsx',contents:`import {createRoot} from 'react-dom/client';
       import Panel from './src/components/breeding/ProductionCutoverStatePanel';
       import {LanguageProvider} from './src/contexts/LanguageContext';
@@ -24,6 +24,8 @@ const {chromium}=web('@playwright/test');
     browser=await chromium.launch({headless:true});
     for(const width of [1440,390]){
       const page=await browser.newPage({viewport:{width,height:840}});
+      page.on('pageerror',e=>console.error('Browser error:',e.message));
+
       let paused=false,receipt,submissions=0,canManage=true;
       const row=(h)=>({house_code:h,product_code:'EGG',domain_state:'ACTIVE',scope_state:paused&&h==='A3'?'SUSPENDED':'ACTIVE',version:2,scope_intent:receipt?.intentKey??null});
       await page.route('**/api/**',async route=>{
@@ -33,7 +35,10 @@ const {chromium}=web('@playwright/test');
         }else if(url.pathname.endsWith('/upload/contract'))data={fileId:'OWNED-PROOF'};
         else if(url.pathname.endsWith('/state')){
           const body=route.request().postDataJSON();assert.equal(body.houseCode,'A3');assert.equal(body.state,'SUSPENDED');assert.equal(body.evidenceFileId,'OWNED-PROOF');
-          submissions++;paused=true;receipt={intentKey:body.intentKey,state:body.state,houses:['A3']};data=receipt;
+          if(!receipt){submissions++;paused=true;receipt={intentKey:body.intentKey,state:body.state,houses:['A3']};}
+          assert.equal(body.intentKey,receipt.intentKey);
+          if(width===390){await route.fulfill({status:503,json:{message:'Owned acknowledgement lost'}});return;}
+          data=receipt;
         }else if(url.pathname.includes('/state-receipts/')&&url.pathname.endsWith(receipt?.intentKey??'never'))data=receipt;
         else{status=404;data={};}
         await route.fulfill({status,json:data});
@@ -42,7 +47,9 @@ const {chromium}=web('@playwright/test');
       await page.getByText('A4 · 已启用',{exact:false}).waitFor();await page.getByRole('combobox').selectOption('A3');
       await page.getByText('A3 · 已启用',{exact:false}).waitFor();
       await page.locator('textarea').fill('Owned rehearsal');await page.locator('input[type=file]').first().setInputFiles({name:'count.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
-      await page.getByRole('button',{name:'确认暂停上述范围'}).click();await page.getByText('A3 · 已暂停',{exact:false}).waitFor();
+      await page.getByRole('button',{name:'确认暂停上述范围'}).click();
+      if(width===390)await page.getByRole('button',{name:'按原操作号重试'}).waitFor();
+      else await page.getByText('A3 · 已暂停',{exact:false}).waitFor();
       assert.equal(submissions,1);await page.reload();await page.getByRole('button',{name:'查回本设备上次启停回执'}).click();
       await page.getByRole('status').filter({hasText:receipt.intentKey}).waitFor();assert.equal(submissions,1);
       canManage=false;await page.getByRole('button',{name:'重新核对范围'}).click();await page.getByText('A4 · 已启用',{exact:false}).waitFor();

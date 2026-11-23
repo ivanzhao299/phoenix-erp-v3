@@ -1,5 +1,6 @@
 /** Dedicated pilot invocation. No authority, ingress or release material is synthesized by this program. */
 import fs from 'node:fs';
+import {randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import {compileOwnedIngressRules,ingressIdentity,projectOwnedIngressTable} from './maintenance-ingress-policy.mjs';
@@ -152,7 +153,12 @@ export async function runSiteCutover(operation){
     }
     const {outcome}=await frame('OUTCOME');child.stdin.end();
     if(await exit!==0||!['COMMITTED','UNPROVEN'].includes(outcome?.status))fail('UNPROVEN');
-    atomicState(prefix+'-'+operation+'-result.json',{purpose:CUTOVER_PURPOSE,permit,outcome,observedAt:new Date().toISOString()});
+    const observation={purpose:CUTOVER_PURPOSE,permit,outcome,observedAt:new Date().toISOString()};
+    if(operation==='recover')atomicState(prefix+'-recovery-'+randomUUID()+'.json',observation);
+    const latest=prefix+'-'+operation+'-result.json';
+    const previous=fs.lstatSync(latest,{throwIfNoEntry:false})?secure(path.basename(latest)):null;
+    if(previous?.outcome?.status==='COMMITTED'&&canonicalDigest(previous.outcome)!==canonicalDigest(outcome))fail('ORIGINAL_RESULT_CHANGED');
+    if(!previous||previous.outcome?.status!=='COMMITTED')atomicState(latest,observation);
     return outcome.status;
   }finally{clearTimeout(deadline);child?.stdin.destroy();if(child?.exitCode===null)child.kill();await control.close();}
 }

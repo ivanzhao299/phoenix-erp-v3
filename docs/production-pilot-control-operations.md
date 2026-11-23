@@ -26,6 +26,19 @@
 6. 唯一尝试先写入 root 私有 `cutover-host-<admissionId>-attempt.json`。原执行后端取得两把会话锁后，宿主核验并写入同前缀的 `-backend.json`。独立原签发方按已有 admission 契约，仅对这个空闲后端和已登记的相同 admissionId、操作者、authoritySha256、围栏与盘点摘要投递。签发方须使用 DBS 原始 backend_start、pg_postmaster_start_time（或无损转换记录的微秒值）；许可有效期至多十分钟，工作器等待独立签发至多九十秒。任何一个环节未就绪，保留围栏并记录阻断。宿主不会自己签发。
 7. 结果不明只执行 `recover`。它建立新连接，以只读一致快照核对原准入、APPLIED 原生结果、舍域和期初申领、原始入库流水。ATTACH 使用已有期初。精确成功为 COMMITTED，缺少证明为 UNPROVEN 或 HOLD。结果写入私有 `-execute-result.json` 或 `-recover-result.json`。禁止重发新准入、删除 attempt、人工改状态、重复建期初。业务放行需现场发布负责人按批准的独立围栏恢复流程处理。
 
+## 发布核验的有效权限
+
+在相应的真实数据库登录身份下用只读事务执行 `has_table_privilege(current_user, ..., ...)` 和 `has_function_privilege(current_user, ..., 'EXECUTE')`。同时检查 `has_any_column_privilege` 与可 SET ROLE 的继承关系。软件部署保持默认 OFF 时，专用身份或控制环境尚未登记是允许的现场待办。
+
+| 登录身份 | 必须允许 | 必须拒绝 |
+|---|---|---|
+| 普通 API | `production_cutover_state_origins` SELECT；`production_cutover_state_receipts` SELECT、INSERT | 两者的 UPDATE、DELETE、TRUNCATE、TRIGGER、REFERENCES 及视图 INSERT；控制环境、准入、原生结果三张私表的直接访问；下列三个受保护函数的 EXECUTE |
+| 专用 issuer | 三张私表 SELECT；仅对 `production_cutover_apply_admissions` INSERT | 三张私表其他直接写权限；三个受保护函数 EXECUTE；启停回执读写 |
+| 专用 executor | 三张私表 SELECT；`consume_production_cutover_admission(uuid,text)`、`lock_production_cutover_authority(uuid)`、`record_production_cutover_apply_result(uuid)` EXECUTE；原迁移行守卫允许的库内业务动作 | 三张私表直接写；启停回执写；其他身份可 SET ROLE 到该身份；TRUNCATE、TRIGGER 或绕过行守卫的权限 |
+| 查回工作器 | 使用专用 executor 的新连接；读取原准入、原生结果、业务原始记录，在 REPEATABLE READ / READ ONLY 中运行 | 协议没有写入或发新准入的指令；API、issuer 与 PUBLIC 都没有执行器函数授权 |
+
+启停软件新增一张回执表和一张只读投影视图。另三个私表和上述三个保护函数沿用原迁移。可从 `apps/api/src/database/migrations/1795029621917-ProductionCutoverExecutionAdmissions.ts` 的 `executorInserts`、`executorUpdates` 和 `assert_cutover_control_environment` 核对全量既有物理权限。没有新增可由 API 调用的 SECURITY DEFINER 函数。
+
 ## 验收范围
 
 隔离 PostgreSQL 18 测试覆盖真实独立数据库角色、实际 INIT/ATTACH、COMMIT 后断回执、核对原记录、共享域与单舍的暂停和恢复、真实库存可写判定、查看既有回执和 HTTP 请求格式。人工真实审批、宿主安装、独立签发、正式入账和首日两次交接均是现场验收项。

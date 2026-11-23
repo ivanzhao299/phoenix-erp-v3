@@ -15017,6 +15017,8 @@
   "pilotState.resume": "Resume the listed operations",
   "pilotState.pause": "Pause the listed operations",
   "pilotState.recover": "Retrieve last pilot receipt on this device",
+  "pilotState.pending": "The previous result is pending. Retrieve its receipt or retry the original operation.",
+  "pilotState.retry": "Retry original operation",
   "pilotState.reload": "Refresh affected operations",
   "productionCutover.denied": "You cannot view this count handover.",
   "productionCutover.title": "Formal inventory cutover count",

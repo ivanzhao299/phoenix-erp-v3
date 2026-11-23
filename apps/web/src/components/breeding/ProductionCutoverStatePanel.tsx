@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import request from '@/lib/api-client';
+import request, { type ApiError } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 import s from './ProductionInboundWorkbench.module.css';
@@ -26,25 +26,38 @@ export default function ProductionCutoverStatePanel({id,actor,company,warehouse,
       .then(data=>{if(live){setView({key:selector,data});setError('');}}).catch((e:Error)=>{if(live)setError(e.message);});
     return ()=>{live=false;};
   },[base,house,selector]);
-  async function operate(recover:boolean){
+  async function operate(operation:'new'|'recover'|'retry'){
     if(inFlight.current)return;
     inFlight.current=true;setBusy(true);setError('');
     try{
       let result:Receipt;
-      if(recover){
+      if(operation==='recover'){
         const key=sessionStorage.getItem(storage);
         if(!key)throw Error(t('pilotState.noIntent','此账号在本设备没有保存的启停操作号。'));
         result=await request<Receipt>(base+'/state-receipts/'+encodeURIComponent(key));
       }else{
-        if(!visible?.canManage||!action||!files[0]||!reason.trim())return;
-        const intentKey=crypto.randomUUID();sessionStorage.setItem(storage,intentKey);
-        result=await request<Receipt>(base+'/state',{method:'POST',body:JSON.stringify({state:action,intentKey,
-          houseCode:house||undefined,boundaryHash:visible.boundaryHash,pauseIntentKey:action==='ACTIVE'?members[0].scope_intent:undefined,
-          evidenceFileId:files[0],reason:reason.trim()})});
+        let body=sessionStorage.getItem(storage+':pending');
+        if(operation==='retry'){
+          if(!body)throw Error(t('pilotState.noIntent','此账号在本设备没有保存的启停操作号。'));
+        }else{
+          if(body)throw Error(t('pilotState.pending','上次结果尚待核对。请查回回执或重试原操作。'));
+          if(!visible?.canManage||!action||!files[0]||!reason.trim())return;
+          const intentKey=crypto.randomUUID();
+          body=JSON.stringify({state:action,intentKey,houseCode:house||undefined,boundaryHash:visible.boundaryHash,
+            pauseIntentKey:action==='ACTIVE'?members[0].scope_intent:undefined,evidenceFileId:files[0],reason:reason.trim()});
+          sessionStorage.setItem(storage,intentKey);sessionStorage.setItem(storage+':pending',body);
+        }
+        result=await request<Receipt>(base+'/state',{method:'POST',body});
         setFiles([]);setReason('');
       }
-      setReceipt(result);refresh(v=>v+1);
-    }catch(e){setError(e instanceof Error?e.message:String(e));}
+      sessionStorage.removeItem(storage+':pending');setReceipt(result);refresh(v=>v+1);
+    }catch(e){
+      const status=(e as ApiError).status;
+      if(operation!=='recover'&&status&&[400,403,404,409,422].includes(status)){
+        sessionStorage.removeItem(storage+':pending');refresh(v=>v+1);
+      }
+      setError(e instanceof Error?e.message:String(e));
+    }
     finally{inFlight.current=false;setBusy(false);}
   }
   return <section className={s.card}>
@@ -61,11 +74,13 @@ export default function ProductionCutoverStatePanel({id,actor,company,warehouse,
         <textarea value={reason} disabled={busy} maxLength={1000} onChange={e=>setReason(e.target.value)}/>
       </label>
       <AttachmentUploader value={files} onChange={setFiles} readOnly={busy} ownership={{moduleCode:'PRODUCTION_CUTOVER',ownerType:'WAREHOUSE',ownerId:warehouse,companyCode:company}}/>
-      <button disabled={busy||!files[0]||!reason.trim()} onClick={()=>void operate(false)}>
+      <button disabled={busy||!files[0]||!reason.trim()} onClick={()=>void operate('new')}>
         {action==='ACTIVE'?t('pilotState.resume','确认恢复上述范围'):t('pilotState.pause','确认暂停上述范围')}
       </button>
     </>}
-    <button disabled={busy} onClick={()=>void operate(true)}>{t('pilotState.recover','查回本设备上次启停回执')}</button>
+    <button disabled={busy} onClick={()=>void operate('recover')}>{t('pilotState.recover','查回本设备上次启停回执')}</button>
+    {visible?.canManage&&typeof window!=='undefined'&&sessionStorage.getItem(storage+':pending')&&
+      <button disabled={busy} onClick={()=>void operate('retry')}>{t('pilotState.retry','按原操作号重试')}</button>}
     <button disabled={busy} onClick={()=>refresh(v=>v+1)}>{t('pilotState.reload','重新核对范围')}</button>
     {receipt&&<p role="status">{stateName(receipt.state)} · {receipt.houses.join('、')} · {receipt.intentKey}</p>}
     {error&&<p role="alert">{error}</p>}

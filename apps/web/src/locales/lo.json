@@ -15017,6 +15017,8 @@
   "pilotState.resume": "ຢືນຢັນເປີດໃຊ້ຄືນ",
   "pilotState.pause": "ຢືນຢັນຢຸດການໃຊ້ຊົ່ວຄາວ",
   "pilotState.recover": "ເບິ່ງໃບຢືນຢັນລ່າສຸດໃນອຸປະກອນນີ້",
+  "pilotState.pending": "ຜົນຄັ້ງກ່ອນຍັງລໍຖ້າການກວດສອບ. ກວດໃບຢືນຢັນ ຫຼື ລອງຄືນລາຍການເດີມ.",
+  "pilotState.retry": "ລອງຄືນຕາມເລກທີເດີມ",
   "pilotState.reload": "ກວດຂອບເຂດອີກຄັ້ງ",
   "productionCutover.denied": "ທ່ານບໍ່ມີສິດເບິ່ງການສົ່ງມອບນີ້.",
   "productionCutover.title": "ກວດນັບກ່ອນເປີດສາງທາງການ",

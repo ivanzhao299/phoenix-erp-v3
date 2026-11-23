@@ -15017,6 +15017,8 @@
   "pilotState.resume": "确认恢复上述范围",
   "pilotState.pause": "确认暂停上述范围",
   "pilotState.recover": "查回本设备上次启停回执",
+  "pilotState.pending": "上次结果尚待核对。请查回回执或重试原操作。",
+  "pilotState.retry": "按原操作号重试",
   "pilotState.reload": "重新核对范围",
   "productionCutover.denied": "无权查看盘点交接。",
   "productionCutover.title": "正式库存切换盘点",

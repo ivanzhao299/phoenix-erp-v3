@@ -24,22 +24,55 @@ export class CutoverStateReceipts1795400300000 implements MigrationInterface {
           JOIN ${schema}.production_opening_domain_claims c ON c.domain_id=domain.id
           JOIN ${schema}.production_cutover_apply_results initial ON initial.manifest_id=c.manifest_id AND initial.opening_receipt_id=c.opening_receipt_id
             AND domain.id=ANY(initial.domain_ids);
-      REVOKE ALL ON production_cutover_state_origins FROM PUBLIC;
+      REVOKE ALL ON production_cutover_state_origins,production_cutover_state_receipts FROM PUBLIC;
+      CREATE FUNCTION require_cutover_state_receipt() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,${schema},pg_temp AS $body$
+      BEGIN
+        IF NOT EXISTS(SELECT 1 FROM production_cutover_state_receipts r
+          JOIN production_cutover_manifests d ON d.id=r.manifest_id AND d.state='APPLIED'
+          JOIN sys_user u ON u.user_id::text=r.receipt->>'actor' AND COALESCE(to_jsonb(u)->>'status','') IN ('1','ACTIVE')
+          JOIN sys_user_role ur ON ur.user_id=u.user_id AND coalesce(ur.is_visible,true)
+          JOIN sys_role role ON role.role_id=ur.role_id AND role.role_code='ROLE_PRODUCTION_PILOT_CONTROL' AND role.status='ACTIVE'
+          JOIN file_metadata f ON f.file_id=r.receipt->>'evidenceFileId' AND f.checksum=r.receipt->>'evidenceChecksum'
+            AND f.uploaded_by=u.username AND f.owner_type='WAREHOUSE' AND f.owner_id=d.warehouse_code AND f.company_code=d.company_code
+            AND f.module_code='PRODUCTION_CUTOVER' AND f.status='ACTIVE' AND f.deleted_at IS NULL AND f.visibility IN('PROTECTED','PRIVATE')
+          WHERE r.xmin::text::numeric=mod(pg_current_xact_id()::text::numeric,4294967296) AND r.receipt->>'state'=NEW.state
+            AND d.company_code=NEW.company_code AND d.warehouse_code=NEW.warehouse_code
+            AND CASE TG_TABLE_NAME WHEN 'production_cutover_scopes' THEN
+              r.receipt->'scopes' ? NEW.id::text AND EXISTS(SELECT 1 FROM production_cutover_state_origins o WHERE o.scope_id=NEW.id)
+            ELSE EXISTS(SELECT 1 FROM jsonb_array_elements(r.receipt->'domains') v
+              JOIN production_inventory_domain_events e ON e.domain_id=NEW.id AND e.version=NEW.version AND e.intent_key=r.intent_key::text
+                AND e.content_hash=r.request_hash AND e.state=NEW.state
+              WHERE v->>'id'=NEW.id::text AND (v->>'version')::int=NEW.version) END)
+          THEN RAISE EXCEPTION 'CUTOVER_STATE_OPERATION_RECEIPT_REQUIRED' USING ERRCODE='23514'; END IF;
+        RETURN NEW;
+      END $body$;
+      CREATE CONSTRAINT TRIGGER trg_cutover_scope_operation_receipt AFTER UPDATE ON production_cutover_scopes DEFERRABLE INITIALLY DEFERRED
+        FOR EACH ROW WHEN(OLD.state IN('ACTIVE','SUSPENDED') AND NEW.state IN('ACTIVE','SUSPENDED') AND OLD.state<>NEW.state)
+        EXECUTE FUNCTION require_cutover_state_receipt();
+      CREATE CONSTRAINT TRIGGER trg_cutover_domain_operation_receipt AFTER UPDATE ON production_inventory_domain_states DEFERRABLE INITIALLY DEFERRED
+        FOR EACH ROW WHEN(OLD.state IN('ACTIVE','SUSPENDED') AND NEW.state IN('ACTIVE','SUSPENDED') AND OLD.state<>NEW.state)
+        EXECUTE FUNCTION require_cutover_state_receipt();
       CREATE FUNCTION reject_cutover_state_receipt_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'CUTOVER_STATE_RECEIPT_IMMUTABLE'; END $$;
       CREATE TRIGGER trg_cutover_state_receipt_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON production_cutover_state_receipts
         FOR EACH STATEMENT EXECUTE FUNCTION reject_cutover_state_receipt_mutation();`);
     // Existing enrollments receive only the public origin projection. Later site enrollment must grant the same view.
-    const apis=await q.query('SELECT unnest(api_roles)::text AS role FROM production_cutover_control_environments ORDER BY role');
-    for(const {role} of apis){
-      const quoted='"'+String(role).replace(/"/g,'""')+'"';
-      await q.query('GRANT SELECT ON production_cutover_state_origins TO '+quoted);
-      await q.query('GRANT SELECT, INSERT ON production_cutover_state_receipts TO '+quoted);
+    const [environment]=await q.query('SELECT api_roles::text[] AS api_roles,issuer_role::text,executor_role::text FROM production_cutover_control_environments ORDER BY generation DESC LIMIT 1');
+    if(environment){
+      for(const role of [...environment.api_roles,environment.issuer_role,environment.executor_role]){
+        const quoted='"'+String(role).replace(/"/g,'""')+'"';
+        await q.query('REVOKE ALL ON production_cutover_state_origins,production_cutover_state_receipts FROM '+quoted);
+        if(environment.api_roles.includes(role)){
+          await q.query('GRANT SELECT ON production_cutover_state_origins TO '+quoted);
+          await q.query('GRANT SELECT, INSERT ON production_cutover_state_receipts TO '+quoted);
+        }
+      }
     }
   }
   async down(q:QueryRunner):Promise<void>{
     await q.query('LOCK TABLE production_cutover_state_receipts IN ACCESS EXCLUSIVE MODE');
     if((await q.query('SELECT 1 FROM production_cutover_state_receipts LIMIT 1')).length)throw Error('CUTOVER_STATE_HISTORY_PRESENT');
+    await q.query('DROP TRIGGER trg_cutover_scope_operation_receipt ON production_cutover_scopes; DROP TRIGGER trg_cutover_domain_operation_receipt ON production_inventory_domain_states; DROP FUNCTION require_cutover_state_receipt()');
     await q.query('DROP TABLE production_cutover_state_receipts; DROP FUNCTION reject_cutover_state_receipt_mutation(); DROP VIEW production_cutover_state_origins');
   }
 }
