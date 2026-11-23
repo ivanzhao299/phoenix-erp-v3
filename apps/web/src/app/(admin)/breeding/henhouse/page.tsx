@@ -113,8 +113,9 @@ export default function HenHousePage() {
       const layingRate = agg.layRateWeight > 0 ? parseFloat((agg.layRateSum / agg.layRateWeight).toFixed(2)) : null;
       const legacyCapacity = Number(d.capacity);
       const maxCapacity = Number(d.max_capacity);
-      const cap = Number(d.effective_capacity === undefined ? d.capacity : d.effective_capacity) || 0;
-      const capacityConflict = legacyCapacity > 0 && maxCapacity > 0 && legacyCapacity !== maxCapacity;
+      const limits = [legacyCapacity, maxCapacity].filter(value => Number.isSafeInteger(value) && value > 0);
+      const cap = limits.length ? Math.min(...limits) : 0;
+      const capacityConflict = limits.length === 2 && legacyCapacity !== maxCapacity;
       const current = agg.qty;
       const occupancyPct = cap > 0 ? Math.round(current / cap * 100) : 0;
       const isOverload = cap > 0 && occupancyPct > 120;
