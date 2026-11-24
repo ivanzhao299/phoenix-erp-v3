@@ -127,7 +127,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     const s=await source(),a=await approved(plan(s.segments[0].id));
     const rawQuota=async()=> (await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceBalances
       .find(row=>row.dailyLogId===Number(s.reportId)&&row.gradeCode==='GRADE_1');
-    const rawOnly={dailyLogId:Number(s.reportId),shift:'DAILY',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:0,rawUsedQty:100,remaining:0};
+    const rawOnly={dailyLogId:Number(s.reportId),flockNo:'FLOCK-A',occupancyId:'CVT-OCC',productionDate:day,shift:'DAILY',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:0,rawUsedQty:100,remaining:0};
     expect(await rawQuota()).toEqual(rawOnly);
     const result=await service.post(a.id,a.submit_key,a.content_hash);
     expect(result).toMatchObject({inputQuantity:100,outputQuantity:100,lossQuantity:0,costStatus:'PENDING_ALLOCATION'});
