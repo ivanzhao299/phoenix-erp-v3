@@ -1,3 +1,4 @@
+import { installEggStockHoldFixture } from '../../../test-fixtures/egg-stock-hold';
 import { OfficialInventoryLedgerCost1794977000000 } from '../../../database/migrations/1794977000000-OfficialInventoryLedgerCost';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { DataSource } from 'typeorm';
@@ -63,6 +64,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
         ${OrgOwnershipService.FARM_TABLE}, brd_houses, brd_flocks, md_variety_breeds, md_sku_org_scope, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
+    await installEggStockHoldFixture(db);
     const profileRunner = db.createQueryRunner();
     try { await new EggSourceProfiles1794400001000().up(profileRunner); }
     finally { await profileRunner.release(); }

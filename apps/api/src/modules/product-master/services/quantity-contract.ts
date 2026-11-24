@@ -103,6 +103,7 @@ export async function sharedBatches(db: Queryable, company: string, warehouses: 
   await lockQuantityPools(db, [{ company, warehouses, snapshot: s }]);
   return db.query(`SELECT * FROM inv_batches WHERE company_code=$1 AND product_code=$2 AND grade_code_std=$3 AND unit=$4
     AND ${officialInventoryWritablePredicate('inv_batches')}
+    AND NOT vet_egg_batch_held(batch_no)
     AND material_code IS NULL AND legacy_source IS NULL AND base_quantity_version=1 AND status='AVAILABLE' AND qty_available>0
     AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
     AND (cardinality($5::varchar[])=0 OR warehouse_code=ANY($5::varchar[]))

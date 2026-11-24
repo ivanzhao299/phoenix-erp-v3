@@ -934,8 +934,10 @@ export class ProductionInboundDocumentsService {
     if(clearance.signed_by===d.approved_by)throw new ConflictException('须取得独立业务与财务核签');
     for (let i=0;i<d.payload.items.length;i++) {
       const item=d.payload.items[i]; const lineNo=i+1; const batch=batches.find((b:any)=>b.batch_no===item.batchNo);
+      await m.query("SELECT set_config('phoenix.egg_disposition','REVERSAL',true)");
       const n=await guardedBatchUpdate(m,{ batchNo:item.batchNo,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,
         deltaQty:-item.quantity,deltaAvailable:item.inventoryStatus==='AVAILABLE'?-item.quantity:undefined,requireStatus:item.inventoryStatus });
+      await m.query("SELECT set_config('phoenix.egg_disposition','',true)");
       if (n!==1) throw new ConflictException('原批数量已变化，请重新核对');
       const confirmed=clearance.costs.find((c:any)=>c.batchNo===item.batchNo)?.costStatus==='CONFIRMED';
       const costChange=confirmed?(await m.query('SELECT (-$1::numeric*unit_cost)::text AS amount FROM inv_batches WHERE batch_no=$2',[item.quantity,item.batchNo]))[0].amount:null;

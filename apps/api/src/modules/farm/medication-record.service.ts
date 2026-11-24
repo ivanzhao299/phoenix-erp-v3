@@ -1,5 +1,5 @@
 import { deriveOrgScope,scopeWhere } from './farm.service';
-import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
+import { lockManagedActivity,recordFlockActivity,vetCareJoin } from './flock-activity-source';
 import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 import {
   BadRequestException,
@@ -562,52 +562,51 @@ export class MedicationRecordService {
 
   async list(query: { site_code?: string; farm_code?: string; status?: string } = {}) {
     const params: unknown[] = [];
-    const clauses = [this.buildScope('r', params)];
+    const clauses = [this.buildScope('care', params)];
     if (query.site_code) {
       params.push(String(query.site_code).trim());
-      clauses.push(`r.site_code = $${params.length}`);
+      clauses.push(`care.site_code = $${params.length}`);
     }
     if (query.farm_code) {
       params.push(String(query.farm_code).trim());
-      clauses.push(`r.farm_code = $${params.length}`);
-    }
-    if (query.status) {
-      params.push(String(query.status).trim());
-      clauses.push(`r.status = $${params.length}`);
+      clauses.push(`care.farm_code = $${params.length}`);
     }
     const businessDate = todayString();
     const dateParam = params.length + 1;
+    params.push(businessDate);
+    const status = String(query.status || '').trim().toUpperCase();
+    const statusFilter = status ? `WHERE records.effective_status=$${params.push(status)}` : '';
     return this.ds.query(
-      `SELECT r.*, CASE
+      `SELECT * FROM (SELECT r.*, care.house_code AS current_house_code, care.farm_code AS current_farm_code, care.site_code AS current_site_code, CASE
          WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
          WHEN r.withdraw_until IS NULL THEN r.status
          WHEN $${dateParam} <= r.end_date THEN 'USING'
          WHEN $${dateParam} <= r.withdraw_until THEN 'IN_WITHDRAWAL'
          ELSE 'CLEARED' END AS effective_status
-         FROM brd_medication_records r
+         FROM brd_medication_records r ${vetCareJoin('r')}
         WHERE ${clauses.join(' AND ')}
-        ORDER BY r.start_date DESC, r.id DESC`,
-      [...params, businessDate],
+        ) records ${statusFilter} ORDER BY records.start_date DESC, records.id DESC`,
+      params,
     );
   }
 
   async withdrawals(query: { site_code?: string; farm_code?: string } = {}) {
     const params: unknown[] = [];
-    const clauses = [this.buildScope('r', params), `r.status <> 'CANCELLED'`, `r.withdraw_until IS NOT NULL`];
+    const clauses = [this.buildScope('care', params), `r.status <> 'CANCELLED'`];
     if (query.site_code) {
       params.push(String(query.site_code).trim());
-      clauses.push(`r.site_code = $${params.length}`);
+      clauses.push(`care.site_code = $${params.length}`);
     }
     if (query.farm_code) {
       params.push(String(query.farm_code).trim());
-      clauses.push(`r.farm_code = $${params.length}`);
+      clauses.push(`care.farm_code = $${params.length}`);
     }
     const businessDate = todayString();
     const dateParam = params.length + 1;
-    clauses.push(`$${dateParam} <= r.withdraw_until`);
+    clauses.push(`r.start_date <= $${dateParam} AND (r.withdraw_until IS NULL OR $${dateParam} <= r.withdraw_until)`);
     return this.ds.query(
-      `SELECT r.*, CASE WHEN $${dateParam} <= r.end_date THEN 'USING' ELSE 'IN_WITHDRAWAL' END AS effective_status
-         FROM brd_medication_records r
+      `SELECT r.*, care.house_code AS current_house_code, care.farm_code AS current_farm_code, care.site_code AS current_site_code, CASE WHEN r.withdraw_until IS NULL OR $${dateParam} <= r.end_date THEN 'USING' ELSE 'IN_WITHDRAWAL' END AS effective_status
+         FROM brd_medication_records r ${vetCareJoin('r')}
         WHERE ${clauses.join(' AND ')}
         ORDER BY r.withdraw_until ASC, r.id ASC`,
       [...params, businessDate],
@@ -625,7 +624,12 @@ export class MedicationRecordService {
       const rows = await manager.query(`SELECT * FROM brd_medication_records WHERE id = $1 FOR UPDATE`, [numericId]);
       const record = rows[0];
       if (!record) throw new NotFoundException('用药记录不存在');
-      this.assertReadScope(record);
+      try {
+        this.assertReadScope(record);
+      } catch (error) {
+        if (occupancy && error instanceof ForbiddenException) throw new ForbiddenException('撤销会退回原药品批次，须同时具有原用药场区及当前照管场区权限');
+        throw error;
+      }
       if (record.status === 'CANCELLED') throw new BadRequestException('用药记录已撤销');
       const lines = await manager.query(
         `SELECT l.id, l.inventory_batch_no, l.qty, b.warehouse_code, b.store_code, b.company_code
@@ -639,6 +643,7 @@ export class MedicationRecordService {
       const reverseRef = generatedKey('MED-CANCEL');
       await lockTempProductionReferences(manager, lines.map((line: any) => line.inventory_batch_no));
       for (const line of lines) {
+        if (line.warehouse_code) this.assertWarehouseScope(String(line.warehouse_code));
         const quantity = positiveNumber(line.qty, 'issue line qty');
         if ((line.store_code && line.store_code !== 'ALL' && line.store_code !== record.site_code)
           || (line.company_code && line.company_code !== record.company_code)) {

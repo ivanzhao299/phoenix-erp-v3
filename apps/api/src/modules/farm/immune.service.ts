@@ -1,5 +1,5 @@
 import { deriveOrgScope,scopeWhere } from './farm.service';
-import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
+import { lockManagedActivity,recordFlockActivity,vetCareJoin } from './flock-activity-source';
 import {
   BadRequestException,
   ConflictException,
@@ -379,14 +379,14 @@ export class ImmuneService {
 
   async list(query: { site_code?: string; farm_code?: string; status?: string } = {}) {
     const params: unknown[] = [];
-    const clauses = [this.buildScope('v', params)];
+    const clauses = [this.buildScope('care', params)];
     if (query.site_code) {
       params.push(String(query.site_code).trim());
-      clauses.push(`v.site_code = $${params.length}`);
+      clauses.push(`care.site_code = $${params.length}`);
     }
     if (query.farm_code) {
       params.push(String(query.farm_code).trim());
-      clauses.push(`v.farm_code = $${params.length}`);
+      clauses.push(`care.farm_code = $${params.length}`);
     }
     if (query.status) {
       const status = String(query.status).trim().toUpperCase();
@@ -395,7 +395,7 @@ export class ImmuneService {
       else clauses.push(`v.status = $${params.push(status)}`);
     }
     const rows = await this.ds.query<Array<Record<string, unknown>>>(
-      `SELECT v.*,
+      `SELECT v.*, care.house_code AS current_house_code, care.farm_code AS current_farm_code, care.site_code AS current_site_code, execution.house_code AS executed_house_code,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'inventory_batch_no', l.inventory_batch_no,
@@ -414,7 +414,8 @@ export class ImmuneService {
                 WHEN v.status = 'PLANNED' AND v.plan_date < CURRENT_DATE THEN 'OVERDUE'
                 ELSE v.status
               END AS effective_status
-         FROM brd_vaccinations v
+         FROM brd_vaccinations v ${vetCareJoin('v')}
+         LEFT JOIN brd_flock_activity_sources execution ON execution.activity_type='IMMUNE_EXECUTION' AND execution.activity_id=v.id::text
         WHERE ${clauses.join(' AND ')}
         ORDER BY v.plan_date DESC, v.id DESC`,
       params,

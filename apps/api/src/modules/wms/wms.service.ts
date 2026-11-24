@@ -2149,7 +2149,7 @@ export class WmsService {
       ? await sharedBatches(manager, order.company_code, [order.warehouse_code], order.quantity_snapshot)
       : await manager.query(`SELECT * FROM inv_batches WHERE ${column}=$1 AND warehouse_code=$2
           AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$2)
-          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE' AND ${officialInventoryPredicate('inv_batches')}
+          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE' AND NOT vet_egg_batch_held(inv_batches.batch_no) AND ${officialInventoryPredicate('inv_batches')}
           AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
           ORDER BY expire_date NULLS LAST,created_at,batch_no FOR UPDATE`, [itemCode, order.warehouse_code]);
 
@@ -3336,17 +3336,24 @@ export class WmsService {
 
       if (batch_no) {
         const batchRows = await manager.query(
-          `SELECT warehouse_code, store_code, qty, qty_available
+          `SELECT warehouse_code, store_code, status, qty, qty_available
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [batch_no],
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
         const batch = batchRows[0];
         await this.assertWritableWarehouse(batch.warehouse_code, `损耗批次 ${batch_no}`);
-        const available = Number(batch.qty_available ?? batch.qty) || 0;
+        let available = Number(batch.qty_available ?? batch.qty) || 0;
+        if (['QUARANTINE','DAMAGED'].includes(batch.status) && available === 0) {
+          const [custody] = await manager.query(`SELECT vet_egg_batch_held($1) AS held,
+            COALESCE(SUM(reserved_qty-outbound_qty-released_qty),0) AS reserved
+            FROM sal_order_item_batch_allocations WHERE batch_no=$1 AND reserved_qty>outbound_qty+released_qty`,[batch_no]);
+          if (custody.held) available = Number(batch.qty)-Number(custody.reserved);
+        }
         if (available < qty) {
           throw new BadRequestException(`损耗数量 ${qty} 超过批次 ${batch_no} 可用库存 ${available}`);
         }
+        await manager.query("SELECT set_config('phoenix.egg_disposition','SCRAP',true)");
         await manager.query(
           `UPDATE inv_batches
               SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
@@ -3358,6 +3365,7 @@ export class WmsService {
             WHERE batch_no = $2`,
           [qty, batch_no],
         );
+        await manager.query("SELECT set_config('phoenix.egg_disposition','',true)");
         // INV-301a：统一共享写入器
         await writeInvLedger(manager, {
           batchNo: batch_no,

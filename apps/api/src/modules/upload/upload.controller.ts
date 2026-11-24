@@ -2,7 +2,7 @@ import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, loadReviewTas
 import { DataScopeService } from '../org/services/data-scope.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
-import { deriveOrgScope } from '../farm/farm.service';
+import { deriveOrgScope, scopeWhere } from '../farm/farm.service';
 import { hasPerm } from '../../auth/permissions.util';
 import {
   Controller, Post, UseGuards, UseInterceptors,
@@ -58,7 +58,7 @@ export class UploadController {
   @RequireAnyMenu([
     ...['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE',
       'MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM','MENU_FLOCK_CREATE',
-      'MENU_FIN2_AR_LEDGER','MENU_PROD_INBOUND'].map(menu=>({menu,perm:'E' as const})),
+      'MENU_FIN2_AR_LEDGER','MENU_PROD_INBOUND','MENU_QA_OP'].map(menu=>({menu,perm:'E' as const})),
     {menu:FINANCE_REVIEW,perm:'E'},{menu:'MENU_PROD_INBOUND',perm:'C'},{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_INV_BATCH',perm:'E'},
   ])
   @UseInterceptors(
@@ -106,7 +106,19 @@ export class UploadController {
     let storeCode = this.safeCode(body.storeCode ?? body.store_code, '', 64);
     const isAdmin=req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*');
     const originalMenus=['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE','MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM'];
-    if(!['FLOCK_LIFECYCLE','PRODUCTION_INBOUND','PRODUCTION_CUTOVER','PRODUCTION_CONVERSION','INVENTORY_SOURCE_CONTROL'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
+    if(!['EGG_WITHDRAWAL','FLOCK_LIFECYCLE','PRODUCTION_INBOUND','PRODUCTION_CUTOVER','PRODUCTION_CONVERSION','INVENTORY_SOURCE_CONTROL'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
+    if (moduleCode === 'EGG_WITHDRAWAL') {
+      if (!this.dataScopes || req.user?.impersonatedBy || ownerType !== 'EGG_REVIEW' || !isAdmin && !hasPerm(req.user?.permissions,'MENU_QA_OP','E'))
+        throw new BadRequestException('质检附件须由获授权的质检员绑定兽医核查单');
+      const user = req.user;
+      const scope = await this.dataScopes.resolve(String(user.userId ?? user.id),user.roles ?? [user.role],'MENU_QA_OP',user.perms_version);
+      const params: unknown[] = [ownerId];
+      const visible = scopeWhere(deriveOrgScope({dataScope:scope}),params,'v.') || 'true';
+      const [review] = await this.fileMetadataRepo.manager.query(`SELECT v.company_code,v.site_code FROM brd_egg_vet_reviews v
+        WHERE v.id::text=$1 AND ${visible}`,params);
+      if (!review || companyCode !== review.company_code || storeCode !== (review.site_code ?? ''))
+        throw new BadRequestException('该产蛋来源不可见或质检附件归属不符');
+    }
     if (body.financeReviewId !== undefined) {
       const kind = moduleCode === 'PRODUCTION_INBOUND' ? 'reversal' : 'cutover';
       if (!this.dataScopes || !['PRODUCTION_INBOUND','PRODUCTION_CUTOVER'].includes(moduleCode)
@@ -183,7 +195,7 @@ export class UploadController {
         (scope.farmCodes??[]).includes(house.farm_code) || (scope.siteCodes??[]).includes(house.site_code) || (scope.companyCodes??[]).includes(house.company_code))) throw new BadRequestException('附件鸡舍权威归属或数据范围不匹配');
       companyCode=house.company_code;storeCode=house.site_code;
     }
-    if(moduleCode==='PRODUCTION_CONVERSION'||body.financeReviewId!==undefined){
+    if(moduleCode==='PRODUCTION_CONVERSION'||moduleCode==='EGG_WITHDRAWAL'||body.financeReviewId!==undefined){
       const bytes=readFileSync(file.path),hex=bytes.subarray(0,8).toString('hex');
       canonicalMime=bytes.subarray(0,5).toString()==='%PDF-'?'application/pdf'
         :hex==='89504e470d0a1a0a'?'image/png':bytes.subarray(0,3).toString('hex')==='ffd8ff'?'image/jpeg'

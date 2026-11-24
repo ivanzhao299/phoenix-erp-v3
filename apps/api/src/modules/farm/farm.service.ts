@@ -495,6 +495,12 @@ export class FarmService {
       let ledgerSkipped = false;
       const diff = body.eggs_produced - oldEggs;
       if (!hasGrades && diff !== 0) {
+        // A legacy pooled batch cannot establish physical flock provenance. Keep the report and hold its posting.
+        const [policy] = await manager.query("SELECT to_regprocedure('vet_egg_day_held(text,date)') AS withdrawal");
+        if (policy?.withdrawal) {
+          const [source] = await manager.query('SELECT vet_egg_day_held($1,$2::date) AS held',[flock.flock_no,logDate]);
+          if (source.held) return {code:200,msg:'日报已保存，此产蛋日已隔离，请在兽医核查中核对来源',ledgerSkipped:true};
+        }
         const batchNo = await this.lookupLegacyEggBatch(manager, house.companyCode, logDate);
         if (batchNo) {
           await writeInvLedger(manager, { batchNo, changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,

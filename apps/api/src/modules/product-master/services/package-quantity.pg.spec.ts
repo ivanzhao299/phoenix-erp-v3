@@ -1,3 +1,4 @@
+import { installEggStockHoldFixture } from '../../../test-fixtures/egg-stock-hold';
 import 'reflect-metadata';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -112,6 +113,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
 
       CREATE TABLE mst_audit_trail (id serial PRIMARY KEY,object_type text,object_code text,action text,before_json jsonb,after_json jsonb,operator text,reason text);
     `);
+    await installEggStockHoldFixture(db);
     await migration.up(db.createQueryRunner());
     await migration.up(db.createQueryRunner());
     const sourceRunner = db.createQueryRunner();
@@ -213,6 +215,9 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       VALUES ('other-grade','P','B','枚',1,360,360,'C','W','AVAILABLE'),('unknown','P','A','枚',NULL,360,360,'C','W','AVAILABLE'),
         ('other-company','P','A','枚',1,360,360,'UNAUTH','W','AVAILABLE'),('other-warehouse','P','A','枚',1,360,360,'C','OTHER-WH','AVAILABLE'),
         ('other-unit','P','A','kg',1,360,360,'C','W','AVAILABLE'),('other-product','X','A','枚',1,360,360,'C','W','AVAILABLE')`);
+    await db.query(`INSERT INTO inv_batches (batch_no,product_code,grade_code_std,unit,base_quantity_version,qty,qty_available,company_code,warehouse_code,status)
+      VALUES('held-flock','P','A','枚',1,360,360,'C','W','AVAILABLE');
+      INSERT INTO fixture_egg_stock_holds VALUES('held-flock')`);
     expect((await db.transaction(m=>sharedBatches(m,'C',['W'],q))).map((x:any)=>x.batch_no)).toEqual([b.batch_no]);
   });
   it('tray / box concurrent requests compete for the same pool; shortage rolls all writes back', async () => {

@@ -42,17 +42,19 @@ export class StoreInventoryQueryService {
       officialInventoryPredicate('b'),
       `COALESCE(b.inventory_class,'STANDARD')='STANDARD'`,
     ];
+    const held = 'vet_egg_batch_held(b.batch_no)';
+    const displayStatus = `CASE WHEN ${held} THEN 'QUARANTINE' ELSE b.status END`;
     const [summary] = await this.ds.query<any[]>(`
       SELECT COALESCE(SUM(b.qty),0)::numeric AS "onHand",
-             COALESCE(SUM(CASE WHEN b.status='AVAILABLE' THEN b.qty_available ELSE 0 END),0)::numeric AS available,
-             COALESCE(SUM(CASE WHEN b.status='QUARANTINE' THEN b.qty ELSE 0 END),0)::numeric AS quarantine,
-             COALESCE(SUM(CASE WHEN b.status='RESERVED' THEN b.qty ELSE 0 END),0)::numeric AS reserved
+             COALESCE(SUM(CASE WHEN b.status='AVAILABLE' AND NOT ${held} THEN b.qty_available ELSE 0 END),0)::numeric AS available,
+             COALESCE(SUM(CASE WHEN b.status='QUARANTINE' OR ${held} THEN b.qty ELSE 0 END),0)::numeric AS quarantine,
+             COALESCE(SUM(CASE WHEN b.status='RESERVED' AND NOT ${held} THEN b.qty ELSE 0 END),0)::numeric AS reserved
         FROM inv_batches b
        WHERE b.warehouse_code=ANY($1::varchar[])
          AND COALESCE(b.qty,0)>0 AND ${officialInventoryPredicate('b')}
          AND COALESCE(b.inventory_class,'STANDARD')='STANDARD'`, [context.warehouseCodes]);
     const add = (sql: string, value: unknown) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
-    if (input.status) add('b.status=?', input.status);
+    if (input.status) add(`(${displayStatus})=?`, input.status);
     if (input.warehouseCode) add('b.warehouse_code=?', input.warehouseCode);
     if (input.zoneCode) add('z.zone_code=?', input.zoneCode);
     if (input.locationCode) add('b.location_code=?', input.locationCode);
@@ -71,7 +73,7 @@ export class StoreInventoryQueryService {
     const rowParams = [...params, limit, (page - 1) * limit];
     const rows = await this.ds.query<any[]>(`
       SELECT b.batch_no,b.sku_code,b.product_code,b.quality_grade,b.packaging_spec,b.inventory_class,
-             b.qty,b.qty_available,b.status,b.warehouse_code,b.location_code,
+             b.qty,CASE WHEN ${held} THEN 0 ELSE b.qty_available END AS qty_available,${displayStatus} AS status,b.status AS warehouse_status,${held} AS withdrawal_hold,b.warehouse_code,b.location_code,
              sku.sku_name,sku.sku_name_en,sku.sku_name_lo,
              z.zone_code,z.zone_name,z.zone_type,l.location_name,b.source_type,b.source_no,b.created_at,
              w.warehouse_name,w.warehouse_name_zh,w.warehouse_name_en,w.warehouse_name_lo,
@@ -89,7 +91,7 @@ export class StoreInventoryQueryService {
            ORDER BY il.created_at DESC,il.id DESC LIMIT 1
         ) ledger ON TRUE
        WHERE ${whereSql}
-       ORDER BY CASE b.status WHEN 'QUARANTINE' THEN 0 WHEN 'AVAILABLE' THEN 1 ELSE 2 END,
+       ORDER BY CASE (${displayStatus}) WHEN 'QUARANTINE' THEN 0 WHEN 'AVAILABLE' THEN 1 ELSE 2 END,
                 b.egg_date DESC NULLS LAST,b.batch_no DESC,b.id DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, rowParams);
     return {

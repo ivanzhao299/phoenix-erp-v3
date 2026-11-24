@@ -35,7 +35,6 @@ import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
 import { crudApi, farmProductionApi } from '@/lib/api-client';
-import { formatMasterData } from '@/lib/business-display';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -84,9 +83,11 @@ const businessToday = () => {
 };
 export default function ImmunePage() {
   const toast = useToast();
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   // G24-A：can(role[]) → PBAC（MENU_FARM_VET：免疫记录归兽医防疫域）
   const { canCreate: canCreateImm, canEdit: canEditImm } = usePermission('MENU_FARM_VET');
+  const [linkedPlan, setLinkedPlan] = useState('');
+  useEffect(() => { setLinkedPlan(new URLSearchParams(window.location.search).get('planId') || ''); }, []);
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
   const [form, setForm] = useState({
@@ -240,7 +241,9 @@ export default function ImmunePage() {
       return {
         id: d.id,
         batchNo: d.flock_no || t('ui.未知', '未知'),
-        farmHouse: d.farm_house || d.house_code || '',
+        farmHouse: d.house_code || d.farm_house || '—',
+        currentHouse: d.current_house_code || '—',
+        executedHouse: d.executed_house_code || '—',
         vaccine: d.vaccine_code || d.vaccine || d.vaccine_name,
         vaccineBatchNo: d.vaccine_batch_no || '',
         flockCount: d.planned_heads || d.flock_count || '',
@@ -343,7 +346,8 @@ export default function ImmunePage() {
     EXECUTED: t('status.done', '已完成'),
     CANCELLED: t('ui.已取消', '已取消')
   };
-  const filteredData = useMemo(() => filter === 'all' ? plans : plans.filter(p => normStatus(p.status) === filter), [plans, filter]);
+  const filteredData = useMemo(() => plans.filter(p => (!linkedPlan || String(p.id) === linkedPlan)
+    && (filter === 'all' || normStatus(p.status) === filter)), [plans, filter, linkedPlan]);
   const overdueCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'OVERDUE').length, [plans]);
   const pendingCnt = useMemo(() => plans.filter(p => ['PENDING', 'PLANNED'].includes(normStatus(p.status))).length, [plans]);
   const scheduledCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'SCHEDULED').length, [plans]);
@@ -354,9 +358,12 @@ export default function ImmunePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
-    title: t('ui.鸡舍', '鸡舍'),
-    width: '100px',
-    render: (v: unknown, row: ImmunePlan) => formatMasterData(row as Record<string, unknown>, 'house_name', (row as Record<string, unknown>).houseCode || v, lang),
+    title: t('vet.eventHouse', '记录时鸡舍'),
+  }, {
+    key: 'currentHouse',
+    title: t('vet.careHouse', '当前照管舍'),
+  }, {
+    key: 'executedHouse', title: t('vet.executedHouse', '实际执行舍'),
   }, {
     key: 'vaccine',
     title: t('ui.疫苗名称', '疫苗名称')
@@ -456,7 +463,8 @@ export default function ImmunePage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo', 'farmHouse', 'vaccine']} rowKey="id" filters={
+       {linkedPlan && <p>{t('vet.linkedPlan', '承接免疫计划')} #{linkedPlan} <button type="button" onClick={() => setLinkedPlan('')}>{t('vet.allPlans', '查看全部计划')}</button></p>}
+      <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo', 'farmHouse', 'currentHouse', 'vaccine']} rowKey="id" filters={
         <div style={{ display: 'flex', gap: 6 }}>
           {filterKeys.map(f => (
             <button key={f} type="button" onClick={() => setFilter(f)} style={toolbarFilterPill(filter === f)}>

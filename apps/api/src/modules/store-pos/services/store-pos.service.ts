@@ -972,7 +972,7 @@ export class StorePosService {
              WHERE sku_code = $1
                AND company_code = $2
                AND warehouse_code = ANY($3::varchar[])
-               AND status = 'AVAILABLE'
+               AND status = 'AVAILABLE' AND NOT vet_egg_batch_held(inv_batches.batch_no)
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
@@ -996,7 +996,7 @@ export class StorePosService {
              WHERE product_code = $1
                AND company_code = $2
                AND warehouse_code = ANY($3::varchar[])
-               AND status = 'AVAILABLE'
+               AND status = 'AVAILABLE' AND NOT vet_egg_batch_held(inv_batches.batch_no)
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)

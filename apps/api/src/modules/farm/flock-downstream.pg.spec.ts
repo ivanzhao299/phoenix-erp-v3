@@ -1,8 +1,11 @@
+import {sharedBatches,QuantitySnapshot} from '../product-master/services/quantity-contract';
+import {EggWithdrawalReview1795478400000} from '../../database/migrations/1795478400000-EggWithdrawalReview';
+import {EggWithdrawalReviewService} from './egg-withdrawal-review.service';
 import {freezeOwnedFlockClock} from '../../test-fixtures/flock-business-clock';
 import {ImmuneService} from './immune.service';
 import {MedicationRecordService} from './medication-record.service';
 import {FlockLifecycleService} from './flock-lifecycle.service';
-import {recordFlockProductionSources} from './flock-production-source';
+import {inheritFlockProductionSources,recordFlockProductionSources} from './flock-production-source';
 import {FlockActivitySources1794902000000} from '../../database/migrations/1794902000000-FlockActivitySources';
 import 'reflect-metadata';
 import {DataSource} from 'typeorm';
@@ -116,6 +119,150 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
   const care=await lifecycle.care({isGlobal:false,farmCode:'Y',siteCode:null,farmCodes:['Y'],companyCodes:[]});expect(care.medications[0]).toMatchObject({house_code:'HX',current_house_code:'HY',withdraw_until:'2026-11-20'});
   const [o]=await db.query("SELECT id FROM brd_flock_occupancies WHERE house_code='HY' AND ended_on IS NULL");await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,farm_code,company_code,log_date,shift,occupancy_id,eggs_by_grade,eggs_produced) VALUES('FA','HY','Y','CA','2026-11-17','DAILY',$1,'{"GRADE_1":5}',5)`,[o.id]);
   await expect(db.transaction(m=>recordFlockProductionSources(m,{companyCode:'CA',eggDate:'2026-11-17',qty:5,qualityGrade:'GRADE_1',sourceType:'TEMP_PRODUCTION'},'WITHDRAWAL-BLOCK',[{houseCode:'HY',profileCode:'PROFILE-A'}],global))).rejects.toThrow('休药隔离期');expect((await db.query('SELECT COUNT(*)::int AS n FROM brd_egg_day_routes'))[0].n).toBe(0);
+ });
+ it('keeps transferred caretaker lists scoped to the new location and historical snapshots intact', async () => {
+  await db.query(`INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
+    VALUES('FA','CA','X','SX','HX',70,'2026-11-12','2026-11-12');
+    INSERT INTO brd_medication_records(flock_no,house_code,farm_code,company_code,site_code,start_date,status)
+      VALUES('FA','HA','A','CA','SA','2026-11-11','USING');
+    INSERT INTO brd_vaccinations(flock_no,house_code,farm_code,company_code,site_code,plan_date,status)
+      VALUES('FA','HA','A','CA','SA','2026-11-18','PLANNED')`);
+  const cls = {get:()=>scope('X')} as never;
+  const care = new MedicationRecordService(db,cls);
+  expect(await care.withdrawals({farm_code:'X'})).toEqual([expect.objectContaining({house_code:'HA',current_house_code:'HX',effective_status:'USING'})]);
+  expect(await new ImmuneService(db,cls).list({farm_code:'X'})).toEqual([expect.objectContaining({house_code:'HA',current_house_code:'HX'})]);
+  expect(await care.list({farm_code:'A'})).toEqual([]);
+  expect(await new MedicationRecordService(db,{get:()=>scope('Y')} as never).withdrawals()).toEqual([]);
+ });
+ it('requires independent signed clearance for each cancelled course and original laying day before downstream use',async()=>{
+  const runner=db.createQueryRunner();
+  await runner.startTransaction();
+  try {
+    const m=runner.manager;
+    await m.query(`CREATE TABLE production_raw_receipts(id int PRIMARY KEY,production_date date);
+      CREATE TABLE production_raw_receipt_segments(id int PRIMARY KEY,receipt_id int,flock_no text);
+      CREATE TABLE production_conversion_inputs(id int,raw_segment_id int);
+      CREATE TABLE pkg_handover_records(packing_code text);
+      CREATE TABLE wms_stocktake(stocktake_no text,status text,auditor text,warehouse_code text,updated_at timestamptz);
+      CREATE TABLE sal_order_item_batch_allocations(batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric);
+      CREATE TABLE production_inbound_documents(id int,kind text,state text,document_no text,approved_by text,created_by text,approved_hash text,content_hash text);
+      CREATE TABLE production_inbound_allocations(id int,original_allocation_id int,document_id int,line_no int,quantity numeric,direction int);
+      CREATE TABLE production_inbound_lines(document_id int,line_no int,inventory_ledger_id int,batch_no text,quantity numeric);
+      UPDATE brd_daily_logs SET shift='AM' WHERE id=1;
+      ALTER TABLE file_metadata ADD COLUMN checksum text;
+      INSERT INTO production_raw_receipts VALUES(1,'2026-11-11');
+      INSERT INTO production_raw_receipt_segments VALUES(1,1,'FA');`);
+    const migration=new EggWithdrawalReview1795478400000();
+    await migration.up(runner);
+    await migration.down(runner);
+    await migration.up(runner);
+    const review=new EggWithdrawalReviewService(m);
+    const global={isGlobal:true,farmCode:null,siteCode:null}, outside={isGlobal:false,farmCode:'Y',siteCode:null};
+    const vet={id:'fixture-vet',accountId:'11'}, qa={id:'fixture-qa',accountId:'22'};
+    const reader=db.createQueryRunner();
+    await reader.startTransaction();
+    try {
+      await reader.query("SELECT pg_advisory_xact_lock_shared(hashtext('vet:egg-flock'),hashtext('FA'))");
+      await expect(m.transaction(tx=>tx.query("INSERT INTO brd_medication_records(flock_no,start_date,status) VALUES('FA','2026-11-10','USING')"))).rejects.toThrow('请重试');
+      await expect(m.transaction(tx=>tx.query("UPDATE brd_daily_logs SET eggs_produced=11 WHERE id=1"))).rejects.toThrow('请重试');
+    } finally {await reader.rollbackTransaction();await reader.release();}
+    await m.query(`INSERT INTO pkg_source_batches(id,batch_code,house_code,flock_code,lay_date,production_date,is_test,batch_status)
+      VALUES(7,'OLD-EGGS','HA','FA','2026-11-11','2026-11-14',false,'RECEIVED'),(8,'OLD-CONFLICT','HA','FB','2026-11-11','2026-11-14',false,'RECEIVED');
+      INSERT INTO pkg_grading_records(id,code,is_test) VALUES(7,'G-OLD',false),(8,'G-CONFLICT',false);
+      INSERT INTO pkg_grading_source_links VALUES(7,7),(8,8);
+      INSERT INTO pkg_packing_records(code,is_test,grading_code) VALUES('P-OLD',false,'G-OLD'),('P-CONFLICT',false,'G-CONFLICT');
+      INSERT INTO inv_batches(batch_no,packaging_batch_ref,qty,qty_available,status)
+        VALUES('LEGACY-PACK','P-OLD',4,4,'AVAILABLE'),('LEGACY-MISSING','UNKNOWN',3,3,'AVAILABLE'),('WRONG-FLOCK','P-CONFLICT',3,3,'AVAILABLE')`);
+    expect((await m.query("SELECT vet_egg_batch_held('LEGACY-PACK') AS held,vet_egg_batch_held('LEGACY-MISSING') AS unresolved,vet_egg_batch_held('WRONG-FLOCK') AS conflict"))[0])
+      .toEqual({held:false,unresolved:true,conflict:true});
+    const [course]=await m.query(`INSERT INTO brd_medication_records(flock_no,house_code,medication_code,start_date,end_date,withdraw_until,status)
+      VALUES('FA','HA','TEST','2026-11-10','2026-11-10','2026-11-12','CLEARED') RETURNING id`);
+    expect((await m.query("SELECT vet_egg_batch_held('LEGACY-PACK') AS held"))[0].held).toBe(true);
+    await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET qty=3,qty_available=3 WHERE batch_no='LEGACY-PACK'"))).rejects.toThrow('休药隔离期');
+    await m.query("INSERT INTO inv_batches(batch_no,qty,qty_available,source_type,status,warehouse_code) VALUES('OLD-RETURN',2,0,'RETURN','QUARANTINE','WA')");
+    await inheritFlockProductionSources(m,'LEGACY-PACK','OLD-RETURN',2);
+    await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET status='AVAILABLE',qty_available=2 WHERE batch_no='OLD-RETURN'"))).rejects.toThrow('休药隔离期');
+    const held=async(day:string)=>(await m.query("SELECT vet_egg_day_held('FA',$1) AS held",[day]))[0].held;
+    expect(await held('2026-11-09')).toBe(false);expect(await held('2026-11-12')).toBe(true);expect(await held('2026-11-13')).toBe(false);
+    const debit=()=>m.transaction(tx=>tx.query("UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE batch_no='SOURCE'"));
+    await expect(debit()).rejects.toThrow('休药隔离期');
+    expect((await m.query("SELECT vet_egg_batch_held('SOURCE') AS held"))[0].held).toBe(true);
+    await m.query(`INSERT INTO inv_batches(batch_no,product_code,grade_code_std,unit,base_quantity_version,qty,qty_available,company_code,warehouse_code,status)
+      VALUES('UNAFFECTED','P','GRADE_1','枚',1,5,5,'CA','WA','AVAILABLE')`);
+    const stock=await sharedBatches(m,'CA',['WA'],{productCode:'P',gradeCode:'GRADE_1',baseUnit:'枚'} as QuantitySnapshot);
+    expect(stock.map((b:{batch_no:string})=>b.batch_no)).toEqual(['UNAFFECTED']);
+    await expect(m.transaction(tx=>tx.query('INSERT INTO production_conversion_inputs VALUES(1,1)'))).rejects.toThrow('休药隔离期');
+    await expect(m.transaction(tx=>tx.query("INSERT INTO production_raw_receipt_segments VALUES(2,1,'FA')"))).rejects.toThrow('休药隔离期');
+    await m.query(`INSERT INTO pkg_source_batches(id,batch_code,house_code,flock_code,lay_date,production_date,is_test,batch_status)
+      VALUES(5,'QC-EGG','HA','FA','2026-11-11','2026-11-14',false,'RECEIVED')`);
+    await expect(m.transaction(tx=>tx.query('INSERT INTO pkg_grading_source_links VALUES(1,5)'))).rejects.toThrow('休药隔离期');
+    expect(await review.list(outside,'2026-11-11',false)).toEqual([]);
+    await expect(review.requestReview(outside,vet,course.id,'1','source checked','11111111-1111-4111-8111-111111111111')).rejects.toThrow('不可见');
+    const id=await review.requestReview(global,vet,course.id,'1','source checked','11111111-1111-4111-8111-111111111111');
+    expect(await review.requestReview(global,vet,course.id,'1','source checked','11111111-1111-4111-8111-111111111111')).toBe(id);
+    expect(await review.list(global,'2026-11-11',true)).toEqual([expect.objectContaining({held:true,review_id:id,house_code:'HA'})]);
+    await m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
+      VALUES('E1','ACTIVE','PROTECTED','application/pdf','EGG_WITHDRAWAL','EGG_REVIEW',$1,'CA','SA','fixture-qa','fixture-hash')`,[id]);
+    await expect(review.decide(global,vet,id,'RELEASE','E1')).rejects.toThrow('另一实名');
+    await expect(review.decide(global,{...qa,impersonatedBy:{id:'root',username:'admin'}},id,'RELEASE','E1')).rejects.toThrow('本人');
+    await expect(review.decide(global,qa,id,'RELEASE','E1')).rejects.toThrow('有效用药');
+    await expect(review.decide(outside,qa,id,'RETAIN','E1')).rejects.toThrow('不可见');
+    await m.query("UPDATE brd_medication_records SET status='CANCELLED' WHERE id=$1",[course.id]);
+    await expect(debit()).rejects.toThrow('休药隔离期');
+    await expect(review.decide(global,qa,id,'RELEASE','wrong')).rejects.toThrow('凭证');
+    await review.decide(global,qa,id,'RELEASE','E1');
+    expect(await review.decide(global,qa,id,'RELEASE','E1')).toMatchObject({review_id:id});
+    expect(await held('2026-11-11')).toBe(false);expect(await held('2026-11-12')).toBe(true);
+    await m.query(`INSERT INTO brd_daily_logs(id,flock_no,house_code,company_code,farm_code,site_code,log_date,shift,occupancy_id,eggs_produced,eggs_by_grade)
+      VALUES (2,'FA','HA','CA','A','SA','2026-11-11','PM','O',3,'{"GRADE_1":3}')`);
+    expect(await held('2026-11-11')).toBe(true);
+    const pm=await review.requestReview(global,vet,course.id,'2','PM checked','22222222-2222-4222-8222-222222222222');
+    const proof=async(ref:string,doc:string)=>m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
+      VALUES($1,'ACTIVE','PROTECTED','application/pdf','EGG_WITHDRAWAL','EGG_REVIEW',$2,'CA','SA','fixture-qa','fixture-hash')`,[ref,doc]);
+    await proof('PM1',pm);
+    await review.decide(global,qa,pm,'RETAIN','PM1');
+    expect(await review.requestReview(global,vet,course.id,'2','PM checked',pm)).toBe(pm);
+    const pm2=await review.requestReview(global,vet,course.id,'2','PM rechecked','33333333-3333-4333-8333-333333333333');
+    await proof('PM2',pm2);await review.decide(global,qa,pm2,'RELEASE','PM2');
+    expect(await held('2026-11-11')).toBe(false);
+    await debit();
+    await m.query('SET CONSTRAINTS vet_verify_disposition IMMEDIATE');
+    await m.query('SET CONSTRAINTS vet_verify_disposition DEFERRED');
+    const [extra]=await m.query(`INSERT INTO brd_medication_records(flock_no,house_code,start_date,status)
+      VALUES('FA','HX','2026-11-11','USING') RETURNING id`);
+    await m.query("INSERT INTO inv_batches(batch_no,source_type,status,qty,qty_available,warehouse_code) VALUES('RET-TEST','RETURN','DAMAGED',3,0,'WA')");
+    await m.query(`INSERT INTO inv_flock_source_links(id,batch_no,daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,source_key,source_input_qty,
+      batch_output_qty,precision,source_profile_snapshot,origin_batch_no)
+      SELECT 'RET-LINK','RET-TEST',daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,source_key,source_input_qty,3,'INHERITED',source_profile_snapshot,'SOURCE'
+      FROM inv_flock_source_links WHERE batch_no='SOURCE'`);
+    await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET status='AVAILABLE',qty_available=3 WHERE batch_no='RET-TEST'"))).rejects.toThrow('休药隔离期');
+    for(const [logId,key] of [['1','44444444-4444-4444-8444-444444444444'],['2','55555555-5555-4555-8555-555555555555']]){
+      const doc=await review.requestReview(global,vet,extra.id,logId,'dispose source',key);
+      await proof('DISPOSE-'+logId,doc);await review.decide(global,qa,doc,'DISPOSE','DISPOSE-'+logId);
+    }
+    await m.query("INSERT INTO wms_stocktake VALUES('LR-FIXTURE','DONE',NULL,'WA'),('LR-CUSTODY','DONE',NULL,'WA')");
+    const scopedWms=new WmsService(m,{get:()=>({isGlobal:true,allowedWarehouseCodes:[]})} as never);
+    await scopedWms.approveLoss({loss_no:'LR-FIXTURE',batch_no:'RET-TEST',loss_qty:2,reason:'fixture disposal'},{username:'fixture-keeper'});
+    await scopedWms.approveLoss({loss_no:'LR-CUSTODY',batch_no:'OLD-RETURN',loss_qty:1,reason:'fixture quarantine disposal'},{username:'fixture-keeper'});
+    expect((await m.query("SELECT qty::int AS qty,qty_available::int AS available,status FROM inv_batches WHERE batch_no='OLD-RETURN'"))[0])
+      .toEqual({qty:1,available:0,status:'QUARANTINE'});
+    await m.query('SET CONSTRAINTS vet_verify_disposition IMMEDIATE');
+    expect((await m.query("SELECT qty::int AS qty,qty_available::int AS available,status FROM inv_batches WHERE batch_no='RET-TEST'"))[0])
+      .toEqual({qty:1,available:0,status:'DAMAGED'});
+    expect((await m.query("SELECT qty::int AS qty,kind FROM brd_egg_disposition_receipts WHERE batch_no='RET-TEST'"))[0]).toEqual({qty:2,kind:'SCRAP'});
+    expect((await m.query("SELECT qty_change::int AS delta FROM inv_ledger WHERE ref_no='LR-FIXTURE'"))[0].delta).toBe(-2);
+    await m.query('SET CONSTRAINTS vet_verify_disposition DEFERRED');
+    await m.query("SELECT set_config('phoenix.egg_disposition','REVERSAL',true)");
+    await m.query("UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE batch_no='SOURCE'");
+    await m.query("SELECT set_config('phoenix.egg_disposition','',true)");
+    const [reversal]=await m.query(`INSERT INTO inv_ledger(batch_no,change_type,business_type,qty_change,ref_no,operator)
+      VALUES('SOURCE','PRODUCTION_INBOUND_REVERSAL','FORMAL_PRODUCTION_REVERSAL',-1,'REV-FIXTURE','fixture-keeper') RETURNING id`);
+    await m.query("INSERT INTO production_inbound_documents VALUES(5,'REVERSAL','POSTED','REV-FIXTURE','independent','creator','verified','verified')");
+    await m.query("INSERT INTO production_inbound_lines VALUES(5,1,$1,'SOURCE',1)",[reversal.id]);
+    await m.query('SET CONSTRAINTS vet_verify_disposition IMMEDIATE');
+    expect((await m.query("SELECT kind FROM brd_egg_disposition_receipts WHERE ledger_id=$1",[reversal.id]))[0].kind).toBe('FORMAL_PRODUCTION_REVERSAL');
+    expect(await held('2026-11-11')).toBe(true);await expect(debit()).rejects.toThrow('休药隔离期');
+  } finally {await runner.rollbackTransaction();await runner.release();}
  });
  it('masks both mixed and empty unverified historical packaging for restricted users',async()=>{
   await db.query(`INSERT INTO pkg_packing_records VALUES('OLD',false,'2026-11-01','G','["G"]','[]',1,10,NULL,'COMPLETED',NULL),('EMPTY',false,'2026-11-01','NONE','["NONE"]','[]',1,10,NULL,'COMPLETED',NULL);

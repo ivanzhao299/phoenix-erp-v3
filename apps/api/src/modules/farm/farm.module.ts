@@ -1,3 +1,5 @@
+import { EggWithdrawalReviewController } from './egg-withdrawal-review.controller';
+import { EggWithdrawalReviewService } from './egg-withdrawal-review.service';
 import { FileModule } from '../file/file.module';
 import { FlockLifecycleController } from './flock-lifecycle.controller';
 import { FlockLifecycleService } from './flock-lifecycle.service';
@@ -21,8 +23,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
   imports: [FileModule],
-  controllers: [FlockLifecycleController, FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController, MedicationRecordController, ImmuneController],
-  providers: [FlockLifecycleService, FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService, RolesGuard],
+  controllers: [EggWithdrawalReviewController, FlockLifecycleController, FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController, MedicationRecordController, ImmuneController],
+  providers: [EggWithdrawalReviewService, FlockLifecycleService, FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService, RolesGuard],
   exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService],
 })
 export class FarmModule {}

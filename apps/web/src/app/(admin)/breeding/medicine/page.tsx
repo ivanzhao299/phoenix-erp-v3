@@ -1,5 +1,6 @@
 'use client';
 
+import EggWithdrawalReviews from '@/components/breeding/EggWithdrawalReviews';
 import { useState, useEffect, useCallback } from 'react';
 interface MedicineRecord {
   id?: unknown;
@@ -23,7 +24,6 @@ import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
 import { crudApi, farmProductionApi } from '@/lib/api-client';
-import { formatMasterData } from '@/lib/business-display';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -62,7 +62,7 @@ export default function MedicinePage() {
   const {
     canCreate, canEdit
   } = usePermission('MENU_FARM_VET');
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const STATUS_CONF: Record<string, {
     status: string;
     label: string;
@@ -149,8 +149,10 @@ export default function MedicinePage() {
       const computedStatus = backendStatus === 'IN_WITHDRAWAL' ? 'inWithdrawal' : backendStatus === 'CLEARED' ? 'cleared' : backendStatus === 'CANCELLED' ? 'cancelled' : 'using';
       return {
         id: d.id,
-        batchNo: d.course_no || d.record_no || t('ui.未知', '未知'),
-        farmHouse: d.flock_no || d.house_code || '—',  // G21-4 新表用 flock_no/house_code
+        batchNo: d.flock_no || '—',
+        courseNo: d.course_no || d.record_no || '—',
+        farmHouse: d.house_code || '—',
+        currentHouse: d.current_house_code || '—',
         medicine: d.medication_code || d.medicine,  // G21-4 新表用 medication_code
         disease: d.indication || d.disease,
         startDate: d.start_date,
@@ -226,7 +228,7 @@ export default function MedicinePage() {
   const today = todayStr();
   const KPI_CARDS: { label: string; val: string; tone: Tone }[] = [
     { label: t('ui.停药期内批次', '停药期内批次'), val: `${records.filter(r => r.status === 'inWithdrawal').length} 个`, tone: 'warning' },
-    { label: t('ui.今日到期解禁', '今日到期解禁'), val: `${records.filter(r => r.clearDate === today).length} 个`,    tone: 'success' },
+    { label: t('vet.courseEnding', '今日休药期届满'), val: `${records.filter(r => r.clearDate === today).length} 个`,    tone: 'success' },
     { label: t('ui.累计用药记录', '累计用药记录'), val: `${records.length} 条`,                                       tone: 'brand'   },
   ];
   const columns = [{
@@ -235,8 +237,12 @@ export default function MedicinePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
-    title: t('ui.鸡舍', '鸡舍'),
-    render: (v: unknown, row: MedicineRecord) => formatMasterData(row as Record<string, unknown>, 'house_name', (row as Record<string, unknown>).houseCode || v, lang)
+    title: t('vet.eventHouse', '记录时鸡舍'),
+  }, {
+    key: 'currentHouse',
+    title: t('vet.careHouse', '当前照管舍'),
+  }, {
+    key: 'courseNo', title: t('vet.courseNo', '疗程单号'),
   }, {
     key: 'medicine',
     title: t('ui.药品名称', '药品名称'),
@@ -311,7 +317,8 @@ export default function MedicinePage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo', 'farmHouse', 'medicine']} rowKey="id" filters={
+      <EggWithdrawalReviews/>
+      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo', 'farmHouse', 'currentHouse', 'medicine']} rowKey="id" filters={
         <div style={{ display: 'flex', gap: 6 }}>
           {filterKeys.map(f => (
             <button key={f} type="button" onClick={() => setFilter(f)} style={toolbarFilterPill(filter === f)}>{filterLabels[f]}</button>

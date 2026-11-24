@@ -756,6 +756,7 @@ export class EggInventoryService {
       // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
       `b.legacy_source IS NULL`,
       officialInventoryPredicate('b'),
+      'NOT vet_egg_batch_held(b.batch_no)',
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -922,6 +923,7 @@ export class EggInventoryService {
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
       officialInventoryWritablePredicate('inv_batches'),
+      'NOT vet_egg_batch_held(inv_batches.batch_no)',
       `(sku_code IS NULL OR EXISTS (
         SELECT 1 FROM "product_skus" legacy_sku
          WHERE legacy_sku.sku_code=inv_batches.sku_code
@@ -1859,7 +1861,7 @@ export class EggInventoryService {
           WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
-       WHERE b.status = 'AVAILABLE' AND ${officialInventoryPredicate('b')}
+       WHERE b.status = 'AVAILABLE' AND NOT vet_egg_batch_held(b.batch_no) AND ${officialInventoryPredicate('b')}
          AND b.qty_available > 0
          AND ${this.eggFamilyCondition()}
          AND b.expire_date IS NOT NULL
@@ -1913,7 +1915,7 @@ export class EggInventoryService {
           AND b.qty_available > 0
           AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS sku_linked_batches
       FROM inv_batches b
-      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} ${batchCompanyCond}
+      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} AND (b.status<>'AVAILABLE' OR NOT vet_egg_batch_held(b.batch_no)) ${batchCompanyCond}
     `, batchArgs);
 
     const ledgerArgs: unknown[] = [];

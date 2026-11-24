@@ -20,3 +20,11 @@ export async function recordFlockActivity(m: Db,kind: string,id: unknown,o: any,
   await m.query(`INSERT INTO brd_flock_activity_sources(activity_type,activity_id,occupancy_id,flock_no,house_code,farm_code,site_code,company_code,business_date)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[kind,String(id),o.id,o.flock_no,o.house_code,o.farm_code,o.site_code,o.company_code,day]);
 }
+
+/** Keep recorded locations on the event. The active balance identifies the team taking over care. */
+export function vetCareJoin(alias: 'v' | 'r') {
+  return `LEFT JOIN brd_flock_balances b ON b.flock_no=${alias}.flock_no
+    LEFT JOIN LATERAL (SELECT COALESCE(b.company_code,${alias}.company_code) AS company_code,
+      COALESCE(b.site_code,${alias}.site_code) AS site_code, COALESCE(b.farm_code,${alias}.farm_code) AS farm_code,
+      CASE WHEN b.closed_on IS NULL THEN COALESCE(b.house_code,${alias}.house_code) END AS house_code) care ON true`;
+}
