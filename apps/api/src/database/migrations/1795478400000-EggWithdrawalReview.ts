@@ -206,10 +206,12 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
           LEFT JOIN brd_egg_temp_origins t ON t.batch_no=n.batch_no WHERE n.source_type='TEMP_PRODUCTION'
           AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no))
         SELECT l.flock_no,l.production_date FROM linked l UNION SELECT t.flock_no,t.production_date FROM temp t
+        -- A known source cannot clear an ambiguous parent on the same custody chain.
+        UNION SELECT NULL::text,NULL::date FROM ancestors WHERE id IS NULL
         UNION SELECT NULL::text,NULL::date FROM nodes n WHERE n.material_code IS NULL
           AND n.source_type IN ('RETURN','STORE_RETURN','TRANSFER','TRANSFER_DAMAGE','DEFECT_TRANSFER')
           AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no)
-          AND (NOT EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no)) OR EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no) p WHERE p.parent IS NULL))
+          AND NOT EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no))
         UNION SELECT NULL::text,NULL::date FROM nodes n WHERE n.batch_no<>batch AND n.source_type IS NULL AND n.material_code IS NULL
           AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no) AND NOT EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no))
       $$;

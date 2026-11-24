@@ -220,7 +220,7 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       INSERT INTO sal_store_sales VALUES(88,'POS','CA');
       INSERT INTO store_sale_allocations VALUES(89,88,'OLD-TEMP',1);
       INSERT INTO sal_return_orders VALUES(68,'MIX','CA');INSERT INTO sal_return_items VALUES(69,68,70);
-      INSERT INTO sal_order_item_batch_allocations VALUES(72,70,NULL,'OLD-TEMP',1,1,0,now()),(73,70,NULL,'OTHER-TEMP',1,1,0,now());
+      INSERT INTO sal_order_item_batch_allocations VALUES(72,70,NULL,'SOURCE',1,1,0,now()),(73,70,NULL,'OTHER-TEMP',1,1,0,now());
       INSERT INTO sal_return_orders VALUES(65,'HIST','CA');INSERT INTO sal_return_items VALUES(66,65,67);
       INSERT INTO sal_order_item_batch_allocations VALUES(71,67,NULL,'OLD-TEMP',1,1,0,now());
       INSERT INTO wms_transfer(transfer_no,status) VALUES('T-HIST','COMPLETED');
@@ -228,6 +228,15 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       INSERT INTO inv_batches(batch_no,source_type,company_code,egg_date) VALUES('NEW-TEMP','TEMP_PRODUCTION','CA','2026-11-11')`);
     await recordFlockProductionSources(m,{companyCode:'CA',sourceType:'TEMP_PRODUCTION',eggDate:'2026-11-11',qty:1},
       'NEW-TEMP',[{houseCode:'HA',profileCode:'A'}]);
+    // A pre-migration return copied only the governed parent link, omitting the legacy TEMP parent.
+    await m.query(`INSERT INTO inv_flock_source_links(id,batch_no,daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,
+      source_key,grading_code,source_input_qty,batch_output_qty,precision,source_profile_snapshot,origin_batch_no)
+      SELECT 'PARTIAL-MIX-LINK','RET-MIX-69',daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,
+        source_key,grading_code,source_input_qty,1,'INHERITED',source_profile_snapshot,origin_batch_no
+      FROM inv_flock_source_links WHERE batch_no='SOURCE'`);
+    expect((await m.query("SELECT vet_egg_batch_held('SOURCE') AS held"))[0].held).toBe(false);
+    await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET status='AVAILABLE',qty_available=1 WHERE batch_no='RET-MIX-69'")))
+      .rejects.toThrow('缺可核验产蛋来源');
     const flags=async()=>Object.fromEntries((await m.query(`SELECT batch_no,vet_egg_batch_held(batch_no) AS held FROM inv_batches WHERE batch_no IN
       ('NEW-TEMP','OLD-TEMP','OTHER-TEMP','MISSING-TEMP','RET-HIST-66','OLD-SPLIT','POS-ORPHAN','RET-MIX-69','RET-POS-89')`)).map((r:{batch_no:string;held:boolean})=>[r.batch_no,r.held]));
     expect(await flags()).toEqual({'NEW-TEMP':false,'OLD-TEMP':false,'OTHER-TEMP':false,'MISSING-TEMP':true,'RET-HIST-66':false,'OLD-SPLIT':false,'POS-ORPHAN':true,'RET-MIX-69':true,'RET-POS-89':false});
