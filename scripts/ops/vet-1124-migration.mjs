@@ -49,8 +49,14 @@ export function reviewSnapshot({ originalAudit, dailyRowsRaw, source, runtime,
   if (!hash.test(ledgerSha256) || !hash.test(ciSha256) || !image.test(apiImage)) hold('INSPECTION_INPUT');
   const facts = reviewConfirmedLegacyFacts({ originalAudit, dailyRowsRaw });
   const audit = JSON.parse(originalAudit);
-  const otherCounts = ['legacy_daily_farm_in_rows','legacy_daily_farm_in_qty','retired_duplicate_batches','retired_duplicate_qty'];
-  if (!otherCounts.every(key => audit[key] === 0)) hold('OTHER_AUDIT_COUNTS');
+  // FARM_IN totals and the number of retained rows describe history. Their
+  // exact values remain bound by stableExactAuditSha256 across inspect/apply.
+  if (!Number.isSafeInteger(audit.legacy_daily_farm_in_rows) || audit.legacy_daily_farm_in_rows < 0
+      || !Number.isSafeInteger(audit.legacy_daily_farm_in_qty)
+      || !Number.isSafeInteger(audit.retired_duplicate_batches) || audit.retired_duplicate_batches < 0) hold('HISTORY_EVIDENCE');
+  // The reviewed retired batches carry zero stock. Any remaining quantity
+  // in them is outside the two untouched, live 30-egg batches.
+  if (audit.retired_duplicate_qty !== 0) hold('RETIRED_BATCH_STOCK');
   const evidence = { authorization: 'VET_1124_TEST_BATCHES_413_415', sourceRuns, source, runtime, apiImage, ciSha256,
     ledgerSha256, originalConclusion: 'HOLD', scopedConclusion: 'GO_VET_1124_EXACT_CANDIDATE',
     stableExactAuditSha256: facts.stableExactAuditSha256, dailyRowsSha256: facts.dailyRowsSha256 };

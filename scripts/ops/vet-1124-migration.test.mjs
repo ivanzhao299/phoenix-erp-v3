@@ -15,8 +15,8 @@ const digest = 'sha256:' + '1'.repeat(64);
 const image = component => 'ghcr.io/' + repo + '/' + component + '@' + digest;
 function fixture() {
   const fixed = fixedScopeFixture();
-  const originalAudit = JSON.stringify({ ...JSON.parse(fixed.originalAudit), legacy_daily_farm_in_rows:0,
-    legacy_daily_farm_in_qty:0, retired_duplicate_batches:0, retired_duplicate_qty:0 });
+  const originalAudit = JSON.stringify({ ...JSON.parse(fixed.originalAudit), legacy_daily_farm_in_rows:54,
+    legacy_daily_farm_in_qty:1650405, retired_duplicate_batches:10, retired_duplicate_qty:0 });
   return { ...fixed, originalAudit, source: { target }, runtime: { api:{revision:baseline,imageId:digest}, web:{revision:baseline,imageId:digest} },
   checkout: baseline, pending: units.join(' '), ledgerSha256: '8'.repeat(64), ciSha256: '9'.repeat(64), apiImage: image('api') };
 }
@@ -74,6 +74,25 @@ test('only the fixed facts yield scoped GO; the raw audit and original directive
     c=>c.originalAudit=c.originalAudit.replace('"daily_duplicate_groups":0','"daily_duplicate_groups":1'),
     c=>c.originalAudit=c.originalAudit.replace('"retired_duplicate_qty":0','"retired_duplicate_qty":1'),
     c=>c.dailyRowsRaw=c.dailyRowsRaw.replace('"GRADE_0":540','"GRADE_0":540.00000000000001')]) assert.throws(() => drift(change));
+});
+
+test('run 45351436581 historical totals remain evidence and new stock or blocking discrepancies are refused', () => {
+  const f = fixture();
+  const audit = JSON.parse(f.originalAudit);
+  const inspect = patch => reviewSnapshot({ ...f, originalAudit: JSON.stringify({ ...audit, ...patch }) });
+  const reviewed = inspect({});
+  assert.equal(reviewed.originalConclusion, 'HOLD');
+  assert.equal(reviewed.scopedConclusion, 'GO_VET_1124_EXACT_CANDIDATE');
+  for (const key of ['legacy_daily_farm_in_rows','legacy_daily_farm_in_qty','retired_duplicate_batches']) {
+    assert.notEqual(inspect({[key]:audit[key]+1}).inspectionSha256, reviewed.inspectionSha256);
+    assert.throws(() => inspect({[key]:undefined}), /HISTORY_EVIDENCE/);
+  }
+  for (const qty of [1,-1,null,undefined]) assert.throws(() => inspect({retired_duplicate_qty:qty}), /RETIRED_BATCH_STOCK/);
+  for (const key of ['daily_duplicate_groups','daily_unknown_identity_rows','daily_mixed_summary_groups',
+    'duplicate_source_groups','unbalanced_production_batches']) assert.throws(() => inspect({[key]:1}));
+  const changed = structuredClone(audit.overposted_grades);
+  changed[0].inbound_batches[0].qty_available--;
+  assert.throws(() => inspect({overposted_grades:changed}));
 });
 
 test('after ledger has precisely the two new effective names and preserves historical rows', () => {
