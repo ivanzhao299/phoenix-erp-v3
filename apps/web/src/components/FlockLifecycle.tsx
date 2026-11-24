@@ -261,10 +261,10 @@ function ActorLifecycle(){
         </div></article>;})}
     </section>
     {vetAccess.canView&&<section className={css.panel}><h2>免疫与休药承接</h2><p>计划原位置、用药发生位置与当前照管位置分开保留；转舍后由当前群继续承接，休药期蛋品禁止正常入库。</p>
-      {care.plans.map(p=><article className={css.document} key={String(p.id)}><strong>{String(p.flock_no)} · {String(p.vaccine_name??p.vaccine_code)} · {String(p.status)}</strong><p>原计划舍 {String(p.house_code)} → 当前舍 {String(p.current_house_code)} · 计划日期 {String(p.plan_date).slice(0,10)}{p.actual_date?` · 实际执行 ${String(p.actual_date).slice(0,10)} / ${String(p.executed_house_code??'未记录执行舍')}`:''}</p>
+      {care.plans.map(p=><article className={css.document} key={String(p.id)}><strong>{String(p.flock_no)} · {String(p.executed_material_name??p.vaccine_name??p.material_code??p.vaccine_code)} · {String(p.status)}</strong><p>原计划舍 {String(p.house_code)} → 当前舍 {String(p.current_house_code)} · 计划日期 {String(p.plan_date).slice(0,10)}{p.actual_date?` · 实际执行 ${String(p.actual_date).slice(0,10)} / ${String(p.executed_house_code??'未记录执行舍')}`:''}</p>
         {!p.actual_date&&vetAccess.canEdit&&<div className={css.actions}><a href={`/breeding/immune?planId=${encodeURIComponent(String(p.id))}`}>登记本次免疫与实际批次用量</a><button disabled={busy} onClick={()=>run(()=>farmProductionApi.cancelImmunePlan(Number(p.id)),'计划已受控取消。')}>取消未完计划</button></div>}
       </article>)}
-      {care.medications.map(m=><article className={css.document} key={String(m.id)}><strong>{String(m.flock_no)} · 用药/休药隔离</strong><p>发生时鸡舍 {String(m.house_code)} → 当前照管舍 {String(m.current_house_code)} · 开始 {String(m.start_date).slice(0,10)} · 休药至 {m.withdraw_until?String(m.withdraw_until).slice(0,10):'疗程未结束，须兽医核实'}</p>{m.house_code!==m.current_house_code&&<small>撤销用药涉及原药品仓回账，须核对原场区、原仓及当前照管权限。</small>}</article>)}
+      {care.medications.map(m=><article className={css.document} key={String(m.id)}><strong>{String(m.flock_no)} · {String(m.material_name??m.material_code??m.medication_code)} · 用药/休药隔离</strong><p>发生时鸡舍 {String(m.house_code)} → 当前照管舍 {String(m.current_house_code)} · 开始 {String(m.start_date).slice(0,10)} · 休药至 {m.withdraw_until?String(m.withdraw_until).slice(0,10):'疗程未结束，须兽医核实'}</p>{m.house_code!==m.current_house_code&&<small>撤销用药涉及原药品仓回账，须核对原场区、原仓及当前照管权限。</small>}</article>)}
     </section>}
     <EggWithdrawalReviews/>
     {detail&&<section className={css.panel} aria-label="单据详情"><h2>{kindNames[String(detail.kind)]} · {stateNames[String(detail.status)]}</h2><button onClick={()=>setDetail(null)}>收起详情</button>

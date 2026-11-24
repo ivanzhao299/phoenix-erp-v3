@@ -242,7 +242,7 @@ export default function BreedingPage() {
         id: "wd-" + m.id,
         type: daysLeft <= 2 ? "danger" : "warning",
         label: t('ui.停药期预警', '停药期预警'),
-        msg: `${m.current_house_code || m.house_code || m.flock_no} ${m.medication_code || t('ui.药物', '药物')} ${endDate ? t('ui.停药期还剩', '停药期还剩') + ' ' + daysLeft + ' ' + t('ui.天', '天') : t('vet.openCourse', '疗程未结束')}`,
+        msg: `${m.current_house_code || m.house_code || m.flock_no} ${m.material_name || m.material_code || m.medication_code || t('ui.药物', '药物')} ${endDate ? t('ui.停药期还剩', '停药期还剩') + ' ' + daysLeft + ' ' + t('ui.天', '天') : t('vet.openCourse', '疗程未结束')}`,
         time: t('ui.系统', '系统')
       });
     });

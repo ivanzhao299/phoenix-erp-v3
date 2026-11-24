@@ -16,3 +16,12 @@ FROM candidates c ORDER BY c.medication_code;
 SELECT 'VET_ACTUAL_MATERIALS' AS section,material_code,material_name,spec,unit,status,
        (SELECT count(*) FROM inv_batches b WHERE b.material_code=m.material_code AND b.item_type='MATERIAL') AS inventory_batches
 FROM mst_materials m WHERE material_type='VET_DRUG' ORDER BY material_code;
+
+SELECT 'VET_LEGACY_STOCK' AS section,
+       CASE WHEN m.store_code='ALL' THEN 'GLOBAL' ELSE 'SITE' END AS clinical_origin,
+       w.company_code,w.site_code,b.warehouse_code,b.unit,count(*) AS positive_batches,
+       count(DISTINCT m.medication_code) AS distinct_items,sum(b.qty) AS quantity
+FROM brd_medications m JOIN inv_batches b ON b.product_code=m.medication_code
+JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+WHERE b.material_code IS NULL AND b.sku_code IS NULL AND b.item_type IS NULL AND b.qty>0
+GROUP BY 2,w.company_code,w.site_code,b.warehouse_code,b.unit ORDER BY 2,3,4,5,6;
