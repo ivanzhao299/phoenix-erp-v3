@@ -49,6 +49,9 @@ function fixture(options: Options = {}) {
     if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}]; // Legacy-only fixture; exact lineage is tested on real PostgreSQL.
     // This fixture models companies outside the official cutover; activated lineage uses real PostgreSQL tests.
     if (sql.includes("FROM production_inventory_domains") || sql.includes("FROM production_batch_qualifications")) return [];
+    if (sql.includes('FROM information_schema.columns') && sql.includes("table_name='wms_inbound'")) {
+      return args[0].map((column_name: string) => ({column_name}));
+    }
     calls.push([sql, args]);
     if (/^\s*(INSERT|UPDATE|WITH changed)/.test(sql)) pending.push([sql, args]);
     if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{

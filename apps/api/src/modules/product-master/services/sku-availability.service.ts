@@ -3,6 +3,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuPolicy, SkuUsage } from './sku-policy';
 
+export class MissingEggSourceProfile extends BadRequestException {}
+
 /** Fresh selections only. Historical reads must not use this fail-closed gate. */
 export interface SkuResolveInput {
   companyCode: string;
@@ -164,9 +166,8 @@ export class SkuAvailabilityService {
     const active = rows.filter(r => r.status === 'ACTIVE'
       && this.date(r.effective_date, '来源生效日期') <= eggDate
       && (r.expire_date == null || this.date(r.expire_date, '来源失效日期') >= eggDate));
-    if (active.length !== 1) {
-      throw new BadRequestException(active.length > 1 ? '来源档案生效期重叠，拒绝推导' : '业务日期缺少有效来源档案（未配置、未启用或已过期）');
-    }
+    if (!active.length) throw new MissingEggSourceProfile('业务日期缺少有效来源档案（未配置、未启用或已过期）');
+    if (active.length > 1) throw new BadRequestException('来源档案生效期重叠，拒绝推导');
     const row = active[0];
     if (!row.profile_code || row.profile_code !== row.profile_code.trim()
         || row.company_code !== input.companyCode || row.house_code !== input.houseCode

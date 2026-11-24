@@ -31,7 +31,7 @@ describe('StoreInventoryQueryService', () => {
     const { service, ds } = setup();
     await service.query({ storeCode: 'STORE-A', status: 'AVAILABLE' });
     const filtered = ds.query.mock.calls.slice(1);
-    expect(filtered.every((call: any[]) => call[0].includes('b.status=$2'))).toBe(true);
+    expect(filtered.every((call: any[]) => call[0].includes("(CASE WHEN vet_egg_batch_held(b.batch_no) THEN 'QUARANTINE' ELSE b.status END)=$2"))).toBe(true);
     expect(filtered.every((call: any[]) => call[1][1] === 'AVAILABLE')).toBe(true);
   });
 

@@ -22,7 +22,8 @@ describe('inventory inbound-date write-path contract', () => {
   it('uses the earliest non-null date when an existing batch is merged', () => {
     expect(wms.match(/ELSE LEAST\(inv_batches\.inbound_date, EXCLUDED\.inbound_date\)/g)?.length).toBeGreaterThanOrEqual(3);
     expect(storePos).toContain('LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)');
-    expect(medicine).toContain('LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)');
+    // A veterinary lot may only be augmented under the same dated stock identity.
+    expect(medicine).toContain('inv_batches.inbound_date IS NOT DISTINCT FROM EXCLUDED.inbound_date');
   });
 
   it('defines dates for production, transfer, returns and medicine', () => {
@@ -34,7 +35,7 @@ describe('inventory inbound-date write-path contract', () => {
     // The persisted inbound date is parameter $9; formatting the argument list
     // across lines must not change this contract or substitute a creation date.
     expect(medicine).toMatch(/'MED_INBOUND',\s*safeDate,\s*expireDate/);
-    expect(medicine).toMatch(/'AVAILABLE',\s*\$9::date,\s*\$10::date,\s*NOW\(\),\s*NOW\(\)/);
+    expect(medicine).toMatch(/'AVAILABLE',\s*\$9::date,\s*\$10::date,\s*\$11::varchar/);
     expect(medicine).toContain('const safeDate = normalizeDate(logDate)');
   });
 

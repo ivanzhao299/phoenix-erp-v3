@@ -14,6 +14,16 @@ function operatorFrom(req: any): string {
 export class ImmuneController {
   constructor(private readonly service: ImmuneService) {}
 
+  @Get('vet/flocks')
+  async flocks() {
+    return {code: 200, data: await this.service.flockOptions()};
+  }
+
+  @Get('vet/medications')
+  async medications(@Query() query: {site_code?: string; company_code?: string}) {
+    return {code: 200, data: await this.service.listVaccines(query, false)};
+  }
+
   @Get('immune/plans')
   async list(@Query() query: { site_code?: string; farm_code?: string; status?: string }) {
     return { code: 200, data: await this.service.list(query) };
@@ -26,12 +36,12 @@ export class ImmuneController {
 
   @Get('immune/lots')
   async lots(
-    @Query('vaccine_code') vaccineCode: string,
+    @Query('material_code') materialCode: string,
     @Query('site_code') siteCode: string,
     @Query('company_code') companyCode: string,
     @Query('warehouse_code') warehouseCode?: string,
   ) {
-    return { code: 200, data: await this.service.getLots(vaccineCode, siteCode, companyCode, warehouseCode) };
+    return { code: 200, data: await this.service.getLots(materialCode, siteCode, companyCode, warehouseCode) };
   }
 
   @Post('immune/plans')

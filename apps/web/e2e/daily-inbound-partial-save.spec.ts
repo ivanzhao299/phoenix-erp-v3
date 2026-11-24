@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
       json = { state: 'OFF', firstProductionDate: null };
     }
     if (path === '/api/v3/farm/daily-hen-report') {
-      json = { code: 200, rows: [{ house_code: 'FIXTURE-H1', occupancy_id: null, has_daily_log: false, current_qty: 1000 }] };
+      json = { code: 200, rows: [{ house_code: 'FIXTURE-H1', flock_no: 'FIXTURE-F1', occupancy_id: null, has_daily_log: false, current_qty: 1000 }] };
     }
     if (path === '/api/lookup/product-grades') json = codes.map((grade_code, sort_order) => ({ grade_code, grade_name: grade_code, sort_order, status: 'ACTIVE' }));
     await route.fulfill({ json });
@@ -154,7 +154,7 @@ test('initial house and occupancy loading never exposes editable mortality field
   await page.route('**/api/v3/farm/daily-hen-report?*', async route => {
     sawOccupancy();
     await occupancyGate;
-    await route.fulfill({ json: { rows: [] } });
+    await route.fulfill({ json: { rows: [{house_code:'FIXTURE-H1',flock_no:'FIXTURE-F1',occupancy_id:null}] } });
   });
   const deaths = page.getByText('死亡(羽)', { exact: true }).locator('..').locator('input');
   try {
@@ -185,7 +185,7 @@ test('changed date requires its own occupancy result and keeps managed mortality
   await page.route('**/api/v3/farm/daily-hen-report?*', async route => {
     const changed = new URL(route.request().url()).searchParams.get('date') === '2026-10-16';
     if (changed) { sawChangedDate(); await changedDateGate; }
-    await route.fulfill({ json: { rows: changed ? [{ house_code: 'FIXTURE-H1', occupancy_id: 7, current_qty: 1000 }] : [] } });
+    await route.fulfill({ json: { rows: changed ? [{ house_code: 'FIXTURE-H1', occupancy_id: 7, flock_no:'FIXTURE-PAST', current_qty: 1000 }] : [{ house_code:'FIXTURE-H1',flock_no:'FIXTURE-F1',occupancy_id:null }] } });
   });
   await page.route('**/api/v3/farm/daily-logs', async route => {
     payloads.push(route.request().postDataJSON());
@@ -212,6 +212,7 @@ test('changed date requires its own occupancy result and keeps managed mortality
     await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
     await expect(page.getByText('日报已成功提交！', { exact: false })).toBeVisible();
     expect(payloads).toHaveLength(1);
+    expect(payloads[0].flock_no).toBe('FIXTURE-PAST');
     expect(payloads[0]).not.toHaveProperty('mortality_qty');
     expect(payloads[0]).not.toHaveProperty('elimination_qty');
     expect(payloads[0]).not.toHaveProperty('mortality_reason');

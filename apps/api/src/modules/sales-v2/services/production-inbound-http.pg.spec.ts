@@ -13,6 +13,7 @@ import { OfficialInventoryConversionController } from '../controllers/official-i
 import { OfficialInventoryConversionService } from './official-inventory-conversion.service';
 import { singaporeBusinessDate } from '../../wms/temp-production-reversal';
 import { installManagedSalesFixture, resetManagedSalesFixture } from './production-managed-sales.pg-fixture';
+import { LookupController } from '../../product-master/controllers/lookup.controller';
 import { ProductMasterService } from '../../product-master/services/product-master.service';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { resolveQuantity } from '../../product-master/services/quantity-contract';
@@ -47,7 +48,7 @@ import { FlockLifecycleController } from '../../farm/flock-lifecycle.controller'
 import { FlockLifecycleService } from '../../farm/flock-lifecycle.service';
 import { FarmController } from '../../farm/farm.controller';
 import { FarmService } from '../../farm/farm.service';
-import { Body, Controller, Get, INestApplication, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, INestApplication, Post, Query, Req, UseGuards, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AuthGuard, PassportModule, PassportStrategy } from '@nestjs/passport';
@@ -200,6 +201,11 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('houses')async houses(){return (await db.query('SELECT * FROM brd_houses WHERE status=\'ACTIVE\'')).map((h:any)=>({houseCode:h.house_code,houseName:h.house_code,companyCode:'COMP-A',siteCode:'SITE-A',ownershipResolved:true}));}
       @Get('warehouses')async warehouses(@Query('companyCode') company:string){return (await db.query('SELECT * FROM wms_warehouses WHERE company_code=$1',[company||'COMP-A'])).map((w:any)=>({warehouseCode:w.warehouse_code,warehouseName:w.warehouse_code}));}
       @Get('packaging-specs')specs(){return db.query("SELECT *,spec_code AS spec_name FROM packaging_specs WHERE status='ACTIVE'");}
+      @Get('egg-source-profile') profile(@Req() req:{user:unknown}, @Query('companyCode') company:string,
+        @Query('houseCode') house:string, @Query('eggDate') day:string) {
+        return new LookupController(undefined as never,db.manager,{get:()=>req.user} as never,scopes,undefined as never)
+          .eggSourceProfile(house,day,company);
+      }
       @Get('product-grades')async grades(){return {code:200,data:await db.query("SELECT * FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order")};}
     }
     @Controller('api/product-master') @UseGuards(AuthGuard('jwt')) class FixtureSkus {@Get('skus')skus(@Query('product_code') product_code:string,@Query('company_code') company_code:string,@Query('usage') usage:string){return new ProductMasterService(db.manager,{} as never).listSkus({product_code,company_code,usage:SkuPolicy.usage(usage)});}}

@@ -6,7 +6,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { randomUUID } from 'crypto';
-import { stableProductionJson,productionContentHash,lockProductionSourceReports,lockProductionHandoverEvidence,assertHandoverNotClaimedByRaw,
+import { stableProductionJson,productionContentHash,inspectProductionSourceReports,lockProductionSourceReports,lockProductionHandoverEvidence,assertHandoverNotClaimedByRaw,
   lockProductionEntryMode,lockRawCollectionReference,assertRawCollectionTotals } from './production-source-facts';
 export { stableProductionJson,productionContentHash } from './production-source-facts';
 import { EggInventoryService, assertEggDate } from './egg-inventory.service';
@@ -175,7 +175,7 @@ export class ProductionInboundDocumentsService {
     return scope;
   }
   private async reports(m: EntityManager, d: Document) {
-    return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
+    return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date},d.kind==='REVERSAL');
   }
   private async usage(m: Pick<DataSource,'query'>, d: Document) {
     const rows: SourceUsageRow[] = await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
@@ -934,8 +934,10 @@ export class ProductionInboundDocumentsService {
     if(clearance.signed_by===d.approved_by)throw new ConflictException('须取得独立业务与财务核签');
     for (let i=0;i<d.payload.items.length;i++) {
       const item=d.payload.items[i]; const lineNo=i+1; const batch=batches.find((b:any)=>b.batch_no===item.batchNo);
+      await m.query("SELECT set_config('phoenix.egg_disposition','REVERSAL',true)");
       const n=await guardedBatchUpdate(m,{ batchNo:item.batchNo,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,
         deltaQty:-item.quantity,deltaAvailable:item.inventoryStatus==='AVAILABLE'?-item.quantity:undefined,requireStatus:item.inventoryStatus });
+      await m.query("SELECT set_config('phoenix.egg_disposition','',true)");
       if (n!==1) throw new ConflictException('原批数量已变化，请重新核对');
       const confirmed=clearance.costs.find((c:any)=>c.batchNo===item.batchNo)?.costStatus==='CONFIRMED';
       const costChange=confirmed?(await m.query('SELECT (-$1::numeric*unit_cost)::text AS amount FROM inv_batches WHERE batch_no=$2',[item.quantity,item.batchNo]))[0].amount:null;
@@ -1017,7 +1019,8 @@ export class ProductionInboundDocumentsService {
     const stockScope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
-      const scope = await this.lockDay(m,identity,false,false); const reports = await this.reports(m,identity);
+      const scope = await this.lockDay(m,identity,false,false);
+      const {reports,sourceReviewRequired} = await inspectProductionSourceReports(m,{companyCode:company,houseCode:house,productionDate:day});
       const usage = await this.usage(m,identity);
       const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
       const sourceBalances = [];
@@ -1025,7 +1028,8 @@ export class ProductionInboundDocumentsService {
         const key = sourceQuotaKey(r.id,gradeCode);
         const quota = sourceQuota(confirmedQty,usage.get(key));
         usage.delete(key);
-        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,...quota});
+        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,productionDate:r.production_date,
+          flockNo:r.flock_no,occupancyId:r.occupancy_id,...quota});
         const item = grades[gradeCode] ??= {reported:0,posted:0,remaining:0};
         item.reported+=quota.confirmedQty;
         item.posted+=quota.ordinaryNet+quota.rawUsedQty;
@@ -1037,7 +1041,7 @@ export class ProductionInboundDocumentsService {
       for (const grade of Object.keys(grades)) {
         stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
       }
-      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,
+      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,sourceReviewRequired,
         stockBasisVersion:2,stockByGrade:stock,
         currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
           .map(([grade,v])=>[grade,v.attributableQty])),

@@ -1,8 +1,8 @@
+import { normalizeGradeQuantityMap } from '../../farm/daily-report-grades';
 import { BadRequestException } from '@nestjs/common';
 import {
   ProductionInboundService,
   findDailyInboundOverages,
-  normalizeGradeQuantityMap,
   sumGradeQuantityMaps,
 } from './production-inbound.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
@@ -31,8 +31,10 @@ const makeSkuAvailability = (_skuRows: any[]) => ({
 } as unknown as SkuAvailabilityService);
 
 describe('daily report inventory consistency helpers', () => {
-  it('normalizes JSONB grade quantities and ignores malformed values', () => {
-    expect(normalizeGradeQuantityMap('{"GRADE_1":"100","GRADE_2":-1,"":5}')).toEqual({ GRADE_1: 100 });
+  it('preserves explicit zero and accepts historical integer strings', () => {
+    expect(normalizeGradeQuantityMap('{"GRADE_1":"100","GRADE_2":0}')).toEqual({ GRADE_1: 100, GRADE_2: 0 });
+    expect(() => normalizeGradeQuantityMap({ GRADE_2: -1 })).toThrow();
+    expect(() => normalizeGradeQuantityMap({ '': 5 })).toThrow();
     expect(sumGradeQuantityMaps([
       { eggs_by_grade: { GRADE_1: 100, GRADE_2: 20 } },
       { eggs_by_grade: '{"GRADE_1":50}' },

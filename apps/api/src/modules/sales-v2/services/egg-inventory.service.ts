@@ -756,6 +756,7 @@ export class EggInventoryService {
       // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
       `b.legacy_source IS NULL`,
       officialInventoryPredicate('b'),
+      'NOT vet_egg_batch_held(b.batch_no)',
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -922,6 +923,7 @@ export class EggInventoryService {
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
       officialInventoryWritablePredicate('inv_batches'),
+      'NOT vet_egg_batch_held(inv_batches.batch_no)',
       `(sku_code IS NULL OR EXISTS (
         SELECT 1 FROM "product_skus" legacy_sku
          WHERE legacy_sku.sku_code=inv_batches.sku_code
@@ -1179,22 +1181,13 @@ export class EggInventoryService {
       const releaseQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (releaseQty <= 0) continue;
 
-        // INV-301b：守卫化 UPDATE 走统一入口（正数 delta 自动带 qty_available+n<=qty 防超账面守卫）
-        const changed = await guardedBatchUpdate(mgr, {
-          batchNo:        allocation.batch_no,
-          companyCode,
-          warehouseCode:  allocation.warehouse_code,
-          deltaAvailable: releaseQty,
-          requireStatus:  'AVAILABLE',
-        });
-      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
-
       const ledgerId = await this.writeLedger({
           batchNo:     allocation.batch_no,
           changeType:  INV_LEDGER_CHANGE_TYPE.RELEASED,
           qtyChange:   releaseQty,
           operator:    this.operator,
           companyCode,
+          warehouseCode: allocation.warehouse_code,
           refNo:       orderNo,
           note:        `订单取消释放预占 order=${orderNo} allocation=${allocation.id} batch=${allocation.batch_no}`,
           skuCode:     allocation.sku_code ?? null,
@@ -1207,6 +1200,16 @@ export class EggInventoryService {
         `,
         [allocation.id, orderId, `order-cancel:${orderId}`, releaseQty, ledgerId, this.operator],
       );
+      // The protected stock guard verifies the exact allocation action written in this transaction.
+      const changed = await guardedBatchUpdate(mgr, {
+        batchNo:        allocation.batch_no,
+        companyCode,
+        warehouseCode:  allocation.warehouse_code,
+        deltaAvailable: releaseQty,
+        requireStatus:  'AVAILABLE',
+      });
+      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+
       const updated = await q(
         `WITH changed AS (
            UPDATE sal_order_item_batch_allocations
@@ -1859,7 +1862,7 @@ export class EggInventoryService {
           WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
-       WHERE b.status = 'AVAILABLE' AND ${officialInventoryPredicate('b')}
+       WHERE b.status = 'AVAILABLE' AND NOT vet_egg_batch_held(b.batch_no) AND ${officialInventoryPredicate('b')}
          AND b.qty_available > 0
          AND ${this.eggFamilyCondition()}
          AND b.expire_date IS NOT NULL
@@ -1913,7 +1916,7 @@ export class EggInventoryService {
           AND b.qty_available > 0
           AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS sku_linked_batches
       FROM inv_batches b
-      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} ${batchCompanyCond}
+      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} AND (b.status<>'AVAILABLE' OR NOT vet_egg_batch_held(b.batch_no)) ${batchCompanyCond}
     `, batchArgs);
 
     const ledgerArgs: unknown[] = [];

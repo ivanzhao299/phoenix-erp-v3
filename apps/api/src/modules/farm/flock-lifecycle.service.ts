@@ -427,20 +427,20 @@ export class FlockLifecycleService {
       ${where?'WHERE '+where:''} ORDER BY b.id`,params);
   }
   async care(scope: OrgScope) {
-    const balances=await this.balances(scope);const flocks=balances.filter((b:any)=>!b.closed_on).map((b:any)=>b.flock_no);
-    if(!flocks.length)return {plans:[],medications:[]};
+    const params: unknown[] = [];
+    const currentTeam = scopeWhere(scope,params,'b.') || 'true';
     const [tables]=await this.db.query("SELECT to_regclass('brd_vaccinations') AS immune,to_regclass('brd_medication_records') AS medicines");
     const plans=tables.immune?await this.db.query(`SELECT v.*,v.plan_date::text AS plan_date,v.actual_date::text AS actual_date,v.next_due_date::text AS next_due_date,v.vaccine_expire_date::text AS vaccine_expire_date,b.house_code AS current_house_code,b.farm_code AS current_farm_code,
-      a.occupancy_id AS planned_occupancy_id,x.occupancy_id AS execution_occupancy_id,x.house_code AS executed_house_code
+      COALESCE(a.house_code,v.house_code) AS house_code,a.occupancy_id AS planned_occupancy_id,x.occupancy_id AS execution_occupancy_id,x.house_code AS executed_house_code
       FROM brd_vaccinations v JOIN brd_flock_balances b ON b.flock_no=v.flock_no
       LEFT JOIN brd_flock_activity_sources a ON a.activity_type='IMMUNE_PLAN' AND a.activity_id=v.id::text
       LEFT JOIN brd_flock_activity_sources x ON x.activity_type='IMMUNE_EXECUTION' AND x.activity_id=v.id::text
-      WHERE v.flock_no=ANY($1) AND v.status<>'CANCELLED' ORDER BY v.plan_date DESC`,[flocks]):[];
+      WHERE b.closed_on IS NULL AND ${currentTeam} AND v.status<>'CANCELLED' ORDER BY v.plan_date DESC`,params):[];
     const medications=tables.medicines?await this.db.query(`SELECT r.*,r.start_date::text AS start_date,r.end_date::text AS end_date,r.withdraw_until::text AS withdraw_until,b.house_code AS current_house_code,b.farm_code AS current_farm_code,
-      a.occupancy_id AS original_occupancy_id FROM brd_medication_records r JOIN brd_flock_balances b ON b.flock_no=r.flock_no
+      COALESCE(a.house_code,r.house_code) AS house_code,a.occupancy_id AS original_occupancy_id FROM brd_medication_records r JOIN brd_flock_balances b ON b.flock_no=r.flock_no
       LEFT JOIN brd_flock_activity_sources a ON a.activity_type='MEDICATION' AND a.activity_id=r.id::text
-      WHERE r.flock_no=ANY($1) AND r.status<>'CANCELLED' AND (r.withdraw_until IS NULL OR r.withdraw_until>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date)
-      ORDER BY r.start_date DESC`,[flocks]):[];
+      WHERE b.closed_on IS NULL AND ${currentTeam} AND r.status<>'CANCELLED' AND (r.withdraw_until IS NULL OR r.withdraw_until>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date)
+      ORDER BY r.start_date DESC`,params):[];
     return {plans,medications};
   }
   async attribution(scope: OrgScope) {

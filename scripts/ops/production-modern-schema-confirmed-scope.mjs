@@ -48,8 +48,7 @@ const originalDailyVector=Object.freeze({GRADE_0:540,GRADE_1:11880,GRADE_2:32760
 const counters=['daily_duplicate_groups','daily_unknown_identity_rows','daily_mixed_summary_groups','duplicate_source_groups','unbalanced_production_batches'];
 /** Pure fixed check; additional groups, changed identities and any existing
  * consumption remain HOLD. No journal or daily row can be corrected here. */
-export function reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw,sourceDirectiveSha256}){
- if(sourceDirectiveSha256!==canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE))fail('FIXED_DIRECTIVE_REQUIRED');
+export function reviewConfirmedLegacyFacts({originalAudit,dailyRowsRaw}){
  let audit,exactAudit;try{audit=JSON.parse(originalAudit);exactAudit=losslessJsonFacts(originalAudit,{omitTopLevel:['checked_at']});}catch{fail('EXACT_ORIGINAL_AUDIT_REQUIRED');}
  const groups=observedLegacyEggGroups(audit);
  if(audit.conclusion!=='HOLD'||!counters.every(key=>audit[key]===0)||audit.overposted_grade_groups!==2||groups?.length!==2)fail('ONLY_TWO_CONFIRMED_GROUPS_ALLOWED');
@@ -81,15 +80,21 @@ export function reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw,sourceDir
  if(amounts.some(value=>!Number.isSafeInteger(value)||value<0)||amounts.reduce((a,b)=>a+b,0)!==47930)fail('ORIGINAL_DAILY_TOTAL_MOVED');
  // The frozen factual scope is stable across a new snapshot timestamp. Raw
  // original bytes/SHA are separately bound by the preparation context.
+ return {groups,stableExactAuditSha256:canonicalDigest(exactAudit),dailyRowsSha256:canonicalDigest(dailyExact)};
+}
+export function reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw,sourceDirectiveSha256}){
+ if(sourceDirectiveSha256!==canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE))fail('FIXED_DIRECTIVE_REQUIRED');
+ const {groups,stableExactAuditSha256,dailyRowsSha256}=reviewConfirmedLegacyFacts({originalAudit,dailyRowsRaw});
  const businessEvidence={schema:'phoenix.confirmed-legacy-scope-review/v1',sourceDirectiveSha256,
-  stableExactAuditSha256:canonicalDigest(exactAudit),dailyRowsSha256:canonicalDigest(dailyExact),known:structuredClone(known),
+  stableExactAuditSha256,dailyRowsSha256,known:structuredClone(known),
   classification:CONFIRMED_MODERN_SCHEMA_DIRECTIVE.classification,originalConclusion:'HOLD',physicalInventoryVerified:false,releaseAuthorized:false};
  const manifest={schema:LEGACY_EGG_TEST_MANIFEST,classification:CONFIRMED_MODERN_SCHEMA_DIRECTIVE.classification,businessEvidenceSha256:canonicalDigest(businessEvidence),groups};
  return {manifest,businessEvidence,originalAudit};
 }
+export const confirmedDailyRowsSql=`SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.id),'[]'::jsonb)::text AS daily
+   FROM brd_daily_logs d WHERE d.id=106 OR (d.log_date=DATE '2026-11-17' AND d.house_code='HOUSE_MS_01')`;
 export async function readConfirmedScopeInAuditSnapshot(client,originalAudit,sourceDirectiveSha256){
- const {rows:[{daily}]}=await client.query(`SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.id),'[]'::jsonb)::text AS daily
-   FROM brd_daily_logs d WHERE d.id=106 OR (d.log_date=DATE '2026-11-17' AND d.house_code='HOUSE_MS_01')`);
+ const {rows:[{daily}]}=await client.query(confirmedDailyRowsSql);
  const confirmedScopeInput={originalAudit,dailyRowsRaw:daily,sourceDirectiveSha256};
  return {...reviewConfirmedLegacyScope(confirmedScopeInput),confirmedScopeInput};
 }

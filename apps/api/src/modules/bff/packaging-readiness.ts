@@ -68,7 +68,7 @@ export async function resolvePackagingSourceContext(db: Db, input: {
     houses = await db.query(`SELECT DISTINCT s.house_code, s.production_date::text AS egg_date, s.batch_status, s.is_test, g.is_test AS grading_is_test
       FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id
       LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id WHERE g.code=ANY($1::text[])`, [gradingCodes]);
-    if (houses.some(h => ['VOID', 'CANCELLED', 'SCRAPPED'].includes(h.batch_status) || h.is_test !== h.grading_is_test || h.egg_date !== eggDate)) fail('SOURCE_INVALID', '包装来源失效、模式或生产日期不一致');
+    if (houses.some(h => ['VOID', 'CANCELLED', 'SCRAPPED','QC_ON_HOLD'].includes(h.batch_status) || h.is_test !== h.grading_is_test || h.egg_date !== eggDate)) fail('SOURCE_INVALID', '包装来源失效、模式或生产日期不一致');
   } else {
     if (!input.houseCode) fail('SOURCE_MISSING', '包装缺权威来源鸡舍/班次');
     houses = [{ house_code: input.houseCode }];

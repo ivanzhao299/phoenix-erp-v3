@@ -1,5 +1,5 @@
 import { productionReportFactsSql } from './production-report-facts';
-import { normalizeReportGrades, sameReportGrades, storedGradeStatus } from './daily-report-grades';
+import { normalizeGradeQuantityMap, normalizeReportGrades, sameReportGrades, storedGradeStatus } from './daily-report-grades';
 import { refreshDailyFlockLayRate } from './effective-production-source';
 import { Injectable, NotFoundException, BadRequestException, Optional, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -495,6 +495,12 @@ export class FarmService {
       let ledgerSkipped = false;
       const diff = body.eggs_produced - oldEggs;
       if (!hasGrades && diff !== 0) {
+        // A legacy pooled batch cannot establish physical flock provenance. Keep the report and hold its posting.
+        const [policy] = await manager.query("SELECT to_regprocedure('vet_egg_day_held(text,date)') AS withdrawal");
+        if (policy?.withdrawal) {
+          const [source] = await manager.query('SELECT vet_egg_day_held($1,$2::date) AS held',[flock.flock_no,logDate]);
+          if (source.held) return {code:200,msg:'日报已保存，此产蛋日已隔离，请在兽医核查中核对来源',ledgerSkipped:true};
+        }
         const batchNo = await this.lookupLegacyEggBatch(manager, house.companyCode, logDate);
         if (batchNo) {
           await writeInvLedger(manager, { batchNo, changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
@@ -555,11 +561,14 @@ export class FarmService {
 
     const rows: Array<{
       house_code: string;
+      overlapping_shifts: boolean;
       eggs_by_grade: any;
       eggs_produced: number | string | null;
       inbound_by_grade: any;
     }> = await this.entityManager.query(
       `SELECT dl.house_code, dl.eggs_by_grade, dl.eggs_produced,
+              (BOOL_OR(dl.shift='DAILY') OVER (PARTITION BY dl.house_code)
+               AND COUNT(*) OVER (PARTITION BY dl.house_code)>1) AS overlapping_shifts,
               COALESCE((
                 SELECT jsonb_object_agg(inbound.grade_code, inbound.qty)
                 FROM (
@@ -567,6 +576,7 @@ export class FarmService {
                          SUM(ib.qty)::numeric AS qty
                   FROM inv_batches ib
                   WHERE ib.source_type = 'TEMP_PRODUCTION'
+                    AND ib.company_code = COALESCE(NULLIF(dl.company_code,''),hf.company_code)
                     AND ib.egg_date = dl.log_date
                     AND (ib.collection_batch_ref = 'HOUSE-' || dl.house_code
                          OR ib.source_no = 'TEMP-' || dl.log_date::text || '-' || dl.house_code)
@@ -590,12 +600,11 @@ export class FarmService {
     for (const r of rows) {
       const eggs = Math.max(0, Number(r.eggs_produced) || 0);
       reportedEggs += eggs;
-      let ebg: unknown = r.eggs_by_grade;
-      if (typeof ebg === 'string') {
-        try { ebg = JSON.parse(ebg); } catch { ebg = null; }
-      }
-      const hasBreakdown = ebg && typeof ebg === 'object'
-        && Object.values(ebg as Record<string, unknown>).some(qty => Number(qty) > 0);
+      if (r.overlapping_shifts) throw new BadRequestException('同舍日的全天日报与其他日报重复覆盖，请先核对来源');
+      let ebg: Record<string, number>;
+      try { ebg = normalizeGradeQuantityMap(r.eggs_by_grade); }
+      catch { missingBreakdownLogs++; continue; }
+      const hasBreakdown = Object.values(ebg).some(qty => qty > 0);
       if (!hasBreakdown) {
         if (eggs > 0) missingBreakdownLogs += 1;
         continue;
@@ -662,9 +671,15 @@ export class FarmService {
     const businessToday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
     if(date>businessToday)throw new BadRequestException('未来日期没有实际存栏日报，请使用计划流程');
     const [schema]=await this.entityManager.query("SELECT to_regclass('brd_flock_balances') AS ledger");
-    const flockParams:any[]=[];const flockScope=scopeWhere(scope,flockParams,'owner.');
+    const flockParams:any[]=[date];const flockScope=scopeWhere(scope,flockParams,'owner.');
     const legacy=await this.entityManager.query(`SELECT f.flock_no,f.house_code,h.house_name,f.current_qty,f.initial_qty,
-      COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status
+      COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status,
+      (f.start_date IS NULL OR f.start_date<=$1::date) AS entry_candidate,
+      f.start_date IS NOT NULL AND f.farm_code=h.farm_code AND f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')
+        ${schema?.ledger?'AND NOT EXISTS(SELECT 1 FROM brd_flock_house_states hs WHERE hs.house_code=h.house_code)':''}
+        AND NOT EXISTS(SELECT 1 FROM brd_flocks other WHERE other.house_code=h.house_code AND other.flock_no<>f.flock_no
+          AND (other.status IS DISTINCT FROM 'RETIRED' OR COALESCE(other.current_qty,0)>0)
+          AND (other.start_date IS NULL OR other.start_date<=$1::date)) AS entry_verified
       FROM brd_flocks f JOIN brd_houses h ON h.house_code=f.house_code
       JOIN (SELECT farm_code,company_code,mapped_site_code AS site_code FROM brd_farms WHERE status='ACTIVE') owner ON owner.farm_code=h.farm_code
       WHERE (UPPER(f.status) IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING') OR COALESCE(f.current_qty,0)>0)
@@ -695,7 +710,7 @@ export class FarmService {
       const raw=f.occupancy_id?f.current_qty:date===businessToday?f.current_qty:log?.closing_qty;
       const quantity=raw==null?null:Number(raw);const eggs=Number(log?.eggs??0);
       const mortality=Number(log?.mortality??0),elimination=Number(log?.elimination??0);
-      return {house_code:log?.house_code??f.house_code,house_name:f.house_name||f.house_code,flock_no:f.flock_no,occupancy_id:f.occupancy_id??null,
+      return {entry_candidate:!!f.occupancy_id||f.entry_candidate,entry_verified:!!f.occupancy_id||f.entry_verified,house_code:log?.house_code??f.house_code,house_name:f.house_name||f.house_code,flock_no:f.flock_no,occupancy_id:f.occupancy_id??null,
         current_qty:quantity,initial_qty:f.initial_qty==null?null:Number(f.initial_qty),age_days:f.placement_date?Math.max(0,Math.floor((Date.parse(date)-Date.parse(f.placement_date))/86400000)):null,
         eggs,lay_rate:log?.log_count>0&&quantity!=null&&quantity>0?(eggs*100/quantity).toFixed(2):null,mortality,elimination,total_loss:mortality+elimination,
         dirty:Number(log?.dirty??0),broken:Number(log?.broken??0),culling_reason:log?.culling_reason??null,mortality_reason:log?.mortality_reason??null,
@@ -704,7 +719,7 @@ export class FarmService {
         balance_status:f.occupancy_id?'VERIFIED_EVENT_BALANCE':quantity==null?'UNKNOWN_HISTORICAL_BALANCE':'LEGACY_UNVERIFIED'};
     });
     // Keep explicit old report identities, never replace them with today's occupant after a changeover.
-    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:log.occupancy_id,
+    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({entry_candidate:false,entry_verified:false,house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:log.occupancy_id,
       current_qty:log.occupancy_id?0:log.closing_qty==null?null:Number(log.closing_qty),initial_qty:null,age_days:null,eggs:Number(log.eggs),lay_rate:null,
       mortality:Number(log.mortality),elimination:Number(log.elimination),total_loss:Number(log.mortality)+Number(log.elimination),dirty:Number(log.dirty),broken:Number(log.broken),
       culling_reason:log.culling_reason,mortality_reason:log.mortality_reason,feed:log.feed==null?null:Number(log.feed),water:log.water==null?null:Number(log.water),

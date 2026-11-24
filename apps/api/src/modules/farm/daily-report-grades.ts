@@ -21,6 +21,21 @@ export function normalizeReportGrades(input: unknown): ReportGrades {
   return Object.fromEntries(values);
 }
 
+/** Parse a JSONB value without allowing malformed historical rows to widen stock. */
+export function normalizeGradeQuantityMap(value: unknown): ReportGrades {
+  if (value == null) return {};
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); }
+    catch { throw new BadRequestException('日报分级格式无效，请核对原单'); }
+  }
+  const grades = normalizeReportGrades(parsed);
+  if (Object.keys(grades).some(grade => !grade || grade !== grade.trim())) {
+    throw new BadRequestException('日报等级编码无效，请核对原单');
+  }
+  return grades;
+}
+
 export function sameReportGrades(left: unknown, right: unknown): boolean {
   function entries(map: unknown) {
     if (map == null) return null;

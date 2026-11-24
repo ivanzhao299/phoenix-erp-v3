@@ -23,7 +23,36 @@ export async function recordFlockProductionSources(m: Db,p: {
   const houses=[...new Set(profiles.map(x=>x.houseCode))].sort();
   for (const code of houses) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
   const states=await m.query('SELECT house_code FROM brd_flock_house_states WHERE house_code=ANY($1)',[houses]);
-  if (!states.length) return;
+  if (!states.length) {
+    // Pre-baseline house/day reports can still identify an exposed flock; a pooled stock lot cannot.
+    const [policy]=await m.query("SELECT to_regprocedure('vet_egg_day_held(text,date)') AS withdrawal,to_regclass('brd_egg_temp_origins') AS temp_origins");
+    if (policy?.withdrawal) {
+      if (p.packagingBatchRef) {
+        const physical=await m.query('SELECT flock_no,production_date::text AS day FROM vet_egg_batch_sources($1) ORDER BY 1,2',[batchNo]);
+        for (const row of physical) {
+          if (!row.flock_no || !row.day) throw new BadRequestException('包装库存缺可核验产蛋来源，须留置核对');
+          await m.query('SELECT vet_egg_assert_day($1,$2)',[row.flock_no,row.day]);
+        }
+        return;
+      }
+      if (p.sourceType==='TEMP_PRODUCTION' && policy.temp_origins) {
+        if (houses.length!==1) throw new BadRequestException('临时入库须核对唯一产蛋舍');
+        const [origin]=await m.query('SELECT vet_egg_house_flock($1,$2,$3) AS flock',[p.companyCode,houses[0],p.eggDate]);
+        if (!origin.flock) throw new BadRequestException('临时入库缺可核验的原公司、舍日与鸡群，须先核对来源');
+        await m.query('SELECT vet_egg_assert_day($1,$2)',[origin.flock,p.eggDate]);
+        await m.query(`INSERT INTO brd_egg_temp_origins(batch_no,company_code,house_code,production_date,flock_no)
+          VALUES($1,$2,$3,$4,$5)`,[batchNo,p.companyCode,houses[0],p.eggDate,origin.flock]);
+        return;
+      }
+      const sources=await m.query(`SELECT DISTINCT d.flock_no FROM brd_daily_logs d WHERE d.house_code=ANY($1)
+        AND d.log_date=$2 AND d.flock_no IS NOT NULL
+        UNION SELECT r.flock_no FROM brd_egg_course_intervals r WHERE r.house_code=ANY($1) AND r.start_date<=$2
+        AND (r.last_day IS NULL OR r.last_day>=$2) AND NOT EXISTS (SELECT 1 FROM brd_daily_logs d
+          WHERE d.house_code=r.house_code AND d.log_date=$2 AND d.flock_no IS NOT NULL) ORDER BY 1`,[houses,p.eggDate]);
+      for (const row of sources) await m.query('SELECT vet_egg_assert_day($1,$2)',[row.flock_no,p.eggDate]);
+    }
+    return;
+  }
   if (states.length!==houses.length) throw new BadRequestException('合批来源包含未接续基线鸡舍，须先完成来源核对');
   if (!['TEMP_PRODUCTION','PACKAGING'].includes(p.sourceType??'')) throw new BadRequestException('已接续群禁止无受控来源的生产入库');
   let inputs: any[]=[];
@@ -49,7 +78,7 @@ export async function recordFlockProductionSources(m: Db,p: {
     if (!profile || productionDate!==p.eggDate) throw new BadRequestException('生产日期/商业来源与真实采蛋日期不同，须先核对来源档案');
     const logs=await m.query(`SELECT d.id,d.flock_no,d.occupancy_id,d.eggs_by_grade,o.company_code,o.farm_code,o.site_code,o.house_code,
       o.began_on::text AS began_on,o.ended_on::text AS ended_on FROM brd_daily_logs d
-      JOIN brd_flock_occupancies o ON o.id=d.occupancy_id
+      JOIN brd_flock_occupancies o ON o.id=d.occupancy_id AND o.flock_no=d.flock_no
       WHERE d.house_code=$1 AND d.log_date=$2 AND d.shift='DAILY'`,[input.house_code,productionDate]);
     if (logs.length!==1 || logs[0].company_code!==p.companyCode || !logs[0].occupancy_id
       || logs[0].house_code!==input.house_code || logs[0].began_on>productionDate || logs[0].ended_on && logs[0].ended_on<=productionDate
@@ -90,6 +119,23 @@ export async function recordFlockProductionSources(m: Db,p: {
 /** A split/transfer preserves source relationships; it does not invent per-flock output allocations. */
 export async function inheritFlockProductionSources(m: Db,from: string,to: string,quantity: number) {
   const [schema]=await m.query("SELECT to_regclass('inv_flock_source_links') AS links");if(!schema?.links)return;
+  const [legacy]=await m.query("SELECT to_regclass('brd_egg_inherited_packs') AS packs,to_regclass('brd_egg_derived_origins') AS origins");
+  if (legacy?.origins) {
+    await m.query(`INSERT INTO brd_egg_derived_origins(batch_no,parent_batch_no) SELECT $2,$1
+      WHERE EXISTS(SELECT 1 FROM vet_egg_batch_sources($1)) ON CONFLICT DO NOTHING`,[from,to]);
+  }
+  if (legacy?.packs) {
+    await m.query(`INSERT INTO brd_egg_inherited_packs(batch_no,packing_code)
+      SELECT $2,packing_code FROM vet_egg_pack_refs($1) ON CONFLICT DO NOTHING`,[from,to]);
+    const [target]=await m.query("SELECT source_type='RETURN' AND status IN ('DAMAGED','QUARANTINE') AND qty_available=0 AS in_custody FROM inv_batches WHERE batch_no=$1",[to]);
+    if (!target?.in_custody) {
+      const sources=await m.query('SELECT flock_no,production_date::text AS day FROM vet_egg_batch_sources($1) ORDER BY 1,2',[from]);
+      for (const row of sources) {
+        if (!row.flock_no || !row.day) throw new BadRequestException('包装库存缺可核验产蛋来源，须留置核对');
+        await m.query('SELECT vet_egg_assert_day($1,$2)',[row.flock_no,row.day]);
+      }
+    }
+  }
   await m.query(`INSERT INTO inv_flock_source_links(id,batch_no,daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,
     source_key,grading_code,source_input_qty,batch_output_qty,allocated_output_qty,precision,source_profile_snapshot,origin_batch_no)
     SELECT $2||':'||id,$2,daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,source_key,grading_code,

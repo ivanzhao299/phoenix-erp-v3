@@ -44,7 +44,7 @@ test('nine inline grade inputs suppress arrow stepping and spinner, not ordinary
     await expect(input).toHaveValue('12');
     await expect(input).toHaveAccessibleName(/测试档/);
   }
-  const ordinary = page.getByText('死亡(羽)', { exact: true }).locator('..').locator('input');
+  const ordinary = page.getByText('饲料(kg)', { exact: true }).locator('..').locator('input');
   await ordinary.fill('12');
   await ordinary.press('ArrowUp');
   await expect(ordinary).toHaveValue('13');

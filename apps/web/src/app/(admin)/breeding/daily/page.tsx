@@ -128,7 +128,7 @@ function DailyEntry(){
   }[]>([]);
   const [selectedHouse, setSelectedHouse] = useState('');
   const [occupancy, setOccupancy] = useState<{
-    context: { house: string; date: string }; managed: boolean; confirmed: boolean; currentQty: number;
+    context: { house: string; date: string }; managed: boolean | null; confirmed: boolean; currentQty: number; flockNo?: string; reviewRequired?: boolean;
   } | null>(null);
   // Entry defaults must not silently hide authorized historical records.
   const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
@@ -142,7 +142,6 @@ function DailyEntry(){
     else url.searchParams.delete('historyDate');
     window.history.replaceState(window.history.state, '', url);
   }, [historyHouse, historyDate]);
-  const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
   // A result belongs to one selection, including when returning to an earlier house/day.
@@ -168,7 +167,7 @@ function DailyEntry(){
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 分级 modal
   const { grades: productGrades } = useProductGrades();
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
-  const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(selectedHouse, formDate);
+  const { profile: sourceProfile, loading: sourceProfileLoading, error: profileError } = useEggSourceProfile(selectedHouse, formDate);
   const varietyShort = varietyShortLabel(sourceProfile);
   const [formalContext,setFormalContext]=useState<{context:typeof occupancyContext;state:string;firstProductionDate:string|null}|null>(null);
   const [revision,setRevision]=useState(0);
@@ -242,16 +241,11 @@ function DailyEntry(){
         if (h.house_code) fcmap[h.house_code as string] = h.farm_code as string || '';
       });
       setFarmCodeByHouse(fcmap);
-      const hmap: Record<string, string> = {};
-      (flocks || []).forEach((f: Record<string, unknown>) => {
-        if (f.house_code && f.flock_no && !hmap[f.house_code as string]) hmap[f.house_code as string] = f.flock_no as string;
-      });
-      setFlockByHouse(hmap);
       const houseList = fromHouses.length > 0 ? fromHouses.map((h: Record<string, unknown>) => ({
         code: (h.house_code || h.house_no) as string,
         label: (h.house_name || h.house_code || h.house_no) as string
-      })) : (flocks || []).map((f: Record<string, unknown>) => ({
-        code: f.flock_no as string,
+      })) : (flocks || []).filter(f=>f.house_code).map((f: Record<string, unknown>) => ({
+        code: f.house_code as string,
         label: f.house_code ? `${f.house_code}${f.farm_name ? ' · ' + f.farm_name : ''}` : f.flock_no as string
       }));
       setHouses(houseList);
@@ -273,8 +267,16 @@ function DailyEntry(){
     fetch(`${API_BASE}/api/v3/farm/daily-hen-report?date=${encodeURIComponent(occupancyContext.date)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}})
       .then(async r=>{if(!r.ok)throw new Error('日报占栏无法核实');return r.json();}).then(data=>{
         if(!alive)return;
-        const r=(data.rows??[]).find((r:{house_code:string})=>r.house_code===occupancyContext.house);
-        setOccupancy({context:occupancyContext,managed:!!r?.occupancy_id,confirmed:!!r?.has_daily_log,currentQty:Number(r?.current_qty??0)});
+        const candidates=(data.rows??[]).filter((r:{house_code:string;entry_candidate?:boolean})=>
+          r.house_code===occupancyContext.house && r.entry_candidate!==false);
+        const managed=candidates.filter((r:{occupancy_id?:string})=>r.occupancy_id);
+        const matches=managed.length?managed:candidates;
+        if(matches.length!==1 || matches[0].entry_verified===false){
+          setOccupancy({context:occupancyContext,managed:null,confirmed:false,currentQty:0,reviewRequired:true});
+          return;
+        }
+        const r=matches[0];
+        setOccupancy({context:occupancyContext,managed:!!r?.occupancy_id,flockNo:r.flock_no,confirmed:!!r?.has_daily_log,currentQty:Number(r?.current_qty??0)});
       }).catch(()=>{if(alive)setOccupancy(null);});
     return()=>{alive=false;};
   },[occupancyContext,API_BASE]);
@@ -351,7 +353,7 @@ function DailyEntry(){
     const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => officialReport?value!=='':Number(value)>0).map(([code, value]) => [code, Number(value)]));
     const payload: Record<string, unknown> = {
       ...(officialReport ? { shift: row.shift } : {}),
-      house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      house_code: selectedHouse, flock_no: verifiedOccupancy?.flockNo,
       farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
       feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
@@ -520,7 +522,9 @@ function DailyEntry(){
             <HouseSelector value={selectedHouse} disabled={posting} onChange={value=>{resetEntry();setSelectedHouse(value);}} placeholder={t('ui.请选择鸡舍', '请选择鸡舍')} />
           </div>
           {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示（整行） */}
-          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
+          {verifiedOccupancy?.reviewRequired&&<span role="status">{t('breeding.daily.flockReview','该舍日缺少唯一有效鸡群，请核对鸡群和占栏记录。')}</span>}
+          {verifiedOccupancy?.flockNo&&<span>{t('productionReports.flock','有效占栏鸡群')} · {verifiedOccupancy.flockNo}</span>}
+          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} error={profileError} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
           {deviceHint && <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -639,7 +643,7 @@ function DailyEntry(){
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
                     {productGrades.map(g => <div key={g.grade_code} style={cellStyle}>
-                      <span style={labelStyle}>{varietyShort ? `${g.grade_name}(${varietyShort})` : g.grade_name} ({g.grade_code})</span>
+                      <span style={labelStyle}>{varietyShort ? `${g.grade_name}(${t(`ui.${varietyShort}`,varietyShort)})` : g.grade_name} ({g.grade_code})</span>
                       <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: { ...r.gradeQty, [g.grade_code]: safe } } : r))} />
                     </div>)}
                     <div style={{ ...cellStyle, fontWeight: 700, color: 'var(--status-success)' }}><span style={labelStyle}>{t('ui.产蛋合计(枚)', '产蛋合计（枚）')}</span><span>{gradeSum.toLocaleString()}</span></div>

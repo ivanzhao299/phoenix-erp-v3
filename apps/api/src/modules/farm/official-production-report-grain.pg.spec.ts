@@ -41,6 +41,18 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     VALUES('20000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'2026-11-18','DRAFT','WH-A','FLOCK-A','PROFILE-A',repeat('a',64),'{"synthetic":true}','fixture');`);}
   const activate=async()=>{await draft();await db.query("UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now()");};
   async function managed(){await post({kind:'BASELINE',quantity:1000,expectedLegacyQty:1000});}
+  it('distinguishes a legacy flock present on the report date from a later placement',async()=>{
+    await run('up');
+    await db.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,status,current_qty,start_date)
+      VALUES('FUTURE-PLACEMENT','HOUSE-A','FARM-A','LAYING',100,'2026-11-19')`);
+    const {rows}=await farm.getDailyHenReport('2026-11-18',scope);
+    expect(rows.find(r=>r.flock_no==='FLOCK-A')).toMatchObject({entry_candidate:true,entry_verified:true});
+    expect(rows.find(r=>r.flock_no==='FUTURE-PLACEMENT')).toMatchObject({entry_candidate:false});
+    await db.query("UPDATE brd_flocks SET start_date='2026-11-18',status='INACTIVE',current_qty=0 WHERE flock_no='FUTURE-PLACEMENT'");
+    const ambiguous=await farm.getDailyHenReport('2026-11-18',scope);
+    expect(ambiguous.rows.find(r=>r.flock_no==='FLOCK-A')).toMatchObject({entry_verified:false});
+  });
+
   it('submits AM 100 and PM 200 through Farm, retries the same report and rejects DAILY overlap',async()=>{
     await run('up');await managed();await activate();
     await farm.submitBreedingDailyLog(report(),scope);await farm.submitBreedingDailyLog(report('PM',200),scope);
@@ -127,8 +139,8 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     await post({kind:'MORTALITY',businessDate:day,quantity:1,disposalMethod:'fixture',receiver:'receiver'});
     await post({kind:'TRANSFER',businessDate:day,expectedVersion:1,targetHouseCode:'HOUSE-A2'});
     const result = await farm.getDailyHenReport(day,scope);
-    expect(result.rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({mortality:1,current_qty:0,has_daily_log:false});
-    expect(result.rows.find(r=>r.house_code==='HOUSE-A2')).toMatchObject({mortality:0,current_qty:999,has_daily_log:false});
+    expect(result.rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({entry_candidate:false,mortality:1,current_qty:0,has_daily_log:false});
+    expect(result.rows.find(r=>r.house_code==='HOUSE-A2')).toMatchObject({entry_candidate:true,entry_verified:true,mortality:0,current_qty:999,has_daily_log:false});
     expect(result.totals).toMatchObject({mortality:1,current_qty:999,logged_houses:0,lay_rate:null});
   });
 

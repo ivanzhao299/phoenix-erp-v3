@@ -13,7 +13,14 @@ assert.equal(revision, image+' '+candidate);
 const modules = git('diff','--name-only','6bb88544275dfef591cb96c0078f73e88496433b',candidate,'--','apps/api/src/database/migrations')
   .split('\n').filter(file => /^apps\/api\/src\/database\/migrations\/\d{13}-\w+\.ts$/.test(file))
   .map(file=>file.split('/').pop().slice(0,-3));
-assert.equal(modules.length,3,'expected reviewed post-20 extension set');
+assert.deepEqual(modules, [
+  '1795400100000-ProductionDocumentContinuations',
+  '1795400200000-ProductionFinanceReview',
+  '1795400300000-CutoverStateReceipts',
+  '1795478400000-EggWithdrawalReview',
+  '1795500000000-VetMaterialAllocation',
+  '1795500100000-VetMaterialIdentity',
+], 'expected reviewed post-20 extension set');
 const code = `
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

@@ -1,7 +1,7 @@
 'use client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { CSSProperties } from 'react';
-import type { EggSourceProfile } from '@/hooks/useEggSourceProfile';
+import { type EggSourceProfile, varietyShortLabel } from '@/hooks/useEggSourceProfile';
 
 /**
  * SourceProfileBanner — 鸡舍蛋品来源档案横幅（日产蛋入库 / 日生产日报共用）
@@ -12,9 +12,10 @@ import type { EggSourceProfile } from '@/hooks/useEggSourceProfile';
  *   · 无档案   → 警示"提交将被服务端拒绝"（resolveSourceProfile fail-closed）
  * 品种由 md_egg_source_profiles 决定，横幅只读展示，不提供选择。
  */
-export function SourceProfileBanner({ profile, loading, houseCode, style }: {
+export function SourceProfileBanner({ profile, loading, error, houseCode, style }: {
   profile: EggSourceProfile | null;
   loading: boolean;
+  error?: string | null;
   houseCode: string;
   style?: CSSProperties;
 }) {
@@ -32,13 +33,15 @@ export function SourceProfileBanner({ profile, loading, houseCode, style }: {
   }
   if (!profile) {
     return <div style={{ ...base, border: '1px solid var(--status-warning)', background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>
-      ⚠️ {t('breeding.sourceProfile.missing', '该鸡舍无蛋品来源档案，提交将被服务端拒绝。请先在主数据为该鸡舍配置 md_egg_source_profiles。')}
+      ⚠️ {error || t('breeding.sourceProfile.missing', '该鸡舍无蛋品来源档案，提交将被服务端拒绝。请先在主数据为该鸡舍配置 md_egg_source_profiles。')}
     </div>;
   }
   if (profile.productMode === 'VARIANT') {
     const variety = profile.varietyName ?? profile.varietyCode ?? '';
+    const shell = varietyShortLabel(profile);
     return <div style={{ ...base, border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)', background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)', color: 'var(--color-primary)', fontWeight: 600 }}>
       🟣 {t('breeding.sourceProfile.variant', '来源档案')}: {t(`ui.${variety}`, variety)}
+      {shell && !variety.includes(shell) && <span>{t(`ui.${shell}`, shell)}</span>}
       {profile.varietyCode ? <span style={{ fontWeight: 400, fontFamily: 'monospace', fontSize: 11 }}>({profile.varietyCode})</span> : null}
       <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>{t('breeding.sourceProfile.variantHint', '本舍鸡蛋按该壳色产品线分级入库')}</span>
     </div>;

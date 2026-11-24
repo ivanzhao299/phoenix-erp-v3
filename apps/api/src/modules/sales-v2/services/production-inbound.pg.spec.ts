@@ -7,6 +7,7 @@ import {PackagingInventoryIntegrationService} from './packaging-inventory-integr
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { ProductionInboundService } from './production-inbound.service';
+import { LookupController } from '../../product-master/controllers/lookup.controller';
 import { EggInventoryService } from './egg-inventory.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
@@ -130,6 +131,76 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     expect((await service.recordProductionInbound(payload())).batches).toEqual(first.batches);
     expect(await counts()).toEqual({ batches: 1, events: 1 });
     expect((await db.query('SELECT sum(qty)::int AS qty FROM inv_batches'))[0].qty).toBe(33);
+  });
+
+  it('previews and posts the dated pink product by actual grade while preserving earlier red stock', async () => {
+    const lookup = new LookupController(undefined as never,db.manager,
+      {get:()=>({userId:'fixture'})} as never,
+      {resolve:async()=>({isGlobal:false,allowedFarmCodes:['FARM-A']})} as never,undefined as never);
+    const preview = (date:string, house='HOUSE-A', company='COMP-A') => lookup.eggSourceProfile(house,date,company);
+    const original = await service.recordProductionInbound(payload());
+    try {
+      await db.query(`UPDATE md_egg_source_profiles SET expire_date='2026-10-17' WHERE profile_code='PROFILE-A';
+        UPDATE md_product_varieties SET variety_name='Red',shell_color='RED' WHERE variety_code='EGG_RED';
+        INSERT INTO md_product_varieties(variety_code,variety_name,shell_color,status) VALUES('TEST-PINK','Pink','PINK','ACTIVE');
+        INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+          VALUES('TEST-PINK-PROFILE','COMP-A','FARM-A','SITE-A','HOUSE-A','VARIANT','TEST-PINK','2026-10-18');
+        INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code) VALUES('TEST-PINK-P','ACTIVE','枚','枚','TEST-PINK');
+        INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code)
+          SELECT 'TEST-PINK-'||grade,'TEST-PINK-P',grade,'LOOSE','ACTIVE','TEST-PINK' FROM unnest(ARRAY['GRADE_1','GRADE_2']) grade;
+        INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code) VALUES('TEST-PINK-GRADE_1','COMPANY','COMP-A'),('TEST-PINK-GRADE_2','COMPANY','COMP-A');
+        INSERT INTO brd_daily_logs(log_date,house_code,eggs_by_grade) VALUES('2026-10-18','HOUSE-A','{"GRADE_1":3,"GRADE_2":5}')`);
+      expect((await preview('2026-10-17')).data).toMatchObject({shellColor:'RED'});
+      expect((await preview('2026-10-18')).data).toMatchObject({shellColor:'PINK',varietyCode:'TEST-PINK'});
+      expect((await preview('2026-10-18','HOUSE-A2')).data).toMatchObject({productMode:'STANDARD',varietyCode:null,shellColor:null});
+      expect((await preview('2026-10-18','HOUSE-A','COMP-B')).data).toBeNull();
+      expect((await preview('2026-10-18','HOUSE-B','COMP-B')).data).toBeNull();
+      expect((await preview('2025-01-01')).data).toBeNull();
+      const pink=await service.recordProductionInbound({...payload(),eggDate:'2026-10-18',items:[
+        {grade:'GRADE_1',qty:3},{grade:'GRADE_2',qty:5},
+      ]});
+      expect(pink.batches.map(b=>[b.grade,b.qty,b.varietyCode])).toEqual([['GRADE_1',3,'TEST-PINK'],['GRADE_2',5,'TEST-PINK']]);
+      expect((await service.recordProductionInbound(payload())).batches).toEqual(original.batches);
+      await db.query("UPDATE md_egg_source_profiles SET expire_date=NULL WHERE profile_code='PROFILE-A'");
+      await expect(preview('2026-10-18')).rejects.toThrow('重叠');
+      await expect(service.recordProductionInbound({...payload(),eggDate:'2026-10-19'})).rejects.toThrow('重叠');
+      expect(await counts()).toEqual({batches:3,events:3});
+    } finally {
+      await db.query(`DELETE FROM md_egg_source_profiles WHERE profile_code='TEST-PINK-PROFILE';
+        UPDATE md_egg_source_profiles SET expire_date=NULL WHERE profile_code='PROFILE-A';
+        DELETE FROM md_sku_org_scope WHERE sku_code LIKE 'TEST-PINK-%';
+        DELETE FROM product_skus WHERE sku_code LIKE 'TEST-PINK-%';
+        DELETE FROM mst_products WHERE product_code='TEST-PINK-P';
+        DELETE FROM md_product_varieties WHERE variety_code='TEST-PINK'`);
+    }
+  });
+
+  it('respects an explicitly zero grade allowance and rejects malformed historical quantities', async () => {
+    for (const grades of [{ GRADE_1: 0 }, { GRADE_1: 0.9 }, { GRADE_1: true }]) {
+      await db.query("INSERT INTO brd_daily_logs(log_date,house_code,eggs_by_grade) VALUES($1,$2,$3)", [
+        payload().eggDate, payload().houseCode, JSON.stringify(grades),
+      ]);
+      await expect(service.recordProductionInbound({ ...payload(), items: [{ grade: 'GRADE_1', qty: 1 }] })).rejects.toThrow();
+      expect(await counts()).toEqual({ batches: 0, events: 0 });
+      await db.query('DELETE FROM brd_daily_logs');
+    }
+  });
+
+  it('requires unambiguous shifts and graded quantities for all producing reports', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(log_date,house_code,shift,eggs_produced,eggs_by_grade) VALUES
+      ('2026-10-17','HOUSE-A','AM',10,'{"GRADE_1":0}'),('2026-10-17','HOUSE-A','PM',5,'{"GRADE_1":5}')`);
+    const request={...payload(),items:[{grade:'GRADE_1',qty:5}]};
+    await expect(service.recordProductionInbound(request)).rejects.toThrow('未核实');
+    await db.query("UPDATE brd_daily_logs SET shift='DAILY',eggs_by_grade=jsonb_build_object('GRADE_1',10) WHERE shift='AM'");
+    await expect(service.recordProductionInbound(request)).rejects.toThrow('重复覆盖');
+    expect(await counts()).toEqual({batches:0,events:0});
+  });
+
+  it('holds an older house-day batch with only its original source number for reconciliation', async () => {
+    await service.recordProductionInbound(payload());
+    await db.query("UPDATE inv_batches SET collection_batch_ref=NULL, source_no='TEMP-2026-10-17-HOUSE-A'");
+    await expect(service.recordProductionInbound(payload())).rejects.toThrow();
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('never allows inbound quantities to exceed the daily report grade allowance', async () => {

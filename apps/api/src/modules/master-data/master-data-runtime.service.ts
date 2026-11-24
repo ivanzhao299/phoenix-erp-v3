@@ -107,7 +107,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
     table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
     prefix: 'MAT', objectType: 'MATERIAL', noValidityPeriod: true,  // G127：mst_materials 无生效期列
-    writableCols: ['material_name','material_name_en','material_name_lo','material_type','spec','unit','default_currency','remark'],
+    writableCols: ['material_name','material_name_en','material_name_lo','material_type','spec','unit','vet_kind','vet_withdraw_days','default_currency','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建（业务员选物料找不到可就地新增）
   },
   'cash-account': {
@@ -396,6 +396,14 @@ export class MasterDataRuntimeService {
     const inScope = (f: string) => !scope || scope.has(f);
     const nonEmpty = (x: any) => x != null && String(x).trim() !== '';
 
+    if (type === 'material' && record.vet_kind && (inScope('vet_kind') || inScope('material_type'))) {
+      if (record.material_type !== 'VET_DRUG' || !await this.isDictValue('BRD_VET_MATERIAL_KIND', record.vet_kind))
+        errors.push('请选择兽药疫苗物料的有效用途分类');
+    }
+    if (type === 'material' && record.vet_withdraw_days != null && (inScope('vet_withdraw_days') || inScope('material_type'))) {
+      const days=Number(record.vet_withdraw_days);
+      if (record.material_type!=='VET_DRUG' || !Number.isSafeInteger(days) || days<0 || days>2147483647) errors.push('休药天数须为兽药物料的非负整数');
+    }
     // ① 必填完备
     const required = v?.required ?? [c.nameCol];
     for (const f of required) {
@@ -657,6 +665,10 @@ export class MasterDataRuntimeService {
       const row = await new SkuWriter(this.ds, this.codeGen, this.audit).create(dto, operator);
       return { code: row.sku_code, status: row.status };
     }
+    if (type === 'material') {
+      dto={...dto};
+      for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
+    }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
       ? String(dto[c.codeCol] || '').trim()
@@ -688,6 +700,10 @@ export class MasterDataRuntimeService {
     if (type === 'sku') {
       const row = await new SkuWriter(this.ds, this.codeGen, this.audit).create(dto, operator);
       return { code: row.sku_code, name: row.sku_name };
+    }
+    if (type === 'material') {
+      dto={...dto};
+      for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
     }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
@@ -751,6 +767,10 @@ export class MasterDataRuntimeService {
   async update(
     type: string, code: string, dto: Record<string, any>, operator?: string,
   ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
+    if (type === 'material') {
+      dto={...dto};
+      for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
+    }
     const c = this.cfg(type);
     if (type === 'sku') {
       await new SkuWriter(this.ds, this.codeGen, this.audit).update(code, dto, operator);

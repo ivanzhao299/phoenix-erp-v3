@@ -7,6 +7,8 @@ import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, 
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "@/components/ui/admin-ui.module.css";
 // g200f 模板 token(2026-06-20)
@@ -26,7 +28,6 @@ import {
   sumBreedingOverviewTodayMetrics,
 } from "@/lib/breeding-overview-metrics";
 import { isCanonicalCurrentFlock } from "@/lib/home-farm-kpi";
-import { formatMasterData } from '@/lib/business-display';
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const API = "";
@@ -85,8 +86,9 @@ export default function BreedingPage() {
   const toast = useToast();
   const dialog = useDialog();
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
   const SUB_NAV = [{
     label: t('ui.养殖场总览', '养殖场总览'),
     path: "/breeding",
@@ -239,11 +241,12 @@ export default function BreedingPage() {
       const withdrawUntil = String(m.withdraw_until || '').slice(0, 10);
       const endDate = withdrawUntil ? new Date(`${withdrawUntil}T00:00:00`) : null;
       const daysLeft = endDate ? Math.ceil((endDate.getTime() - todayTs.getTime()) / 86400000) : -1;
-      if (daysLeft >= 0 && daysLeft <= 5) alertList.push({
+      if (!endDate || (daysLeft >= 0 && daysLeft <= 5)) alertList.push({
         id: "wd-" + m.id,
         type: daysLeft <= 2 ? "danger" : "warning",
         label: t('ui.停药期预警', '停药期预警'),
-        msg: `${formatMasterData(m, 'house_name', m.houseCode || m.house_code || m.flock_no, 'zh')} ${m.medication_code || t('ui.药物', '药物')} ${t('ui.停药期还剩', '停药期还剩')} ${daysLeft} ${t('ui.天', '天')}`,
+        msg: `${masterDisplayLabel(houseNames, 'house', m.current_house_code || m.houseCode || m.house_code, lang,
+          !m.current_house_code || m.current_house_code === (m.houseCode || m.house_code) ? m : undefined)} ${m.material_name || m.material_code || m.medication_code || t('ui.药物', '药物')} ${endDate ? t('ui.停药期还剩', '停药期还剩') + ' ' + daysLeft + ' ' + t('ui.天', '天') : t('vet.openCourse', '疗程未结束')}`,
         time: t('ui.系统', '系统')
       });
     });
@@ -279,7 +282,7 @@ export default function BreedingPage() {
         id: "im-" + i.id,
         type: "info",
         label: t('ui.免疫计划', '免疫计划'),
-        msg: `${i.farm_house || i.house_code || i.flock_no || t('ui.鸡群', '鸡群')} ${t('ui.今日应执行', '今日应执行')} ${i.vaccine || i.vaccine_name || t('ui.疫苗', '疫苗')} ${t('ui.免疫', '免疫')}`,
+        msg: `${i.current_house_code || i.farm_house || i.house_code || i.flock_no || t('ui.鸡群', '鸡群')} ${t('ui.今日应执行', '今日应执行')} ${i.vaccine || i.vaccine_name || t('ui.疫苗', '疫苗')} ${t('ui.免疫', '免疫')}`,
         time: t('ui.计划', '计划')
       });
     });
@@ -349,7 +352,7 @@ export default function BreedingPage() {
       });
       setFarmEnvMap(final);
     });
-  }, [t]);
+  }, [t, lang, houseNames]);
   useEffect(() => {
     const cancelled = {
       v: false

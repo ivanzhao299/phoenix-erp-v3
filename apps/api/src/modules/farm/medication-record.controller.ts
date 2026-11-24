@@ -38,11 +38,12 @@ export class MedicationRecordController {
 
   @Get('medicine/lots')
   async lots(
-    @Query('medication_code') medicationCode: string,
+    @Query('material_code') materialCode: string,
     @Query('site_code') siteCode: string,
     @Query('company_code') companyCode: string,
     @Query('warehouse_code') warehouseCode?: string,
+    @Query('start_date') startDate?: string,
   ) {
-    return { code: 200, data: await this.service.getLots(medicationCode, siteCode, companyCode, warehouseCode) };
+    return { code: 200, data: await this.service.getLots(materialCode, siteCode, companyCode, warehouseCode, startDate) };
   }
 }

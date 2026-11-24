@@ -1,5 +1,7 @@
+import { inactiveFlockStates, validateVetFlock, vetFlockSource } from './vet-flock';
+import { assertVetSiteAccess, checkStockUnit, listVetLots, resolveVetMaterial, stockQuantity } from './vet-stock';
 import { deriveOrgScope,scopeWhere } from './farm.service';
-import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
+import { lockManagedActivity,recordFlockActivity,vetCareJoin } from './flock-activity-source';
 import {
   BadRequestException,
   ConflictException,
@@ -23,6 +25,7 @@ export interface ImmunePlanCreateInput {
   farm_code: string;
   flock_no: string;
   house_code?: string;
+  material_code?: string;
   vaccine_code?: string;
   vaccine?: string;
   vaccine_batch_no?: string;
@@ -41,6 +44,8 @@ export interface ImmunePlanCreateInput {
 }
 
 interface VaccineAllocation {
+  unit: string;
+  material_code: string | null;
   batch_no: string;
   qty: number;
   expire_date: string | null;
@@ -141,25 +146,6 @@ export class ImmuneService {
     return scopeWhere(scope,params,`${alias}.`) || '1=1';
   }
 
-  private assertSiteCompanyScope(siteCode: string, companyCode: string): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(companyCode)) {
-      throw new ForbiddenException('无权访问疫苗数据（公司范围不匹配）');
-    }
-    if (scope.allowedSiteCodes.length === 0 || !scope.allowedSiteCodes.includes(siteCode)) {
-      throw new ForbiddenException('无权访问疫苗数据（场站范围不匹配）');
-    }
-  }
-
-  private assertWarehouseScope(warehouseCode: string): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal || scope.allowedWarehouseCodes.length === 0) return;
-    if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
-      throw new ForbiddenException('无权访问疫苗库存（仓库范围不匹配）');
-    }
-  }
-
   /**
    * 写疫苗出库流水（INV-301a：改调共享写入器，替换 information_schema 动态
    * 列拼接写法；列集合 = 旧动态写法的全量列，store_code 沿用场站码约定）。
@@ -171,6 +157,8 @@ export class ImmuneService {
     queryable: Queryable,
     input: {
       batchNo: string;
+      unit: string;
+      materialCode: string | null;
       qty: number;
       companyCode: string;
       siteCode: string;
@@ -193,109 +181,32 @@ export class ImmuneService {
       warehouseCode: input.warehouseCode ?? null,
       companyCode: input.companyCode,
       businessType: 'FARM_IMMUNIZATION',
+      unit: input.unit,
+      materialCode: input.materialCode,
     });
   }
 
-  private async assertFlock(
-    queryable: Queryable,
-    input: Pick<ImmunePlanCreateInput, 'flock_no' | 'farm_code' | 'house_code' | 'site_code' | 'company_code'>,
-    heads?: number,
-  ): Promise<void> {
-    const rows = await queryable.query(
-      `SELECT f.flock_no, f.house_code, f.farm_code, f.current_qty, f.status,
-              to_jsonb(farm)->>'mapped_site_code' AS mapped_site_code,
-              to_jsonb(farm)->>'company_code' AS farm_company_code
-         FROM brd_flocks f
-         LEFT JOIN brd_farms farm ON farm.farm_code = f.farm_code
-        WHERE f.flock_no = $1
-        FOR SHARE OF f`,
-      [input.flock_no],
-    );
-    const flock = rows[0];
-    if (!flock) throw new BadRequestException(`鸡群 ${input.flock_no} 不存在`);
-    const flockStatus = String(flock.status ?? 'ACTIVE').toUpperCase();
-    if (['INACTIVE', 'CANCELLED', 'CLOSED', 'DELETED', 'RETIRED'].includes(flockStatus)) {
-      throw new BadRequestException(`鸡群 ${input.flock_no} 不可用于免疫`);
-    }
-    if (flock.farm_code && String(flock.farm_code) !== input.farm_code) {
-      throw new BadRequestException('鸡群与农场归属不一致');
-    }
-    if (input.house_code && flock.house_code && String(flock.house_code) !== input.house_code) {
-      throw new BadRequestException('鸡群与鸡舍归属不一致');
-    }
-    if (flock.mapped_site_code && String(flock.mapped_site_code) !== input.site_code) {
-      throw new BadRequestException('鸡群与场站归属不一致');
-    }
-    if (flock.farm_company_code && String(flock.farm_company_code) !== input.company_code) {
-      throw new BadRequestException('鸡群与公司归属不一致');
-    }
-    if (heads !== undefined && flock.current_qty !== null && heads > Number(flock.current_qty)) {
-      throw new BadRequestException(`免疫头数不能超过鸡群当前存栏 ${flock.current_qty}`);
-    }
-  }
-
-  private async resolveVaccine(queryable: Queryable, vaccineCode: string, siteCode: string): Promise<any> {
-    const rows = await queryable.query(
-      `SELECT medication_code, medication_name, unit_code, product_type
-         FROM brd_medications
-        WHERE medication_code = $1
-          AND status = 'ACTIVE'
-          -- Legacy G10 rows were seeded before product_type existed. Keep those
-          -- explicitly named vaccine rows usable while new rows require VACCINE.
-          AND (
-            UPPER(COALESCE(product_type, '')) = 'VACCINE'
-            OR (UPPER(COALESCE(product_type, '')) = 'MEDICATION' AND medication_name LIKE '%疫苗%')
-          )
-          AND (store_code = $2 OR store_code = 'ALL' OR store_code IS NULL)
-        LIMIT 1`,
-      [vaccineCode, siteCode],
-    );
-    if (!rows[0]) throw new BadRequestException(`疫苗 ${vaccineCode} 不存在、非 ACTIVE 或类型不是 VACCINE`);
-    return rows[0];
-  }
-
-  async listVaccines(query: { site_code?: string; company_code?: string } = {}) {
+  async listVaccines(query: { site_code?: string; company_code?: string } = {}, vaccinesOnly = true) {
     const siteCode = String(query.site_code ?? '').trim();
     const companyCode = String(query.company_code ?? '').trim();
     const scope = this.scope();
-    if (!scope || scope.isGlobal) {
-      // A site filter is optional for global users, but when supplied it is
-      // still applied to store-scoped vaccine master data.
-    } else {
-      if (scope.allowedCompanyCodes.length === 0 || scope.allowedSiteCodes.length === 0) return [];
-      if (companyCode && !scope.allowedCompanyCodes.includes(companyCode)) {
-        throw new ForbiddenException('无权访问疫苗数据（公司范围不匹配）');
-      }
-      if (siteCode && scope.allowedSiteCodes.length > 0 && !scope.allowedSiteCodes.includes(siteCode)) {
-        throw new ForbiddenException('无权访问疫苗数据（场站范围不匹配）');
-      }
+    if (!scope) throw new ForbiddenException('缺少养殖数据范围');
+    if (!scope.isGlobal || (siteCode && companyCode)) {
+      if (!siteCode || !companyCode) return [];
+      await assertVetSiteAccess(this.ds,scope,siteCode,companyCode);
     }
+    return this.ds.query(`SELECT material_code,material_name,unit,vet_withdraw_days AS default_withdraw_days
+      FROM brd_vet_material_catalog WHERE status='ACTIVE' AND effective_vet_kind=$1 AND NULLIF(trim(unit),'') IS NOT NULL
+      ORDER BY material_name,material_code`,[vaccinesOnly?'VACCINE':'MEDICATION']);
+  }
+
+  async flockOptions() {
     const params: unknown[] = [];
-    const clauses = [
-      `m.status = 'ACTIVE'`,
-      `(
-        UPPER(COALESCE(m.product_type, '')) = 'VACCINE'
-        OR (UPPER(COALESCE(m.product_type, '')) = 'MEDICATION' AND m.medication_name LIKE '%疫苗%')
-      )`,
-    ];
-    if (siteCode) {
-      params.push(siteCode);
-      clauses.push(`(m.store_code = $${params.length} OR m.store_code = 'ALL' OR m.store_code IS NULL)`);
-    } else if (scope && !scope.isGlobal && scope.allowedSiteCodes.length > 0) {
-      params.push(scope.allowedSiteCodes);
-      clauses.push(`(m.store_code = ANY($${params.length}) OR m.store_code = 'ALL' OR m.store_code IS NULL)`);
-    }
-    if (companyCode) {
-      params.push(companyCode);
-      clauses.push(`(to_jsonb(m)->>'company_code' = $${params.length} OR to_jsonb(m)->>'company_code' IS NULL)`);
-    }
-    return this.ds.query(
-      `SELECT m.medication_code, m.medication_name, m.unit_code, m.product_type, m.store_code
-         FROM brd_medications m
-        WHERE ${clauses.join(' AND ')}
-        ORDER BY m.medication_name ASC, m.medication_code ASC`,
-      params,
-    );
+    const filter = this.buildScope('v', params);
+    return this.ds.query(`SELECT v.* FROM (${vetFlockSource}) v WHERE ${filter}
+      AND v.closed_on IS NULL AND v.current_qty>0 AND NOT (UPPER(v.status)=ANY($${params.push(inactiveFlockStates)}))
+      AND NULLIF(v.site_code,'') IS NOT NULL AND NULLIF(v.company_code,'') IS NOT NULL AND NULLIF(v.house_code,'') IS NOT NULL
+      ORDER BY v.farm_code,v.house_code,v.flock_no`,params);
   }
 
   async create(input: ImmunePlanCreateInput, operator: string) {
@@ -308,7 +219,7 @@ export class ImmuneService {
       house_code: String(input.house_code ?? '').trim() || undefined,
       vaccine_code: String(input.vaccine_code ?? input.vaccine ?? '').trim(),
     };
-    if (!normalized.site_code || !normalized.company_code || !normalized.farm_code || !normalized.flock_no || !normalized.vaccine_code) {
+    if (!normalized.site_code || !normalized.company_code || !normalized.farm_code || !normalized.flock_no || !(normalized.material_code || normalized.vaccine_code)) {
       throw new BadRequestException('场站、公司、农场、鸡群和疫苗编码不能为空');
     }
     this.assertWriteScope(normalized);
@@ -328,15 +239,16 @@ export class ImmuneService {
 
     return this.ds.transaction(async manager => {
       const occupancy=await lockManagedActivity(manager,normalized.flock_no);
-      await this.assertFlock(manager, normalized, plannedHeads);
-      const vaccine = await this.resolveVaccine(manager, normalized.vaccine_code!, normalized.site_code);
-      if (inventoryBatchNo) {
-        await this.assertInventoryBatch(manager, {
-          vaccineCode: normalized.vaccine_code!,
-          inventoryBatchNo,
-          siteCode: normalized.site_code,
-          companyCode: normalized.company_code,
-        });
+      normalized.house_code = await validateVetFlock(manager, normalized, plannedHeads);
+      const vaccine = await resolveVetMaterial(manager,normalized.material_code,'VACCINE');
+      if (normalized.issue_lines !== undefined && !Array.isArray(normalized.issue_lines)) throw new BadRequestException('批次分配格式无效');
+      const plannedLines = normalized.issue_lines?.length
+        ? await this.allocate(manager, {vaccineCode: vaccine.material_code, siteCode: normalized.site_code, companyCode: normalized.company_code}, normalized.issue_lines)
+        : [];
+      if (inventoryBatchNo && !plannedLines.some(line => line.batch_no === inventoryBatchNo)) {
+        const lots = await listVetLots(manager,this.scope(),vaccine.material_code,normalized.site_code,normalized.company_code,
+          todayString(),undefined,true,[inventoryBatchNo]);
+        if (!lots.length) throw new BadRequestException('所选批次在本群所属公司、场站及授权药品仓不可用，请核对库存或先办理调拨');
       }
       const rows = await manager.query(
         `INSERT INTO brd_vaccinations
@@ -344,9 +256,9 @@ export class ImmuneService {
            vaccine_code, vaccine, vaccine_name, plan_date, next_due_date,
            vaccine_batch_no, inventory_batch_no, vaccine_expire_date,
            planned_heads, actual_heads, flock_count, method_code, method,
-           dose_value, dose_unit, dose, status, created_by, updated_by, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0,$15,$16,$16,$17,$18,$19,$20,$21,$21,NOW(),NOW())
-         RETURNING *`,
+           dose_value, dose_unit, dose, status, planned_issue_lines, material_code, stock_unit, created_by, updated_by, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0,$15,$16,$16,$17,$18,$19,$20,$22::jsonb,$23,$24,$21,$21,NOW(),NOW())
+         ON CONFLICT DO NOTHING RETURNING *`,
         [
           recordNo,
           normalized.flock_no,
@@ -354,9 +266,9 @@ export class ImmuneService {
           normalized.farm_code,
           normalized.site_code,
           normalized.company_code,
-          normalized.vaccine_code,
-          normalized.vaccine_code,
-          vaccine.medication_name,
+          null,
+          vaccine.material_code,
+          vaccine.material_name,
           planDate,
           nextDueDate,
           vaccineBatchNo,
@@ -365,13 +277,15 @@ export class ImmuneService {
           plannedHeads,
           normalized.method_code ?? normalized.method ?? null,
           doseValue,
-          normalized.dose_unit || vaccine.unit_code || 'UNIT',
+          normalized.dose_unit || 'UNIT',
           normalized.dose ?? null,
           status,
           safeOperator,
+          JSON.stringify(plannedLines.map(line => ({inventory_batch_no: line.batch_no, qty: line.qty, unit_code: line.unit}))),
+          vaccine.material_code,vaccine.unit,
         ],
       );
-      if (!rows[0]) throw new BadRequestException('免疫计划创建失败');
+      if (!rows[0]) throw new ConflictException('该单号或本群同日同物料的免疫计划已存在，请刷新查看');
       await recordFlockActivity(manager,'IMMUNE_PLAN',rows[0].id,occupancy,todayString());
       return rows[0];
     });
@@ -379,14 +293,14 @@ export class ImmuneService {
 
   async list(query: { site_code?: string; farm_code?: string; status?: string } = {}) {
     const params: unknown[] = [];
-    const clauses = [this.buildScope('v', params)];
+    const clauses = [this.buildScope('care', params)];
     if (query.site_code) {
       params.push(String(query.site_code).trim());
-      clauses.push(`v.site_code = $${params.length}`);
+      clauses.push(`care.site_code = $${params.length}`);
     }
     if (query.farm_code) {
       params.push(String(query.farm_code).trim());
-      clauses.push(`v.farm_code = $${params.length}`);
+      clauses.push(`care.farm_code = $${params.length}`);
     }
     if (query.status) {
       const status = String(query.status).trim().toUpperCase();
@@ -395,12 +309,12 @@ export class ImmuneService {
       else clauses.push(`v.status = $${params.push(status)}`);
     }
     const rows = await this.ds.query<Array<Record<string, unknown>>>(
-      `SELECT v.*,
+      `SELECT v.*, care.house_code AS current_house_code, care.farm_code AS current_farm_code, care.site_code AS current_site_code, execution.house_code AS executed_house_code,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'inventory_batch_no', l.inventory_batch_no,
                   'manufacturer_batch_no', l.manufacturer_batch_no,
-                  'vaccine_code', l.vaccine_code,
+                  'vaccine_code', l.vaccine_code, 'material_code',l.material_code,
                   'qty', l.qty,
                   'unit_code', l.unit_code,
                   'inv_ledger_id', l.inv_ledger_id
@@ -414,7 +328,8 @@ export class ImmuneService {
                 WHEN v.status = 'PLANNED' AND v.plan_date < CURRENT_DATE THEN 'OVERDUE'
                 ELSE v.status
               END AS effective_status
-         FROM brd_vaccinations v
+         FROM brd_vaccinations v ${vetCareJoin('v')}
+         LEFT JOIN brd_flock_activity_sources execution ON execution.activity_type='IMMUNE_EXECUTION' AND execution.activity_id=v.id::text
         WHERE ${clauses.join(' AND ')}
         ORDER BY v.plan_date DESC, v.id DESC`,
       params,
@@ -422,221 +337,53 @@ export class ImmuneService {
     return rows.map(row => ({ ...row, status: row.effective_status ?? row.status }));
   }
 
-  private async resolveLots(
-    manager: Queryable,
-    input: { vaccineCode: string; siteCode: string; companyCode: string; requestedBatchNo?: string },
-    issueDate: string,
-    quantity: number,
-  ): Promise<VaccineAllocation[]> {
-    const params: unknown[] = [input.vaccineCode, issueDate, input.siteCode, input.companyCode];
-    const clauses = [
-      `b.product_code = $1`,
-      `b.status = 'AVAILABLE'`,
-      `COALESCE(b.qty_available, b.qty, 0) > 0`,
-      `(b.expire_date IS NULL OR b.expire_date >= $2::date)`,
-      `(b.store_code = $3 OR b.store_code = 'ALL' OR b.store_code IS NULL)`,
-      `(b.company_code = $4 OR b.company_code = 'ALL' OR b.company_code IS NULL)`,
-      `EXISTS (
-         SELECT 1 FROM wms_warehouses w
-          WHERE w.warehouse_code = b.warehouse_code
-            AND w.status = 'ACTIVE'
-            AND w.type = 'MEDICINE'
-            AND (w.site_code = $3 OR w.site_code IS NULL)
-            AND (w.company_code = $4 OR w.company_code IS NULL)
-       )`,
-    ];
-    const scope = this.scope();
-    if (scope && !scope.isGlobal && scope.allowedWarehouseCodes.length === 0) {
-      throw new ForbiddenException('无权访问疫苗库存（未配置仓库范围）');
+  private async allocate(manager: Queryable, input: {vaccineCode:string;siteCode:string;companyCode:string},
+    lines: ImmuneIssueLineInput[], actualQty?: number, preferredBatch?: string, requestedUnit?: string): Promise<VaccineAllocation[]> {
+    const requests = new Map<string, {qty:number;unit?:string}>();
+    for (const line of lines) {
+      const batch = String(line?.inventory_batch_no ?? '').trim();
+      if (!batch || requests.has(batch)) throw new BadRequestException('免疫库存批次不能重复且不能为空');
+      requests.set(batch,{qty:stockQuantity(line.qty),unit:line.unit_code});
     }
-    if (scope && !scope.isGlobal && scope.allowedWarehouseCodes.length > 0) {
-      params.push(scope.allowedWarehouseCodes);
-      clauses.push(`b.warehouse_code = ANY($${params.length})`);
+    // The same FEFO order locks all requested rows, regardless of the operator's entry order.
+    const selected = requests.size ? [...requests.keys()] : preferredBatch ? [preferredBatch] : [];
+    const rows = await listVetLots(manager,this.scope(),input.vaccineCode,input.siteCode,input.companyCode,
+      todayString(),undefined,true,selected);
+    if (selected.length && rows.length !== selected.length) {
+      throw new ConflictException('所选批次在本群所属公司、场站及授权药品仓不可用，请核对物料或先办理调拨');
     }
-    if (input.requestedBatchNo) {
-      params.push(input.requestedBatchNo);
-      clauses.push(`b.batch_no = $${params.length}`);
-    }
-    const rows = await manager.query(
-      `SELECT b.batch_no, b.qty, b.qty_available, b.expire_date::text, b.inbound_date::text, b.warehouse_code,
-              b.manufacturer_batch_no
-         FROM inv_batches b
-         JOIN brd_medications m ON m.medication_code = b.product_code
-        WHERE ${clauses.join(' AND ')}
-          AND m.status = 'ACTIVE'
-          AND (
-            UPPER(COALESCE(m.product_type, '')) = 'VACCINE'
-            OR (UPPER(COALESCE(m.product_type, '')) = 'MEDICATION' AND m.medication_name LIKE '%疫苗%')
-          )
-        ORDER BY b.expire_date ASC NULLS LAST, b.inbound_date ASC NULLS LAST, b.created_at ASC, b.batch_no ASC
-        FOR UPDATE`,
-      params,
-    );
-    let remaining = quantity;
+    let remaining = actualQty ?? 0;
     const allocations: VaccineAllocation[] = [];
     for (const row of rows) {
-      if (remaining <= 0.0000001) break;
-      const available = Number(row.qty_available ?? row.qty ?? 0);
-      if (!Number.isFinite(available) || available <= 0) continue;
-      const allocated = Math.min(available, remaining);
-      allocations.push({
-        batch_no: String(row.batch_no),
-        qty: allocated,
-        expire_date: row.expire_date ?? null,
-        inbound_date: row.inbound_date ?? null,
-        warehouse_code: row.warehouse_code ?? null,
-        manufacturer_batch_no: row.manufacturer_batch_no ?? null,
-      });
-      remaining -= allocated;
+      const req = requests.get(row.batch_no);
+      const available = Number(row.qty_available);
+      if (!requests.size && !preferredBatch && requestedUnit && row.unit !== requestedUnit) continue;
+      const qty = req?.qty ?? Math.min(remaining,available);
+      if (qty <= 0) break;
+      if (qty > available) throw new ConflictException(`库存批次 ${row.batch_no} 可用量不足`);
+      checkStockUnit(row.unit, req?.unit);
+      if (allocations.length) checkStockUnit(row.unit, allocations[0].unit);
+      allocations.push({batch_no:row.batch_no,qty,unit:row.unit,material_code:row.material_code ?? null,
+        expire_date:row.expire_date,inbound_date:row.inbound_date,warehouse_code:row.warehouse_code,
+        manufacturer_batch_no:row.manufacturer_batch_no});
+      remaining = Math.round((remaining-qty)*1000)/1000;
     }
-    if (remaining > 0.0000001) throw new ConflictException(`疫苗 ${input.vaccineCode} 可用库存不足，缺少 ${remaining}`);
+    if (remaining > 0) throw new ConflictException(`疫苗 ${input.vaccineCode} 可用库存不足，缺少 ${remaining}`);
     return allocations;
   }
 
-  private async assertInventoryBatch(
-    queryable: Queryable,
-    input: { vaccineCode: string; inventoryBatchNo: string; siteCode: string; companyCode: string },
-  ): Promise<Record<string, any>> {
-    const rows = await queryable.query(
-      `SELECT b.batch_no, b.product_code, b.status, b.qty_available, b.qty,
-              b.expire_date::text, b.store_code, b.company_code, b.warehouse_code,
-              b.manufacturer_batch_no,
-              w.site_code AS warehouse_site_code, w.company_code AS warehouse_company_code,
-              w.status AS warehouse_status, w.type AS warehouse_type
-         FROM inv_batches b
-         LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
-        WHERE b.batch_no = $1 AND b.product_code = $2
-        FOR UPDATE OF b`,
-      [input.inventoryBatchNo, input.vaccineCode],
-    );
-    const row = rows[0];
-    if (!row) throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 不存在或品种不匹配`);
-    if (!row.warehouse_code) throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 未关联药品仓库`);
-    this.assertWarehouseScope(String(row.warehouse_code));
-    if (row.store_code && row.store_code !== 'ALL' && row.store_code !== input.siteCode) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 不属于场站 ${input.siteCode}`);
-    }
-    if (row.company_code && row.company_code !== input.companyCode) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 不属于公司 ${input.companyCode}`);
-    }
-    if (row.warehouse_site_code && row.warehouse_site_code !== input.siteCode) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 所属仓库不属于场站 ${input.siteCode}`);
-    }
-    if (row.warehouse_company_code && row.warehouse_company_code !== input.companyCode) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 所属仓库不属于公司 ${input.companyCode}`);
-    }
-    if (row.warehouse_status && row.warehouse_status !== 'ACTIVE') {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 所属仓库不可用`);
-    }
-    if (row.warehouse_type && row.warehouse_type !== 'MEDICINE') {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 不是药品仓库存`);
-    }
-    if (row.status && row.status !== 'AVAILABLE') {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 当前不可用`);
-    }
-    if (Number(row.qty_available ?? row.qty ?? 0) <= 0) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 无可用库存`);
-    }
-    if (row.expire_date && String(row.expire_date).slice(0, 10) < todayString()) {
-      throw new BadRequestException(`疫苗库存批次 ${input.inventoryBatchNo} 已过期`);
-    }
-    return row;
-  }
-
-  private async resolveRequestedLots(
-    manager: Queryable,
-    input: { vaccineCode: string; siteCode: string; companyCode: string },
-    lines: ImmuneIssueLineInput[],
-    requiredQty: number,
-  ): Promise<VaccineAllocation[]> {
-    const allocations: VaccineAllocation[] = [];
-    const seen = new Set<string>();
-    let total = 0;
-    for (const line of lines) {
-      const batchNo = String(line.inventory_batch_no ?? '').trim();
-      if (!batchNo || seen.has(batchNo)) throw new BadRequestException('免疫库存批次不能重复且不能为空');
-      seen.add(batchNo);
-      const qty = positiveNumber(line.qty, `库存批次 ${batchNo} 数量`);
-      const row = await this.assertInventoryBatch(manager, {
-        vaccineCode: input.vaccineCode,
-        inventoryBatchNo: batchNo,
-        siteCode: input.siteCode,
-        companyCode: input.companyCode,
-      });
-      const available = Number(row.qty_available ?? row.qty ?? 0);
-      if (!Number.isFinite(available) || available < qty) {
-        throw new ConflictException(`疫苗库存批次 ${batchNo} 可用量不足`);
-      }
-      allocations.push({
-        batch_no: batchNo,
-        qty,
-        expire_date: row.expire_date ? String(row.expire_date).slice(0, 10) : null,
-        inbound_date: row.inbound_date ? String(row.inbound_date).slice(0, 10) : null,
-        warehouse_code: row.warehouse_code ?? null,
-        manufacturer_batch_no: row.manufacturer_batch_no ?? null,
-      });
-      total += qty;
-    }
-    if (Math.abs(total - requiredQty) > 0.0000001) {
-      throw new BadRequestException(`库存批次分配数量必须等于应扣数量 ${requiredQty}`);
-    }
-    return allocations;
-  }
-
-  async getLots(vaccineCode: string, siteCode: string, companyCode: string, warehouseCode?: string) {
-    const vaccine = String(vaccineCode ?? '').trim();
+  async getLots(materialCode: string, siteCode: string, companyCode: string, warehouseCode?: string) {
+    const vaccine = String(materialCode || '').trim();
     const site = String(siteCode ?? '').trim();
     const company = String(companyCode ?? '').trim();
     if (!vaccine || !site || !company) {
-      throw new BadRequestException('vaccine_code、site_code、company_code不能为空');
+      throw new BadRequestException('material_code、site_code、company_code不能为空');
     }
-    this.assertSiteCompanyScope(site, company);
-    const params: unknown[] = [vaccine, site, company, todayString()];
-    const clauses = [
-      `b.product_code = $1`,
-      `b.warehouse_code IS NOT NULL`,
-      `b.status = 'AVAILABLE'`,
-      `COALESCE(b.qty_available, b.qty, 0) > 0`,
-      `(b.store_code = $2 OR b.store_code = 'ALL' OR b.store_code IS NULL)`,
-      `(b.company_code = $3 OR b.company_code IS NULL)`,
-      `(b.expire_date IS NULL OR b.expire_date >= $4::date)`,
-      `w.status = 'ACTIVE'`,
-      `w.type = 'MEDICINE'`,
-      `(w.site_code = $2 OR w.site_code IS NULL)`,
-      `(w.company_code = $3 OR w.company_code IS NULL)`,
-      `m.status = 'ACTIVE'`,
-      `(UPPER(COALESCE(m.product_type, '')) = 'VACCINE' OR (UPPER(COALESCE(m.product_type, '')) = 'MEDICATION' AND m.medication_name LIKE '%疫苗%'))`,
-    ];
-    if (warehouseCode) {
-      const warehouse = String(warehouseCode).trim();
-      this.assertWarehouseScope(warehouse);
-      params.push(warehouse);
-      clauses.push(`b.warehouse_code = $${params.length}`);
-    } else {
-      const scope = this.scope();
-      if (scope && !scope.isGlobal && scope.allowedWarehouseCodes.length === 0) {
-        throw new ForbiddenException('无权访问疫苗库存（未配置仓库范围）');
-      }
-      if (scope && !scope.isGlobal && scope.allowedWarehouseCodes.length > 0) {
-        params.push(scope.allowedWarehouseCodes);
-        clauses.push(`b.warehouse_code = ANY($${params.length})`);
-      }
-    }
-    return this.ds.query(
-      `SELECT b.batch_no, b.product_code AS vaccine_code,
-              COALESCE(b.qty_available, b.qty, 0) AS qty_available,
-              b.unit, b.expire_date::text, b.inbound_date::text, b.warehouse_code, b.store_code,
-              b.manufacturer_batch_no
-         FROM inv_batches b
-         JOIN brd_medications m ON m.medication_code = b.product_code
-         JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
-        WHERE ${clauses.join(' AND ')}
-        ORDER BY b.expire_date ASC NULLS LAST, b.inbound_date ASC NULLS LAST, b.created_at ASC, b.batch_no ASC`,
-      params,
-    );
+    await assertVetSiteAccess(this.ds,this.scope(),site,company);
+    return listVetLots(this.ds, this.scope(), vaccine, site, company, todayString(), warehouseCode, true);
   }
 
-  async execute(id: number, input: { actual_heads?: number | string; dose_value?: number | string; inventory_batch_no?: string; vaccine_batch_no?: string; issue_lines?: ImmuneIssueLineInput[] } = {}, operator: string) {
+  async execute(id: number, input: { material_code?: string; actual_qty?: number | string; qty_unit?: string; actual_heads?: number | string; dose_value?: number | string; inventory_batch_no?: string; vaccine_batch_no?: string; issue_lines?: ImmuneIssueLineInput[] } = {}, operator: string) {
     const numericId = Number(id);
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('免疫计划 id 无效');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
@@ -649,22 +396,23 @@ export class ImmuneService {
       if(occupancy)this.assertReadScope(occupancy);else this.assertReadScope(plan);
       if (plan.status === 'EXECUTED' || plan.actual_date) return plan;
       if (plan.status === 'CANCELLED') throw new BadRequestException('已取消的免疫计划不能执行');
-      const actualHeads = nonNegativeInteger(input.actual_heads, 'actual_heads', Number(plan.planned_heads ?? 0));
+      const actualHeads = nonNegativeInteger(input.actual_heads, 'actual_heads');
       if (actualHeads <= 0) throw new BadRequestException('actual_heads必须大于 0');
       if(occupancy) {
         const current={...plan,house_code:occupancy.house_code,farm_code:occupancy.farm_code,site_code:occupancy.site_code,company_code:occupancy.company_code};
         this.assertReadScope(current);
-        await this.assertFlock(manager,current,actualHeads);
+        await validateVetFlock(manager,current,actualHeads);
         // Keep plan's original location; execution location is an immutable separate fact.
-        plan.house_code=current.house_code;plan.farm_code=current.farm_code;plan.site_code=current.site_code;
-      } else await this.assertFlock(manager, plan, actualHeads);
-      const vaccineCode = String(plan.vaccine_code ?? plan.vaccine ?? '').trim();
-      if (!vaccineCode) throw new BadRequestException('免疫计划缺少疫苗编码');
-      const vaccine = await this.resolveVaccine(manager, vaccineCode, String(plan.site_code));
+        plan.house_code=current.house_code;plan.farm_code=current.farm_code;plan.site_code=current.site_code;plan.company_code=current.company_code;
+      } else await validateVetFlock(manager, plan, actualHeads);
+      if (plan.material_code && input.material_code && input.material_code!==plan.material_code)
+        throw new BadRequestException('执行物料必须与免疫计划一致');
+      const vaccine=await resolveVetMaterial(manager,plan.material_code || input.material_code,'VACCINE');
+      const vaccineCode=String(vaccine.material_code);
       const doseValue = input.dose_value === undefined || input.dose_value === ''
-        ? (plan.dose_value == null ? 1 : positiveNumber(plan.dose_value, 'dose_value'))
+        ? (plan.dose_value == null ? null : positiveNumber(plan.dose_value, 'dose_value'))
         : positiveNumber(input.dose_value, 'dose_value');
-      const requiredQty = actualHeads * doseValue;
+
       // vaccine_batch_no is the manufacturer lot recorded for traceability.
       // Inventory allocation must use the ERP inventory batch identity only.
       const requestedBatchNo = String(input.inventory_batch_no ?? plan.inventory_batch_no ?? '').trim() || undefined;
@@ -674,27 +422,32 @@ export class ImmuneService {
         siteCode: String(plan.site_code),
         companyCode: String(plan.company_code),
       };
+      if (input.issue_lines !== undefined && !Array.isArray(input.issue_lines)) throw new BadRequestException('批次分配格式无效');
       const allocations = Array.isArray(input.issue_lines) && input.issue_lines.length > 0
-        ? await this.resolveRequestedLots(manager, allocationInput, input.issue_lines, requiredQty)
-        : await this.resolveLots(manager, { ...allocationInput, requestedBatchNo }, actualDate, requiredQty);
+        ? await this.allocate(manager, allocationInput, input.issue_lines)
+        : await this.allocate(manager,allocationInput,[],stockQuantity(input.actual_qty),requestedBatchNo,input.qty_unit);
+      for (const line of allocations) checkStockUnit(line.unit, input.qty_unit ?? allocations[0].unit);
+      if (input.actual_qty !== undefined && Math.abs(stockQuantity(input.actual_qty) - allocations.reduce((sum,line)=>sum+line.qty,0)) > 1e-7)
+        throw new BadRequestException('实际耗用量与批次分配合计不一致');
       const sourceIssueNo = String(plan.source_issue_no ?? '').trim() || generatedKey('VAC-ISSUE');
       const manufacturerBatchNo = String(input.vaccine_batch_no ?? plan.vaccine_batch_no ?? '').trim() || null;
       for (const allocation of allocations) {
         const updated = await manager.query(
-          `UPDATE inv_batches
+          `WITH changed AS (UPDATE inv_batches
               SET qty = COALESCE(qty, 0) - $1::numeric,
                   qty_available = COALESCE(qty_available, qty, 0) - $1::numeric,
                   updated_at = NOW()
             WHERE batch_no = $2
               AND status = 'AVAILABLE'
-              AND COALESCE(qty_available, qty, 0) >= $1::numeric
-            RETURNING batch_no`,
+              AND qty >= $1::numeric AND COALESCE(qty_available, qty, 0) >= $1::numeric
+            RETURNING batch_no) SELECT * FROM changed`,
           [allocation.qty, allocation.batch_no],
         );
         if (updated.length === 0) throw new ConflictException(`疫苗库存批次 ${allocation.batch_no} 可用量不足`);
         const ledgerId = await this.insertLedger(manager, {
           batchNo: allocation.batch_no,
           qty: allocation.qty,
+          unit: allocation.unit, materialCode: allocation.material_code,
           companyCode: String(plan.company_code),
           siteCode: String(plan.site_code),
           warehouseCode: allocation.warehouse_code,
@@ -705,13 +458,13 @@ export class ImmuneService {
         });
         await manager.query(
           `INSERT INTO brd_vaccination_issue_lines
-             (vaccination_id, inventory_batch_no, vaccine_code, qty, unit_code, inv_ledger_id, manufacturer_batch_no, created_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
-          [numericId, allocation.batch_no, vaccineCode, allocation.qty, plan.dose_unit || vaccine.unit_code || 'UNIT', ledgerId, manufacturerBatchNo ?? allocation.manufacturer_batch_no ?? null],
+             (vaccination_id, inventory_batch_no, vaccine_code, qty, unit_code, inv_ledger_id, manufacturer_batch_no, material_code, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
+          [numericId, allocation.batch_no, plan.vaccine_code ?? null, allocation.qty, allocation.unit, ledgerId, allocation.manufacturer_batch_no ?? manufacturerBatchNo ?? null, vaccineCode],
         );
       }
       const updatedRows = await manager.query(
-        `UPDATE brd_vaccinations
+        `WITH changed AS (UPDATE brd_vaccinations
             SET actual_date = $1,
                 actual_heads = $2,
                 dose_value = $3,
@@ -720,15 +473,16 @@ export class ImmuneService {
                 source_issue_no = $6,
                 executor = $7,
                 updated_by = $7,
+                material_code = $9, stock_unit = $10, executed_material_name=$11,
                 status = 'EXECUTED',
                 updated_at = NOW()
           WHERE id = $8 AND status IN ('PLANNED', 'OVERDUE') AND actual_date IS NULL
-          RETURNING *`,
-        [actualDate, actualHeads, doseValue, allocations[0]?.batch_no ?? requestedBatchNo ?? null, manufacturerBatchNo, sourceIssueNo, safeOperator, numericId],
+          RETURNING *) SELECT * FROM changed`,
+        [actualDate, actualHeads, doseValue, allocations[0]?.batch_no ?? requestedBatchNo ?? null, manufacturerBatchNo, sourceIssueNo, safeOperator, numericId,vaccineCode,allocations[0].unit,vaccine.material_name],
       );
       if (updatedRows.length === 0) throw new ConflictException('免疫计划已被其他请求执行');
       await recordFlockActivity(manager,'IMMUNE_EXECUTION',numericId,occupancy,actualDate);
-      return { ...updatedRows[0], allocated: allocations, vaccine_name: vaccine.medication_name };
+      return { ...updatedRows[0], allocated: allocations };
     });
   }
 
@@ -746,10 +500,10 @@ export class ImmuneService {
       if (plan.status === 'CANCELLED') return plan;
       if (plan.status === 'EXECUTED' || plan.actual_date) throw new BadRequestException('已执行的免疫计划不能直接取消');
       const updated = await manager.query(
-        `UPDATE brd_vaccinations
+        `WITH changed AS (UPDATE brd_vaccinations
             SET status = 'CANCELLED', updated_by = $1, updated_at = NOW()
           WHERE id = $2 AND status IN ('PLANNED', 'OVERDUE') AND actual_date IS NULL
-          RETURNING *`,
+          RETURNING *) SELECT * FROM changed`,
         [safeOperator, numericId],
       );
       if (!updated[0]) throw new ConflictException('免疫计划状态已发生变化');

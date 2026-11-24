@@ -1,3 +1,4 @@
+import { installEggStockHoldFixture } from '../../test-fixtures/egg-stock-hold';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { sharedBatches, QuantitySnapshot } from '../product-master/services/quantity-contract';
@@ -34,6 +35,7 @@ fixture('official inventory cutover — owned PostgreSQL 18', () => {
       CREATE TABLE product_skus(sku_code text PRIMARY KEY, product_code text);
       INSERT INTO product_skus VALUES('SKU-EGG-TEST','PRD-EGG-TEST');
       CREATE TABLE inv_ledger(id serial PRIMARY KEY,batch_no text,qty_change numeric)`);
+    await installEggStockHoldFixture(db);
     const runner = db.createQueryRunner();
     try { await runner.connect(); await new OfficialInventoryCutover1794971000000().up(runner); }
     finally { await runner.release(); }

@@ -625,6 +625,13 @@ export class WmsService {
       }
       const supportsCanonicalIdentity = Array.isArray(identityColumnRows)
         && new Set(identityColumnRows.map((row: any) => row.column_name)).size === identityColumns.length;
+      const optionalHeaderFields = ['item_name', 'item_type', 'material_type', 'material_code', 'sku_code', 'unit', 'remark'];
+      const headerColumns = await manager.query(
+        `SELECT column_name FROM information_schema.columns
+          WHERE table_schema=current_schema() AND table_name='wms_inbound' AND column_name=ANY($1::text[])`,
+        [optionalHeaderFields],
+      );
+      const storedHeaderFields = new Set(headerColumns.map((row: { column_name: string }) => row.column_name));
       for (const [index, doc] of documents.entries()) {
         const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
         if (!taskNo) throw new BadRequestException(`第 ${index + 1} 张入库单 task_no 必填`);
@@ -661,16 +668,24 @@ export class WmsService {
           resolvedItems.push({ input: item, identity, qty, quantitySnapshot });
         }
         const headerIdentity = resolvedItems.length === 1 ? resolvedItems[0].identity : null;
+        // The detail row owns the item identity. Some installations also store display fields on the header.
+        const headerValues = {
+          task_no: taskNo, status: 'PENDING', warehouse_code: warehouseCode, type: String(doc?.type || 'GENERIC').toUpperCase(),
+          item: this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code || headerIdentity?.materialCode),
+          qty: Number(doc?.qty || resolvedItems.reduce((sum, row) => sum + row.qty, 0)),
+          store_code: this.nonEmptyString(doc?.store_code) || 'ALL', operator: String(user?.username || doc?.operator || user?.userId || 'SYS'),
+          attachment_url: this.nonEmptyString(doc?.attachment_url), date: doc?.date || null,
+          site_code: this.nonEmptyString(doc?.site_code), company_code: companyCode,
+          item_name: headerIdentity?.itemName ?? this.nonEmptyString(doc?.item_name),
+          item_type: headerIdentity?.itemType ?? null, material_type: headerIdentity?.materialType ?? null,
+          material_code: headerIdentity?.materialCode ?? null, sku_code: headerIdentity?.skuCode ?? null,
+          unit: headerIdentity?.unit ?? null, remark: this.nonEmptyString(doc?.remark),
+        };
+        const fields = Object.entries(headerValues).filter(([key]) => !optionalHeaderFields.includes(key) || storedHeaderFields.has(key));
         await manager.query(
-          `INSERT INTO wms_inbound (task_no,status,warehouse_code,type,item,item_name,item_type,material_type,material_code,sku_code,unit,qty,store_code,operator,attachment_url,date,site_code,company_code,remark,created_at,updated_at)
-           VALUES ($1,'PENDING',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12,$13,$14,$15::date,$16,$17,$18,now(),now())`,
-          [taskNo, warehouseCode, String(doc?.type || 'GENERIC').toUpperCase(), this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code),
-            headerIdentity?.itemName ?? this.nonEmptyString(doc?.item_name), headerIdentity?.itemType ?? null,
-            headerIdentity?.materialType ?? null, headerIdentity?.materialCode ?? null, headerIdentity?.skuCode ?? null,
-            headerIdentity?.unit ?? null,
-            Number(doc?.qty || resolvedItems.reduce((sum, row) => sum + row.qty, 0)),
-            this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || doc?.operator || user?.userId || 'SYS'),
-            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), companyCode, this.nonEmptyString(doc?.remark)],
+          `INSERT INTO wms_inbound (${fields.map(([key]) => key).join(',')},created_at,updated_at)
+           VALUES (${fields.map((_, i) => '$' + (i + 1)).join(',')},now(),now())`,
+          fields.map(([, value]) => value),
         );
         for (const { input: item, identity, qty, quantitySnapshot } of resolvedItems) {
           if (supportsCanonicalIdentity) {
@@ -2134,7 +2149,7 @@ export class WmsService {
       ? await sharedBatches(manager, order.company_code, [order.warehouse_code], order.quantity_snapshot)
       : await manager.query(`SELECT * FROM inv_batches WHERE ${column}=$1 AND warehouse_code=$2
           AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$2)
-          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE' AND ${officialInventoryPredicate('inv_batches')}
+          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE' AND NOT vet_egg_batch_held(inv_batches.batch_no) AND ${officialInventoryPredicate('inv_batches')}
           AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
           ORDER BY expire_date NULLS LAST,created_at,batch_no FOR UPDATE`, [itemCode, order.warehouse_code]);
 
@@ -3321,17 +3336,24 @@ export class WmsService {
 
       if (batch_no) {
         const batchRows = await manager.query(
-          `SELECT warehouse_code, store_code, qty, qty_available
+          `SELECT warehouse_code, store_code, status, qty, qty_available
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [batch_no],
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
         const batch = batchRows[0];
         await this.assertWritableWarehouse(batch.warehouse_code, `损耗批次 ${batch_no}`);
-        const available = Number(batch.qty_available ?? batch.qty) || 0;
+        let available = Number(batch.qty_available ?? batch.qty) || 0;
+        if (['QUARANTINE','DAMAGED'].includes(batch.status) && available === 0) {
+          const [custody] = await manager.query(`SELECT vet_egg_batch_held($1) AS held,
+            COALESCE(SUM(reserved_qty-outbound_qty-released_qty),0) AS reserved
+            FROM sal_order_item_batch_allocations WHERE batch_no=$1 AND reserved_qty>outbound_qty+released_qty`,[batch_no]);
+          if (custody.held) available = Number(batch.qty)-Number(custody.reserved);
+        }
         if (available < qty) {
           throw new BadRequestException(`损耗数量 ${qty} 超过批次 ${batch_no} 可用库存 ${available}`);
         }
+        await manager.query("SELECT set_config('phoenix.egg_disposition','SCRAP',true)");
         await manager.query(
           `UPDATE inv_batches
               SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
@@ -3343,6 +3365,7 @@ export class WmsService {
             WHERE batch_no = $2`,
           [qty, batch_no],
         );
+        await manager.query("SELECT set_config('phoenix.egg_disposition','',true)");
         // INV-301a：统一共享写入器
         await writeInvLedger(manager, {
           batchNo: batch_no,
