@@ -20,6 +20,8 @@ export default function MaterialRuntimePage() {
         fields={[
           { key: "material_name", label: t('md.materialName', '物料名称'), required: true },
           { key: "material_type", label: t('md.materialType', '物料类型'), dictType: "PRC_MATERIAL_TYPE" },
+          { key: "vet_kind", label: "兽药用途分类", dictType:"BRD_VET_MATERIAL_KIND" },
+          { key: "vet_withdraw_days", label: "默认休药天数", type:"number" },
           { key: "spec", label: t('md.specModel', '规格型号') },
           { key: "unit", label: t('md.measureUnit', '计量单位') },
           { key: "default_currency", label: t('md.commonCurrency', '常用币种'), dictType: "SYS_CURRENCY" },
@@ -28,6 +30,7 @@ export default function MaterialRuntimePage() {
         columns={[
           { key: "material_name", label: t('md.materialName', '物料名称') },
           { key: "material_type", label: t('md.type', '类型') },
+          { key: "vet_kind", label: "兽药用途分类" },
           { key: "spec", label: t('md.spec', '规格') },
           { key: "unit", label: t('md.unit', '单位') },
         ]}

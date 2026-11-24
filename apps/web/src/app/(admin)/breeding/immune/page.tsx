@@ -17,11 +17,6 @@ interface ImmunePlan {
   status: string;
   [key: string]: unknown;
 }
-interface VaccineOption {
-  code: string;
-  name: string;
-  unit?: string;
-}
 interface InventoryLot {
   batch_no: string;
   product_code?: string;
@@ -34,7 +29,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
-import { crudApi, farmProductionApi } from '@/lib/api-client';
+import { useVetChoices, useVetFlocks } from '@/hooks/useVetFlocks';
+import { farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -52,14 +48,8 @@ type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 // generic-crud.service.ts boot migration UPPER 统一）
 import u from "@/styles/uix-utils.module.css";
 const normStatus = (s: string) => String(s || '').toUpperCase();
-const DOSE_BY_METHOD: Record<string, string> = {
-  '滴鼻点眼': '2 drops/bird',
-  '饮水': '1 dose/bird (diluted)',
-  '皮下注射': '0.5ml/bird',
-  '肌肉注射': '0.5ml/bird',
-  '喷雾': 'Per house area'
-};
 const EMPTY_FORM = {
+  recordNo: '',
   batchNo: '',
   farmHouse: '',
   vaccine: '',
@@ -132,100 +122,19 @@ export default function ImmunePage() {
     return [];
   };
   const fetchRecords = useCallback(() => farmProductionApi.listImmunePlans().then(unwrapData), []);
-  const fetchHouses  = useCallback(() => crudApi.list('brd_houses', { pageSize: 1000 }).then(r => r.data), []);
-  const fetchFlocks  = useCallback(() => crudApi.list('brd_flocks', { pageSize: 1000 }).then(r => r.data), []);
+  const [submitError,setSubmitError] = useState('');
   const createRecord = useCallback(async (data: Record<string, unknown>, _msg?: string) => {
     try { await farmProductionApi.createImmunePlan(data); toast.success(_msg || t('common.success', '操作成功')); return true; }
-    catch { return false; }
+    catch (error) {setSubmitError(error instanceof Error ? error.message : '免疫计划保存失败');return false;}
   }, [t, toast]);
   const [plans, setPlans] = useState<ImmunePlan[]>([]);
-  const [vaccineOpts, setVaccineOpts] = useState<VaccineOption[]>([]);
-  const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
-  const [houseOptions, setHouseOptions] = useState<{
-    code: string;
-    label: string;
-    farm_code: string;
-  }[]>([]);
-  const [flockOptions, setFlockOptions] = useState<{
-    code: string;
-    label: string;
-  }[]>([]);
-  const [flockMap, setFlockMap] = useState<Record<string, {
-    house_code: string;
-    farm_code: string;
-    site_code?: string;
-    company_code?: string;
-  }>>({});
-  useEffect(() => {
-    farmProductionApi.listImmuneVaccines().then(r => {
-      const rows = Array.isArray(r?.data) ? r.data : [];
-      const options = rows.map((x: Record<string, unknown>) => ({
-        code: String(x.medication_code || x.code || x.vaccine_code || ''),
-        name: String(x.medication_name || x.name || x.vaccine_name || x.medication_code || x.code || ''),
-        unit: x.unit_code ? String(x.unit_code) : (x.unit ? String(x.unit) : undefined),
-      })).filter(x => x.code);
-      setVaccineOpts(options);
-      if (options.length) setForm(p => ({ ...p, vaccine: p.vaccine || options[0].code }));
-    }).catch(() => setVaccineOpts([]));
-    fetchHouses().then(h => {
-      setHouseOptions((h || []).map((x: Record<string, unknown>) => ({
-        code: (x.house_code || x.house_no) as string,
-        label: x.house_name ? `${x.house_code} · ${x.house_name}` : String(x.house_code || ''),
-        farm_code: x.farm_code as string || ''
-      })).filter((o: {
-        code: string;
-        label: string;
-        farm_code: string;
-      }) => !!o.code));
-    }).catch(() => {});
-    fetchFlocks().then(f => {
-      setFlockOptions((f || []).map((x: Record<string, unknown>) => ({
-        code: x.flock_no as string,
-        label: `${x.flock_no}${x.house_code ? ' · ' + x.house_code : ''}`
-      })));
-      const map: Record<string, {
-        house_code: string;
-        farm_code: string;
-        site_code?: string;
-        company_code?: string;
-      }> = {};
-      (f || []).forEach((x: Record<string, unknown>) => {
-        map[x.flock_no as string] = {
-          house_code: x.house_code as string || '',
-          farm_code: x.farm_code as string || '',
-          site_code: x.site_code as string || '',
-          company_code: x.company_code as string || ''
-        };
-      });
-      setFlockMap(map);
-      if (f?.[0]) setForm(p => ({
-        ...p,
-        batchNo: p.batchNo || String(f[0].flock_no ?? ''),
-        farmHouse: p.farmHouse || String(f[0].house_code ?? '')
-      }));
-    }).catch(() => {});
-  }, []);
-  useEffect(() => {
-    const vaccineCode = String(form.vaccine || '').trim();
-    if (!vaccineCode) return;
-    let identity: Record<string, unknown> = {};
-    try { identity = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch {}
-    const flock = flockMap[form.batchNo] || {};
-    const siteCode = String(flock.site_code || identity.siteCode || identity.site_code || identity.storeCode || identity.store_code || '').trim();
-    const companyCode = String(flock.company_code || identity.companyCode || identity.company_code || '').trim();
-    if (!siteCode || !companyCode) return;
-    farmProductionApi.listImmuneInventoryBatches({ vaccine_code: vaccineCode, site_code: siteCode, company_code: companyCode }).then(r => {
-      const rows = Array.isArray(r?.data) ? r.data : [];
-      setInventoryLots(rows.map((x: Record<string, unknown>) => ({
-        batch_no: String(x.batch_no || x.inventory_batch_no || ''),
-        product_code: x.product_code ? String(x.product_code) : undefined,
-        qty_available: x.qty_available === undefined || x.qty_available === null ? undefined : Number(x.qty_available),
-        unit: x.unit ? String(x.unit) : undefined,
-        expire_date: x.expire_date ? String(x.expire_date).slice(0, 10) : null,
-        warehouse_code: x.warehouse_code ? String(x.warehouse_code) : null,
-      })).filter(x => x.batch_no));
-    }).catch(() => setInventoryLots([]));
-  }, [form.vaccine, form.batchNo, flockMap]);
+  const flocks = useVetFlocks();
+  const flock = flocks.find(row => row.flock_no === form.batchNo);
+  const [executing, setExecuting] = useState<ImmunePlan | null>(null);
+  const [saving, setSaving] = useState(false);
+  const {materials:vaccineOpts,lots,error:lotError} = useVetChoices(flock,form.vaccine,'VACCINE',
+    showDrawer ? String(executing?.id || form.recordNo) : '');
+  const inventoryLots = lots as unknown as InventoryLot[];
   const loadData = useCallback(async () => {
     const data = await fetchRecords();
     const today = businessToday();
@@ -244,9 +153,10 @@ export default function ImmunePage() {
         farmHouse: d.house_code || d.farm_house || '—',
         currentHouse: d.current_house_code || '—',
         executedHouse: d.executed_house_code || '—',
-        vaccine: d.vaccine_code || d.vaccine || d.vaccine_name,
+        vaccine: d.executed_material_name ? [d.vaccine_name || d.vaccine_code,d.executed_material_name].filter((v,i,a)=>v && a.indexOf(v)===i).join(' → ') : (d.vaccine_name || d.vaccine_code || d.material_code || d.vaccine),
         vaccineBatchNo: d.vaccine_batch_no || '',
-        flockCount: d.planned_heads || d.flock_count || '',
+        flockCount: d.actual_heads || d.planned_heads || d.flock_count || '',
+        consumed: Array.isArray(d.issue_lines) ? d.issue_lines.map(l=>l.qty+' '+l.unit_code+' · '+l.inventory_batch_no).join('，') : '',
         planDate: d.plan_date,
         nextDueDate: d.next_due_date || '',
         actualDate: d.actual_date,
@@ -267,73 +177,66 @@ export default function ImmunePage() {
   }, [loadData]);
   const handleRecordVaccine = async (row: ImmunePlan) => {
     const raw = (row._raw || row) as Record<string, unknown>;
-    const actual = window.prompt(t('ui.请输入实际免疫头数', '请输入实际免疫头数'), String(raw.actual_heads || raw.planned_heads || row.flockCount || ''));
-    if (!actual) return;
-    try {
-      await farmProductionApi.executeImmunePlan(Number(row.id), {
-        actual_heads: Number(actual),
-        dose_value: raw.dose_value || undefined,
-        inventory_batch_no: raw.inventory_batch_no || undefined,
-        vaccine_batch_no: raw.vaccine_batch_no || undefined,
-        issue_lines: Array.isArray(raw.issue_lines) ? raw.issue_lines : undefined,
-      });
-      toast.success(t('ui.执行成功并已扣减疫苗库存', '执行成功并已扣减疫苗库存'));
-      loadData();
-    } catch {}
+    const target = flocks.find(f=>f.flock_no===row.batchNo);
+    if (!target) { toast.error('当前鸡群已关闭或不在可登记范围内'); return; }
+    const planned = Array.isArray(raw.planned_issue_lines) ? raw.planned_issue_lines : [];
+    setSubmitError('');
+    setExecuting(row);
+    setForm({...EMPTY_FORM, batchNo:target.flock_no, farmHouse:target.house_code, vaccine:String(raw.material_code || ''),
+      plannedHeads:String(raw.planned_heads || ''), vaccineBatchNo:String(raw.vaccine_batch_no || ''),
+      issueLines:planned.length ? planned.map(l=>({inventoryBatchNo:String(l.inventory_batch_no),quantity:String(l.qty)}))
+        : [{inventoryBatchNo:String(raw.inventory_batch_no || ''),quantity:''}]});
+    setShowDrawer(true);
   };
   const handleSubmit = async () => {
-    if (!form.batchNo) {
-      toast.error(t('ui.请选择对应鸡群批次', '请选择对应鸡群批次'));
+    setSubmitError('');
+    if (saving || !flock || !form.vaccine || !Number.isInteger(Number(form.plannedHeads)) ||
+        Number(form.plannedHeads)<=0 || Number(form.plannedHeads)>flock.current_qty) {
+      toast.error('请选择鸡群和疫苗，羽数须在当前存栏内'); return;
+    }
+    const entered = form.issueLines.filter(l=>l.inventoryBatchNo || l.quantity);
+    if ((executing && !entered.length) || entered.some(l=>!inventoryLots.some(b=>b.batch_no===l.inventoryBatchNo)
+        || !(Number(l.quantity)>0)) || new Set(entered.map(l=>l.inventoryBatchNo)).size!==entered.length) {
+      toast.error('请逐行选择有效库存批次并填写耗用数量'); return;
+    }
+    const issue_lines = entered.map(l=>({inventory_batch_no:l.inventoryBatchNo,qty:Number(l.quantity),
+      unit_code:inventoryLots.find(b=>b.batch_no===l.inventoryBatchNo)?.unit}));
+    if (executing) {
+      setSaving(true);
+      try {
+        await farmProductionApi.executeImmunePlan(Number(executing.id), {material_code:form.vaccine, actual_heads:Number(form.plannedHeads), issue_lines,
+          vaccine_batch_no:form.vaccineBatchNo || undefined});
+        setShowDrawer(false); setExecuting(null); await loadData();
+        toast.success('免疫执行已登记，库存已扣减');
+      } catch (e) {setSubmitError(e instanceof Error ? e.message : '执行失败');}
+      finally {setSaving(false);}
       return;
     }
-    if (!form.planDate) {
-      toast.error(t('ui.请选择计划免疫日期', '请选择计划免疫日期'));
-      return;
-    }
-    if (form.flockCount && Number(form.flockCount) <= 0) {
-      toast.error(t('ui.免疫头数必须大于0', '免疫头数必须大于 0'));
-      return;
-    }
-    const fi = flockMap[form.batchNo] || {};
-    let identity: Record<string, unknown> = {};
-    try { identity = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch {}
+    if (!form.planDate) { toast.error('请选择计划日期'); return; }
     const payload = {
-      flock_no: form.batchNo,
-      house_code: fi.house_code || form.farmHouse || null,
-      farm_code: fi.farm_code || null,
-      site_code: String(fi.site_code || identity.siteCode || identity.site_code || identity.storeCode || identity.store_code || '').trim(),
-      company_code: String(fi.company_code || identity.companyCode || identity.company_code || '').trim(),
-      vaccine_code: form.vaccine,
+      record_no: form.recordNo, flock_no: form.batchNo,
+      house_code: flock.house_code,
+      farm_code: flock.farm_code,
+      site_code: flock.site_code, company_code: flock.company_code,
+      material_code: form.vaccine,
       vaccine_batch_no: form.vaccineBatchNo || undefined,
-      inventory_batch_no: form.inventoryBatchNo || undefined,
+      inventory_batch_no: entered[0]?.inventoryBatchNo,
       vaccine_expire_date: form.vaccineExpireDate || undefined,
       planned_heads: Number(form.plannedHeads || form.flockCount || 0),
       plan_date: form.planDate,
       next_due_date: form.nextDueDate || null,
       method_code: form.method,
       dose_value: form.doseValue ? Number(form.doseValue) : undefined,
-      dose_unit: 'UNIT',
-      issue_lines: form.issueLines
-        .filter(line => line.inventoryBatchNo && Number(line.quantity) > 0)
-        .map(line => ({
-          inventory_batch_no: line.inventoryBatchNo,
-          qty: Number(line.quantity),
-          unit_code: 'UNIT',
-          manufacturer_batch_no: form.vaccineBatchNo || undefined,
-        }))
+      dose: form.dose || undefined,
+      issue_lines,
     };
-    const ok = await createRecord(payload, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
-    if (ok) {
-      setShowDrawer(false);
-      setForm({
-        ...EMPTY_FORM,
-        batchNo: flockOptions[0]?.code || '',
-        vaccine: vaccineOpts[0]?.code || '',
-        method: '',
-        dose: ''
-      });
-      loadData();
-    }
+    setSaving(true);
+    try {
+      if (await createRecord(payload, t('ui.免疫计划制定成功','免疫计划制定成功'))) {
+        setShowDrawer(false); await loadData();
+      }
+    } finally {setSaving(false);}
+
   };
 
   // A3 + C5: 统一大写枚举
@@ -381,6 +284,8 @@ export default function ImmunePage() {
     title: t('ui.免疫头数', '免疫头数'),
     width: '90px',
     render: (v: unknown) => v != null && v !== '' ? `${String(v)} ${t('ui.只', '只')}` : '—'
+  }, {
+    key: 'consumed', title:'实际库存耗用',
   }, {
     key: 'planDate',
     title: t('ui.计划日期', '计划日期'),
@@ -440,7 +345,7 @@ export default function ImmunePage() {
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]}
         actions={canCreateImm && (
-          <button type="button" onClick={() => { setForm({ ...EMPTY_FORM, batchNo: flockOptions[0]?.code || '', farmHouse: flockMap[flockOptions[0]?.code || '']?.house_code || '', vaccine: vaccineOpts[0]?.code || '', method: '', dose: '' }); setShowDrawer(true); }} style={primaryActionButton}>
+          <button type="button" onClick={() => { setForm({ ...EMPTY_FORM, recordNo:'VAC-'+crypto.randomUUID() }); setSubmitError(''); setExecuting(null); setShowDrawer(true); }} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增免疫计划', '新增免疫计划')}
           </button>
         )}
@@ -476,7 +381,7 @@ export default function ImmunePage() {
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
       setShowDrawer(false);
-    }} title={t('ui.新增免疫计划', '新增免疫计划')} width="420px">
+    }} title={executing ? '登记免疫执行' : t('ui.新增免疫计划', '新增免疫计划')} width="420px">
         <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -486,48 +391,33 @@ export default function ImmunePage() {
             <label className={s.lbl}>{t('ui.对应鸡群批次', '对应鸡群批次')} <span style={{
               color: 'var(--status-danger)'
             }}>*</span></label>
-            <select value={form.batchNo} onChange={e => {
-            const fi = flockMap[e.target.value] || {};
-            setForm(p => ({
-              ...p,
-              batchNo: e.target.value,
-              farmHouse: fi.house_code || p.farmHouse
-            }));
-          }} className={s.inp}>
-              <option value="">{t('ui.请选择鸡群', '请选择鸡群')}</option>
-              {flockOptions.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
+            <select aria-label="鸡群批次" disabled={!!executing} value={form.batchNo} onChange={e => {
+              const selected = flocks.find(f=>f.flock_no===e.target.value);
+              setForm(p=>({...p,batchNo:e.target.value,plannedHeads:selected?String(selected.current_qty):'',
+                vaccine:'',issueLines:EMPTY_FORM.issueLines,inventoryBatchNo:''}));
+            }} className={s.inp}>
+              <option value="">请选择鸡群</option>
+              {flocks.map(f=><option key={f.flock_no} value={f.flock_no}>{f.flock_no} · {f.house_code} · {f.current_qty} 羽</option>)}
             </select>
           </div>
-          <div className={s.field}>
-            <label className={s.lbl}>{t('ui.所在鸡舍', '所在鸡舍')} <span style={{
-              fontWeight: 400,
-              fontSize: 11,
-              color: 'var(--color-primary)',
-              marginLeft: 6
-            }}>{t('ui.随鸡群自动填入', '（随鸡群自动填入）')}</span></label>
-            <select value={form.farmHouse} onChange={e => setForm(p => ({
-            ...p,
-            farmHouse: e.target.value
-          }))} className={s.inp}>
-              <option value="">{t('ui.自动联动或手动选择', '— 自动联动或手动选择 —')}</option>
-              {houseOptions.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
-            </select>
-          </div>
+          <div className={s.field}><label className={s.lbl}>所在鸡舍</label><input readOnly value={flock?.house_code || ''} className={s.inp}/></div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.疫苗名称', '疫苗名称')}</label>
-            <select value={form.vaccine} onChange={e => setForm(p => ({
+            {executing && !(executing._raw as Record<string,unknown>)?.material_code && <p>原计划：{String(executing.vaccine)}。请选择本次实际使用的疫苗物料。</p>}
+            <select aria-label="疫苗" disabled={!!(executing?._raw as Record<string,unknown>)?.material_code} value={form.vaccine} onChange={e => setForm(p => ({
             ...p,
-            vaccine: e.target.value
+            vaccine: e.target.value, issueLines:EMPTY_FORM.issueLines, inventoryBatchNo:''
           }))} className={s.inp}>
               <option value="">{t('ui.请选择疫苗', '请选择疫苗')}</option>
-              {vaccineOpts.map(v => <option key={v.code} value={v.code}>{v.name} · {v.code}</option>)}
+              {vaccineOpts.map(v => <option key={String(v.material_code)} value={String(v.material_code)}>{String(v.material_name)} · {String(v.material_code)}</option>)}
             </select>
           </div>
+          {!executing && <>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.计划免疫日期', '计划免疫日期')} <span style={{
               color: 'var(--status-danger)'
             }}>*</span></label>
-            <input type="date" value={form.planDate} onChange={e => setForm(p => ({
+            <input aria-label="计划免疫日期" type="date" value={form.planDate} onChange={e => setForm(p => ({
             ...p,
             planDate: e.target.value
           }))} className={s.inp} />
@@ -536,7 +426,7 @@ export default function ImmunePage() {
             <div>
               <label className={s.lbl}>{t('ui.接种方式', '接种方式')}</label>
               <DictSelect dictType="BRD_VACCINATE_METHOD" value={form.method} allowEmpty={false} className={s.inp}
-                onChange={m => setForm(p => ({ ...p, method: m, dose: DOSE_BY_METHOD[m] || p.dose || '' }))} />
+                onChange={m => setForm(p => ({ ...p, method: m }))} />
             </div>
             <div>
               <label className={s.lbl}>{t('ui.规定剂量', '规定剂量')} <span style={{
@@ -547,26 +437,14 @@ export default function ImmunePage() {
               <input value={form.dose} onChange={e => setForm(p => ({
               ...p,
               dose: e.target.value
-            }))} placeholder={DOSE_BY_METHOD[form.method] || t('ui.如0.5ml/只', '如0.5ml/只')} className={s.inp} />
+            }))} placeholder="按实际医嘱填写剂量与单位" className={s.inp} />
             </div>
           </div>
+          </>}
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>{t('ui.疫苗批号', '疫苗批号')} <span style={{
-                fontSize: 11,
-                color: 'var(--color-primary)',
-                fontWeight: 400
-              }}>{t('ui.质量追溯', '（质量追溯）')}</span></label>
-              <input value={form.vaccineBatchNo} onChange={e => setForm(p => ({
-              ...p,
-              vaccineBatchNo: e.target.value
-            }))} placeholder={t('ui.如VAC-2026-001', '如VAC-2026-001')} className={s.inp} style={{
-              fontFamily: 'monospace'
-            }} />
-            </div>
-            <div>
-              <label className={s.lbl}>{t('ui.免疫头数只', '免疫头数（只）')}</label>
-              <input type="number" onFocus={e => e.currentTarget.select()} min="1" value={form.plannedHeads || form.flockCount} onChange={e => setForm(p => ({
+              <label className={s.lbl}>{executing?'实际免疫羽数':'计划免疫羽数'}</label>
+              <input aria-label={executing?"实际免疫羽数":"计划免疫羽数"} type="number" onFocus={e => e.currentTarget.select()} min="1" value={form.plannedHeads || form.flockCount} onChange={e => setForm(p => ({
               ...p,
               plannedHeads: String(Math.max(0, Math.floor(Number(e.target.value) || 0)) || ''),
               flockCount: String(Math.max(0, Math.floor(Number(e.target.value) || 0)) || '')
@@ -574,10 +452,10 @@ export default function ImmunePage() {
             </div>
           </div>
           <div className={s.fieldRow}>
-            <div>
+            {!executing && <div>
               <label className={s.lbl}>{t('ui.疫苗有效期', '疫苗有效期')}</label>
               <input type="date" value={form.vaccineExpireDate} onChange={e => setForm(p => ({ ...p, vaccineExpireDate: e.target.value }))} className={s.inp} />
-            </div>
+            </div>}
             <div>
               <label className={s.lbl}>{t('ui.厂商批号', '厂商批号')} <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 400 }}>{t('ui.质量追溯', '（质量追溯）')}</span></label>
               <input value={form.vaccineBatchNo} onChange={e => setForm(p => ({ ...p, vaccineBatchNo: e.target.value }))} className={s.inp} placeholder={t('ui.如VAC-2026-001', '如 VAC-2026-001')} style={{ fontFamily: 'monospace' }} />
@@ -585,18 +463,20 @@ export default function ImmunePage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.ERP库存批次分配', 'ERP库存批次分配')} <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 400 }}>{t('ui.执行时按批次扣减并写入库存流水', '（执行时按批次扣减并写入库存流水）')}</span></label>
+            {form.vaccine && !inventoryLots.length && <p role="status">{lotError || '本群所属公司、场站及授权药品仓暂无可选批次。请核对物料用途分类，或办理入库、调拨。'}</p>}
             {form.issueLines.map((line, index) => (
               <div key={`issue-line-${index}`} style={{ display: 'grid', gridTemplateColumns: '1fr 90px auto', gap: 6, marginBottom: 6 }}>
-                <select value={line.inventoryBatchNo} onChange={e => setForm(p => ({ ...p, issueLines: p.issueLines.map((x, i) => i === index ? { ...x, inventoryBatchNo: e.target.value } : x), inventoryBatchNo: index === 0 ? e.target.value : p.inventoryBatchNo }))} className={s.inp}>
+                <select aria-label="ERP库存批次" value={line.inventoryBatchNo} onChange={e => setForm(p => ({ ...p, issueLines: p.issueLines.map((x, i) => i === index ? { ...x, inventoryBatchNo: e.target.value } : x), inventoryBatchNo: index === 0 ? e.target.value : p.inventoryBatchNo }))} className={s.inp}>
                   <option value="">{inventoryLots.length ? t('ui.请选择库存批次', '请选择库存批次') : t('ui.暂无可用库存批次', '暂无可用库存批次')}</option>
                   {inventoryLots.map(lot => <option key={lot.batch_no} value={lot.batch_no}>{lot.batch_no} · {lot.qty_available ?? 0}{lot.unit ? ` ${lot.unit}` : ''}{lot.expire_date ? ` · ${lot.expire_date}` : ''}</option>)}
                 </select>
-                <input type="number" min="0" step="0.001" value={line.quantity} onChange={e => setForm(p => ({ ...p, issueLines: p.issueLines.map((x, i) => i === index ? { ...x, quantity: e.target.value } : x) }))} className={s.inp} placeholder={t('ui.数量', '数量')} />
+                <input type="number" min="0" step="0.001" value={line.quantity} onChange={e => setForm(p => ({ ...p, issueLines: p.issueLines.map((x, i) => i === index ? { ...x, quantity: e.target.value } : x) }))} className={s.inp} aria-label={executing?'实际耗用数量':'计划耗用数量'} placeholder={inventoryLots.find(b=>b.batch_no===line.inventoryBatchNo)?.unit || '库存数量'} />
                 <button type="button" className={s.btnIcon} onClick={() => setForm(p => ({ ...p, issueLines: p.issueLines.length > 1 ? p.issueLines.filter((_, i) => i !== index) : p.issueLines }))} title={t('ui.删除批次行', '删除批次行')}><XCircle size={14} /></button>
               </div>
             ))}
             <button type="button" className={s.btnSecondary} onClick={() => setForm(p => ({ ...p, issueLines: [...p.issueLines, { inventoryBatchNo: '', quantity: '' }] }))}><Plus size={13} />{t('ui.增加库存批次', '增加库存批次')}</button>
           </div>
+          {!executing && <>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.剂量数值', '剂量数值')}</label>
             <input type="number" min="0" step="0.001" value={form.doseValue} onChange={e => setForm(p => ({ ...p, doseValue: e.target.value }))} className={s.inp} />
@@ -608,13 +488,15 @@ export default function ImmunePage() {
             nextDueDate: e.target.value
           }))} className={s.inp} />
           </div>
+          </>}
+          {submitError && <p role="alert">{submitError}</p>}
           <div style={{
           display: 'flex',
           gap: 10,
           marginTop: 6
         }}>
           <button type="button" onClick={() => { setShowDrawer(false); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{t('ui.建立计划', '建立计划')}</button>
+            <button type="button" disabled={saving} onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{executing?'确认实际耗用并执行':t('ui.建立计划', '建立计划')}</button>
           </div>
         </div>
       </RightDrawer>

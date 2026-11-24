@@ -33,14 +33,14 @@ describe('FarmMedicineService', () => {
     const { ds, svc } = buildSvc();
     ds.query
       .mockResolvedValueOnce([
-        { medication_code: 'MED001', medication_name: '药品A', dosage: '瓶' },
-        { medication_code: 'MED002', medication_name: '药品B', dosage: '盒' },
+        { medication_code: 'MED001', medication_name: '药品A', dosage: '瓶', unit:'瓶' },
+        { medication_code: 'MED002', medication_name: '药品B', dosage: '盒', unit:'盒' },
       ])
-      .mockResolvedValueOnce([{ product_code: 'MED001', qty: '15' }]);
+      .mockResolvedValueOnce([{ medication_code: 'MED001', unit:'瓶', qty: '15' }]);
 
     await expect(svc.getCatalog()).resolves.toEqual([
-      { medication_code: 'MED001', medication_name: '药品A', dosage: '瓶', qty: 15, unit: '瓶' },
-      { medication_code: 'MED002', medication_name: '药品B', dosage: '盒', qty: 0, unit: '盒' },
+      { medication_code: 'MED001', medication_name: '药品A', dosage: '瓶', qty: 15, unit: '瓶',other_units:[] },
+      { medication_code: 'MED002', medication_name: '药品B', dosage: '盒', qty: 0, unit: '盒',other_units:[] },
     ]);
     expect(ds.query.mock.calls[1][0]).toContain("w.type = 'MEDICINE'");
     expect(ds.query.mock.calls[1][0]).toContain("b.expire_date >= CURRENT_DATE");
@@ -55,14 +55,14 @@ describe('FarmMedicineService', () => {
       allowedSiteCodes: ['SITE-A'],
       allowedWarehouseCodes: ['WH-MED-A'],
     });
-    ds.query.mockResolvedValueOnce([{ medication_code: 'MED001', medication_name: '药品A', dosage: '瓶' }])
+    ds.query.mockResolvedValueOnce([{ medication_code: 'MED001', medication_name: '药品A', dosage: '瓶', unit:'瓶' }])
       .mockResolvedValueOnce([]);
 
     await svc.getCatalog();
     expect(ds.query.mock.calls[0][0]).toContain('store_code = ANY($1)');
-    expect(ds.query.mock.calls[0][1]).toEqual([['SITE-A']]);
-    expect(ds.query.mock.calls[1][0]).toContain('b.company_code = ANY($1)');
-    expect(ds.query.mock.calls[1][0]).toContain('b.store_code = ANY($2)');
+    expect(ds.query.mock.calls[0][1]).toEqual([['SITE-A'],['COMP-A'],['SITE-A'],['WH-MED-A']]);
+    expect(ds.query.mock.calls[1][0]).toContain('COALESCE(b.company_code,w.company_code) = ANY($1)');
+    expect(ds.query.mock.calls[1][0]).toContain("COALESCE(NULLIF(b.store_code,'ALL'),w.site_code) = ANY($2)");
     expect(ds.query.mock.calls[1][0]).toContain('b.warehouse_code = ANY($3)');
     expect(ds.query.mock.calls[1][1]).toEqual([['COMP-A'], ['SITE-A'], ['WH-MED-A']]);
   });
@@ -72,28 +72,28 @@ describe('FarmMedicineService', () => {
     ds.query.mockResolvedValueOnce(ledgerColumns).mockResolvedValueOnce([]);
 
     await expect(svc.getLedger('2026-07-07', '2026-07-11')).resolves.toEqual([]);
-    expect(ds.query.mock.calls[1][0]).toContain('l.log_date BETWEEN $1 AND $2');
-    expect(ds.query.mock.calls[1][0]).toContain("m.status = 'ACTIVE'");
+    expect(ds.query.mock.calls[1][0]).toContain('COALESCE(l.log_date,l.created_at::date) BETWEEN $1::date AND $2::date');
+    expect(ds.query.mock.calls[1][0]).toContain("mat.material_code");
     expect(ds.query.mock.calls[1][0]).not.toContain("warehouse_code = ANY($1)");
     expect(ds.query.mock.calls[1][1]).toEqual(['2026-07-07', '2026-07-11']);
   });
 
   it('inbound accepts an explicit governed identity and creates a unique batch plus ledger', async () => {
     const { manager, scopeHelper, svc } = buildSvc();
-    manager.query.mockResolvedValueOnce([{ batch_no: 'MED-NEW-1' }]).mockResolvedValueOnce([]);
+    manager.query.mockResolvedValueOnce([{ batch_no: 'MED-NEW-1',material_code:'MAT-A',unit:'瓶' }]).mockResolvedValueOnce([]);
 
     await svc.inbound('2026-07-07', [{
-      medication_code: 'MED001', qty: 12, batch_no: 'MED-NEW-1', expire_date: '2026-12-31',
+      material_code: 'MAT-A', qty: 12, batch_no: 'MED-NEW-1', expire_date: '2026-12-31',
       warehouse_code: 'WH-MED-A', company_code: 'COMP-A', site_code: 'SITE-A',
     }], 'admin');
 
     expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('WH-MED-A', '药品库存');
     expect(manager.query.mock.calls[0][1]).toEqual([
-      'MED-NEW-1', 'MED001', 12, 'WH-MED-A', 'SITE-A', 'COMP-A', 'FARM_MEDICINE', 'MED_INBOUND', '2026-07-07', '2026-12-31',
+      'MED-NEW-1', 'MAT-A', 12, 'WH-MED-A', 'SITE-A', 'COMP-A', 'FARM_MEDICINE', 'MED_INBOUND', '2026-07-07', '2026-12-31',null,
     ]);
     // INV-301a 共享写入器列序：核心七列（store_code=场站码 SITE-A）+ company_code, log_date, warehouse_code
     expect(manager.query.mock.calls[1][1]).toEqual([
-      'MED-NEW-1', 'MED_INBOUND', 12, 'admin', 'SITE-A', 'MED_INBOUND', '采购入库', 'COMP-A', '2026-07-07', 'WH-MED-A',
+      'MED-NEW-1', 'MED_INBOUND', 12, 'admin', 'SITE-A', 'MED_INBOUND', '采购入库', 'COMP-A', '2026-07-07', 'WH-MED-A', 'MAT-A','瓶',
     ]);
   });
 
@@ -108,7 +108,7 @@ describe('FarmMedicineService', () => {
       .mockResolvedValueOnce([{ batch_no: 'MED-GENERATED' }])
       .mockResolvedValueOnce([]);
 
-    await svc.inbound('2026-07-07', [{ medication_code: 'MED001', qty: 3 }], 'admin');
+    await svc.inbound('2026-07-07', [{ material_code: 'MAT-A', qty: 3 }], 'admin');
     expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('WH-MED-A', '药品库存');
     expect(manager.query.mock.calls[0][0]).toContain('INSERT INTO inv_batches');
     expect(manager.query.mock.calls[0][1][3]).toBe('WH-MED-A');

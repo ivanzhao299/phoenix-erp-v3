@@ -1,7 +1,10 @@
 import {sharedBatches,QuantitySnapshot} from '../product-master/services/quantity-contract';
 import {EggWithdrawalReview1795478400000} from '../../database/migrations/1795478400000-EggWithdrawalReview';
 import {EggWithdrawalReviewService} from './egg-withdrawal-review.service';
+import {VetMaterialIdentity1795500100000} from '../../database/migrations/1795500100000-VetMaterialIdentity';
 import {freezeOwnedFlockClock} from '../../test-fixtures/flock-business-clock';
+import {VetMaterialAllocation1795500000000} from '../../database/migrations/1795500000000-VetMaterialAllocation';
+import {FarmMedicineService} from './farm-medicine.service';
 import {ImmuneService} from './immune.service';
 import {MedicationRecordService} from './medication-record.service';
 import {FlockLifecycleService} from './flock-lifecycle.service';
@@ -57,13 +60,20 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
    ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS manufacturer_batch_no text;
    ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date date,ADD COLUMN IF NOT EXISTS house_code text;
    CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);`);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS vet_fixture_med_code ON brd_medications(medication_code);
+    CREATE TABLE IF NOT EXISTS mst_materials(material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text); ALTER TABLE mst_materials ADD COLUMN IF NOT EXISTS spec text`);
+  const vetMigration=db.createQueryRunner();
+  try {
+    if (!await vetMigration.hasColumn('brd_vaccinations','planned_issue_lines')) await new VetMaterialAllocation1795500000000().up(vetMigration);
+    if (!await vetMigration.hasColumn('mst_materials','vet_kind')) await new VetMaterialIdentity1795500100000().up(vetMigration);
+  } finally {await vetMigration.release();}
   const cutover=db.createQueryRunner();
   try { await new OfficialInventoryCutover1794971000000().up(cutover); }
   finally { await cutover.release(); }
   wms=new WmsService(db.manager,{get:()=>({isGlobal:true,allowedWarehouseCodes:[]})} as never);trace=new TraceabilityService(db,{} as never);
  });
  beforeEach(async()=>{
-  await db.query(`TRUNCATE file_metadata,brd_vaccination_issue_lines,brd_medication_issue_lines,brd_vaccinations,brd_medication_records,brd_medications,brd_flock_activity_sources,brd_flock_sales_settlements,brd_flock_admission_receipts,brd_flock_held_balances,brd_flock_document_audits,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_events,brd_flock_occupancies,brd_flock_documents,brd_daily_logs,brd_flocks,brd_houses,brd_farms,inv_batches,inv_ledger,wms_transfer_items,wms_transfer_discrepancies,wms_transfer,wms_warehouses,store_master,md_sku_org_scope,product_skus,mst_products,product_grades,packaging_specs,md_product_varieties,sys_organizations,pkg_packing_records,pkg_work_shifts,pkg_grading_records,pkg_source_batches,pkg_grading_source_links CASCADE;
+  await db.query(`TRUNCATE mst_materials,file_metadata,brd_vaccination_issue_lines,brd_medication_issue_lines,brd_vaccinations,brd_medication_records,brd_medications,brd_flock_activity_sources,brd_flock_sales_settlements,brd_flock_admission_receipts,brd_flock_held_balances,brd_flock_document_audits,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_events,brd_flock_occupancies,brd_flock_documents,brd_daily_logs,brd_flocks,brd_houses,brd_farms,inv_batches,inv_ledger,wms_transfer_items,wms_transfer_discrepancies,wms_transfer,wms_warehouses,store_master,md_sku_org_scope,product_skus,mst_products,product_grades,packaging_specs,md_product_varieties,sys_organizations,pkg_packing_records,pkg_work_shifts,pkg_grading_records,pkg_source_batches,pkg_grading_source_links CASCADE;
    INSERT INTO brd_farms(farm_code,farm_name,company_code,mapped_site_code,status) VALUES('A','original farm','CA','SA','ACTIVE'),('X','current other farm','CA','SX','ACTIVE');
    INSERT INTO brd_houses(house_code,farm_code,max_capacity,status) VALUES('HA','A',100,'ACTIVE'),('HX','X',100,'ACTIVE');
    INSERT INTO brd_flocks(flock_no,house_code,farm_code,company_code,breed_code,current_qty,status) VALUES('FA','HX','X','CA','BREED',70,'LAYING');
@@ -102,20 +112,21 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
    INSERT INTO file_metadata VALUES('FILE-X','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HX','CA','SX','keeper'),('FILE-Y','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HY','CA','SY','keeper');
    INSERT INTO brd_medications(medication_code,medication_name,status,store_code,product_type,unit_code,default_withdraw_days) VALUES('VAC','approved vaccine','ACTIVE','ALL','VACCINE','UNIT',0),('MED','approved medicine','ACTIVE','ALL','MEDICATION','UNIT',3);
    INSERT INTO wms_warehouses(warehouse_code,company_code,domain,status,type,site_code) VALUES('WX','CA','OPERATIONAL','ACTIVE','MEDICINE','SX'),('WY','CA','OPERATIONAL','ACTIVE','MEDICINE','SY');
-   INSERT INTO inv_batches(batch_no,product_code,qty,qty_available,status,warehouse_code,company_code,store_code,expire_date) VALUES('MED-STOCK','MED',10,10,'AVAILABLE','WX','CA','SX','2027-11-01'),('VAC-STOCK','VAC',10,10,'AVAILABLE','WY','CA','SY','2027-11-01');`);
+   INSERT INTO mst_materials(material_code,material_name,material_type,unit,status,vet_kind) VALUES ('MAT-MED','fixture medication','VET_DRUG','瓶','ACTIVE','MEDICATION'),('MAT-VAC','fixture vaccine','VET_DRUG','瓶','ACTIVE','VACCINE');
+   INSERT INTO inv_batches(batch_no,material_code,item_type,unit,qty,qty_available,status,warehouse_code,company_code,store_code,expire_date) VALUES('MED-STOCK','MAT-MED','MATERIAL','瓶',10,10,'AVAILABLE','WX','CA','SX','2027-11-01'),('VAC-STOCK','MAT-VAC','MATERIAL','瓶',10,10,'AVAILABLE','WY','CA','SY','2027-11-01');`);
   const actorScope=(farm:string,site:string,wh:string)=>({get:()=>({isGlobal:false,allowedCompanyCodes:['CA'],allowedFarmCodes:[farm],allowedSiteCodes:[site],allowedWarehouseCodes:[wh],allowedBreedingFarmCodes:[farm],allowedBreedingSiteCodes:[],allowedBreedingCompanyCodes:[]})}) as any;
   const immuneX=new ImmuneService(db,actorScope('X','SX','WX'));const medicine=new MedicationRecordService(db,actorScope('X','SX','WX'));
-  const plan=await immuneX.create({flock_no:'FA',house_code:'HX',farm_code:'X',site_code:'SX',company_code:'CA',vaccine_code:'VAC',plan_date:'2026-11-17',planned_heads:5,dose_value:1},'keeper');
-  const med=await medicine.create({flock_no:'FA',house_code:'HX',farm_code:'X',site_code:'SX',company_code:'CA',medication_code:'MED',start_date:'2026-11-17',end_date:'2026-11-17',withdraw_days:3,actual_qty:1,inventory_batch_no:'MED-STOCK'},'keeper');expect(med.id).toBeTruthy();
+  const plan=await immuneX.create({flock_no:'FA',house_code:'HX',farm_code:'X',site_code:'SX',company_code:'CA',material_code:'MAT-VAC',plan_date:'2026-11-17',planned_heads:5,dose_value:1},'keeper');
+  const med=await medicine.create({flock_no:'FA',house_code:'HX',farm_code:'X',site_code:'SX',company_code:'CA',material_code:'MAT-MED',actual_heads:12,start_date:'2026-11-17',end_date:'2026-11-17',withdraw_days:3,actual_qty:1,inventory_batch_no:'MED-STOCK'},'keeper');expect(med.id).toBeTruthy();
   const lifecycle=new FlockLifecycleService(db.manager);const global={isGlobal:true,farmCode:null,siteCode:null};let n=0;
   const post=async(body:any)=>{let d=await lifecycle.create({sourceKey:'HEALTH-'+(++n),houseCode:'HY',businessDate:'2026-11-17',expectedVersion:0,reason:'real fixture caretaker transfer',responsible:'keeper',evidence:[body.houseCode==='HX'?'FILE-X':'FILE-Y'],...body},global,{id:'keeper',admin:true});d=await lifecycle.transition(d.id,'submit',0,global,{id:'keeper',admin:true});d=await lifecycle.transition(d.id,'approve',d.version,global,{id:'reviewer',admin:true});return lifecycle.transition(d.id,'post',d.version,global,{id:'keeper',admin:true});};
   await post({kind:'CLEAN_START',expectedHouseVersion:0});await post({kind:'CLEAN_ACCEPT',expectedHouseVersion:0});await post({kind:'TRANSFER',houseCode:'HX',flockNo:'FA',targetHouseCode:'HY'});
   await expect(medicine.cancel(med.id,'old-caretaker')).rejects.toThrow('无权');
-  await expect(immuneX.execute(plan.id,{actual_heads:5,inventory_batch_no:'VAC-STOCK'},'old-caretaker')).rejects.toThrow('无权');
-  const immuneY=new ImmuneService(db,actorScope('Y','SY','WY'));await immuneY.execute(plan.id,{actual_heads:5,inventory_batch_no:'VAC-STOCK'},'new-caretaker');await immuneY.execute(plan.id,{actual_heads:5,inventory_batch_no:'VAC-STOCK'},'new-caretaker');
+  await expect(immuneX.execute(plan.id,{actual_heads:5,actual_qty:2,inventory_batch_no:'VAC-STOCK'},'old-caretaker')).rejects.toThrow('无权');
+  const immuneY=new ImmuneService(db,actorScope('Y','SY','WY'));await immuneY.execute(plan.id,{actual_heads:5,actual_qty:2,inventory_batch_no:'VAC-STOCK'},'new-caretaker');await immuneY.execute(plan.id,{actual_heads:5,actual_qty:2,inventory_batch_no:'VAC-STOCK'},'new-caretaker');
   expect((await db.query('SELECT house_code,farm_code,status FROM brd_vaccinations WHERE id=$1',[plan.id]))[0]).toEqual({house_code:'HX',farm_code:'X',status:'EXECUTED'});
   const links=await db.query('SELECT activity_type,house_code FROM brd_flock_activity_sources ORDER BY activity_type');expect(links).toEqual([{activity_type:'IMMUNE_EXECUTION',house_code:'HY'},{activity_type:'IMMUNE_PLAN',house_code:'HX'},{activity_type:'MEDICATION',house_code:'HX'}]);
-  expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='VAC-STOCK'"))[0].qty_available)).toBe(5);expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='MED-STOCK'"))[0].qty_available)).toBe(9);
+  expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='VAC-STOCK'"))[0].qty_available)).toBe(8);expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='MED-STOCK'"))[0].qty_available)).toBe(9);
   const care=await lifecycle.care({isGlobal:false,farmCode:'Y',siteCode:null,farmCodes:['Y'],companyCodes:[]});expect(care.medications[0]).toMatchObject({house_code:'HX',current_house_code:'HY',withdraw_until:'2026-11-20'});
   const [o]=await db.query("SELECT id FROM brd_flock_occupancies WHERE house_code='HY' AND ended_on IS NULL");await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,farm_code,company_code,log_date,shift,occupancy_id,eggs_by_grade,eggs_produced) VALUES('FA','HY','Y','CA','2026-11-17','DAILY',$1,'{"GRADE_1":5}',5)`,[o.id]);
   await expect(db.transaction(m=>recordFlockProductionSources(m,{companyCode:'CA',eggDate:'2026-11-17',qty:5,qualityGrade:'GRADE_1',sourceType:'TEMP_PRODUCTION'},'WITHDRAWAL-BLOCK',[{houseCode:'HY',profileCode:'PROFILE-A'}],global))).rejects.toThrow('休药隔离期');expect((await db.query('SELECT COUNT(*)::int AS n FROM brd_egg_day_routes'))[0].n).toBe(0);
@@ -263,6 +274,114 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
     expect((await m.query("SELECT kind FROM brd_egg_disposition_receipts WHERE ledger_id=$1",[reversal.id]))[0].kind).toBe('FORMAL_PRODUCTION_REVERSAL');
     expect(await held('2026-11-11')).toBe(true);await expect(debit()).rejects.toThrow('休药隔离期');
   } finally {await runner.rollbackTransaction();await runner.release();}
+ });
+ describe('actual veterinary material stock', () => {
+  const actor = {get: () => ({isGlobal: true, allowedWarehouseCodes: []})} as any;
+  const location = {flock_no:'FA',house_code:'HX',farm_code:'X',site_code:'SX',company_code:'CA'};
+  beforeEach(async () => {
+   await db.query(`INSERT INTO brd_medications(medication_code,medication_name,status,store_code,product_type,unit_code)
+    VALUES ('MED-TEST','fixture vaccine','ACTIVE','ALL','VACCINE','DOSE');
+    INSERT INTO mst_materials(material_code,material_name,material_type,unit,status,vet_kind,vet_withdraw_days) VALUES ('MAT-TEST','test vaccine','VET_DRUG','瓶','ACTIVE','VACCINE',NULL),('MAT-RX','test medication','VET_DRUG','瓶','ACTIVE','MEDICATION',1);
+    INSERT INTO wms_warehouses(warehouse_code,company_code,domain,status,type,site_code)
+    VALUES ('MED-WH','CA','OPERATIONAL','ACTIVE','MEDICINE','SX'), ('OTHER','CA','OPERATIONAL','ACTIVE','MEDICINE','SA'),('FOREIGN','CB','OPERATIONAL','ACTIVE','MEDICINE','SB');
+    INSERT INTO inv_batches(batch_no,product_code,material_code,item_type,material_type,unit,qty,qty_available,status,warehouse_code,company_code,store_code)
+    VALUES ('LOT',NULL,'MAT-TEST','MATERIAL','VET_DRUG','瓶',15,15,'AVAILABLE','MED-WH','CA','ALL'),
+           ('RX-LOT',NULL,'MAT-RX','MATERIAL','VET_DRUG','瓶',15,15,'AVAILABLE','MED-WH','CA','ALL'), ('WRONG-SITE',NULL,'MAT-TEST','MATERIAL','VET_DRUG','瓶',15,15,'AVAILABLE','OTHER','CA','ALL'),('FOREIGN-LOT',NULL,'MAT-TEST','MATERIAL','VET_DRUG','瓶',15,15,'AVAILABLE','FOREIGN','CB','ALL');`);
+  });
+  it('selects the mapped lot and records 49 birds consuming two bottles exactly once', async () => {
+   const immune = new ImmuneService(db,actor);
+   const lots = await immune.getLots('MAT-TEST','SX','CA');
+   expect(lots.map((l:any)=>l.batch_no)).toEqual(['LOT']);
+   const issue_lines = [{inventory_batch_no:'LOT',qty:2,unit_code:'瓶'}];
+   const plan = await immune.create({...location,material_code:'MAT-TEST',planned_heads:50,plan_date:'2026-11-17',issue_lines},'tester');
+   expect(Number((await db.query("SELECT qty FROM inv_batches WHERE batch_no='LOT'"))[0].qty)).toBe(15);
+   const body = {actual_heads:49,issue_lines};
+   await Promise.all([immune.execute(plan.id,body,'tester'),immune.execute(plan.id,body,'tester')]);
+   expect((await db.query("SELECT actual_heads FROM brd_vaccinations WHERE id=$1",[plan.id]))[0].actual_heads).toBe(49);
+   expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='LOT'"))[0].qty_available)).toBe(13);
+   expect(await db.query("SELECT l.qty_change::float8 AS delta,l.unit,l.material_code FROM inv_ledger l JOIN brd_vaccination_issue_lines i ON i.inv_ledger_id=l.id WHERE i.vaccination_id=$1",[plan.id])).toEqual([{delta:-2,unit:'瓶',material_code:'MAT-TEST'}]);
+  });
+  it('rejects ungranted warehouses, cross-company batches, wrong units and sub-stock precision',async()=>{
+   const immune=new ImmuneService(db,actor);
+   const plan=await immune.create({...location,material_code:'MAT-TEST',planned_heads:60,plan_date:'2026-11-17'},'tester');
+   for (const [batch,qty,unit] of [['FOREIGN-LOT',2,'瓶'],['WRONG-SITE',2,'瓶'],['LOT',0.0001,'瓶'],['LOT',2,'DOSE']] as const) {
+     await expect(immune.execute(plan.id,{actual_heads:49,issue_lines:[{inventory_batch_no:batch,qty,unit_code:unit}]},'tester')).rejects.toThrow();
+   }
+   const scope={get:()=>({isGlobal:false,allowedCompanyCodes:['CA'],allowedSiteCodes:['SX'],allowedFarmCodes:['X'],allowedWarehouseCodes:[]})} as any;
+   const denied=new ImmuneService(db,scope);
+   await expect(denied.getLots('MAT-TEST','SX','CA','MED-WH')).rejects.toThrow('无权');
+   await expect(denied.execute(plan.id,{actual_heads:49,issue_lines:[{inventory_batch_no:'LOT',qty:1}]},'tester')).rejects.toThrow('无权');
+   await expect(new MedicationRecordService(db,scope).create({...location,material_code:'MAT-RX',days_used:1,actual_heads:12,actual_qty:1,inventory_batch_no:'LOT',start_date:'2026-11-17'},'tester')).rejects.toThrow('无权');
+   expect(await db.query('SELECT id FROM brd_vaccination_issue_lines')).toEqual([]);
+   expect((await db.query("SELECT qty::int FROM inv_batches WHERE batch_no='LOT'"))[0].qty).toBe(15);
+  });
+  it('rejects mixing stock units at plan time and rejects a lot with unverifiable ownership',async()=>{
+   const immune=new ImmuneService(db,actor), medicine=new MedicationRecordService(db,actor);
+   await db.query(`INSERT INTO inv_batches(batch_no,material_code,item_type,unit,qty,qty_available,status,warehouse_code,company_code,store_code)
+     VALUES ('BOX','MAT-TEST','MATERIAL','盒',3,3,'AVAILABLE','MED-WH','CA','SX')`);
+   await expect(immune.create({...location,material_code:'MAT-TEST',planned_heads:50,plan_date:'2026-11-17',
+     issue_lines:[{inventory_batch_no:'LOT',qty:1},{inventory_batch_no:'BOX',qty:1}]},'tester')).rejects.toThrow('单位');
+   await db.query("UPDATE inv_batches SET company_code=NULL WHERE batch_no='RX-LOT';UPDATE wms_warehouses SET company_code=NULL WHERE warehouse_code='MED-WH'");
+   expect(await medicine.getLots('MAT-RX','SX','CA')).toEqual([]);
+   await expect(medicine.create({...location,material_code:'MAT-RX',days_used:1,actual_heads:12,actual_qty:1,inventory_batch_no:'RX-LOT',start_date:'2026-11-17'},'tester')).rejects.toThrow('归属');
+  });
+  it('excludes non-operational warehouses from choices, receipts, consumption and reversal',async()=>{
+   const immune=new ImmuneService(db,actor), medicine=new MedicationRecordService(db,actor);
+   const stock=new FarmMedicineService(db,{assertWritableWarehouse:()=>{}} as any,actor);
+   const plan=await immune.create({...location,material_code:'MAT-TEST',planned_heads:50,plan_date:'2026-11-17'},'tester');
+   const body={...location,material_code:'MAT-RX',days_used:1,start_date:'2026-11-17',actual_heads:21,actual_qty:1,inventory_batch_no:'RX-LOT'};
+   const record=await medicine.create(body,'tester');
+   await db.query("UPDATE wms_warehouses SET domain='VIRTUAL' WHERE warehouse_code='MED-WH'");
+   expect(await immune.getLots('MAT-TEST','SX','CA')).toEqual([]);
+   expect(await medicine.getLots('MAT-RX','SX','CA')).toEqual([]);
+   expect((await stock.inboundWarehouses()).some((w:any)=>w.warehouse_code==='MED-WH')).toBe(false);
+   await expect(stock.inbound('2026-11-17',[{...location,material_code:'MAT-RX',days_used:1,qty:2,warehouse_code:'MED-WH'}],'tester')).rejects.toThrow();
+   await expect(immune.execute(plan.id,{actual_heads:21,actual_qty:1,inventory_batch_no:'LOT'},'tester')).rejects.toThrow();
+   await expect(medicine.create(body,'tester')).rejects.toThrow('实体药品仓');
+   await expect(medicine.cancel(record.id,'tester')).rejects.toThrow('实体药品仓');
+   expect((await db.query("SELECT qty::int FROM inv_batches WHERE batch_no='RX-LOT'"))[0].qty).toBe(14);
+  });
+  it('posts mapped receipts, reconciles the catalog and rejects foreign or frozen batch collisions',async()=>{
+   expect(await new ImmuneService(db,actor).flockOptions()).toEqual(expect.arrayContaining([expect.objectContaining({...location,current_qty:70})]));
+   const stock=new FarmMedicineService(db,{assertWritableWarehouse:()=>{}} as any,actor);
+   const input={material_code:'MAT-TEST',qty:2,batch_no:'NEW-MAT',warehouse_code:'MED-WH',site_code:'SX',company_code:'CA'};
+   await stock.inbound('2026-11-17',[input],'tester');
+   expect((await db.query("SELECT product_code,material_code,item_type,unit FROM inv_batches WHERE batch_no='NEW-MAT'"))[0])
+     .toEqual({product_code:null,material_code:'MAT-TEST',item_type:'MATERIAL',unit:'瓶'});
+   expect(await stock.getCatalog()).toEqual(expect.arrayContaining([expect.objectContaining({medication_code:'MAT-TEST',qty:47,unit:'瓶'})]));
+   await expect(stock.inbound('2026-11-17',[{...input,batch_no:'FOREIGN-LOT'}],'tester')).rejects.toThrow();
+   await db.query("UPDATE inv_batches SET status='FROZEN' WHERE batch_no='NEW-MAT'");
+   await expect(stock.inbound('2026-11-17',[input],'tester')).rejects.toThrow();
+   expect(await stock.getLedger('2026-11-17','2026-11-17')).toEqual(expect.arrayContaining([expect.objectContaining({medication_code:'MAT-TEST',unit:'瓶',change_type:'MED_INBOUND'})]));
+  });
+  it('rolls back the first batch, ledger and issue line when the second ledger write fails',async()=>{
+   await db.query(`INSERT INTO inv_batches(batch_no,material_code,item_type,unit,qty,qty_available,status,warehouse_code,company_code,store_code)
+     VALUES ('LOT-Z','MAT-TEST','MATERIAL','瓶',3,3,'AVAILABLE','MED-WH','CA','ALL');
+     ALTER TABLE inv_ledger ADD CONSTRAINT vet_fixture_second_line CHECK(batch_no<>'LOT-Z')`);
+   try {
+     const immune=new ImmuneService(db,actor);
+     const plan=await immune.create({...location,material_code:'MAT-TEST',planned_heads:50,plan_date:'2026-11-17'},'tester');
+     await expect(immune.execute(plan.id,{actual_heads:49,issue_lines:[{inventory_batch_no:'LOT-Z',qty:1},{inventory_batch_no:'LOT',qty:1}]},'tester')).rejects.toThrow();
+     expect(await db.query("SELECT batch_no,qty::int FROM inv_batches WHERE batch_no IN ('LOT','LOT-Z') ORDER BY batch_no")).toEqual([{batch_no:'LOT',qty:15},{batch_no:'LOT-Z',qty:3}]);
+     expect(await db.query('SELECT * FROM brd_vaccination_issue_lines WHERE vaccination_id=$1',[plan.id])).toEqual([]);
+     expect(await db.query("SELECT * FROM inv_ledger WHERE business_type='FARM_IMMUNIZATION'")).toEqual([]);
+     expect((await db.query('SELECT status FROM brd_vaccinations WHERE id=$1',[plan.id]))[0].status).toBe('PLANNED');
+   } finally {await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT vet_fixture_second_line');}
+  });
+  it('lists scoped medicine lots, consumes the actual quantity and restores the same lot', async () => {
+   const medicine = new MedicationRecordService(db,actor);
+   expect((await medicine.getLots('MAT-RX','SX','CA')).map((l:any)=>l.batch_no)).toEqual(['RX-LOT']);
+   await db.query("UPDATE inv_batches SET inbound_date='2026-11-17' WHERE batch_no='RX-LOT'");
+   expect(await medicine.getLots('MAT-RX','SX','CA',undefined,'2026-11-16')).toEqual([]);
+   await expect(medicine.create({...location,material_code:'MAT-RX',days_used:1,actual_heads:12,start_date:'2026-11-16',actual_qty:1,inventory_batch_no:'RX-LOT'},'tester')).rejects.toThrow('尚未入库');
+   const record = await medicine.create({...location,material_code:'MAT-RX',days_used:1,start_date:'2026-11-17',actual_heads:21,actual_qty:3,inventory_batch_no:'RX-LOT',qty_unit:'瓶'},'tester');
+   expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='RX-LOT'"))[0].qty_available)).toBe(12);
+   expect(await db.query('SELECT actual_heads,qty_unit FROM brd_medication_records WHERE id=$1',[record.id])).toEqual([{actual_heads:21,qty_unit:'瓶'}]);
+   await db.query("UPDATE inv_batches SET status='FROZEN',qty_available=0 WHERE batch_no='RX-LOT'");
+   await medicine.cancel(record.id,'tester');
+   expect(await db.query("SELECT qty::int,status FROM inv_batches WHERE batch_no='RX-LOT'")).toEqual([{qty:15,status:'FROZEN'}]);
+   expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='RX-LOT'"))[0].qty_available)).toBe(0);
+  });
  });
  it('masks both mixed and empty unverified historical packaging for restricted users',async()=>{
   await db.query(`INSERT INTO pkg_packing_records VALUES('OLD',false,'2026-11-01','G','["G"]','[]',1,10,NULL,'COMPLETED',NULL),('EMPTY',false,'2026-11-01','NONE','["NONE"]','[]',1,10,NULL,'COMPLETED',NULL);

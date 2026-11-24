@@ -35,12 +35,15 @@ async function apiPost<T = any>(path: string, data: unknown): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+interface MedicineWarehouse {warehouse_code:string;site_code:string;company_code:string}
 interface MedStock {
+  material_code?:string;
   medication_code: string;
   medication_name: string;
   dosage: string;
   qty: number;
   unit: string;
+  other_units?: {qty:number;unit:string}[];
 }
 interface MedLedger {
   id: number;
@@ -49,6 +52,7 @@ interface MedLedger {
   medication_code: string;
   medication_name: string;
   qty_change: number;
+  unit?:string;
   house_code: string | null;
   note: string | null;
   operator: string;
@@ -61,6 +65,8 @@ const addDays = (d: string, n: number) => {
 };
 type Tab = 'stock' | 'inbound' | 'ledger';
 interface EntryRow {
+  manufacturerBatch?:string;
+  expireDate?:string;
   qty: number;
   house_code: string;
   note: string;
@@ -80,6 +86,19 @@ export default function MedStockPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [warehouses,setWarehouses] = useState<MedicineWarehouse[]>([]);
+  const [warehouseCode,setWarehouseCode] = useState('');
+  const warehouse = warehouses.find(w=>w.warehouse_code===warehouseCode);
+  useEffect(()=>{
+    if (tab !== 'inbound') return;
+    let active=true;
+    apiFetch<MedicineWarehouse[]>('/api/farm/medicine/inbound-warehouses').then(rows=>{
+      if (!active) return;
+      setWarehouses(rows);
+      setWarehouseCode(previous=>rows.some(w=>w.warehouse_code===previous)?previous:rows.length===1?rows[0].warehouse_code:'');
+    }).catch((e:Error)=>{if(active) setError(e.message);});
+    return ()=>{active=false;};
+  },[tab]);
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
   const [ledgerDate, setLedgerDate] = useState(() => {
     const d = new Date();
@@ -132,13 +151,13 @@ export default function MedStockPage() {
   };
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
   const handleSave = async () => {
-    if (!hasChanges) return;
+    if (!hasChanges || !warehouse) return;
     setSaving(true);
     setError('');
     try {
       const items = Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
-        medication_code: code,
-        qty: e.qty,
+        ...warehouse, material_code: code,
+        qty: e.qty, manufacturer_batch_no:e.manufacturerBatch || undefined, expire_date:e.expireDate || undefined,
         house_code: undefined,
         note: e.note || undefined
       }));
@@ -188,7 +207,7 @@ export default function MedStockPage() {
         ))}
         <div className={u.flex1} />
         {tab === 'inbound' && canEdit && (
-          <button onClick={handleSave} disabled={saving || !hasChanges} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
+          <button onClick={handleSave} disabled={saving || !hasChanges || !warehouse} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
             {saving ? t('ui.提交中', '提交中…') : saved ? t('ui.已保存', '已保存') : t('ui.提交', '提交')}
           </button>
         )}
@@ -254,25 +273,25 @@ export default function MedStockPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : filteredStock.length === 0 ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : filteredStock.map(m => <tr key={m.medication_code}>
+                {loading ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : filteredStock.length === 0 ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : filteredStock.map(m => <tr key={(m.material_code ? 'MATERIAL:' : 'LEGACY:') +m.medication_code}>
                       <td>{m.medication_name}</td>
                       <td className={u.muted}>{m.dosage}</td>
                       <td style={{
                 textAlign: 'right',
-                color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)'
+                color: (m.qty > 0 || m.other_units?.some(b=>b.qty>0)) ? 'var(--status-special)' : 'var(--text-secondary)'
               }}>{m.qty}</td>
-                      <td className={u.muted}>{m.unit}</td>
+                      <td className={u.muted}>{m.unit}{m.other_units?.map(b => <span key={b.unit}> · {b.qty} {b.unit}</span>)}</td>
                       <td>
                         <span style={{
                   fontSize: 11,
                   fontWeight: 600,
                   padding: '2px 8px',
                   borderRadius: 10,
-                  background: m.qty > 0 ? 'var(--status-special-bg)' : 'var(--status-neutral-bg-light)',
-                  color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)',
-                  border: `1px solid ${m.qty > 0 ? 'var(--status-special-border)' : 'var(--border)'}`
+                  background: (m.qty > 0 || m.other_units?.some(b=>b.qty>0)) ? 'var(--status-special-bg)' : 'var(--status-neutral-bg-light)',
+                  color: (m.qty > 0 || m.other_units?.some(b=>b.qty>0)) ? 'var(--status-special)' : 'var(--text-secondary)',
+                  border: `1px solid ${(m.qty > 0 || m.other_units?.some(b=>b.qty>0)) ? 'var(--status-special-border)' : 'var(--border)'}`
                 }}>
-                          {m.qty > 0 ? t('ui.有库存', '有库存') : t('ui.无库存', '无库存')}
+                          {(m.qty > 0 || m.other_units?.some(b=>b.qty>0)) ? t('ui.有库存', '有库存') : t('ui.无库存', '无库存')}
                         </span>
                       </td>
                     </tr>)}
@@ -281,6 +300,12 @@ export default function MedStockPage() {
           </div>
         </>}
 
+      {tab === 'inbound' && <label>入库药品仓
+        <select aria-label="入库药品仓" className={s.inp} value={warehouseCode} onChange={e=>setWarehouseCode(e.target.value)}>
+          <option value="">请选择所属场站的药品仓</option>
+          {warehouses.map(w=><option key={w.warehouse_code} value={w.warehouse_code}>{w.site_code} · {w.warehouse_code}</option>)}
+        </select>
+      </label>}
       {/* ── 入库 / 出库 Tab ── */}
       {tab === 'inbound' && <div style={{
       background: 'var(--bg-card)',
@@ -295,11 +320,11 @@ export default function MedStockPage() {
                 <th>{t('ui.规格', '规格')}</th>
                 <th className={u.tar}>{t('ui.库存', '库存')}</th>
                 <th className={u.tac}>{t('ui.数量', '数量')}</th>
-                <th>{t('ui.备注', '备注')}</th>
+                <th>厂家批号</th><th>有效期</th><th>{t('ui.备注', '备注')}</th>
               </tr>
             </thead>
             <tbody>
-              {stock.map(m => {
+              {stock.filter(m=>m.material_code).map(m => {
             const e = getEntry(m.medication_code);
             return <tr key={m.medication_code} style={{
               background: e.qty > 0 ? 'rgba(139,92,246,0.04)' : undefined
@@ -324,10 +349,12 @@ export default function MedStockPage() {
                   fontSize: 13
                 }} /> : e.qty}
                     </td>
+                    <td><input aria-label="厂家批号" disabled={!canEdit} value={e.manufacturerBatch || ''} onChange={ev=>setEntry(m.medication_code,{manufacturerBatch:ev.target.value})}/></td>
+                    <td><input aria-label="有效期" type="date" disabled={!canEdit} value={e.expireDate || ''} onChange={ev=>setEntry(m.medication_code,{expireDate:ev.target.value})}/></td>
                     <td>
                       {canEdit ? <input type="text" value={e.note} onChange={ev => setEntry(m.medication_code, {
                   note: ev.target.value
-                })} placeholder={tab === 'inbound' ? t('ui.供应商/批号…', '供应商/批号…') : t('ui.用途…', '用途…')} style={{
+                })} placeholder={t('ui.备注','备注')} style={{
                   width: 180,
                   padding: '4px 6px',
                   borderRadius: 6,
@@ -414,7 +441,7 @@ export default function MedStockPage() {
                 textAlign: 'right',
                 color: e.qty_change > 0 ? 'var(--status-success)' : 'var(--status-danger)'
               }}>
-                        {e.qty_change > 0 ? '+' : ''}{e.qty_change}
+                        {e.qty_change > 0 ? '+' : ''}{e.qty_change} {e.unit}
                       </td>
                       <td className={u.muted}>{formatMasterData(e as unknown as Record<string, unknown>, 'house_name', e.house_code, lang)}</td>
                       <td className={u.muted12}>{e.note ?? '—'}</td>

@@ -23,10 +23,10 @@ describe('MedicationRecordService', () => {
     farm_code: 'FARM-A',
     flock_no: 'FLOCK-A',
     house_code: 'HOUSE-A',
-    medication_code: 'MED-A',
+    material_code: 'MAT-A',
     start_date: '2026-07-01',
     end_date: '2026-07-02',
-    actual_qty: 8,
+    actual_qty: 8,actual_heads:7,
     qty_unit: 'BOTTLE',
     withdraw_days: 3,
     warehouse_code: 'WH-MED-A',
@@ -47,14 +47,14 @@ describe('MedicationRecordService', () => {
   it('allocates FEFO lots and writes stock, ledger, record, and issue lines in one transaction', async () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A', status: 'ACTIVE' }];
-      if (sql.includes('FROM brd_medications')) return [{ medication_code: 'MED-A', medication_name: '药品A', unit_code: 'BOTTLE', default_withdraw_days: 1 }];
+      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', site_code: 'SITE-A', company_code: 'COMP-A', current_qty:70, status: 'ACTIVE' }];
+      if (sql.includes('SELECT mat.material_code') && !sql.includes('JOIN inv_batches')) return [{ material_code: 'MAT-A', medication_name: '药品A', unit_code: 'BOTTLE', vet_withdraw_days: 1 }];
       if (sql.includes('SELECT b.batch_no')) return [
-        { batch_no: 'B-EXP-1', qty: 5, qty_available: 5, expire_date: '2026-08-01', inbound_date: '2026-06-01' },
-        { batch_no: 'B-EXP-2', qty: 5, qty_available: 5, expire_date: '2026-09-01', inbound_date: '2026-05-01' },
+        { warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',status:'AVAILABLE',unit:'BOTTLE', material_code:null, batch_no: 'B-EXP-1', qty: 5, qty_available: 5, expire_date: '2026-08-01', inbound_date: '2026-06-01' },
+        { warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',status:'AVAILABLE',unit:'BOTTLE', material_code:null, batch_no: 'B-EXP-2', qty: 5, qty_available: 5, expire_date: '2026-09-01', inbound_date: '2026-05-01' },
       ];
       if (sql.includes('INSERT INTO brd_medication_records')) return [{ id: 10, record_no: 'REC-1', course_no: 'COURSE-1', withdraw_until: '2026-07-05', status: 'USING' }];
-      if (sql.includes('UPDATE inv_batches')) return [{ batch_no: 'B-EXP-1' }];
+      if (sql.includes('UPDATE inv_batches')) return [{ warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',unit:'BOTTLE', material_code:null, batch_no: 'B-EXP-1' }];
       if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 100 }];
       return [];
     });
@@ -62,7 +62,7 @@ describe('MedicationRecordService', () => {
     const result = await service.create({ ...input, record_no: 'REC-1', course_no: 'COURSE-1' }, 'jwt-user');
 
     expect(result.record_no).toBe('REC-1');
-    expect(result.allocated).toEqual([{ batch_no: 'B-EXP-1', qty: 5, expire_date: '2026-08-01', inbound_date: '2026-06-01' }, { batch_no: 'B-EXP-2', qty: 3, expire_date: '2026-09-01', inbound_date: '2026-05-01' }]);
+    expect(result.allocated).toEqual([{ unit:'BOTTLE', material_code:null, batch_no: 'B-EXP-1', qty: 5, expire_date: '2026-08-01', inbound_date: '2026-06-01' }, { unit:'BOTTLE', material_code:null, batch_no: 'B-EXP-2', qty: 3, expire_date: '2026-09-01', inbound_date: '2026-05-01' }]);
     expect(manager.query.mock.calls.map(call => String(call[0]))).toEqual(expect.arrayContaining([
       expect.stringContaining('ORDER BY b.expire_date ASC NULLS LAST'),
       expect.stringContaining("COALESCE(qty_available, qty, 0) >= $1::numeric"),
@@ -77,9 +77,9 @@ describe('MedicationRecordService', () => {
   it('returns 409 before any write when FEFO stock cannot cover the request', async () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A', status: 'ACTIVE' }];
-      if (sql.includes('FROM brd_medications')) return [{ medication_code: 'MED-A', unit_code: 'BOTTLE', default_withdraw_days: 0 }];
-      if (sql.includes('SELECT b.batch_no')) return [{ batch_no: 'B-ONLY', qty: 3, qty_available: 3, expire_date: null, inbound_date: null }];
+      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', site_code: 'SITE-A', company_code: 'COMP-A', current_qty:70, status: 'ACTIVE' }];
+      if (sql.includes('SELECT mat.material_code') && !sql.includes('JOIN inv_batches')) return [{ material_code: 'MAT-A', unit_code: 'BOTTLE', vet_withdraw_days: 0 }];
+      if (sql.includes('SELECT b.batch_no')) return [{ warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',unit:'BOTTLE', material_code:null, batch_no: 'B-ONLY', qty: 3, qty_available: 3, expire_date: null, inbound_date: null }];
       return [];
     });
 
@@ -105,8 +105,8 @@ describe('MedicationRecordService', () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM brd_medication_records')) return [{ id: 10, record_no: 'REC-1', status: 'USING', company_code: 'COMP-A', site_code: 'SITE-A' }];
-      if (sql.includes('FROM brd_medication_issue_lines')) return [{ id: 1, inventory_batch_no: 'B-1', qty: 2 }];
-      if (sql.includes('UPDATE inv_batches')) return [{ batch_no: 'B-1' }];
+      if (sql.includes('FROM brd_medication_issue_lines')) return [{ id: 1, inventory_batch_no: 'B-1', qty: 2,warehouse_domain:'OPERATIONAL',warehouse_type:'MEDICINE',warehouse_status:'ACTIVE',warehouse_company:'COMP-A',warehouse_site:'SITE-A' }];
+      if (sql.includes('UPDATE inv_batches')) return [{ warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',unit:'BOTTLE', material_code:null, batch_no: 'B-1' }];
       if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 101 }];
       if (sql.includes('UPDATE brd_medication_records')) return [{ id: 10, record_no: 'REC-1', status: 'CANCELLED' }];
       return [];
@@ -123,10 +123,10 @@ describe('MedicationRecordService', () => {
   it('returns a distinct expired-batch error before creating a record', async () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A', status: 'ACTIVE' }];
-      if (sql.includes('FROM brd_medications')) return [{ medication_code: 'MED-A', unit_code: 'BOTTLE', default_withdraw_days: 0 }];
+      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', site_code: 'SITE-A', company_code: 'COMP-A', current_qty:70, status: 'ACTIVE' }];
+      if (sql.includes('SELECT mat.material_code') && !sql.includes('JOIN inv_batches')) return [{ material_code: 'MAT-A', unit_code: 'BOTTLE', vet_withdraw_days: 0 }];
       if (sql.includes('SELECT b.batch_no')) return [{
-        batch_no: 'B-OLD', qty: 10, qty_available: 10, status: 'AVAILABLE',
+        warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',batch_no: 'B-OLD', qty: 10, qty_available: 10, status: 'AVAILABLE',
         expire_date: '2026-06-01', store_code: 'SITE-A', company_code: 'COMP-A', warehouse_code: 'WH-A',
       }];
       return [];
@@ -140,8 +140,8 @@ describe('MedicationRecordService', () => {
   it('returns a distinct cross-site error for a batch owned by another site', async () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A', status: 'ACTIVE' }];
-      if (sql.includes('FROM brd_medications')) return [{ medication_code: 'MED-A', unit_code: 'BOTTLE', default_withdraw_days: 0 }];
+      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', site_code: 'SITE-A', company_code: 'COMP-A', current_qty:70, status: 'ACTIVE' }];
+      if (sql.includes('SELECT mat.material_code') && !sql.includes('JOIN inv_batches')) return [{ material_code: 'MAT-A', unit_code: 'BOTTLE', vet_withdraw_days: 0 }];
       if (sql.includes('SELECT b.batch_no')) return [{
         batch_no: 'B-OTHER', qty: 10, qty_available: 10, status: 'AVAILABLE',
         expire_date: '2026-12-01', store_code: 'SITE-B', company_code: 'COMP-A', warehouse_code: 'WH-A',
@@ -156,11 +156,11 @@ describe('MedicationRecordService', () => {
   it('propagates a write failure so the datasource transaction rolls back', async () => {
     const { service, manager } = build();
     manager.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A', status: 'ACTIVE' }];
-      if (sql.includes('FROM brd_medications')) return [{ medication_code: 'MED-A', unit_code: 'BOTTLE', default_withdraw_days: 0 }];
-      if (sql.includes('SELECT b.batch_no')) return [{ batch_no: 'B-1', qty: 10, qty_available: 10, status: 'AVAILABLE', warehouse_code: 'WH-MED-A' }];
+      if (sql.includes('SELECT f.flock_no')) return [{ flock_no: 'FLOCK-A', farm_code: 'FARM-A', house_code: 'HOUSE-A', site_code: 'SITE-A', company_code: 'COMP-A', current_qty:70, status: 'ACTIVE' }];
+      if (sql.includes('SELECT mat.material_code') && !sql.includes('JOIN inv_batches')) return [{ material_code: 'MAT-A', unit_code: 'BOTTLE', vet_withdraw_days: 0 }];
+      if (sql.includes('SELECT b.batch_no')) return [{ warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',unit:'BOTTLE', material_code:null, batch_no: 'B-1', qty: 10, qty_available: 10, status: 'AVAILABLE', warehouse_code: 'WH-MED-A' }];
       if (sql.includes('INSERT INTO brd_medication_records')) return [{ id: 10, record_no: 'REC-1', course_no: 'COURSE-1', status: 'USING' }];
-      if (sql.includes('UPDATE inv_batches')) return [{ batch_no: 'B-1' }];
+      if (sql.includes('UPDATE inv_batches')) return [{ warehouse_company_code:'COMP-A',warehouse_site_code:'SITE-A',warehouse_status:'ACTIVE',warehouse_type:'MEDICINE',unit:'BOTTLE', material_code:null, batch_no: 'B-1' }];
       if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 100 }];
       if (sql.includes('INSERT INTO brd_medication_issue_lines')) throw new Error('issue line write failed');
       return [];

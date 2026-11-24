@@ -7,7 +7,7 @@ function extractItems(body: any): unknown {
   if (Array.isArray(body?.items)) return body.items;
   if (Array.isArray(body?.lines)) return body.lines;
   if (body?.item) return [body.item];
-  if (body?.medication_code || body?.medicationCode || body?.medicine_code || body?.code) return [body];
+  if (body?.material_code || body?.medication_code || body?.medicationCode || body?.medicine_code || body?.code) return [body];
   return body?.items;
 }
 
@@ -20,6 +20,11 @@ export class FarmMedicineController {
   constructor(private svc: FarmMedicineService) {}
 
   /** GET /api/farm/medicine/stock */
+  @Get('inbound-warehouses')
+  async inboundWarehouses() {
+    return {code:200,data:await this.svc.inboundWarehouses()};
+  }
+
   @Get('stock')
   async getStock() {
     return { code: 200, data: await this.svc.getCatalog() };

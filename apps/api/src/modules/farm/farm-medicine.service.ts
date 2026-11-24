@@ -1,3 +1,4 @@
+import { assertStockWarehouse, stockQuantity } from './vet-stock';
 import { BadRequestException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -8,6 +9,7 @@ import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../wms/inventory-ledger.writer';
 import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
+const catalogUnit = "COALESCE(NULLIF(trim(b.unit),''),mat.unit,NULLIF(NULLIF(m.unit_code,'UNIT'),''),NULLIF(m.dosage,''),m.unit_code)";
 const SOURCE_TYPE = 'FARM_MEDICINE';
 
 function todayString(): string {
@@ -38,14 +40,9 @@ function normalizeDate(input: string | null | undefined, label = '日期'): stri
 }
 
 type RawMedItem = {
-  medication_code?: string;
-  medicationCode?: string;
-  medicine_code?: string;
-  code?: string;
+  material_code?:string;
   qty?: number | string;
   quantity?: number | string;
-  house_code?: string;
-  houseCode?: string;
   warehouse_code?: string;
   warehouseCode?: string;
   company_code?: string;
@@ -55,6 +52,7 @@ type RawMedItem = {
   batch_no?: string;
   batchNo?: string;
   expire_date?: string;
+  manufacturer_batch_no?: string;
   expireDate?: string;
   note?: string;
 };
@@ -65,6 +63,8 @@ type Queryable = {
 
 type LedgerWrite = {
   batchNo: string;
+  unit?: string;
+  materialCode?: string;
   changeType: 'MED_INBOUND' | 'MED_OUTBOUND';
   qtyChange: number;
   logDate: string;
@@ -77,46 +77,35 @@ type LedgerWrite = {
   houseCode?: string;
 };
 
-function normalizeItems(items: unknown): Array<{
-  medication_code: string;
+interface MedicineInboundItem {
+  material_code: string;
   qty: number;
-  house_code?: string;
   note?: string;
   warehouse_code?: string;
   company_code?: string;
   site_code?: string;
   batch_no?: string;
   expire_date?: string;
-}> {
-  if (!Array.isArray(items)) {
-    throw new BadRequestException('items 必须为数组');
-  }
+  manufacturer_batch_no?: string;
+}
 
-  const normalized: Array<{
-    medication_code: string;
-    qty: number;
-    house_code?: string;
-    note?: string;
-    warehouse_code?: string;
-    company_code?: string;
-    site_code?: string;
-    batch_no?: string;
-    expire_date?: string;
-  }> = [];
+function normalizeItems(items: unknown): MedicineInboundItem[] {
+  if (!Array.isArray(items)) throw new BadRequestException('items 必须为数组');
+  const normalized: MedicineInboundItem[] = [];
   for (const raw of items as RawMedItem[]) {
     if (!raw || typeof raw !== 'object') continue;
-    const code = String(raw.medication_code ?? raw.medicationCode ?? raw.medicine_code ?? raw.code ?? '').trim();
+    const code = String(raw.material_code ?? '').trim();
     const qty = Number(raw.qty ?? raw.quantity ?? 0);
     if (!Number.isFinite(qty) || qty <= 0) continue;
-    if (!code) throw new BadRequestException('药品编码不能为空');
+    if (!code) throw new BadRequestException('请选择实际库存物料 material_code');
     normalized.push({
-      medication_code: code,
-      qty,
-      house_code: String(raw.house_code ?? raw.houseCode ?? '').trim() || undefined,
+      material_code: code,
+      qty: stockQuantity(qty),
       warehouse_code: String(raw.warehouse_code ?? raw.warehouseCode ?? '').trim() || undefined,
       company_code: String(raw.company_code ?? raw.companyCode ?? '').trim() || undefined,
       site_code: String(raw.site_code ?? raw.siteCode ?? '').trim() || undefined,
       batch_no: String(raw.batch_no ?? raw.batchNo ?? '').trim() || undefined,
+      manufacturer_batch_no:String(raw.manufacturer_batch_no ?? '').trim() || undefined,
       expire_date: String(raw.expire_date ?? raw.expireDate ?? '').trim() || undefined,
       note: raw.note,
     });
@@ -165,8 +154,9 @@ export class FarmMedicineService {
 
   private assertScopeIdentity(companyCode: string, siteCode: string, warehouseCode: string): void {
     const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(companyCode)) {
+    assertStockWarehouse(scope, warehouseCode);
+    if (scope!.isGlobal) return;
+    if (!scope?.allowedCompanyCodes.includes(companyCode)) {
       throw new ForbiddenException('药品库存公司范围不匹配');
     }
     if (scope.allowedSiteCodes.length > 0 && !scope.allowedSiteCodes.includes(siteCode)) {
@@ -194,7 +184,7 @@ export class FarmMedicineService {
       return { warehouseCode, companyCode, siteCode };
     }
 
-    const warehouseParams: unknown[] = [item.medication_code];
+    const warehouseParams: unknown[] = [item.material_code];
     const warehouseScope = scope?.allowedWarehouseCodes.length
       ? ` AND w.warehouse_code = ANY($2)`
       : '';
@@ -202,10 +192,9 @@ export class FarmMedicineService {
     const rows = await queryable.query(
       `SELECT w.warehouse_code, w.company_code, w.site_code
          FROM wms_warehouses w
-         JOIN brd_medications m ON (m.store_code = w.site_code OR m.store_code = 'ALL' OR m.store_code IS NULL)
-        WHERE m.medication_code = $1
-          AND m.status = 'ACTIVE'
-          AND w.type = 'MEDICINE'
+         JOIN mst_materials mat ON mat.material_code=$1
+        WHERE mat.material_type='VET_DRUG' AND mat.status='ACTIVE'
+          AND w.domain='OPERATIONAL' AND w.type = 'MEDICINE'
           AND w.status = 'ACTIVE'${warehouseScope}
         ORDER BY w.warehouse_code`,
       warehouseParams,
@@ -228,15 +217,17 @@ export class FarmMedicineService {
 
   private inventoryScope(alias: string, params: unknown[], offset = 0): string {
     const scope = this.scope();
-    if (!scope || scope.isGlobal) return '1=1';
+    if (!scope) return '1=0';
+    if (scope.isGlobal) return '1=1';
+    if (!scope.allowedWarehouseCodes.length) return '1=0';
     let index = offset;
     const clauses: string[] = [];
     if (scope.allowedCompanyCodes.length === 0) return '1=0';
     params.push(scope.allowedCompanyCodes);
-    clauses.push(`${alias}.company_code = ANY($${++index})`);
+    clauses.push(`COALESCE(${alias}.company_code,w.company_code) = ANY($${++index})`);
     if (scope.allowedSiteCodes.length > 0) {
       params.push(scope.allowedSiteCodes);
-      clauses.push(`${alias}.store_code = ANY($${++index})`);
+      clauses.push(`COALESCE(NULLIF(${alias}.store_code,'ALL'),w.site_code) = ANY($${++index}) AND (w.site_code IS NULL OR w.site_code = ANY($${index}))`);
     }
     if (scope.allowedWarehouseCodes.length > 0) {
       params.push(scope.allowedWarehouseCodes);
@@ -269,6 +260,7 @@ export class FarmMedicineService {
     await writeInvLedger(queryable, {
       batchNo: entry.batchNo,
       changeType: entry.changeType,
+      unit: entry.unit, materialCode: entry.materialCode,
       qtyChange: entry.qtyChange,
       operator: entry.operator,
       storeCode: entry.storeCode,
@@ -281,75 +273,91 @@ export class FarmMedicineService {
     });
   }
 
+  async inboundWarehouses() {
+    const scope = this.scope();
+    if (!scope || (!scope.isGlobal && !scope.allowedWarehouseCodes.length)) return [];
+    const args: unknown[] = [];
+    const where = ["w.domain='OPERATIONAL'","w.type='MEDICINE'","w.status='ACTIVE'","NULLIF(w.company_code,'') IS NOT NULL","NULLIF(w.site_code,'') IS NOT NULL"];
+    if (!scope.isGlobal) {
+      where.push(`w.warehouse_code=ANY($${args.push(scope.allowedWarehouseCodes)})`);
+      where.push(`w.company_code=ANY($${args.push(scope.allowedCompanyCodes)})`);
+      if (scope.allowedSiteCodes.length) where.push(`w.site_code=ANY($${args.push(scope.allowedSiteCodes)})`);
+    }
+    return this.ds.query(`SELECT w.warehouse_code,w.site_code,w.company_code FROM wms_warehouses w
+      WHERE ${where.join(' AND ')} ORDER BY w.site_code,w.warehouse_code`,args);
+  }
+
   /** 药品目录 */
   async getCatalog(): Promise<MedStockRow[]> {
+    const context = this.scope();
+    if (!context) return [];
     const medicationParams: unknown[] = [];
-    const medicationScope = this.scope();
-    const medicationWhere = ["status = 'ACTIVE'"];
-    if (medicationScope && !medicationScope.isGlobal && medicationScope.allowedSiteCodes.length > 0) {
-      medicationParams.push(medicationScope.allowedSiteCodes);
-      medicationWhere.push(`(store_code = ANY($${medicationParams.length}) OR store_code = 'ALL' OR store_code IS NULL)`);
-    }
-    const meds = await this.ds.query<any[]>(
-      `SELECT medication_code, medication_name, dosage FROM brd_medications
-       WHERE ${medicationWhere.join(' AND ')} ORDER BY medication_code`,
-      medicationParams,
-    );
+    const legacyScope = !context.isGlobal && context.allowedSiteCodes.length
+      ? `AND (m.store_code = ANY($${medicationParams.push(context.allowedSiteCodes)}) OR m.store_code='ALL' OR m.store_code IS NULL)` : '';
+    const historyScope = this.inventoryScope('historical',medicationParams,medicationParams.length);
+    const meds = await this.ds.query<any[]>(`
+      SELECT mat.material_code,mat.material_code AS medication_code,mat.material_name AS medication_name,mat.spec AS dosage,mat.unit
+      FROM mst_materials mat WHERE mat.status='ACTIVE' AND mat.material_type='VET_DRUG'
+      UNION ALL
+      SELECT NULL,m.medication_code,m.medication_name,m.dosage,COALESCE(NULLIF(NULLIF(m.unit_code,'UNIT'),''),NULLIF(m.dosage,''),m.unit_code)
+      FROM brd_medications m WHERE m.status='ACTIVE' ${legacyScope} AND EXISTS (SELECT 1 FROM inv_batches historical JOIN wms_warehouses w ON w.warehouse_code=historical.warehouse_code WHERE ${historyScope} AND w.domain='OPERATIONAL' AND w.type='MEDICINE' AND historical.product_code=m.medication_code AND historical.material_code IS NULL AND historical.item_type IS NULL AND historical.sku_code IS NULL)
+      ORDER BY medication_name,medication_code`,medicationParams);
     if (meds.length === 0) return [];
 
     const stockParams: unknown[] = [];
     const stockScope = this.inventoryScope('b', stockParams);
     const stocks = await this.ds.query<any[]>(
-      `SELECT b.product_code, SUM(COALESCE(b.qty_available, b.qty, 0)) AS qty
+      `SELECT COALESCE(mat.material_code,m.medication_code) AS medication_code,mat.material_code,${catalogUnit} AS unit,
+              SUM(LEAST(b.qty,COALESCE(b.qty_available,b.qty,0))) AS qty
        FROM inv_batches b
+       LEFT JOIN brd_medications m ON m.medication_code=b.product_code AND b.material_code IS NULL AND b.item_type IS NULL AND b.sku_code IS NULL
+       LEFT JOIN mst_materials mat ON mat.material_type='VET_DRUG' AND
+         (b.item_type='MATERIAL' AND b.sku_code IS NULL AND mat.material_code=b.material_code)
        JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
-       JOIN brd_medications m ON m.medication_code = b.product_code AND m.status = 'ACTIVE'
-       WHERE b.product_code IS NOT NULL
+       WHERE (mat.status='ACTIVE' OR (mat.material_code IS NULL AND m.status='ACTIVE'))
          AND b.status = 'AVAILABLE'
          AND COALESCE(b.qty_available, b.qty, 0) > 0
          AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE)
-         AND w.type = 'MEDICINE'
+         AND w.domain='OPERATIONAL' AND w.type = 'MEDICINE'
          AND w.status = 'ACTIVE'
+         AND (w.company_code=b.company_code OR w.company_code IS NULL OR b.company_code IS NULL)
+         AND (w.site_code=b.store_code OR w.site_code IS NULL OR b.store_code IS NULL OR b.store_code='ALL')
          AND ${stockScope}
-       GROUP BY b.product_code`,
+       GROUP BY mat.material_code,COALESCE(mat.material_code,m.medication_code), ${catalogUnit}`,
       stockParams,
     );
-    const stockMap = new Map(stocks.map(s => [s.product_code as string, Number(s.qty)]));
-
-    return meds.map(m => ({
-      medication_code: m.medication_code,
-      medication_name: m.medication_name,
-      dosage:          m.dosage ?? '',
-      qty:             stockMap.get(m.medication_code) ?? 0,
-      unit:            (m.dosage ?? '').match(/[^\d/]+$/)?.[0] ?? '单位',
-    }));
+    return meds.map(m => {
+      const balances = stocks.filter(row => row.medication_code === m.medication_code && row.material_code===m.material_code);
+      return {
+        material_code:m.material_code, medication_code: m.medication_code, medication_name: m.medication_name, dosage: m.dosage ?? '',
+        qty: Number(balances.find(row => row.unit === m.unit)?.qty ?? 0), unit: m.unit,
+        other_units: balances.filter(row => row.unit !== m.unit).map(row => ({qty:Number(row.qty), unit:row.unit})),
+      };
+    });
   }
 
   /** 按日期范围查流水 */
   async getLedger(startDate: string, endDate: string): Promise<MedLedgerEntry[]> {
     const ledgerColumns = await this.getInvLedgerColumns();
-    const dateExpr = ledgerColumns.has('log_date') ? 'l.log_date::text' : 'l.created_at::date::text';
+    const dateExpr = ledgerColumns.has('log_date') ? 'COALESCE(l.log_date,l.created_at::date)' : 'l.created_at::date';
     const houseExpr = ledgerColumns.has('house_code') ? 'l.house_code' : 'NULL::text';
-    const dateFilter = ledgerColumns.has('log_date')
-      ? 'l.log_date BETWEEN $1 AND $2'
-      : 'l.created_at::date BETWEEN $1::date AND $2::date';
+    const dateFilter = `${dateExpr} BETWEEN $1::date AND $2::date`;
     const params: unknown[] = [normalizeDate(startDate), normalizeDate(endDate)];
     const ledgerScope = this.inventoryScope('b', params, 2);
 
     return this.ds.query<MedLedgerEntry[]>(
-      `SELECT l.id, ${dateExpr} AS log_date, l.change_type,
-              b.product_code AS medication_code, m.medication_name,
+      `SELECT l.id, ${dateExpr}::text AS log_date, l.change_type,
+              COALESCE(mat.material_code,m.medication_code) AS medication_code,
+              COALESCE(mat.material_name,m.medication_name,b.product_code) AS medication_name, COALESCE(l.unit,${catalogUnit}) AS unit,
               l.qty_change, ${houseExpr} AS house_code, l.note, l.operator,
               l.created_at::text
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
-       JOIN brd_medications m ON m.medication_code = b.product_code AND m.status = 'ACTIVE'
+       LEFT JOIN mst_materials mat ON mat.material_code=COALESCE(l.material_code,b.material_code) AND mat.material_type='VET_DRUG'
+       LEFT JOIN brd_medications m ON m.medication_code=b.product_code AND b.material_code IS NULL AND b.item_type IS NULL AND b.sku_code IS NULL
        JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
-       WHERE ${dateFilter}
-         AND w.type = 'MEDICINE'
-         AND w.status = 'ACTIVE'
-         AND b.status = 'AVAILABLE'
-         AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE)
+       WHERE (mat.material_code IS NOT NULL OR m.medication_code IS NOT NULL) AND ${dateFilter}
+         AND w.domain='OPERATIONAL' AND w.type = 'MEDICINE'
          AND ${ledgerScope}
        ORDER BY l.created_at DESC, l.id DESC`,
       params,
@@ -372,40 +380,36 @@ export class FarmMedicineService {
         const qty = item.qty;
         const expireDate = item.expire_date ? normalizeDate(item.expire_date, 'expire_date') : null;
         const identity = await this.resolveInventoryIdentity(manager, item);
-        const bn = item.batch_no ?? generatedBatchNo(item.medication_code);
+        const bn = item.batch_no ?? generatedBatchNo(item.material_code);
         const rows = await manager.query(
           `INSERT INTO inv_batches
-             (batch_no, product_code, qty, qty_available, warehouse_code, store_code,
-              company_code, source_type, source_no, status, inbound_date, expire_date, created_at, updated_at)
-           SELECT $1::varchar, $2::varchar, $3::numeric, $3::numeric,
-                  $4::varchar, $5::varchar, $6::varchar, $7::varchar,
-                  $8::varchar, 'AVAILABLE', $9::date, $10::date, NOW(), NOW()
-           WHERE EXISTS (
-             SELECT 1
-               FROM brd_medications
-              WHERE medication_code = $2::varchar
-                AND status = 'ACTIVE'
-           )
+             (batch_no, product_code, material_code, item_type, material_type, unit, qty, qty_available,
+              warehouse_code, store_code, company_code, source_type, source_no, status, inbound_date, expire_date,manufacturer_batch_no)
+           SELECT $1::varchar, NULL, mat.material_code,'MATERIAL',mat.material_type,mat.unit,
+                  $3::numeric,$3::numeric,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::varchar,
+                  'AVAILABLE',$9::date,$10::date,$11::varchar
+             FROM mst_materials mat
+             JOIN wms_warehouses w ON w.warehouse_code=$4 AND w.domain='OPERATIONAL' AND w.type='MEDICINE' AND w.status='ACTIVE'
+            WHERE mat.material_code=$2 AND mat.material_type='VET_DRUG'
+              AND mat.status='ACTIVE' AND NULLIF(trim(mat.unit),'') IS NOT NULL
+              AND w.site_code=$5 AND w.company_code=$6 FOR SHARE OF w,mat
            ON CONFLICT (batch_no) DO UPDATE SET
              qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty,
              qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty, 0) + EXCLUDED.qty,
-             warehouse_code = EXCLUDED.warehouse_code,
-             store_code = EXCLUDED.store_code,
-             company_code = EXCLUDED.company_code,
-             source_type = EXCLUDED.source_type,
-             source_no = EXCLUDED.source_no,
-             inbound_date = CASE
-               WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
-               WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
-               ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
-             END,
-             expire_date = EXCLUDED.expire_date,
-             status = 'AVAILABLE',
              updated_at = NOW()
-           RETURNING batch_no`,
+           WHERE inv_batches.warehouse_code = EXCLUDED.warehouse_code
+             AND inv_batches.company_code = EXCLUDED.company_code AND inv_batches.store_code = EXCLUDED.store_code
+             AND inv_batches.product_code IS NOT DISTINCT FROM EXCLUDED.product_code
+             AND inv_batches.material_code IS NOT DISTINCT FROM EXCLUDED.material_code
+             AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type AND inv_batches.sku_code IS NULL
+             AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit AND inv_batches.status='AVAILABLE'
+             AND inv_batches.inbound_date IS NOT DISTINCT FROM EXCLUDED.inbound_date
+             AND inv_batches.manufacturer_batch_no IS NOT DISTINCT FROM EXCLUDED.manufacturer_batch_no
+             AND inv_batches.expire_date IS NOT DISTINCT FROM EXCLUDED.expire_date
+           RETURNING batch_no,material_code,unit`,
           [
             bn,
-            item.medication_code,
+            item.material_code,
             qty,
             identity.warehouseCode,
             identity.siteCode,
@@ -413,14 +417,15 @@ export class FarmMedicineService {
             SOURCE_TYPE,
             'MED_INBOUND',
             safeDate,
-            expireDate,
+            expireDate,item.manufacturer_batch_no ?? null,
           ],
         );
         if (rows.length === 0) {
-          throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);
+          throw new BadRequestException(`药品 ${item.material_code} 、物料、药品仓或现有批次的身份/单位不匹配`);
         }
         await this.insertLedger(manager, {
           batchNo: bn,
+          unit: rows[0].unit, materialCode: rows[0].material_code,
           changeType: INV_LEDGER_CHANGE_TYPE.MED_INBOUND,
           qtyChange: qty,
           logDate: safeDate,
