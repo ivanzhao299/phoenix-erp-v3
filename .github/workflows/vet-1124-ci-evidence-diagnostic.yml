@@ -23,13 +23,13 @@ jobs:
           import { execFileSync } from 'node:child_process';
           import { candidateCi } from './scripts/ops/vet-1124-ci.mjs';
           const {TARGET_SHA, GITHUB_REPOSITORY} = process.env;
-          const probes = [{label:'host-default',args:[]},{label:'explicit-2022',args:['-H','X-GitHub-Api-Version: 2022-11-28']}];
+          const probes = [{label:'log-option',args:[]}];
           for (const probe of probes) {
             let current = '';
             try {
               const proof = candidateCi(TARGET_SHA, endpoint => {
                 current = endpoint.split('?')[0];
-                const result = execFileSync('gh',['api',...probe.args,'repos/'+GITHUB_REPOSITORY+'/'+endpoint],{encoding:'utf8',maxBuffer:64*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
+                const result = execFileSync('gh',['api',...(endpoint.endsWith('/logs')?['--allow-escape-sequences']:[]),...probe.args,'repos/'+GITHUB_REPOSITORY+'/'+endpoint],{encoding:'utf8',maxBuffer:64*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
                 console.log(probe.label,current,'bytes='+result.length);
                 return result;
               });
