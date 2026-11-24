@@ -89,6 +89,11 @@ async function observeEdge(before,held){
  throw Error('public origin or prior worker retirement unverified');
 }
 
+function publishOnce(store,name,value){
+  assert(!store.exists(name),'publication receipt already exists');
+  atomicState(store.file(name),value);
+  assert(same(store.read(name),value),'publication receipt changed');
+}
 async function refence(store,attempt,held){
  const before=workers();
  assert.equal(before.master,attempt.workers.master,'unowned nginx master');
@@ -162,13 +167,13 @@ async function publish(target,operation){
  requireCleanMain(root,target);
  guardProduction(root,store.directory,captureRuntime());
  const receiptName=`schema-release-1123-ops-published-${target}.json`;
- if(!store.exists(receiptName))store.immutable(receiptName,{binding,publishedAt:new Date().toISOString()});
+ if(!store.exists(receiptName))publishOnce(store,receiptName,{binding,publishedAt:new Date().toISOString()});
  else assert(same(store.read(receiptName).binding,binding),'checkout publication receipt changed');
  if(terminal){console.log(JSON.stringify(terminal));return;}
  native('/usr/bin/systemctl',['is-active','--quiet','nginx']);
  native('/usr/sbin/nginx',['-t']);
  const intent=prior??{binding,registeredAt:new Date().toISOString()};
- if(!prior)store.immutable(intentName,intent);
+ if(!prior)publishOnce(store,intentName,intent);
  const intentHash=canonicalDigest(intent);
  if(needsRefence)await refence(store,pending,held);
  assert.equal(sha(readVhost()),heldHash,'held config required before opening');
@@ -188,9 +193,7 @@ async function publish(target,operation){
   assertLatestMain(target);
   const terminal={binding,intentSha256:intentHash,attemptSha256:canonicalDigest(attempt),openedAt:new Date().toISOString(),workers:current,
    outcome:'OPEN',probe:{http:301,httpsHome:200,httpsLogin:200,httpsHealth:200}};
-  assert(!store.exists(terminalName),'another opening terminal exists');
-  atomicState(store.file(terminalName),terminal);
-  assert(same(store.read(terminalName),terminal),'opening terminal changed');
+  publishOnce(store,terminalName,terminal);
   console.log(JSON.stringify(terminal));
  }catch(error){
   if(!store.exists(terminalName)&&sha(readVhost())===originalHash){
