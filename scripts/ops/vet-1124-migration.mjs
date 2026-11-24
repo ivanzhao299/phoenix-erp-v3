@@ -16,6 +16,17 @@ export const readerRepairPaths = [
   'scripts/ops/vet-1124-migration.test.mjs',
   reviewedHeadFile,
 ];
+const releasedReaderMerge = 'ca5675a3c36115283fb709e146382e4d878b99d5';
+export const backupRepairChanges = [
+  'M\t.github/workflows/controlled-pending-migration-apply.yml',
+  'M\tdocs/ops/vet-1124-controlled-migrations.md',
+  'M\tscripts/ops/pending-migration-backup-paths.mjs',
+  'A\tscripts/ops/vet-1124-backup-volume.mjs',
+  'A\tscripts/ops/vet-1124-backup-volume.test.mjs',
+  'M\tscripts/ops/vet-1124-migration.mjs',
+  'M\tscripts/ops/vet-1124-migration.test.mjs',
+  'M\t' + reviewedHeadFile,
+];
 export const units = ['1795478400000-EggWithdrawalReview', '1795500000000-VetMaterialAllocation', '1795500100000-VetMaterialIdentity'];
 const paths = units.map(unit => 'apps/api/src/database/migrations/' + unit + '.ts');
 const sourceRuns = ['45352175233', '45351436581'];
@@ -24,7 +35,7 @@ const hash = /^[a-f0-9]{64}$/;
 const image = /^ghcr\.io\/ivanzhao299\/phoenix-erp-v3\/api@sha256:[0-9a-f]{64}$/;
 const hold = reason => { throw Error('VET_1124_HOLD=' + reason); };
 
-export function reviewedSource(target, root = process.cwd(), expectedBase = baseline, featureMerge = releasedFeatureMerge) {
+export function reviewedSource(target, root = process.cwd(), expectedBase = baseline, featureMerge = releasedFeatureMerge, readerMerge = releasedReaderMerge) {
   if (!sha.test(target)) hold('TARGET_SHA');
   const git = (...args) => execFileSync('git', ['--no-replace-objects', '-c', 'safe.directory=' + root,
     '-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, encoding: 'utf8', timeout: 15000 }).trimEnd();
@@ -34,11 +45,14 @@ export function reviewedSource(target, root = process.cwd(), expectedBase = base
   const [first, sealed, ...extra] = parents(target);
   if (!sha.test(sealed) || extra.length) hold('EXACT_MAIN_MERGE');
   if (first !== expectedBase) {
-    // The application and all migration blobs were sealed in this exact first
-    // merge. Only the reviewed CI-reader repair can follow it before deployment.
-    if (first !== featureMerge || parents(first)[0] !== expectedBase) hold('EXACT_MAIN_MERGE');
-    if (git('diff', '--ignore-submodules=none', '--no-renames', '--name-status', first, target)
-        !== readerRepairPaths.map(path => 'M\t' + path).join('\n')) hold('READER_REPAIR_TREE');
+    const changes = (from,to) => git('diff','--ignore-submodules=none','--no-renames','--name-status',from,to);
+    const readerChanges = readerRepairPaths.map(path => 'M\t' + path).join('\n');
+    if (first === readerMerge && parents(first)[0] === featureMerge && parents(featureMerge)[0] === expectedBase) {
+      if (changes(featureMerge,first) !== readerChanges || changes(first,target) !== backupRepairChanges.join('\n')) hold('BACKUP_REPAIR_TREE');
+    } else {
+      if (first !== featureMerge || parents(first)[0] !== expectedBase) hold('EXACT_MAIN_MERGE');
+      if (changes(first,target) !== readerChanges) hold('READER_REPAIR_TREE');
+    }
   }
   const reviewed = git('show', target + ':' + reviewedHeadFile);
   if (!sha.test(reviewed) || parents(sealed).join(' ') !== reviewed

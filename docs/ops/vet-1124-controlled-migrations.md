@@ -37,10 +37,16 @@ gh workflow run controlled-pending-migration-apply.yml --ref main \
   -f expected_vet_inspection_sha256="$VET_INSPECTION_SHA256"
 ```
 
-Apply 在已有生产互斥锁下核对运行中 API/Web、checkout、三项待迁移和 ledger，按 digest 拉取正式镜像。备份完整解析后，用新的只读快照再次比对审计和 inspect 摘要。迁移后要求 ledger 增量恰好为这三项，随后走既有迁移回执登记。保存本次运行号、备份位置与摘要、两份 `MIGRATION_RECEIPT` 和 `MIGRATION_APPLY=COMMITTED`。应用发布仍走正式发布工作流和对应回执。
+Apply 在已有生产互斥锁下核对运行中 API/Web、checkout、三项待迁移和 ledger，按 digest 拉取正式镜像。备份完整解析后，用新的只读快照再次比对审计和 inspect 摘要。迁移后要求 ledger 增量恰好为这三项，随后走既有迁移回执登记。保存本次运行号、备份位置与摘要、三项迁移各自的 `MIGRATION_RECEIPT` 和 `MIGRATION_APPLY=COMMITTED`。应用发布仍走正式发布工作流和对应回执。
 
 任一绑定漂移都会停止本次 apply。如果 DDL 已执行而回执未完成，应保留运行号、备份、schema-first 证据及前后 ledger 交给主会话核查。专项 apply 只接受三项均待执行的状态。
 
 ## 本地核验
 
 `node --test scripts/ops/vet-1124-migration.test.mjs` 覆盖封存树、后代、额外迁移、原始与限定结论、CI 和镜像身份及 ledger 增量。已有专用 PostgreSQL 18 副本时，可设置 `VET_1124_SCOPE_PG=1`，在标有 `phoenix.fixture=temp-reversal` 的本地测试容器上运行同一只读审计。
+
+## 11 月 24 日生产备份位置
+
+本次已授权的三项迁移将归档写入 `/data/backups/opt/phoenix-erp-backups/pending-migration-<run>-<attempt>/`。旧入口指向同一目录。工作流核验物理目录、生产数据卷 UUID、挂载和设备号、目录持有人、权限及 ACL。完成归档全量解析后，再次计算 SHA-256 并写入恢复清单。生产 DDL 执行前再次核对归档文件身份与现场预检。
+
+恢复时按正式 apply 运行号查找归档目录的 `backup-receipt.json`，或读取控制目录中的 `vet-1124-migration-backup-<run>-<attempt>.json`。清单载明绝对归档路径、备份 SHA-256、文件大小、TOC 数和迁移前台账摘要。[生产目录和卷核验](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/45375273835)
