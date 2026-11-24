@@ -6,7 +6,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { randomUUID } from 'crypto';
-import { stableProductionJson,productionContentHash,lockProductionSourceReports,lockProductionHandoverEvidence,assertHandoverNotClaimedByRaw,
+import { stableProductionJson,productionContentHash,inspectProductionSourceReports,lockProductionSourceReports,lockProductionHandoverEvidence,assertHandoverNotClaimedByRaw,
   lockProductionEntryMode,lockRawCollectionReference,assertRawCollectionTotals } from './production-source-facts';
 export { stableProductionJson,productionContentHash } from './production-source-facts';
 import { EggInventoryService, assertEggDate } from './egg-inventory.service';
@@ -175,7 +175,7 @@ export class ProductionInboundDocumentsService {
     return scope;
   }
   private async reports(m: EntityManager, d: Document) {
-    return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
+    return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date},d.kind==='REVERSAL');
   }
   private async usage(m: Pick<DataSource,'query'>, d: Document) {
     const rows: SourceUsageRow[] = await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
@@ -1017,7 +1017,8 @@ export class ProductionInboundDocumentsService {
     const stockScope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
-      const scope = await this.lockDay(m,identity,false,false); const reports = await this.reports(m,identity);
+      const scope = await this.lockDay(m,identity,false,false);
+      const {reports,sourceReviewRequired} = await inspectProductionSourceReports(m,{companyCode:company,houseCode:house,productionDate:day});
       const usage = await this.usage(m,identity);
       const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
       const sourceBalances = [];
@@ -1025,7 +1026,8 @@ export class ProductionInboundDocumentsService {
         const key = sourceQuotaKey(r.id,gradeCode);
         const quota = sourceQuota(confirmedQty,usage.get(key));
         usage.delete(key);
-        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,...quota});
+        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,productionDate:r.production_date,
+          flockNo:r.flock_no,occupancyId:r.occupancy_id,...quota});
         const item = grades[gradeCode] ??= {reported:0,posted:0,remaining:0};
         item.reported+=quota.confirmedQty;
         item.posted+=quota.ordinaryNet+quota.rawUsedQty;
@@ -1037,7 +1039,7 @@ export class ProductionInboundDocumentsService {
       for (const grade of Object.keys(grades)) {
         stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
       }
-      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,
+      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,sourceReviewRequired,
         stockBasisVersion:2,stockByGrade:stock,
         currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
           .map(([grade,v])=>[grade,v.attributableQty])),

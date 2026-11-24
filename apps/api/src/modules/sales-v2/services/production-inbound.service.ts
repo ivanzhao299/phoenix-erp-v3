@@ -1,3 +1,4 @@
+import { normalizeGradeQuantityMap } from '../../farm/daily-report-grades';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { SkuAvailabilityService, SkuResolveResult } from '../../product-master/services/sku-availability.service';
 import { Injectable, Logger, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
@@ -28,23 +29,8 @@ class SkuReadinessException extends BadRequestException {
   }
 }
 
-/** Parse a JSONB value without allowing malformed historical rows to widen stock. */
-export function normalizeGradeQuantityMap(value: unknown): GradeQuantityMap {
-  let parsed = value;
-  if (typeof parsed === 'string') {
-    try { parsed = JSON.parse(parsed); } catch { return {}; }
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-  const result: GradeQuantityMap = {};
-  for (const [grade, raw] of Object.entries(parsed as Record<string, unknown>)) {
-    const qty = Math.max(0, Math.round(Number(raw) || 0));
-    if (grade.trim() && qty > 0) result[grade.trim()] = (result[grade.trim()] ?? 0) + qty;
-  }
-  return result;
-}
-
 export function sumGradeQuantityMaps(rows: Array<{ eggs_by_grade?: unknown }>): GradeQuantityMap {
-  const result: GradeQuantityMap = {};
+  const result: GradeQuantityMap = Object.create(null);
   for (const row of rows) {
     for (const [grade, qty] of Object.entries(normalizeGradeQuantityMap(row.eggs_by_grade))) {
       result[grade] = (result[grade] ?? 0) + qty;
@@ -252,6 +238,7 @@ export class ProductionInboundService {
   private async assertDailyReportCapacity(
     mgr: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
     dto: { eggDate: string; houseCode?: string },
+    companyCode: string,
     items: Array<{ grade: string; qty: number }>,
     collectionRef: string | null,
   ): Promise<void> {
@@ -260,15 +247,23 @@ export class ProductionInboundService {
     if (!table[0]?.table_name) return;
 
     const reports = await mgr.query(
-      `SELECT eggs_by_grade
+      `SELECT eggs_by_grade, eggs_produced, company_code, shift
          FROM brd_daily_logs
         WHERE log_date = $1 AND house_code = $2`,
       [dto.eggDate, dto.houseCode],
     );
+    if (reports.length > 1 && reports.some((r: {shift?: string}) => r.shift === 'DAILY')) {
+      throw new BadRequestException('同舍日的全天日报与其他日报重复覆盖，请先核对来源');
+    }
+    if (reports.some((r: { company_code?: string; eggs_by_grade?: unknown; eggs_produced?: number }) =>
+      (r.company_code && r.company_code !== companyCode)
+      || (Number(r.eggs_produced) > 0 && !Object.values(normalizeGradeQuantityMap(r.eggs_by_grade)).some(qty => qty > 0)))) {
+      throw new BadRequestException('日报归属或分级数量未核实，请核对后再入库');
+    }
     const expected = sumGradeQuantityMaps(reports);
-    // No grade breakdown means this is a legacy/manual inbound flow. Keep it
-    // available, while reports with grade data are strictly bounded.
-    if (Object.keys(expected).length === 0) return;
+    // A legacy house without reports still accepts its established manual entry.
+    // Once a report exists, missing detail cannot supply a positive grade allowance.
+    if (!reports.length) return;
 
     const postedRows = await mgr.query(
       `SELECT COALESCE(grade_code_std, quality_grade) AS grade,
@@ -276,9 +271,9 @@ export class ProductionInboundService {
          FROM inv_batches
         WHERE source_type = 'TEMP_PRODUCTION'
           AND egg_date = $1
-          AND collection_batch_ref = $2
+          AND collection_batch_ref = $2 AND company_code = $3
         GROUP BY COALESCE(grade_code_std, quality_grade)`,
-      [dto.eggDate, collectionRef],
+      [dto.eggDate, collectionRef, companyCode],
     );
     const alreadyInbound: GradeQuantityMap = {};
     for (const row of postedRows) {
@@ -330,14 +325,19 @@ export class ProductionInboundService {
     }
     dto = { ...dto, houseCode: dto.houseCode?.trim() || undefined };
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
-    const normalizedItems = dto.items
-      .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
-      .filter(item => item.qty > 0);
+    const normalizedItems = dto.items.map(item => ({
+      spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(),
+      qty: typeof item.qty === 'string' && /^\d+$/.test(item.qty) ? Number(item.qty) : item.qty,
+    }));
+    if (normalizedItems.some(item => !Number.isSafeInteger(item.qty) || item.qty < 0)) {
+      throw new BadRequestException('入库数量必须为非负整数');
+    }
     // A daily report may contain the same grade in both shifts. Inventory is
     // keyed by the daily source document, so merge those lines before writing;
     // otherwise a unique source index cannot protect the document atomically.
     const itemMap = new Map<string, { grade: string; qty: number; spec: string }>();
     for (const item of normalizedItems) {
+      if (!item.qty) continue;
       const key = `${item.grade}\u0000${item.spec}`;
       const current = itemMap.get(key);
       itemMap.set(key, current ? { ...current, qty: current.qty + item.qty } : item);
@@ -381,9 +381,10 @@ export class ProductionInboundService {
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
           WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
-            AND collection_batch_ref IS NOT DISTINCT FROM $3
+            AND (collection_batch_ref IS NOT DISTINCT FROM $3
+              OR ($4::text IS NOT NULL AND source_no = 'TEMP-' || $2::date::text || '-' || $4))
           ORDER BY batch_no FOR UPDATE`,
-        [companyCode, dto.eggDate, collectionRef],
+        [companyCode, dto.eggDate, collectionRef, dto.houseCode ?? null],
       );
       if (existing.some((row: any) => TEMP_PRODUCTION_REVERSAL_CASE.targets.some(target => target.batchNo === row.batch_no))) {
         // Existing source rows are already locked in the daily-house transaction.
@@ -471,7 +472,7 @@ export class ProductionInboundService {
         const detail = skuReadinessErrors.map(item => `${item.gradeCode}/${item.specCode}: ${item.reason}`).join('；');
         throw new SkuReadinessException(`SKU 就绪检查失败：${detail}`, { companyCode, sourceProfileCode: sourceProfile.profileCode, items: skuReadinessErrors });
       }
-      await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
+      await this.assertDailyReportCapacity(mgr, dto, companyCode, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;

@@ -49,7 +49,7 @@ export async function recordFlockProductionSources(m: Db,p: {
     if (!profile || productionDate!==p.eggDate) throw new BadRequestException('生产日期/商业来源与真实采蛋日期不同，须先核对来源档案');
     const logs=await m.query(`SELECT d.id,d.flock_no,d.occupancy_id,d.eggs_by_grade,o.company_code,o.farm_code,o.site_code,o.house_code,
       o.began_on::text AS began_on,o.ended_on::text AS ended_on FROM brd_daily_logs d
-      JOIN brd_flock_occupancies o ON o.id=d.occupancy_id
+      JOIN brd_flock_occupancies o ON o.id=d.occupancy_id AND o.flock_no=d.flock_no
       WHERE d.house_code=$1 AND d.log_date=$2 AND d.shift='DAILY'`,[input.house_code,productionDate]);
     if (logs.length!==1 || logs[0].company_code!==p.companyCode || !logs[0].occupancy_id
       || logs[0].house_code!==input.house_code || logs[0].began_on>productionDate || logs[0].ended_on && logs[0].ended_on<=productionDate

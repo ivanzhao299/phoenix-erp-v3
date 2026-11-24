@@ -8,6 +8,8 @@ import DictSelect from '@/components/shared-selectors/DictSelect';
 import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermission } from '@/hooks/usePermission';
+import { useEggSourceProfile, varietyShortLabel } from '@/hooks/useEggSourceProfile';
+import { SourceProfileBanner } from './SourceProfileBanner';
 import { useProductGrades } from '@/hooks/useProductGrades';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import request, { type ApiError } from '@/lib/api-client';
@@ -29,10 +31,10 @@ interface Allocation { id:string;daily_log_id:string;quantity:number;reversed_qu
 interface Line { line_no:number;batch_no:string;grade_code:string;quantity:number;current_quantity:string;current_available:string;allocations:Allocation[] }
 interface Document { id:string;document_no:string;state:string;kind:string;version:number;intent_key:string;handover_ref:string;company_code:string;house_code:string;production_date:string;content_hash:string;submit_key:string;created_by:string;original_document_id?:string;expected_posting_date:string;payload:{warehouseCode:string;locationCode:string;remark?:string;evidenceFileIds?:string[];items:Array<{gradeCode:string;specCode:string;quantity:number;allocations?:Array<{dailyLogId:number;quantity:number}>;batchNo?:string;sources?:Array<{dailyLogId:number;quantity:number}>}>};siteCode?:string;receipt?:Record<string,unknown>;lines?:Line[];clearances?:Array<{id:string;signed_by:string;signed_at:string;evidence_file_id:string}>;originalBatches?:Array<{batch_no:string;unit_cost:string|null;cost_status:string}> }
 interface SourceBalance {
-  dailyLogId:number;shift:string;productionDate?:string;gradeCode:string;confirmedQty:number;
+  dailyLogId:number;shift:string;productionDate?:string;flockNo?:string;occupancyId?:string;gradeCode:string;confirmedQty:number;
   ordinaryNet:number|null;rawUsedQty:number|null;remaining:number|null;
 }
-interface Balance { stockBasisVersion?:number;stockByGrade?:Record<string,{attributableQty:number|null;warehouseQty:number;mixedBatchCount:number}>;scopeState:string;grades:Record<string,{reported:number;posted:number;remaining:number}>;currentStock:Record<string,number>;sourceBalances?:SourceBalance[];reports:Array<{id:number;shift:string;grades:Record<string,number>}> }
+interface Balance { sourceReviewRequired?:boolean;stockBasisVersion?:number;stockByGrade?:Record<string,{attributableQty:number|null;warehouseQty:number;mixedBatchCount:number}>;scopeState:string;grades:Record<string,{reported:number;posted:number;remaining:number}>;currentStock:Record<string,number>;sourceBalances?:SourceBalance[];reports:Array<{id:number;shift:string;grades:Record<string,number>}> }
 interface Period { state:'OPEN'|'CLOSED'|null;version:number }
 const emptyForm=():Form=>({companyCode:'',houseCode:'',siteCode:'',eggDate:businessDay(),warehouseCode:'',locationCode:'',intentKey:'',handoverRef:'',items:[],remark:'',evidenceFileIds:[]});
 
@@ -71,6 +73,8 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const verified=restored&&rangeKey===snapshotKey&&(rangeStatus==='verified'||rangeStatus==='refreshing');
   const [recovered,setRecovered]=useState<Document[]|null>(null);
   const [reviewOnly,setReviewOnly]=useState(false),[rangeVersion,setRangeVersion]=useState(0);
+  const commercial = useEggSourceProfile(p.canView ? form.houseCode : '', form.eggDate, form.companyCode, rangeVersion);
+  const variety = varietyShortLabel(commercial.profile);
   const inFlight=useRef(false), lifetime=useRef<AbortController|null>(null);
   useEffect(()=>{const controller=new AbortController();lifetime.current=controller;return()=>controller.abort();},[]);
   const [pendingOnly,setPendingOnly]=useState(false);
@@ -92,16 +96,18 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const sourceKey=(dailyLogId:string|number,gradeCode:string)=>`${dailyLogId}:${gradeCode}`;
   const bySource=new Map(sources.map(source=>[sourceKey(source.dailyLogId,source.gradeCode),source]));
   const allowance=(source:SourceBalance|undefined)=>{
+    if (balance?.sourceReviewRequired) return null;
     const value=source?.remaining;
     if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||source?.productionDate&&source.productionDate!==form.eggDate)return null;
     return value;
   };
+  const availableGrades = new Set(sources.filter(source => (allowance(source) ?? 0) > 0).map(source => source.gradeCode));
   const availableLabel=(source:SourceBalance|undefined)=>{
     const value=allowance(source);
     return value===null?t('productionJobs.unknown'):value===0?`0 · ${t('productionJobs.sourceExhausted')}`:`${t('productionJobs.sourceAvailable')} ${value}`;
   };
   const selectedTotals=new Map<string,number>();
-  const completeItems=form.items.length>0&&form.items.every(item=>item.gradeCode&&item.specCode&&item.dailyLogId
+  const completeItems=form.items.length>0&&form.items.every(item=>grades.some(g=>g.grade_code===item.gradeCode)&&item.specCode&&item.dailyLogId
     &&Number.isSafeInteger(Number(item.quantity))&&Number(item.quantity)>0);
   for(const item of form.items){
     const key=sourceKey(item.dailyLogId,item.gradeCode),quantity=Number(item.quantity);
@@ -229,7 +235,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
     <PageHeader title={t('productionInstallments.title','正式分次生产入库')} subtitle={t('productionInstallments.subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
     <div className={s.actions}><Link href={mobile?"/mobile/production-cutovers":"/breeding/production-cutovers"}>{t('productionCutover.title','正式库存切换盘点')}</Link><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{t('productionInstallments.daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{t('productionInstallments.legacy','历史入库资料')}</Link>}
-      <button disabled={busy} onClick={()=>run(refresh,false)}>{t('common.refresh','刷新')}</button>{p.canCreate&&<button disabled={busy} onClick={newIntent}>{t('productionInstallments.new','新交接意图')}</button>}</div>
+      <button disabled={busy} onClick={()=>setRangeVersion(n=>n+1)}>{t('common.refresh','刷新')}</button>{p.canCreate&&<button disabled={busy} onClick={newIntent}>{t('productionInstallments.new','新交接意图')}</button>}</div>
     <nav className={s.actions} aria-label={t('productionJobs.tasks')}>
       {p.canCreate&&<a href="#delivery">{t('productionInstallments.thisDelivery')}</a>}
       {p.canEdit&&<a href="#handover" onClick={()=>setPendingOnly(true)}>{t('productionJobs.receive')}</a>}
@@ -248,6 +254,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       <label className={s.field}>{t('productionInstallments.warehouse','交库仓库')}<WarehouseSelector ariaLabel={t('productionInstallments.warehouse','交库仓库')} value={form.warehouseCode} companyCode={form.companyCode} siteCode={form.siteCode} type="EGG_FARM" disabled={busy||!form.companyCode} onChange={v=>changeRange({warehouseCode:v,locationCode:'',rawCollectionSourceId:undefined})}/></label>
       <label className={s.field}>{t('productionInstallments.location','库位')}<LocationSelector ariaLabel={t('productionInstallments.location','库位')} value={form.locationCode} lookupEndpoint={`${endpoint}/locations?${new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,warehouseCode:form.warehouseCode})}`} warehouseCode={form.warehouseCode} disabled={busy||!form.warehouseCode} onChange={v=>patch({locationCode:v})}/></label>
     </div>{form.houseCode&&!verified&&<p role="status">{t(rangeStatus==='failed'?'productionJobs.unverified':'common.loading')}</p>}
+    {form.houseCode&&form.eggDate&&<SourceProfileBanner houseCode={form.houseCode} {...commercial} />}
     {verified&&scope==='ARCHIVED'&&<p role="status">{t('productionJobs.archived')}</p>}
     {verified&&scope==='FENCED'&&<p role="status">{t('productionJobs.fenced')}</p>}
     {verified&&scope==='OFF'&&<p role="status" className={s.notice}>{t('productionInstallments.off','该鸡舍尚未启用正式入库。现场盘点及切换确认后才能办理。')}</p>}
@@ -259,14 +266,14 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       {balance.stockBasisVersion===2&&<button onClick={()=>inspect({view:'warehouse'})}>{t('productionJobs.trace')}</button>}</section>}
     {verified&&!!form.warehouseCode&&['ACTIVE','SUSPENDED'].includes(scope)&&<section className={s.card} aria-label={t('productionJobs.sourceBalances')}>
       <h2>{t('productionJobs.sourceBalances')}</h2>
-      {!hasSourceBalances&&<p role="status" className={s.notice}>{t('productionJobs.sourceUnverified')}</p>}
+      {(!hasSourceBalances||balance?.sourceReviewRequired)&&<p role="status" className={s.notice}>{t('productionJobs.sourceUnverified')}</p>}
       {hasSourceBalances&&!sources.length&&<p>{t('productionJobs.notReported')}</p>}
       {sources.length>0&&<div className={s.scroll}><table className={s.table}><thead><tr>
-        <th>{t('productionInstallments.productionDate')}</th><th>{t('productionInstallments.shift')}</th><th>{t('productionJobs.dailyLogId')}</th>
+        <th>{t('productionInstallments.productionDate')}</th><th>{t('productionInstallments.shift')}</th><th>{t('productionJobs.dailyLogId')}</th><th>{t('ui.鸡群','鸡群')}</th>
         <th>{t('productionInstallments.grade')}</th><th>{t('productionInstallments.reported')}</th><th>{t('productionJobs.sourceRawUsed')}</th>
         <th>{t('productionJobs.sourceAvailable')}</th>
       </tr></thead><tbody>{sources.map(source=><tr key={sourceKey(source.dailyLogId,source.gradeCode)}>
-        <td>{source.productionDate??form.eggDate}</td><td>{shifts[source.shift]??source.shift}</td><td>#{source.dailyLogId}</td>
+        <td>{source.productionDate??form.eggDate}</td><td>{shifts[source.shift]??source.shift}</td><td>#{source.dailyLogId}</td><td>{source.flockNo??t('productionJobs.unknown')}</td>
         <td>{gradeName(source.gradeCode)}</td><td>{source.confirmedQty}</td><td>{source.rawUsedQty??t('productionJobs.unknown')}</td>
         <td>{availableLabel(source)}</td>
       </tr>)}</tbody></table></div>}
@@ -279,7 +286,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       {p.canCreate&&<>
       {form.replacesId&&<p>{t('productionInstallments.replaces','重新签认的原交接')}：{form.replacesId}</p>}
       {form.items.map(i=><div key={i.id} className={s.line}>
-        <label className={s.field}>{t('productionInstallments.grade','档位')}<select aria-label={t('productionInstallments.grade','档位')} disabled={busy||!canWrite} value={i.gradeCode} onChange={e=>updateItem(i.id,{gradeCode:e.target.value,dailyLogId:''})}><option value="">{t('common.select','请选择')}</option>{grades.map(g=><option key={g.grade_code} value={g.grade_code}>{gradeName(g.grade_code)}</option>)}</select></label>
+        <label className={s.field}>{t('productionInstallments.grade','档位')}<select aria-label={t('productionInstallments.grade','档位')} disabled={busy||!canWrite} value={i.gradeCode} onChange={e=>updateItem(i.id,{gradeCode:e.target.value,dailyLogId:''})}><option value="">{t('common.select','请选择')}</option>{grades.filter(g=>availableGrades.has(g.grade_code)||g.grade_code===i.gradeCode).map(g=><option key={g.grade_code} value={g.grade_code} disabled={!availableGrades.has(g.grade_code)}>{gradeName(g.grade_code)}{variety ? ` (${t(`ui.${variety}`,variety)})` : ''}</option>)}</select></label>
         <label className={s.field}>{t('productionInstallments.spec','规格')}<SpecSelector ariaLabel={t('productionInstallments.spec','规格')} disabled={busy||!canWrite} value={i.specCode} onChange={v=>updateItem(i.id,{specCode:v})}/></label>
         <label className={s.field}>{t('productionInstallments.source','实际日报来源')}
           <select aria-label={t('productionInstallments.source','实际日报来源')} value={i.dailyLogId} disabled={busy||!canWrite||!i.gradeCode} onChange={e=>{
@@ -289,7 +296,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
             <option value="">{t('common.select','请选择')}</option>
             {sources.filter(source=>source.gradeCode===i.gradeCode).sort((a,b)=>Number((allowance(b)??0)>0)-Number((allowance(a)??0)>0)).map(source=>
               <option key={source.dailyLogId} value={source.dailyLogId} disabled={(allowance(source)??0)===0}>
-                {source.productionDate??form.eggDate} · {shifts[source.shift]??source.shift} · #{source.dailyLogId} · {availableLabel(source)}
+                {source.productionDate??form.eggDate} · {shifts[source.shift]??source.shift} · #{source.dailyLogId}{source.flockNo ? ` · ${source.flockNo}` : ''} · {availableLabel(source)}
               </option>)}
             {i.dailyLogId&&!bySource.has(sourceKey(i.dailyLogId,i.gradeCode))&&<option value={i.dailyLogId} disabled>#{i.dailyLogId} · {t('productionJobs.unknown')}</option>}
           </select>
@@ -341,7 +348,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       <div className={s.actions}>{selected.payload.evidenceFileIds?.map(file=><button key={file} disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,file))}>{t('productionInstallments.proof','查看原证据')}</button>)}</div>
       <div className={s.actions}>
         {selected.state==='DRAFT'&&selected.kind==='INBOUND'&&p.canEdit&&<button disabled={busy||!p.canEdit} onClick={()=>patch({companyCode:selected.company_code,houseCode:selected.house_code,eggDate:selected.production_date,warehouseCode:selected.payload.warehouseCode,locationCode:selected.payload.locationCode,intentKey:selected.intent_key,handoverRef:selected.handover_ref,remark:selected.payload.remark??'',evidenceFileIds:selected.payload.evidenceFileIds??[],items:selected.payload.items.flatMap(i=>(i.allocations??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:key(),gradeCode:i.gradeCode,specCode:i.specCode,quantity:String(a.quantity),dailyLogId:a.dailyLogId?String(a.dailyLogId):''})))})}>{t('productionInstallments.loadDraft','载入草稿编辑')}</button>}
-        {selected.state==='DRAFT'&&<button disabled={busy||!(selected.kind==='INBOUND'?canSubmitSources:canWrite)||!p.canEdit} onClick={()=>run(()=>freeze(selected))}>{t('productionInstallments.ready','核对并冻结本单')}</button>}
+        {selected.state==='DRAFT'&&<button disabled={busy||!(selected.kind==='INBOUND'?canSubmitSources&&!!commercial.profile:canWrite)||!p.canEdit} onClick={()=>run(()=>freeze(selected))}>{t('productionInstallments.ready','核对并冻结本单')}</button>}
         {(selected.state==='READY'&&selected.kind==='INBOUND'||selected.state==='APPROVED'||selected.state==='POSTED')&&<button disabled={busy||selected.state!=='POSTED'&&(!canWrite||!p.canEdit)} onClick={()=>run(async()=>{await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);})}>{selected.state==='POSTED'?t('productionInstallments.receipt','找回原过账回执'):t('productionInstallments.post','过账本单')}</button>}
         {['READY','APPROVED'].includes(selected.state)&&selected.expected_posting_date<businessDay()&&p.canEdit&&p.canCreate&&<button disabled={busy||!canWrite} onClick={()=>run(async()=>{
           const idKey=`${storageKey}:reissue:${selected.id}`;const intent=sessionStorage.getItem(idKey)??key();sessionStorage.setItem(idKey,intent);

@@ -63,9 +63,9 @@ function DailyInboundForm() {
   const [locationCode, setLocationCode] = useState("");
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在表单明示品种，孟赛 STANDARD 走普通分级。
   // 品种由服务端档案决定，前端只展示；提交时不传 variety，防伪造。
-  const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(houseCode, eggDate);
-  const varietyShort = varietyShortLabel(sourceProfile);
   const [scopeRevision,setScopeRevision]=useState(0);
+  const { profile: sourceProfile, loading: sourceProfileLoading, error: profileError } = useEggSourceProfile(houseCode, eggDate, companyCode, scopeRevision);
+  const varietyShort = varietyShortLabel(sourceProfile);
   const rangeKey=JSON.stringify([companyCode,siteCode,houseCode,eggDate,scopeRevision]);
   const [checkedScope,setCheckedScope]=useState<{key:string;value:Availability|null}|null>(null);
   const prefillGeneration=useRef(0), submitting=useRef(false);
@@ -96,7 +96,7 @@ function DailyInboundForm() {
     if(requiresFormal)return t('productionInstallments.useFormal');
     return t('productionJobs.unverified');
   }
-  const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${varietyShort})` : name);
+  const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${t(`ui.${varietyShort}`,varietyShort)})` : name);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [prefilling, setPrefilling] = useState(false);
@@ -145,7 +145,7 @@ function DailyInboundForm() {
       const next: Record<string, string> = {};
       for (const g of productGrades) {
         const q = r.eggsByGrade[g.grade_code];
-        next[g.grade_code] = q == null ? (qtyMap[g.grade_code] ?? '') : String(Math.max(0, q));
+        next[g.grade_code] = q == null ? '' : String(Math.max(0, q));
       }
       setQtyMap(next);
     } catch (e: unknown) {
@@ -153,7 +153,7 @@ function DailyInboundForm() {
     } finally {
       if(generation===prefillGeneration.current)setPrefilling(false);
     }
-  }, [eligible, eggDate, houseCode, productGrades, qtyMap, t]);
+  }, [eligible, eggDate, houseCode, productGrades, t]);
 
   const totalQty = productGrades.reduce((s, g) => s + (Number(qtyMap[g.grade_code]) || 0), 0);
   const filledRows = productGrades.filter(g => Number(qtyMap[g.grade_code]) > 0).length;
@@ -165,7 +165,7 @@ function DailyInboundForm() {
     invalidatePrefill();setLocationCode('');setError("");setScopeRevision(revision=>revision+1);
   };
   const submit = async () => {
-    if(submitting.current||!eligible||!canCreate)return;
+    if(submitting.current||!eligible||!sourceProfile||!canCreate)return;
     setError("");
     setResult(null);
     const items = productGrades
@@ -359,7 +359,7 @@ function DailyInboundForm() {
 
       {!isPackagingMode && <>
           {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示 */}
-          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={houseCode} style={{ marginBottom: 12 }} />
+          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} error={profileError} houseCode={houseCode} style={{ marginBottom: 12 }} />
 
           {/* 汇总（明细表上方合计） */}
           <div style={{
@@ -477,7 +477,7 @@ function DailyInboundForm() {
         gap: 8
       }}><AlertTriangle size={15} />{error}</div>}
 
-          <button onClick={submit} disabled={saving || !canCreate || !eligible || !warehouseCode || !locationCode} style={{
+          <button onClick={submit} disabled={saving || !canCreate || !eligible || !sourceProfile || !warehouseCode || !locationCode} style={{
         display: "flex",
         alignItems: "center",
         gap: 8,

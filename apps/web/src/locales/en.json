@@ -13922,6 +13922,7 @@
   "ui.粉壳蛋": "Pink-shell eggs",
   "ui.红壳": "Red shell",
   "ui.粉壳": "Pink shell",
+  "breeding.daily.flockReview": "A single flock could not be confirmed for this house and date. Check the flock and occupancy records.",
   "breeding.sourceProfile.loading": "Loading egg source profile…",
   "breeding.sourceProfile.missing": "No egg source profile for this house. Submission will be rejected by the server. Configure md_egg_source_profiles for this house in master data first.",
   "breeding.sourceProfile.variant": "Source profile",

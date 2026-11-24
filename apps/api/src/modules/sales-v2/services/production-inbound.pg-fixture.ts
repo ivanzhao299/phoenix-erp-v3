@@ -36,6 +36,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS elimination_date date;
       CREATE TABLE IF NOT EXISTS sys_dict (dict_type text, dict_code text, status text);
       CREATE TABLE IF NOT EXISTS md_product_varieties (variety_code text PRIMARY KEY, status text, effective_date date, expire_date date);
+      ALTER TABLE md_product_varieties ADD COLUMN IF NOT EXISTS variety_name text, ADD COLUMN IF NOT EXISTS shell_color text;
       CREATE TABLE IF NOT EXISTS md_variety_breeds (variety_code text, breed_code text, status text DEFAULT 'ACTIVE');
       CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text, scope_type text, scope_code text DEFAULT '', sale_enabled boolean DEFAULT true, stock_enabled boolean DEFAULT true, status text DEFAULT 'ACTIVE', effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, log_date date, house_code text, eggs_by_grade jsonb);
@@ -102,7 +103,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
     await db.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS max_capacity int DEFAULT 5000, ADD COLUMN IF NOT EXISTS capacity int;
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty int DEFAULT 1000,ADD COLUMN IF NOT EXISTS current_qty int DEFAULT 1000,
         ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
-      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS flock_no text,ADD COLUMN IF NOT EXISTS shift text DEFAULT 'DAILY',
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS company_code text, ADD COLUMN IF NOT EXISTS flock_no text,ADD COLUMN IF NOT EXISTS shift text DEFAULT 'DAILY',
         ADD COLUMN IF NOT EXISTS mortality_qty int DEFAULT 0,ADD COLUMN IF NOT EXISTS elimination_qty int DEFAULT 0,
         ADD COLUMN IF NOT EXISTS opening_qty int,ADD COLUMN IF NOT EXISTS closing_qty int,ADD COLUMN IF NOT EXISTS eggs_produced int DEFAULT 0,ADD COLUMN IF NOT EXISTS lay_rate numeric;
       ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_zh text,ADD COLUMN IF NOT EXISTS dict_label_en text,ADD COLUMN IF NOT EXISTS dict_label_lo text,ADD COLUMN IF NOT EXISTS sort_no int;

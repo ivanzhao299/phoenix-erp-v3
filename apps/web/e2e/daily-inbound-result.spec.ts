@@ -241,3 +241,54 @@ for (const change of ['refresh', 'date'] as const) {
     expect(writes).toEqual([]);
   });
 }
+
+for (const routeRoot of ['/breeding','/mobile']) test(`formal inbound follows the selected house date, flock and available grades at ${routeRoot}`, async ({ page }) => {
+  if (routeRoot === '/mobile') await page.setViewportSize({width:390,height:844});
+  const firstDay = '2026-10-16';
+  let lastQuery: URLSearchParams | undefined;
+  await page.route('**/lookup/houses*',route=>route.fulfill({json:[
+    {houseCode:'FIXTURE-H1',houseName:'红粉舍',companyCode:'FIXTURE-COMPANY',siteCode:'FIXTURE-SITE',ownershipResolved:true},
+    {houseCode:'FIXTURE-H2',houseName:'普通舍',companyCode:'FIXTURE-OTHER',siteCode:'FIXTURE-SITE2',ownershipResolved:true},
+  ]}));
+  await page.route('**/lookup/egg-source-profile?**', route => {
+    lastQuery = new URL(route.request().url()).searchParams;
+    const day = lastQuery.get('eggDate');
+    if (lastQuery.get('houseCode') === 'FIXTURE-H2') return route.fulfill({json:{data:{
+      houseCode:'FIXTURE-H2',companyCode:'FIXTURE-OTHER',productMode:'STANDARD',varietyCode:null,shellColor:null}}});
+    if (day === '2026-10-18') return route.fulfill({status:400,json:{message:'来源档案生效期重叠，拒绝推导'}});
+    const pink = day === firstDay;
+    return route.fulfill({json:{data:{houseCode:'FIXTURE-H1',companyCode:'FIXTURE-COMPANY',productMode:'VARIANT',
+      varietyCode:pink?'FIX-PINK':'FIX-RED',shellColor:pink?'PINK':'RED',varietyName:pink?'粉壳蛋':'红壳蛋'}}});
+  });
+  const endpoint = '**/production-inbound-documents';
+  await page.route(endpoint+'/context?**', route=>route.fulfill({json:{state:'ACTIVE',firstProductionDate:firstDay}}));
+  await page.route(endpoint+'/balance?**', route=>{
+    const day = new URL(route.request().url()).searchParams.get('eggDate');
+    const grade = day === firstDay ? 'GRADE_1' : 'GRADE_2';
+    return route.fulfill({json:{scopeState:'ACTIVE',grades:{[grade]:{reported:6,posted:1,remaining:5}},currentStock:{},reports:[],
+      sourceBalances:[{dailyLogId:21,shift:'AM',gradeCode:grade,productionDate:day,flockNo:'FLOCK-'+day,
+        occupancyId:'OCC-'+day,confirmedQty:6,ordinaryNet:1,rawUsedQty:0,remaining:5}]}});
+  });
+  await page.goto(routeRoot+'/production-inbound?companyCode=FIXTURE-COMPANY&houseCode=FIXTURE-H1&warehouseCode=FIXTURE-W1&eggDate='+firstDay);
+  const add = page.getByRole('button',{name:'增加档位或规格',exact:true});
+  const grade = page.getByLabel('档位',{exact:true});
+  await expect(page.getByText('FLOCK-'+firstDay,{exact:true})).toBeVisible();
+  await add.click();
+  await expect(grade.locator('option[value="GRADE_1"]')).toContainText('粉壳');
+  await expect(grade.locator('option[value="GRADE_2"]')).toHaveCount(0);
+  expect(lastQuery?.get('companyCode')).toBe('FIXTURE-COMPANY');
+  const date = page.getByLabel('生产日期',{exact:true});
+  await date.fill('2026-10-17');
+  await expect(grade).toHaveCount(0);
+  await expect(page.getByText('FLOCK-2026-10-17',{exact:true})).toBeVisible();
+  await add.click();
+  await expect(grade.locator('option[value="GRADE_2"]')).toContainText('红壳');
+  await expect(grade.locator('option[value="GRADE_1"]')).toHaveCount(0);
+  await date.fill('2026-10-18');
+  await expect(page.getByText(/来源档案生效期重叠/).first()).toBeVisible();
+  await expect(page.getByText('红壳蛋',{exact:false})).toHaveCount(0);
+  await page.getByLabel('鸡舍',{exact:true}).selectOption('FIXTURE-H2');
+  await expect(page.getByText(/普通分级.*STANDARD/)).toBeVisible();
+  expect(lastQuery?.get('companyCode')).toBe('FIXTURE-OTHER');
+  await expect(grade).toHaveCount(0);
+});

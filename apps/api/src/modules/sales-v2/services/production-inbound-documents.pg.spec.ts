@@ -381,6 +381,26 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     expect(await totals()).toEqual({ batches:0,ledgers:0,lines:0,receipts:0,links:0 });
   });
 
+  it('holds the whole day when one reported shift has no matching flock and occupancy', async () => {
+    await resetFixture('AMPM');
+    const [am]=await db.query("SELECT id FROM brd_daily_logs WHERE shift='AM'");
+    const draft=input(5);
+    draft.items[0].allocations=[{dailyLogId:am.id,quantity:5}];
+    const frozen=await ready(draft);
+    const receipt=await post(frozen);
+    // This fixture represents a row predating the official identity trigger.
+    await db.transaction(async m => {
+      await m.query("SET LOCAL session_replication_role='replica'");
+      await m.query("UPDATE brd_daily_logs SET flock_no='FLOCK-B' WHERE shift='PM'");
+    });
+    expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceReviewRequired).toBe(true);
+    await expect(physical({...draft,handoverRef:'UNVERIFIED-SHIFT'})).rejects.toThrow('占栏');
+    expect(await post(frozen)).toEqual(receipt);
+    const [allocation]=await db.query("SELECT id FROM production_inbound_allocations WHERE document_id=$1",[frozen.id]);
+    const {approved}=await reversal(frozen,[{allocationId:allocation.id,quantity:2}]);
+    await expect(post(approved)).resolves.toBeDefined();
+  });
+
   it('does not turn unsupported multi-shift quota sharing into EXACT provenance', async () => {
     await resetFixture('AMPM');
     const d=await service.create(input(150)); await expect(service.ready(d.id,d.version,'NO-PHYSICAL')).rejects.toThrow('收发双方确认');
@@ -628,8 +648,8 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const d=await ready(p); await post(d);
     const sourceBalances=async()=> (await service.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceBalances.filter(row=>row.gradeCode==='GRADE_1');
     const before=[
-      {dailyLogId:am,shift:'AM',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:100,rawUsedQty:0,remaining:0},
-      {dailyLogId:pm,shift:'PM',gradeCode:'GRADE_1',confirmedQty:200,ordinaryNet:50,rawUsedQty:0,remaining:150},
+      {dailyLogId:am,shift:'AM',productionDate:day,flockNo:'FLOCK-A',occupancyId:'SYNTHETIC-OCC',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:100,rawUsedQty:0,remaining:0},
+      {dailyLogId:pm,shift:'PM',productionDate:day,flockNo:'FLOCK-A',occupancyId:'SYNTHETIC-OCC',gradeCode:'GRADE_1',confirmedQty:200,ordinaryNet:50,rawUsedQty:0,remaining:150},
     ];
     expect(await sourceBalances()).toEqual(before);
     const exhausted=input(1);exhausted.items[0].allocations=[{dailyLogId:am,quantity:1}];

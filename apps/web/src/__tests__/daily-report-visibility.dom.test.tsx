@@ -63,7 +63,10 @@ beforeEach(() => {
       return fixtures.fetchContext(searchParams.get('companyCode'), searchParams.get('houseCode'));
     }
     if (pathname === '/api/v3/farm/daily-hen-report') {
-      return ok({rows:[{house_code:'HOUSE-A',occupancy_id:null,has_daily_log:false,current_qty:100}]});
+      return ok({rows:[
+        {house_code:'HOUSE-A',flock_no:'FUTURE-FLOCK',occupancy_id:null,entry_candidate:false},
+        {house_code:'HOUSE-A',flock_no:'FLOCK-ON-REPORT-DATE',occupancy_id:null,entry_candidate:true,entry_verified:true,has_daily_log:false,current_qty:100},
+      ]});
     }
     return ok({data:{}});
   }));
@@ -99,7 +102,7 @@ it('shows the saved business date immediately and remains visible on refresh and
   expect(fixtures.fetchContext).toHaveBeenLastCalledWith('COMP-A', 'HOUSE-A');
   expect(submit.disabled).toBe(false);
   await act(async () => submit.click());
-  expect(fixtures.saveReport).toHaveBeenCalledWith(expect.objectContaining({house_code:'HOUSE-A',log_date:'2026-10-17',mortality_qty:3}));
+  expect(fixtures.saveReport).toHaveBeenCalledWith(expect.objectContaining({house_code:'HOUSE-A',log_date:'2026-10-17',flock_no:'FLOCK-ON-REPORT-DATE',mortality_qty:3}));
   expect(fixtures.toast.error).not.toHaveBeenCalled();
   expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-A',log_date:'2026-10-17',limit:30});
   expect(historyRows().textContent).toContain('House A');
