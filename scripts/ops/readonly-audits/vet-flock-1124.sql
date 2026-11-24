@@ -40,3 +40,14 @@ FROM (VALUES ('brd_vet_material_catalog'), ('brd_egg_vet_reviews'), ('brd_egg_qc
 
 SELECT 'VET_EGG_HOLD_FUNCTION' AS section,
        to_regprocedure('public.vet_egg_day_held(text,date)') IS NOT NULL AS installed;
+
+SELECT 'VET_MATERIAL_CLASSIFICATION' AS section,count(*) AS active_materials,
+       count(*) FILTER (WHERE effective_vet_kind IS NOT NULL) AS classified_materials,
+       count(*) FILTER (WHERE has_stock) AS stocked_materials,
+       count(*) FILTER (WHERE has_stock AND effective_vet_kind IS NULL) AS stocked_needing_classification
+FROM (
+  SELECT c.effective_vet_kind,EXISTS(SELECT 1 FROM inv_batches b JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+    WHERE b.material_code=c.material_code AND b.item_type='MATERIAL' AND b.qty>0 AND w.domain='OPERATIONAL'
+      AND w.type='MEDICINE' AND w.status='ACTIVE') AS has_stock
+  FROM brd_vet_material_catalog c WHERE c.status='ACTIVE'
+) active_catalog;
