@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { baseline, reviewedHeadFile, readerRepairPaths, units, reviewedSource, reviewSnapshot, readAuditSnapshot, verifyAppliedLedger } from './vet-1124-migration.mjs';
+import { baseline, reviewedHeadFile, readerRepairPaths, backupRepairChanges, units, reviewedSource, reviewSnapshot, readAuditSnapshot, verifyAppliedLedger } from './vet-1124-migration.mjs';
 import { candidateCi, evidenceArgs } from './vet-1124-ci.mjs';
 import { fixedScopeFixture } from '../ci/modern-schema-release.fixture.mjs';
 
@@ -32,6 +32,7 @@ test('a real git merge admits exactly the three reviewed blobs and the entire se
   write('base','runtime'); const base = commit('base');
   const files = units.map(u => 'apps/api/src/database/migrations/' + u + '.ts');
   readerRepairPaths.forEach(p => write(p, 'original reader'));
+  for (const change of backupRepairChanges.filter(c=>c.startsWith('M\t'))) write(change.slice(2),'original');
   files.forEach(p => write(p, 'reviewed ' + p)); write(reviewedHeadFile, 'PENDING\n');
   const reviewed = commit('reviewed');
   write(reviewedHeadFile, reviewed + '\n'); const sealed = commit('seal');
@@ -63,6 +64,18 @@ test('a real git merge admits exactly the three reviewed blobs and the entire se
   assert.throws(() => reviewedSource(repaired,dir,base),/EXACT_MAIN_MERGE/);
   write(files[0],'different DDL');git('add','.');
   assert.throws(() => reviewedSource(merge(merged,repairSeal,git('write-tree')),dir,base,merged),/READER_REPAIR_TREE/);
+  write(files[0],git('show',repaired+':'+files[0]));git('add',files[0]);
+  git('switch','-qc','backup-repair',repaired);
+  for (const change of backupRepairChanges) {
+    const file=change.slice(2);
+    write(file,file===reviewedHeadFile?'PENDING\n':'volume repair');
+  }
+  const volumeHead=commit('review volume');write(reviewedHeadFile,volumeHead+'\n');
+  const volumeSeal=commit('seal volume'), volumeTree=git('write-tree');
+  assert.equal(reviewedSource(merge(repaired,volumeSeal,volumeTree),dir,base,merged,repaired).reviewed,volumeHead);
+  write(files[0],'unexpected application change');git('add','.');
+  assert.throws(()=>reviewedSource(merge(repaired,volumeSeal,git('write-tree')),dir,base,merged,repaired),/BACKUP_REPAIR_TREE/);
+
 
 });
 
@@ -199,6 +212,7 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
   const script = ['set -euo pipefail',
     'vet_inspection() { [ "$SNAPSHOT" != invalid ] || return 1; echo "$SNAPSHOT"; }',
     'run_audit() { echo HOLD; }',
+    'verify_vet_backup_volume() { [ "$SNAPSHOT" != bad_volume ]; }',
     'docker() { case "$1" in image) echo "$TARGET_SHA";; login|pull) echo "docker:$1" >&2;; *) return 1;; esac; }',
     workflow.slice(start,end), 'echo REACHED_BACKUP; fi'].join('\n');
   const env = { ...process.env, PHASE:'apply', AUDIT_SCOPE:'vet-1124', SNAPSHOT:'inspection', EXPECTED_VET_INSPECTION_SHA256:'inspection',
@@ -208,6 +222,8 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
   const inspect = run({PHASE:'inspect'});
   assert.equal(inspect.status,0); assert.match(inspect.stdout,/INSPECT=COMPLETE/);
   assert.doesNotMatch(inspect.stdout + inspect.stderr,/docker:|REACHED_BACKUP/);
+  const badVolume=run({PHASE:'inspect',SNAPSHOT:'bad_volume'});
+  assert.notEqual(badVolume.status,0);assert.doesNotMatch(badVolume.stdout,/INSPECT=COMPLETE/);
   const apply = run({}); assert.equal(apply.status,0,apply.stderr); assert.match(apply.stdout,/REACHED_BACKUP/);
   for (const fields of [{AUDIT_SCOPE:'ordinary'},{SNAPSHOT:'invalid'},{SNAPSHOT:'drift'},
     {EXPECTED_VET_INSPECTION_SHA256:''},{EXPECTED_BEFORE_LEDGER_SHA256:'moved'}]) {
