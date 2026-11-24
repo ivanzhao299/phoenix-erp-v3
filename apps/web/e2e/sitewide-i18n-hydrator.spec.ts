@@ -332,11 +332,12 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
   await search.fill('');
   await row.locator('button').first().click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.locator('select').nth(0)).toContainText(`${farm.farm_name}（${farm.farm_code}）`);
-  await expect(dialog.locator('select').nth(1)).toContainText(`${house.house_name}（${house.house_code}）`);
-  await dialog.locator('select').nth(0).selectOption('');
-  await expect(dialog.locator('select').nth(1)).toBeDisabled();
-  await expect(dialog.locator('select').nth(1)).toHaveValue('');
+  const farmField = dialog.getByLabel('归属养殖场', { exact: true });
+  const houseField = dialog.getByLabel('当前鸡舍', { exact: true });
+  await expect(farmField).toHaveValue(`${farm.farm_name}（${farm.farm_code}）`);
+  await expect(houseField).toHaveValue(`${house.house_name}（${house.house_code}）`);
+  await expect(farmField).not.toBeEditable();
+  await expect(houseField).not.toBeEditable();
 });
 
 test('flock missing-name fallback displays each code once; henhouse keeps the reference hierarchy', async ({ page }) => {

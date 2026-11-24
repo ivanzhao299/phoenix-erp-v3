@@ -37,6 +37,7 @@ import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
 import MasterNameCode from '@/components/MasterNameCode';
 import { flockMasterLabels } from '@/lib/flock-display';
+import { masterNameWithCode } from '@/lib/localized-master-data';
 import { useMasterNames } from '@/hooks/useMasterNames';
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
@@ -392,12 +393,12 @@ export default function FlockPage() {
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl} htmlFor="flock-archive-farm">{t('ui.归属养殖场', '归属养殖场')}</label>
-              <input id="flock-archive-farm" data-i18n-skip="true" value={editedFlock?.farmName ?? editedFlock?.farmCode ?? ''}
+              <input id="flock-archive-farm" data-i18n-skip="true" value={editedFlock ? masterNameWithCode(editedFlock.farmName, editedFlock.farmCode) : ''}
                 readOnly className={s.inp} style={{ background: 'var(--bg-muted)' }} />
             </div>
             <div>
               <label className={s.lbl} htmlFor="flock-archive-house">{t('flockArchive.currentHouse', '当前鸡舍')}</label>
-              <input id="flock-archive-house" data-i18n-skip="true" value={editedFlock?.houseName ?? editedFlock?.houseCode ?? ''}
+              <input id="flock-archive-house" data-i18n-skip="true" value={editedFlock ? masterNameWithCode(editedFlock.houseName, editedFlock.houseCode) : ''}
                 readOnly className={s.inp} style={{ background: 'var(--bg-muted)' }} />
               {canCreateFlock && editId && editedFlock?.houseCode && editedFlock.status !== 'RETIRED' &&
                 <Link href={flockArchiveTransferPath(editId, editedFlock.houseCode)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}

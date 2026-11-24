@@ -138,6 +138,19 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   const detail=(await api(2,'get',`/documents/${d.id}`).expect(200)).body.data;expect(detail.business_date).toBe('2026-11-10');expect(detail.events[0].business_date).toBe('2026-11-10');
   const balances=(await api(1,'get','/balances').expect(200)).body.data;expect(balances[0].baseline_on).toBe('2026-11-10');expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(100);
   await api(2,'get',`/documents/${d.id}/evidence/${file.body.fileId}`).expect(200);
+
+  let loss=(await api(1,'post','/documents').send(payload({
+    kind:'MORTALITY',businessDate:'2026-11-11',quantity:4,expectedVersion:balances[0].version,
+    disposalMethod:'verified disposal',receiver:'fixture vet',evidence:[file.body.fileId],
+  })).expect(201)).body.data;
+  const current=(actor:number)=>api(actor,'get',`/documents/${loss.id}`).expect(200);
+  expect((await current(1)).body.data).toMatchObject({allowedActions:['submit','cancel'],blockers:[]});
+  loss=(await api(1,'post',`/documents/${loss.id}/submit`).send({version:loss.version}).expect(201)).body.data;
+  expect((await current(2)).body.data).toMatchObject({allowedActions:['approve'],blockers:[]});
+  loss=(await api(2,'post',`/documents/${loss.id}/approve`).send({version:loss.version}).expect(201)).body.data;
+  expect((await current(3)).body.data).toMatchObject({allowedActions:['post'],blockers:[]});
+  await api(3,'post',`/documents/${loss.id}/post`).send({version:loss.version}).expect(201);
+  expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(96);
  });
  it('guides first placement before submission and keeps a legacy approval intact until real inspection',async()=>{
   const evidence=(await upload(1,'HNEW').expect(201)).body.fileId;

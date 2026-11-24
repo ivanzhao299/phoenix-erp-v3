@@ -47,6 +47,9 @@ test('flock edit preserves read-only stock and refreshes the saved record', asyn
   const startDate = await startDateInput.inputValue();
   const quantityInput = page.locator('label', { hasText: '当前存栏(羽)' }).locator('..').locator('input');
   await expect(quantityInput).toHaveAttribute('readonly', '');
+  const plan = page.getByRole('dialog').getByLabel('计划产蛋周数(周)', { exact: true });
+  const planningWeeks = Number(await plan.inputValue()) === 90 ? 91 : 90;
+  await plan.fill(String(planningWeeks));
 
   let mutationCompleted = false;
   page.on('response', response => {
@@ -68,6 +71,7 @@ test('flock edit preserves read-only stock and refreshes the saved record', asyn
   const saveResponse = await saved;
   expect(saveResponse.ok(), `flock PUT ${saveResponse.status()}: ${await saveResponse.text()}`).toBe(true);
   const payload = saveResponse.request().postDataJSON();
+  expect(payload.target_weeks).toBe(planningWeeks);
   for (const unchanged of ['breed_code', 'breed_type', 'strain', 'start_date', 'current_qty', 'initial_qty']) {
     expect(payload).not.toHaveProperty(unchanged);
   }

@@ -241,7 +241,8 @@ function rowBlockers(row: ActionFacts, action: PendingFlockAction) {
     || ['SELL_HELD','REPORT_CORRECTION','REVERSE'].includes(row.kind))) blockers.push('FLOCK_BASELINE_REQUIRED');
   if (directPosition) {
     const balance = row.balance_version === null ? undefined : {
-      house_code: row.balance_house!, farm_code: row.balance_farm!, company_code: row.balance_company!, closed_on: row.balance_closed_on,
+      house_code: row.balance_house!, farm_code: row.balance_farm!, company_code: row.balance_company!,
+      site_code: row.balance_site, closed_on: row.balance_closed_on,
     };
     try {
       assertOrdinaryFlockState(row.kind, balance, row);
