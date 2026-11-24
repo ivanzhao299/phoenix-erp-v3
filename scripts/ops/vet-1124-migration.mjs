@@ -8,6 +8,14 @@ import { MIGRATION_PATHS } from './production-config-guard.mjs';
 
 export const baseline = '44b3e692c18952d7be755114368f15fbcd1d8fba';
 export const reviewedHeadFile = 'scripts/ops/vet-1124-reviewed-head';
+const releasedFeatureMerge = 'cd7d50c813a9ba34e636fd89b4de13a80ef3e947';
+export const readerRepairPaths = [
+  '.github/workflows/controlled-pending-migration-apply.yml',
+  'scripts/ops/vet-1124-ci.mjs',
+  'scripts/ops/vet-1124-migration.mjs',
+  'scripts/ops/vet-1124-migration.test.mjs',
+  reviewedHeadFile,
+];
 export const units = ['1795478400000-EggWithdrawalReview', '1795500000000-VetMaterialAllocation', '1795500100000-VetMaterialIdentity'];
 const paths = units.map(unit => 'apps/api/src/database/migrations/' + unit + '.ts');
 const sourceRuns = ['45352175233', '45351436581'];
@@ -16,7 +24,7 @@ const hash = /^[a-f0-9]{64}$/;
 const image = /^ghcr\.io\/ivanzhao299\/phoenix-erp-v3\/api@sha256:[0-9a-f]{64}$/;
 const hold = reason => { throw Error('VET_1124_HOLD=' + reason); };
 
-export function reviewedSource(target, root = process.cwd(), expectedBase = baseline) {
+export function reviewedSource(target, root = process.cwd(), expectedBase = baseline, featureMerge = releasedFeatureMerge) {
   if (!sha.test(target)) hold('TARGET_SHA');
   const git = (...args) => execFileSync('git', ['--no-replace-objects', '-c', 'safe.directory=' + root,
     '-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, encoding: 'utf8', timeout: 15000 }).trimEnd();
@@ -24,7 +32,14 @@ export function reviewedSource(target, root = process.cwd(), expectedBase = base
   // hash is known only after merge, so verify both parents and the exact tree.
   const parents = revision => git('show', '-s', '--format=%P', revision).split(' ');
   const [first, sealed, ...extra] = parents(target);
-  if (first !== expectedBase || !sha.test(sealed) || extra.length) hold('EXACT_MAIN_MERGE');
+  if (!sha.test(sealed) || extra.length) hold('EXACT_MAIN_MERGE');
+  if (first !== expectedBase) {
+    // The application and all migration blobs were sealed in this exact first
+    // merge. Only the reviewed CI-reader repair can follow it before deployment.
+    if (first !== featureMerge || parents(first)[0] !== expectedBase) hold('EXACT_MAIN_MERGE');
+    if (git('diff', '--ignore-submodules=none', '--no-renames', '--name-status', first, target)
+        !== readerRepairPaths.map(path => 'M\t' + path).join('\n')) hold('READER_REPAIR_TREE');
+  }
   const reviewed = git('show', target + ':' + reviewedHeadFile);
   if (!sha.test(reviewed) || parents(sealed).join(' ') !== reviewed
       || git('show', reviewed + ':' + reviewedHeadFile) !== 'PENDING'
