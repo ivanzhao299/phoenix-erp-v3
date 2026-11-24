@@ -16,6 +16,7 @@ import {ModernSchemaRegistry} from './production-modern-schema-registration.mjs'
 const runtimeSha='beff6954f08f1393457524476e3b62eba6a8bf4e';
 const apiOwner='45299623179-1', webOwner='45300728078-1';
 const opsFile='scripts/ops/production-modern-schema-rehearsal.mjs';
+const reviewedCleanupBlob='103fff2cda4ff2c580af23e3489b5bd637dc01a9';
 const allowed=new Set([opsFile,'scripts/ops/production-modern-schema-rehearsal.test.mjs',
  'scripts/ops/production-modern-schema-rehearsal.pg.test.mjs','scripts/ops/production-rehearsal-cleanup-publish.mjs']);
 const origin='erp.eggslao.com', vhost='/etc/nginx/conf.d/'+origin+'.conf';
@@ -76,16 +77,16 @@ function reload(){
  native('/usr/sbin/nginx',['-t']);
  native('/usr/bin/systemctl',['reload','nginx']);
 }
-async function observeOpen(before){
+async function observeEdge(before,held){
  for(let attempt=0;attempt<60;attempt++){
   const current=workers();
   assert.equal(current.master,before.master,'nginx master changed');
   if(Object.keys(current.processes).length&&Object.entries(before.processes).every(([pid,start])=>current.processes[pid]!==start)){
-   try{edgeProbe(false);return current;}catch(error){if(attempt===59)throw error;}
+   try{edgeProbe(held);return current;}catch(error){if(attempt===59)throw error;}
   }
   await delay(500);
  }
- throw Error('public origin or worker retirement unverified');
+ throw Error('public origin or prior worker retirement unverified');
 }
 
 async function publish(target,operation){
@@ -112,13 +113,21 @@ async function publish(target,operation){
  const binding={schema:'phoenix.rehearsal-cleanup-publication/v1',target,runtimeSha,apiOwner,webOwner,
   cleanupBlob:git(root,['rev-parse',target+':'+opsFile]),originalHash,heldHash};
  assert(currentHash===heldHash||prior&&currentHash===originalHash,'unknown public ingress state');
+ assert.equal(binding.cleanupBlob,reviewedCleanupBlob,'cleanup source is outside reviewed publication');
  if(prior)assert(same(prior.binding,binding),'existing intent belongs to another publication');
+ const pending=prior&&store.exists(attemptName)?store.read(attemptName):null;
+ if(pending)assert.equal(pending.intentSha256,canonicalDigest(prior),'opening attempt binding changed');
+ if(pending&&currentHash===heldHash){
+  const verifiedHeld=pending.phase==='REHELD'?pending.reheld:pending.workers;
+  assert(same(verifiedHeld,workers()),'held nginx generation changed');
+ }
+ if(currentHash===originalHash)assert(pending?.phase==='APPLYING','no registered opening attempt');
  if(!store.exists(terminalName)){
   const checked=verifyHeldFollowUp('admit',{
    DEPLOY_MODE:'web',DEPLOY_RUN_ID:Date.now()+'-1',TARGET_SHA:runtimeSha,HELD_FOLLOW_UP:`web-${apiOwner}-verify-${webOwner}`,
    APPROVE_PRODUCTION:'true',PRESERVE_ARTIFACTS:'true',BUILD_API:'false',BUILD_WEB:'true',RUN_MIG:'false',
    ROTATE_CHANJET_CREDENTIALS:'false',ONE_TIME_CONFIG_FLOOR_TRANSITION:'false',
-  },{latestMain:()=>assertLatestMain(target),...(prior?{edge:()=>edgeProbe(currentHash===heldHash)}:{})});
+  },{latestMain:()=>assertLatestMain(target),...(pending?{edge:()=>edgeProbe(currentHash===heldHash)}:{})});
   assert.equal(checked.receiptOnly,true,'prior Web seal unverified');
  }
  if(operation==='inspect'){
@@ -147,14 +156,14 @@ async function publish(target,operation){
  if(currentHash===heldHash){
   const before=workers();
   assert(Object.keys(before.processes).length>0,'running nginx workers required');
-  atomicState(store.file(attemptName),{intentSha256:intentHash,workers:before,startedAt:new Date().toISOString()});
+  atomicState(store.file(attemptName),{intentSha256:intentHash,phase:'APPLYING',workers:before,startedAt:new Date().toISOString()});
  }
  const attempt=store.read(attemptName);
  assert.equal(attempt.intentSha256,intentHash,'opening attempt binding changed');
  assertLatestMain(target);
  try{
   if(currentHash===heldHash){install(original,heldHash);reload();}
-  const current=await observeOpen(attempt.workers);
+  const current=await observeEdge(attempt.workers,false);
   assert.equal(sha(readVhost()),originalHash,'restored origin changed');
   guardProduction(root,store.directory,captureRuntime());
   assertLatestMain(target);
@@ -164,11 +173,11 @@ async function publish(target,operation){
   console.log(JSON.stringify(terminal));
  }catch(error){
   if(!store.exists(terminalName)&&sha(readVhost())===originalHash){
+   const opening=workers();
    install(held,originalHash);
    reload();
-   for(let attempt=0;attempt<30;attempt++){
-    try{edgeProbe(true);break;}catch(probeError){if(attempt===29)throw probeError;await delay(500);}
-   }
+   const reheld=await observeEdge(opening,true);
+   atomicState(store.file(attemptName),{...attempt,phase:'REHELD',reheld,rollbackAt:new Date().toISOString()});
   }
   throw error;
  }
