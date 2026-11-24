@@ -444,10 +444,6 @@ export const mobileApi = {
   medInbound: (date: string, items: Array<{ medication_code: string; qty: number; note?: string }>, operator?: string) =>
     post('/api/farm/medicine/inbound', { date, items, operator }),
 
-  /** 药品出库（用药） */
-  medOutbound: (date: string, items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>, operator?: string) =>
-    post('/api/farm/medicine/outbound', { date, items, operator }),
-
   /** 母鸡存栏日报（按日期） */
   getDailyHenReport: (date: string) =>
     get<DailyHenReport>(`/api/v3/farm/daily-hen-report?date=${date}`),

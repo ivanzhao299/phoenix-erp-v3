@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, Search,
-  TrendingUp, TrendingDown, Package,
+  TrendingUp, History, Package,
   Sun, Moon,
 } from 'lucide-react';
 import { mobileApi, invalidateCache, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
@@ -16,15 +17,10 @@ function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// G99：栋舍不再硬编码——出库栋舍从真实养殖场栋舍拉取（与 feed/egg 页同源 /api/farm/feed/houses）。
-//   「全场」(整场用药) 始终保留为首选项。
-const WHOLE_FARM = '全场';
-
-type Tab = 'stock' | 'inbound' | 'outbound';
+type Tab = 'stock' | 'inbound' | 'ledger';
 
 interface EntryRow {
   qty:        number;
-  house_code: string;
   note:       string;
 }
 
@@ -49,22 +45,14 @@ export default function MedicinePage() {
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState('');
 
-  // 入库 / 出库 entries：{ medication_code → EntryRow }
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
 
-  // G99：真实栋舍（含「全场」首项）——取代硬编码 DEFAULT_HOUSES
-  // G109：以 code 为键，显示中文名（houseMap）
-  const [houses, setHouses] = useState<string[]>([WHOLE_FARM]);
-  const [houseMap, setHouseMap] = useState<Record<string, string>>({ [WHOLE_FARM]: WHOLE_FARM });
+  const [houseMap, setHouseMap] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!allowed) return;
     mobileApi.getFeedHousesDetail()
-      .then(rows => {
-        const codes = rows.map(r => r.house_code).filter(h => h && h !== WHOLE_FARM);
-        setHouses([WHOLE_FARM, ...codes]);
-        setHouseMap({ [WHOLE_FARM]: WHOLE_FARM, ...Object.fromEntries(rows.map(r => [r.house_code, r.house_name || r.house_code])) });
-      })
-      .catch(() => setHouses([WHOLE_FARM]));
+      .then(rows => setHouseMap(Object.fromEntries(rows.map(row => [row.house_code, row.house_name || row.house_code]))))
+      .catch(() => setHouseMap({}));
   }, [allowed]);
 
   const loadStock = useCallback(async () => {
@@ -92,15 +80,15 @@ export default function MedicinePage() {
   }, [today]);
 
   useEffect(() => {
-    if (tab === 'stock') loadStock();
-    else if (tab === 'outbound') loadLedger();
-    else setLoading(false);
-  }, [tab, loadStock, loadLedger]);
+    if (!allowed) return;
+    if (tab === 'ledger') loadLedger();
+    else loadStock();
+  }, [allowed, tab, loadStock, loadLedger]);
 
   if (permLoading || !allowed) return null;
 
   const getEntry = (code: string): EntryRow =>
-    entries[code] ?? { qty: 0, house_code: houses[0] ?? WHOLE_FARM, note: '' };
+    entries[code] ?? { qty: 0, note: '' };
 
   const setEntry = (code: string, patch: Partial<EntryRow>) => {
     setEntries(p => ({ ...p, [code]: { ...getEntry(code), ...patch } }));
@@ -114,7 +102,7 @@ export default function MedicinePage() {
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
 
   const handleSave = async () => {
-    if (!hasChanges) return;
+    if (readonly || saving || !hasChanges || tab !== 'inbound') return;
     setSaving(true);
     setError('');
     try {
@@ -123,20 +111,14 @@ export default function MedicinePage() {
         .map(([code, e]) => ({
           medication_code: code,
           qty:             e.qty,
-          house_code:      tab === 'outbound' ? e.house_code : undefined,
           note:            e.note || undefined,
         }));
 
-      if (tab === 'inbound') {
-        await mobileApi.medInbound(today, items);
-      } else {
-        await mobileApi.medOutbound(today, items);
-      }
+      await mobileApi.medInbound(today, items);
       invalidateCache('medStock');
       setSaved(true);
       setEntries({});
       setTimeout(() => setSaved(false), 3000);
-      await loadStock();
       setTab('stock');
     } catch (e: any) {
       setError(e.message || tr('mob.brd.save_fail', '保存失败'));
@@ -160,7 +142,7 @@ export default function MedicinePage() {
           <ArrowLeft size={20} />
         </button>
         <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>💊 {tr('mob.brd.medicine_ledger', '药品台账')}</span>
-        <button onClick={() => tab === 'stock' ? loadStock() : loadLedger()}
+        <button onClick={() => tab === 'ledger' ? loadLedger() : loadStock()}
           style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
         </button>
@@ -170,7 +152,7 @@ export default function MedicinePage() {
         }}>
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        {(tab === 'inbound' || tab === 'outbound') && (
+        {(tab === 'inbound' && !readonly) && (
           <button
             onClick={handleSave}
             disabled={saving || !hasChanges}
@@ -189,12 +171,12 @@ export default function MedicinePage() {
       </div>
 
       {/* Tab */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', background: t.appBarBg, borderBottom: `1px solid ${t.barBorder}` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: readonly ? 'repeat(2,1fr)' : 'repeat(3,1fr)', background: t.appBarBg, borderBottom: `1px solid ${t.barBorder}` }}>
         {([
           { key: 'stock',    label: tr('mob.brd.stock', '库存'), icon: <Package size={14} /> },
           { key: 'inbound',  label: tr('mob.brd.inbound', '入库'), icon: <TrendingUp size={14} /> },
-          { key: 'outbound', label: tr('mob.brd.outbound', '出库'), icon: <TrendingDown size={14} /> },
-        ] as const).map(tab_ => (
+          { key: 'ledger', label: tr('mob.brd.today_ledger', '今日流水'), icon: <History size={14} /> },
+        ] as const).filter(item => item.key !== 'inbound' || !readonly).map(tab_ => (
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -209,6 +191,10 @@ export default function MedicinePage() {
           </button>
         ))}
       </div>
+
+      <Link href="/breeding/medicine" style={{ padding: '10px 16px', color: t.text }}>
+        {tr('menu.brd-medicine', '用药记录')}
+      </Link>
 
       {/* 搜索框（库存 tab） */}
       {tab === 'stock' && (
@@ -268,8 +254,8 @@ export default function MedicinePage() {
           </>
         )}
 
-        {/* ── 入库 / 出库 Tab ── */}
-        {(tab === 'inbound' || tab === 'outbound') && (
+        {/* ── 入库 Tab ── */}
+        {(tab === 'inbound' && !readonly) && (
           <>
             {saved && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)', color: 'var(--status-success)', fontSize: 13 }}>
@@ -294,7 +280,7 @@ export default function MedicinePage() {
                     <div style={{ textAlign: 'right', fontSize: 12, color: t.textFaint }}>{tr('mob.brd.stock', '库存')} {m.qty} {m.unit}</div>
                   </div>
 
-                  {/* 数量 + 栋舍/备注 */}
+                  {/* 数量与备注 */}
                   <div style={{ padding: '0 14px 12px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.qty', '数量')}</div>
@@ -313,31 +299,13 @@ export default function MedicinePage() {
                       />
                     </div>
 
-                    {tab === 'outbound' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.house', '栋舍')}</div>
-                        <select
-                          value={e.house_code}
-                          onChange={ev => setEntry(m.medication_code, { house_code: ev.target.value })}
-                          style={{
-                            height: 34, padding: '0 8px', borderRadius: 8,
-                            background: t.inputBg,
-                            border: `1px solid ${t.inputBorder}`,
-                            color: t.text, fontSize: 12, outline: 'none',
-                          }}
-                        >
-                          {houses.map(h => <option key={h} value={h}>{houseMap[h] || h}</option>)}
-                        </select>
-                      </div>
-                    )}
-
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.note', '备注')}</div>
                       <input
                         type="text"
                         value={e.note}
                         onChange={ev => setEntry(m.medication_code, { note: ev.target.value })}
-                        placeholder={tab === 'inbound' ? tr('mob.brd.supplier_batch', '供应商/批号…') : tr('mob.brd.usage_treatment', '用途/治疗项目…')}
+                        placeholder={tr('mob.brd.supplier_batch', '供应商/批号…')}
                         style={{
                           height: 34, padding: '0 8px',
                           background: t.cardBg,
@@ -354,8 +322,8 @@ export default function MedicinePage() {
           </>
         )}
 
-        {/* ── 出库 Tab 下方：今日流水 ── */}
-        {tab === 'outbound' && ledger.length > 0 && (
+        {/* ── 今日流水 ── */}
+        {tab === 'ledger' && ledger.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>{tr('mob.brd.today_ledger', '今日流水')}</div>
             {ledger.map(e => (
