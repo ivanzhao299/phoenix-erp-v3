@@ -85,9 +85,9 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
   await page.route('**/api/crud/brd_flocks**', async route => {
     if (route.request().method() === 'PUT') {
       const payload = route.request().postDataJSON();
-      expect(payload).toMatchObject({ breed_code: BREED_CODE, breed_type: '海兰褐', strain: '海兰褐' });
-      expect(payload).not.toHaveProperty('current_qty');
-      expect(payload).not.toHaveProperty('initial_qty');
+      for (const unchanged of ['breed_code', 'breed_type', 'strain', 'start_date', 'current_qty', 'initial_qty']) {
+        expect(payload).not.toHaveProperty(unchanged);
+      }
       targetWeeks = Number(payload.target_weeks);
       expect(targetWeeks).toBe(90);
       await route.fulfill({ json: { ok: true } });
@@ -126,42 +126,83 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
 });
 
 for (const scenario of [
-  { name: 'missing code with a legacy Chinese label', code: '', dict: BREED_DICT },
-  { name: 'unknown historical code', code: 'LEGACY_UNKNOWN', dict: BREED_DICT },
-  { name: 'inactive breed', code: BREED_CODE, dict: BREED_DICT.map(row => row.dict_code === BREED_CODE ? { ...row, status: 'INACTIVE' } : row) },
-  { name: 'no ACTIVE breed options', code: BREED_CODE, dict: [] },
-]) test(`flock cannot submit without a valid ACTIVE breed: ${scenario.name}`, async ({ page }) => {
+  { name: 'missing code with a legacy Chinese label', code: '', status: 'MISSING', dict: BREED_DICT },
+  { name: 'unknown historical code', code: 'LEGACY_UNKNOWN', status: 'CATALOG_REVIEW', dict: BREED_DICT },
+  { name: 'inactive breed', code: BREED_CODE, status: 'CATALOG_REVIEW', dict: BREED_DICT.map(row => row.dict_code === BREED_CODE ? { ...row, status: 'INACTIVE' } : row) },
+  { name: 'dictionary options unavailable with a valid persisted code', code: BREED_CODE, status: 'CONFIRMED', dict: [] },
+]) test(`flock keeps breed confirmation separate from profile editing: ${scenario.name}`, async ({ page }) => {
   await authenticate(page);
   await mockBreedDictionary(page, scenario.dict);
-  let mutationCount = 0;
+  let breedCode = scenario.code;
+  let planningSaves = 0;
+  let confirmations = 0;
   await page.route('**/api/crud/brd_flocks**', route => {
-    if (['POST', 'PUT'].includes(route.request().method())) {
-      mutationCount += 1;
+    if (route.request().method() === 'PUT') {
+      planningSaves += 1;
+      const payload = route.request().postDataJSON();
+      for (const unchanged of ['breed_code', 'breed_type', 'strain', 'start_date', 'current_qty']) {
+        expect(payload).not.toHaveProperty(unchanged);
+      }
       return route.fulfill({ json: { ok: true } });
     }
     return route.fulfill({ json: [{
-      flock_no: 'PW-FLOCK-INVALID-BREED', farm_code: 'PW-FARM', house_code: 'PW-HOUSE',
-      breed_code: scenario.code, breed_type: '海兰褐', strain: '海兰褐', current_qty: 150,
+      flock_no: 'PW-FLOCK-REVIEW-BREED', farm_code: 'PW-FARM', house_code: 'PW-HOUSE',
+      breed_code: breedCode, breed_type: '海兰褐', strain: '海兰褐', current_qty: 150,
       start_date: '2026-01-01', status: 'LAYING',
     }] });
+  });
+  await page.route('**/api/v3/farm/flock-lifecycle/flocks/PW-FLOCK-REVIEW-BREED/breed-confirmation', route => {
+    if (route.request().method() === 'POST') {
+      confirmations += 1;
+      expect(scenario.status).toBe('MISSING');
+      expect(route.request().postDataJSON()).toEqual({
+        houseCode: 'PW-HOUSE', breedCode: BREED_CODE, basis: '入栏原始凭证 PW-01',
+      });
+      breedCode = BREED_CODE;
+      return route.fulfill({ json: { code: 200, data: { breedCode, changed: true, receiptId: '42' } } });
+    }
+    return route.fulfill({ json: { code: 200, data: {
+      houseCode: 'PW-HOUSE', breedCode: scenario.code || null, historicalNames: ['海兰褐'], hasReports: true, status: scenario.status,
+    } } });
   });
   await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'PW-FARM', farmName: '测试养殖场', status: 'ACTIVE' }] } }));
   await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'PW-HOUSE', farmCode: 'PW-FARM', houseName: '测试鸡舍', status: 'ACTIVE' }] } }));
   await page.route('**/api/master-data/runtime/supplier/active**', route => route.fulfill({ json: [] }));
   await page.goto('/breeding/flock');
-  const row = page.locator('tbody tr').filter({ hasText: 'PW-FLOCK-INVALID-BREED' });
-  await row.locator('button').first().click();
-  const dialog = page.getByRole('dialog');
-  const breedSelect = dialog.locator('select').nth(2);
-  await expect(breedSelect).toBeEnabled();
-  // Neither a matching legacy label nor an available first option may infer a code.
-  await expect(breedSelect).toHaveValue(scenario.code);
-  if (scenario.code) await expect(breedSelect.locator(`option[value="${scenario.code}"]`)).toBeDisabled();
-  await dialog.getByRole('button', { name: '保存修改' }).click();
-  await expect(page.getByText('请显式选择有效的 ACTIVE 鸡群品种；历史未知值不能直接提交', { exact: true })).toBeVisible();
-  await expect(dialog).toBeVisible();
+  const row = page.locator('tbody tr').filter({ hasText: 'PW-FLOCK-REVIEW-BREED' });
+  await row.getByRole('button', { name: '编辑鸡群 PW-FLOCK-REVIEW-BREED' }).click();
+  const editor = page.getByRole('dialog');
+  await expect(editor.getByRole('button', { name: '核对品种', exact: true })).toBeVisible();
+  await expect(editor.getByRole('combobox', { name: '鸡群品种' })).toHaveCount(0);
+  // Planning edits preserve the stored identity even if the catalog is unavailable.
+  await editor.getByRole('button', { name: '保存修改' }).click();
+  await expect(page.getByText('更新成功', { exact: true })).toBeVisible();
+  expect(planningSaves).toBe(1);
+  expect(confirmations).toBe(0);
+
+  await row.getByRole('button', { name: '核对品种', exact: true }).click();
+  const confirmation = page.getByRole('dialog', { name: '确认遗传品种' });
+  if (scenario.status === 'MISSING') {
+    const selector = confirmation.getByRole('combobox', { name: '遗传品种', exact: true });
+    const confirm = confirmation.getByRole('button', { name: '确认遗传品种', exact: true });
+    // Neither a matching legacy label nor the first dictionary option may assign a code.
+    await expect(selector).toBeEnabled();
+    await expect(selector).toHaveValue('');
+    await expect(confirm).toBeDisabled();
+    await selector.selectOption(BREED_CODE);
+    await expect(confirm).toBeDisabled();
+    await confirmation.getByLabel('核对依据（填写原始凭证编号或出处）', { exact: true }).fill('入栏原始凭证 PW-01');
+    await confirm.click();
+    await expect(page.getByText('品种已确认，审计编号 42', { exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: '核对品种', exact: true })).toHaveCount(0);
+    expect(confirmations).toBe(1);
+  } else {
+    await expect(confirmation.getByText(scenario.code, { exact: true })).toBeVisible();
+    await expect(confirmation.getByText(scenario.status === 'CONFIRMED' ? /已有有效品种标准码/ : /联系品种字典管理员/)).toBeVisible();
+    await expect(confirmation.getByRole('button', { name: '确认遗传品种', exact: true })).toHaveCount(0);
+    expect(confirmations).toBe(0);
+  }
   await expect(row).toContainText('150羽');
-  expect(mutationCount).toBe(0);
 });
 
 test('flock quantity unit follows an in-page language round trip without refresh', async ({ page }) => {
