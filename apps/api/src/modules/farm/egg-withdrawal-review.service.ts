@@ -34,11 +34,11 @@ export class EggWithdrawalReviewService {
       d.log_date::text AS production_date,d.flock_no,d.house_code,origin.company_code,origin.site_code,o.id IS NOT NULL AS verified_source,
       d.shift,EXISTS(SELECT 1 FROM brd_daily_logs unresolved WHERE unresolved.flock_no=d.flock_no
         AND unresolved.log_date=d.log_date AND unresolved.occupancy_id IS NULL) AS unresolved_source,
-      m.id AS medication_id,m.medication_code,m.house_code AS treatment_house,m.status AS course_status,
+      m.id AS medication_id,m.medication_code,rx.material_name,rx.material_code,m.house_code AS treatment_house,m.status AS course_status,
       ${qa ? 'NULL::text' : 'b.house_code'} AS current_house_code,
       v.id AS review_id,v.vet_name,v.vet_reason,q.outcome,q.qa_name,q.evidence_ref,
       vet_egg_day_held(d.flock_no,d.log_date) AS held
-      ${sourceRows}
+      ${sourceRows} JOIN brd_medication_records rx ON rx.id=m.id
       LEFT JOIN LATERAL (SELECT * FROM brd_egg_vet_reviews review WHERE review.medication_id=m.id
         AND review.daily_log_id=d.id AND review.source_facts=vet_egg_source_facts(d) ORDER BY review.sequence_no DESC LIMIT 1) v ON true
       LEFT JOIN brd_egg_qc_decisions q ON q.review_id=v.id

@@ -8,7 +8,7 @@ import request from '@/lib/api-client';
 import css from '@/components/FlockLifecycle.module.css';
 
 type Source = {
-  medication_id: number; medication_code: string; daily_log_id: string; production_date: string;
+  medication_id: number; medication_code: string | null; material_name?: string; material_code?: string; daily_log_id: string; production_date: string;
   verified_source:boolean; unresolved_source:boolean; shift: string; flock_no: string; house_code: string; company_code: string; site_code: string; treatment_house: string;
   current_house_code: string | null; held: boolean; course_status: string; review_id: string | null;
   vet_name: string | null; vet_reason: string | null; outcome: 'RELEASE' | 'RETAIN' | 'DISPOSE' | null; qa_name: string | null;
@@ -61,7 +61,7 @@ function ReviewRow({row,quality,canEdit,onSaved}: {row:Source;quality:boolean;ca
     finally { setBusy(false); }
   };
   return <article className={css.document}>
-    <strong>{row.flock_no} · {row.medication_code} #{row.medication_id} · {row.held ? t('vet.held','隔离中') : t('vet.released','隔离已解除')}</strong>
+    <strong>{row.flock_no} · {row.material_name || row.material_code || row.medication_code} #{row.medication_id} · {row.held ? t('vet.held','隔离中') : t('vet.released','隔离已解除')}</strong>
     <p>{t('vet.treatmentHouse','用药舍')} {row.treatment_house} · {t('vet.layingHouse','产蛋舍')} {row.house_code} · {row.shift} · #{row.daily_log_id}
       {row.current_house_code && <> · {t('vet.careHouse','当前照管舍')} {row.current_house_code}</>}</p>
     {row.unresolved_source && <p>{t('vet.unresolved','该日有未核实占栏的历史日报，整日产出继续隔离。')}</p>}
