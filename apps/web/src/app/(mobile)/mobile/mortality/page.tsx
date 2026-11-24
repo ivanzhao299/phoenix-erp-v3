@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi } from '@/lib/mobile-api';
 import { buildMortalityRequest } from '@/lib/mortality-payload';
@@ -290,7 +291,7 @@ export default function MortalityPage() {
         color: t.text,
         flex: 1
       }}>💀 {tr('mob.brd.mortality_quick_entry', '死淘快录')}</span>
-        {canRecord && <a href={`/mobile/flock-lifecycle/losses?${new URLSearchParams({ entry: 'mortality', date })}`} style={{color:t.text,fontSize:13}}>{tr('productionJobs.recordLoss')}</a>}
+        {canRecord && <Link href={{ pathname: '/mobile/flock-lifecycle/losses', query: { entry: 'mortality', date } }} style={{ color: t.text, fontSize: 13 }}>{tr('productionJobs.recordLoss')}</Link>}
         <button disabled={saving} onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
@@ -495,7 +496,7 @@ export default function MortalityPage() {
               fontWeight: 700,
               color: t.text,
               marginBottom: 12
-            }}>{house}{managed && <p>{tr('mob.brd.mortality_managed', '已接续事件账，请办理死淘单。')}{canRecord && <> <a href={`/mobile/flock-lifecycle/losses?${new URLSearchParams({ kind: 'MORTALITY', houseCode: house, date })}`}>{tr('productionJobs.recordLoss')}</a></>}</p>}</div>
+            }}>{house}{managed && <p>{tr('mob.brd.mortality_managed', '已接续事件账，请办理死淘单。')}{canRecord && <> <Link href={{ pathname: '/mobile/flock-lifecycle/losses', query: { kind: 'MORTALITY', houseCode: house, date } }}>{tr('productionJobs.recordLoss')}</Link></>}</p>}</div>
 
                   {/* 死亡行 */}
                   <div style={{

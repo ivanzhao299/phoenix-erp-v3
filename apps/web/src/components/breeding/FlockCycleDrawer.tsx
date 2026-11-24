@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import request, { type ApiError } from '@/lib/api-client';
-import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchiveTransferUrl } from './flock-archive';
+import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchiveTransferPath } from './flock-archive';
 import { isLifecycleKind, lifecycleApi, sectionForKind, type LifecycleDocument, type LifecyclePage } from './flock-lifecycle-workspace';
 import styles from './FlockCycleDrawer.module.css';
 
@@ -153,7 +153,7 @@ function Production({ data }: { data: Cycle }) {
           <td>{report.eggs !== null && report.admitted_quantity && report.admitted_quantity > 0
             ? flockArchiveFormatNumber(report.eggs / report.admitted_quantity, lang, 4) : '—'}</td>
           {canViewReports && <td>{report.report_houses?.length ? <ul className={styles.records}>
-            {report.report_houses.map(house => <li key={house}><Link href={`/breeding/daily?${new URLSearchParams({ historyHouse: house, historyDate: report.date })}`}>{house}</Link></li>)}
+            {report.report_houses.map(house => <li key={house}><Link href={{ pathname: '/breeding/daily', query: { historyHouse: house, historyDate: report.date } }}>{house}</Link></li>)}
           </ul> : '—'}</td>}
         </tr>)}</tbody>
       </table>
@@ -196,7 +196,7 @@ export default function FlockCycleDrawer({ flockNo, canTransfer, onClose }: { fl
         <Fact label={t('flockArchive.recordedMortality', '范围内累计死亡（羽）')}>{flockArchiveFormatNumber(data.mortality, lang)}</Fact>
         <Fact label={t('flockArchive.recordedCulls', '范围内累计淘汰移出（羽）')}>{flockArchiveFormatNumber(data.culled, lang)}</Fact>
       </dl>
-      {canTransfer && data.active_balance && data.occupancy_id && <Link className={styles.transfer} href={flockArchiveTransferUrl(flockNo, data.house_code, data.occupancy_id)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}
+      {canTransfer && data.active_balance && data.occupancy_id && <Link className={styles.transfer} href={flockArchiveTransferPath(flockNo, data.house_code, data.occupancy_id)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}
       <DocumentList flockNo={flockNo} pending />
       <OccupancyList flockNo={flockNo} />
       <DocumentList flockNo={flockNo} />

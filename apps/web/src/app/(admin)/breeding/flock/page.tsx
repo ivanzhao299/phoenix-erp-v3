@@ -26,7 +26,7 @@ import DataTable from '@/components/DataTable';
 import { DrawerV2, StatusBadge } from '@/components/design-system';
 import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation';
 import FlockCycleDrawer from '@/components/breeding/FlockCycleDrawer';
-import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchivePlacementDate, flockArchiveTransferUrl } from '@/components/breeding/flock-archive';
+import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchivePlacementDate, flockArchiveTransferPath } from '@/components/breeding/flock-archive';
 import { flockBusinessToday, flockDay } from '@/components/flock-lifecycle-form';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
@@ -400,7 +400,7 @@ export default function FlockPage() {
               <input id="flock-archive-house" data-i18n-skip="true" value={editedFlock?.houseName ?? editedFlock?.houseCode ?? ''}
                 readOnly className={s.inp} style={{ background: 'var(--bg-muted)' }} />
               {canCreateFlock && editId && editedFlock?.houseCode && editedFlock.status !== 'RETIRED' &&
-                <Link href={flockArchiveTransferUrl(editId, editedFlock.houseCode)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}
+                <Link href={flockArchiveTransferPath(editId, editedFlock.houseCode)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}
             </div>
           </div>
           <div className={s.fieldRow}>

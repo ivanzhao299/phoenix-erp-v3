@@ -36,6 +36,6 @@ export function flockArchiveFormatNumber(value: unknown, lang: string, maximumFr
   return number === null ? '—' : new Intl.NumberFormat(localeCodes[lang] ?? localeCodes.zh, { maximumFractionDigits }).format(number);
 }
 
-export function flockArchiveTransferUrl(flockNo: string, houseCode: string, occupancyId?: string) {
+export function flockArchiveTransferPath(flockNo: string, houseCode: string, occupancyId?: string) {
   return `/breeding/flock-lifecycle/transfers?${flockFormParams({ kind: 'TRANSFER', formHouseCode: houseCode, formFlockNo: flockNo, occupancyId })}`;
 }
