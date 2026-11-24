@@ -117,6 +117,35 @@ METADATA
   findmnt -n -o UUID --mountpoint /data | sed 's/^/BACKUP_FS_UUID /'
 fi
 
+# Re-observe the exact release receipt using the merged production helpers.
+# The only DB calls made by these imported functions use read-only transactions.
+if [ "$sql_path" = scripts/ops/readonly-audits/vet-1124-ledger-proof.sql ] && [ -z "$http_path" ]; then
+  proof_source=$(mktemp -d "$out_dir/reviewed-source.XXXXXXXX")
+  release_target='d7474f0a33fdc08d6d8e7091889c05b2964bd5fd'
+  for helper in vet-1124-migration.mjs production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs chanjet-admission-schema-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs chanjet-readonly-policy.mjs update-managed-chanjet-env.mjs audit-daily-egg-inbound.mjs; do
+    git --no-replace-objects show "$release_target:scripts/ops/$helper" > "$proof_source/$helper"
+  done
+  SOURCE_DIR="$proof_source" RELEASE_TARGET="$release_target" node --input-type=module <<'REVIEW'
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+const moduleUrl=name=>new URL(name,pathToFileURL(process.env.SOURCE_DIR+'/')).href;
+const {reviewedSource,reviewSnapshot,readAuditSnapshot}=await import(moduleUrl('vet-1124-migration.mjs'));
+const {digest,readProductionLedger}=await import(moduleUrl('chanjet-admission-schema-receipt.mjs'));
+const {captureRuntime}=await import(moduleUrl('capture-production-runtime.mjs'));
+const git=(...args)=>execFileSync('git',['--no-replace-objects',...args],{encoding:'utf8'}).trim();
+const target=process.env.RELEASE_TARGET, source=reviewedSource(target);
+const ledger=readProductionLedger();
+const pending=git('ls-tree','--name-only',target,'apps/api/src/database/migrations/').split('\n')
+  .filter(p=>p.endsWith('.ts')).map(p=>p.split('/').pop().slice(0,-3)).filter(unit=>{
+    const [ts,name]=unit.split('-');
+    return !ledger.typeorm.some(row=>String(row.timestamp)===ts && (row.name===name || row.name===name+ts));
+  }).join(' ');
+const evidence=reviewSnapshot({...readAuditSnapshot(),source,runtime:captureRuntime(),checkout:git('rev-parse','HEAD'),
+  pending,ledgerSha256:digest(JSON.stringify(ledger)),ciSha256:'fccccff75f05319634c1fd24407a1e729f99f6cf78a2de28cba530e4caaf8e50',apiImage:'ghcr.io/ivanzhao299/phoenix-erp-v3/api@sha256:bb66160f1a70af59117eda27784247d87d5adedb9fcd67bed6d188907cd9290e'});
+console.log('VET_SNAPSHOT_RECEIPT '+Buffer.from(evidence.inspectionSha256,'hex').toString('base64'));
+REVIEW
+fi
+
 audit_stage=READONLY_DATABASE_SETUP
 # Dedicated readonly runners must never inherit ordinary DB/libpq credentials.
 if [ "${READONLY_DB_REQUIRED:-0}" = 1 ] && [ -n "$sql_path" ]; then
