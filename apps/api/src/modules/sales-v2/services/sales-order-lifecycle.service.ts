@@ -71,10 +71,12 @@ export class SalesOrderLifecycleService {
        RETURNING *`,
       params,
     );
-    if (!rows.length) {
+    // PostgreSQL UPDATE RETURNING through TypeORM yields [rows, affectedCount].
+    const [updated] = Array.isArray(rows[0]) ? rows[0] : rows;
+    if (!updated) {
       throw new ConflictException(`订单状态已变化，预期 ${fromStatus}，请刷新后重试`);
     }
-    return rows[0];
+    return updated;
   }
 
   async getProcessLog(order: any) {

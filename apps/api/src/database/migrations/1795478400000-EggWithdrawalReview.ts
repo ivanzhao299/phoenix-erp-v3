@@ -1,5 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+const ordinaryGuard = `NEW.qty<OLD.qty OR (NEW.qty_available IS DISTINCT FROM OLD.qty_available AND NEW.status IN ('AVAILABLE','RESERVED'))
+  OR NEW.status IS DISTINCT FROM OLD.status AND NEW.status IN ('RESERVED','AVAILABLE')`;
+const availabilityCredit = `OLD.status='AVAILABLE' AND NEW.status='AVAILABLE' AND NEW.qty=OLD.qty AND NEW.qty_available>OLD.qty_available`;
+
 /** @allow-data-dml: trigger declarations cover updates and deletes; this migration only installs DDL. */
 export class EggWithdrawalReview1795478400000 implements MigrationInterface {
   async up(q: QueryRunner): Promise<void> {
@@ -122,7 +126,7 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
         SELECT b.packaging_batch_ref::text FROM inv_batches b WHERE b.batch_no=batch AND NULLIF(b.packaging_batch_ref,'') IS NOT NULL
         UNION SELECT p.packing_code FROM brd_egg_inherited_packs p WHERE p.batch_no=batch
       $$;
-      CREATE FUNCTION vet_egg_batch_sources(batch text) RETURNS TABLE(flock_no text,production_date date) LANGUAGE sql STABLE AS $$
+      CREATE FUNCTION vet_egg_linked_sources(batch text) RETURNS TABLE(flock_no text,production_date date) LANGUAGE sql STABLE AS $$
         SELECT l.flock_no::text,l.production_date FROM inv_flock_source_links l WHERE l.batch_no=batch
         UNION
         SELECT f.flock_no,COALESCE(s.lay_date,s.production_date) FROM vet_egg_pack_refs(batch) ref
@@ -143,6 +147,73 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
             ) h
           ) f ON true
       $$;
+      CREATE TABLE brd_egg_temp_origins(batch_no text PRIMARY KEY REFERENCES inv_batches(batch_no),
+        company_code text NOT NULL,house_code text NOT NULL,production_date date NOT NULL,flock_no text NOT NULL);
+      CREATE TABLE brd_egg_derived_origins(batch_no text NOT NULL REFERENCES inv_batches(batch_no),
+        parent_batch_no text NOT NULL REFERENCES inv_batches(batch_no),PRIMARY KEY(batch_no,parent_batch_no),CHECK(batch_no<>parent_batch_no));
+      CREATE TABLE brd_egg_reservation_releases(ledger_id bigint PRIMARY KEY REFERENCES inv_ledger(id),
+        allocation_id bigint NOT NULL UNIQUE,order_id bigint NOT NULL,batch_no text NOT NULL,qty numeric NOT NULL CHECK(qty>0),prior_released numeric NOT NULL);
+      CREATE TRIGGER egg_temp_origin_immutable BEFORE UPDATE OR DELETE ON brd_egg_temp_origins FOR EACH ROW EXECUTE FUNCTION phoenix_flock_immutable();
+      CREATE TRIGGER egg_derived_origin_immutable BEFORE UPDATE OR DELETE ON brd_egg_derived_origins FOR EACH ROW EXECUTE FUNCTION phoenix_flock_immutable();
+      CREATE TRIGGER egg_reservation_release_immutable BEFORE UPDATE OR DELETE ON brd_egg_reservation_releases FOR EACH ROW EXECUTE FUNCTION phoenix_flock_immutable();
+
+      CREATE FUNCTION vet_egg_house_flock(company text,house text,day date) RETURNS text LANGUAGE sql STABLE AS $$
+        SELECT CASE WHEN count(*)=1 THEN min(flock_no) END FROM (
+          SELECT o.flock_no FROM brd_flock_occupancies o WHERE o.house_code=house AND o.company_code=company
+            AND o.began_on<=day AND (o.ended_on IS NULL OR o.ended_on>day)
+          UNION SELECT d.flock_no FROM brd_daily_logs d WHERE d.house_code=house AND d.company_code=company
+            AND d.log_date=day AND d.flock_no IS NOT NULL
+        ) identities
+      $$;
+      CREATE FUNCTION vet_egg_old_temp_flock(b inv_batches) RETURNS text LANGUAGE sql STABLE AS $$
+        WITH hints AS (SELECT CASE WHEN b.collection_batch_ref LIKE 'HOUSE-%' THEN NULLIF(substr(b.collection_batch_ref,7),'') END AS house,
+          CASE WHEN jsonb_typeof(b.source_profile_snapshot)='array' THEN
+            CASE WHEN jsonb_array_length(b.source_profile_snapshot)=1 THEN b.source_profile_snapshot->0->>'houseCode' END END AS profile_house)
+        SELECT vet_egg_house_flock(b.company_code,COALESCE(house,profile_house),b.egg_date) FROM hints
+          WHERE (b.collection_batch_ref IS NULL OR house IS NOT NULL) AND (house IS NULL OR profile_house IS NULL OR house=profile_house)
+            AND (b.source_profile_snapshot IS NULL OR profile_house IS NOT NULL)
+            AND EXISTS (SELECT 1 FROM inv_ledger l WHERE l.batch_no=b.batch_no AND l.company_code=b.company_code
+              AND l.ref_no=b.source_no AND l.change_type='TEMP_PRODUCTION_INBOUND' AND l.qty_change>0)
+      $$;
+      CREATE FUNCTION vet_egg_parent_batches(child text) RETURNS TABLE(parent text) LANGUAGE sql STABLE ROWS 2 SET jit=off AS $$
+        SELECT p.parent_batch_no::text FROM brd_egg_derived_origins p WHERE p.batch_no=child
+        UNION SELECT p.parent_batch_no FROM production_batch_derivation_parents p WHERE p.batch_no=child
+        UNION SELECT r.source_batch_no FROM production_conversion_return_receipts r WHERE r.batch_no=child
+        UNION SELECT i.source_batch_no FROM inv_batches b JOIN wms_transfer_items i ON i.transfer_no=b.source_no
+          AND ((b.source_type='TRANSFER' AND i.target_batch_no=child) OR (b.source_type='TRANSFER_DAMAGE' AND i.damaged_batch_no=child))
+          JOIN wms_transfer t ON t.transfer_no=i.transfer_no AND t.status IN ('RECEIVED','COMPLETED')
+          WHERE b.batch_no=child
+        UNION SELECT d.batch_no FROM wms_defect_dispositions d WHERE d.target_batch_no=child AND d.status='DONE'
+        UNION SELECT CASE WHEN count(DISTINCT a.batch_no)=1 THEN min(a.batch_no) END FROM inv_batches b JOIN sal_return_orders r ON r.return_no=b.source_no AND r.company_code=b.company_code
+          JOIN sal_return_items i ON i.return_order_id=r.id AND b.batch_no='RET-'||r.return_no||'-'||i.id
+          JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=i.sales_order_item_id AND a.outbound_qty>0
+          WHERE b.batch_no=child AND b.source_type='RETURN'
+            AND EXISTS(SELECT 1 FROM inv_ledger l WHERE l.batch_no=child AND l.ref_no=r.return_no AND l.company_code=r.company_code AND l.change_type IN ('SALE_RETURN','DAMAGE_WRITEOFF') AND l.qty_change>0)
+            AND NOT EXISTS(SELECT 1 FROM production_conversion_return_receipts r WHERE r.batch_no=child)
+          GROUP BY i.id
+        UNION SELECT a.batch_no FROM inv_batches b JOIN sal_store_sales s ON s.sale_no=b.source_no AND s.company_code=b.company_code
+          JOIN store_sale_allocations a ON a.sale_id=s.id AND b.batch_no='RET-'||s.sale_no||'-'||a.id
+          WHERE b.batch_no=child AND b.source_type='STORE_RETURN' AND a.returned_qty>0
+            AND EXISTS(SELECT 1 FROM inv_ledger l WHERE l.batch_no=child AND l.ref_no=s.sale_no AND l.company_code=s.company_code AND l.change_type='SALE_RETURN' AND l.qty_change=a.returned_qty)
+      $$;
+      CREATE FUNCTION vet_egg_batch_sources(batch text) RETURNS TABLE(flock_no text,production_date date) LANGUAGE sql STABLE ROWS 4 SET jit=off AS $$
+        WITH RECURSIVE ancestors(id) AS (
+          SELECT batch UNION SELECT p.parent FROM ancestors a CROSS JOIN LATERAL vet_egg_parent_batches(a.id) p
+        ), nodes AS MATERIALIZED (SELECT b.* FROM ancestors a JOIN inv_batches b ON b.batch_no=a.id),
+        linked AS MATERIALIZED (SELECT n.batch_no,s.* FROM nodes n CROSS JOIN LATERAL vet_egg_linked_sources(n.batch_no) s),
+        temp AS (SELECT n.batch_no,CASE WHEN t.batch_no IS NOT NULL THEN t.flock_no ELSE vet_egg_old_temp_flock(n) END AS flock_no,
+          COALESCE(t.production_date,n.egg_date) AS production_date FROM inv_batches n JOIN ancestors a ON a.id=n.batch_no
+          LEFT JOIN brd_egg_temp_origins t ON t.batch_no=n.batch_no WHERE n.source_type='TEMP_PRODUCTION'
+          AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no))
+        SELECT l.flock_no,l.production_date FROM linked l UNION SELECT t.flock_no,t.production_date FROM temp t
+        UNION SELECT NULL::text,NULL::date FROM nodes n WHERE n.material_code IS NULL
+          AND n.source_type IN ('RETURN','STORE_RETURN','TRANSFER','TRANSFER_DAMAGE','DEFECT_TRANSFER')
+          AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no)
+          AND (NOT EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no)) OR EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no) p WHERE p.parent IS NULL))
+        UNION SELECT NULL::text,NULL::date FROM nodes n WHERE n.batch_no<>batch AND n.source_type IS NULL AND n.material_code IS NULL
+          AND NOT EXISTS(SELECT 1 FROM linked l WHERE l.batch_no=n.batch_no) AND NOT EXISTS(SELECT 1 FROM vet_egg_parent_batches(n.batch_no))
+      $$;
+
       CREATE FUNCTION vet_egg_batch_held(batch text) RETURNS boolean LANGUAGE sql STABLE AS $$
         SELECT EXISTS(SELECT 1 FROM vet_egg_batch_sources(batch) s
           WHERE s.flock_no IS NULL OR s.production_date IS NULL OR vet_egg_day_held(s.flock_no,s.production_date))
@@ -181,23 +252,65 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
         END LOOP;
         RETURN NEW;
       END $$;
-      CREATE TRIGGER vet_check_stock BEFORE UPDATE ON inv_batches FOR EACH ROW
-        WHEN (NEW.qty<OLD.qty OR (NEW.qty_available IS DISTINCT FROM OLD.qty_available AND NEW.status IN ('AVAILABLE','RESERVED'))
-          OR NEW.status IS DISTINCT FROM OLD.status AND NEW.status IN ('RESERVED','AVAILABLE'))
-        EXECUTE FUNCTION vet_egg_check_stock();
-
       -- Tie exceptional debits to their own completed loss/reversal and the exact ledger entry at commit.
       -- A visible uncommitted tuple is ours; a released savepoint may give it a subtransaction xmin.
       CREATE FUNCTION vet_egg_own_write(row_xid xid) RETURNS boolean LANGUAGE sql VOLATILE AS $$
         SELECT CASE WHEN age(row_xid)>0 THEN false ELSE
           pg_xact_status((pg_current_xact_id()::text::numeric-age(row_xid))::text::xid8)='in progress' END
       $$;
+      CREATE FUNCTION vet_egg_check_reservation_release() RETURNS trigger LANGUAGE plpgsql AS $$
+      DECLARE src record; protected boolean:=false; receipt record;
+      BEGIN
+        FOR src IN SELECT * FROM vet_egg_batch_sources(OLD.batch_no) ORDER BY 1,2 LOOP
+          IF current_setting('transaction_isolation')<>'read committed' THEN RAISE EXCEPTION '库存来源须使用实时快照' USING ERRCODE='40001'; END IF;
+          PERFORM pg_advisory_xact_lock_shared(hashtext('vet:egg-flock'),hashtext(src.flock_no));
+          protected:=protected OR src.flock_no IS NULL OR src.production_date IS NULL OR vet_egg_day_held(src.flock_no,src.production_date);
+        END LOOP;
+        IF NOT protected THEN RETURN NEW; END IF;
+        IF NEW.qty_available>NEW.qty OR (to_jsonb(OLD)-ARRAY['qty_available','updated_at'])<>(to_jsonb(NEW)-ARRAY['qty_available','updated_at']) THEN
+          RAISE EXCEPTION '撤单只能解除原预占' USING ERRCODE='23514';
+        END IF;
+        SELECT a.id AS allocation_id,so.id AS order_id,l.id AS ledger_id,act.qty,a.released_qty AS prior_released INTO receipt
+          FROM sal_order_item_batch_allocation_actions act JOIN sal_order_item_batch_allocations a ON a.id=act.allocation_id
+          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id JOIN sal_sales_orders so ON so.id=oi.sales_order_id
+          JOIN inv_ledger l ON l.id=act.ledger_id JOIN inv_ledger orig ON orig.id=a.reservation_ledger_id
+          WHERE a.batch_no=OLD.batch_no AND so.company_code=OLD.company_code AND act.sales_order_id=so.id
+            AND act.action_type='RELEASED' AND act.action_key='order-cancel:'||so.id AND act.qty=NEW.qty_available-OLD.qty_available
+            AND a.reserved_qty-a.outbound_qty-a.released_qty=act.qty
+            AND orig.change_type='RESERVED' AND orig.qty_change=-a.reserved_qty AND orig.batch_no=a.batch_no AND orig.ref_no=so.order_no
+            AND l.change_type='RELEASED' AND l.qty_change=act.qty AND l.ref_no=so.order_no AND l.batch_no=a.batch_no
+            AND l.company_code=so.company_code AND l.warehouse_code=OLD.warehouse_code AND l.operator=act.created_by
+            AND vet_egg_own_write(l.xmin) AND vet_egg_own_write(act.xmin)
+            AND NOT EXISTS(SELECT 1 FROM brd_egg_reservation_releases r WHERE r.allocation_id=a.id);
+        IF NOT FOUND THEN RAISE EXCEPTION '休药隔离期可用量增加须有同事务原订单释放流水' USING ERRCODE='23514'; END IF;
+        INSERT INTO brd_egg_reservation_releases(ledger_id,allocation_id,order_id,batch_no,qty,prior_released)
+          VALUES(receipt.ledger_id,receipt.allocation_id,receipt.order_id,OLD.batch_no,receipt.qty,receipt.prior_released);
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER vet_check_stock BEFORE UPDATE ON inv_batches FOR EACH ROW WHEN ((${ordinaryGuard}) AND (${availabilityCredit}) IS NOT TRUE)
+        EXECUTE FUNCTION vet_egg_check_stock();
+      CREATE TRIGGER vet_check_reservation_credit BEFORE UPDATE ON inv_batches FOR EACH ROW WHEN (${availabilityCredit})
+        EXECUTE FUNCTION vet_egg_check_reservation_release();
+      CREATE FUNCTION vet_egg_verify_cancelled_order() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NOT EXISTS(SELECT 1 FROM sal_sales_orders so JOIN sal_order_item_batch_allocations a ON a.id=NEW.allocation_id
+          WHERE so.id=NEW.order_id AND so.status='CANCELLED' AND vet_egg_own_write(so.xmin) AND vet_egg_own_write(a.xmin)
+            AND a.released_qty=NEW.prior_released+NEW.qty AND a.released_qty+a.outbound_qty=a.reserved_qty) THEN
+          RAISE EXCEPTION '隔离预占释放须与原订单撤销一起提交' USING ERRCODE='23514';
+        END IF;
+        RETURN NULL;
+      END $$;
+      CREATE CONSTRAINT TRIGGER vet_verify_cancelled_order AFTER INSERT ON brd_egg_reservation_releases DEFERRABLE INITIALLY DEFERRED
+        FOR EACH ROW EXECUTE FUNCTION vet_egg_verify_cancelled_order();
+
       CREATE FUNCTION vet_egg_verify_disposition() RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE ledger record;
       BEGIN
         IF NOT vet_egg_batch_held(NEW.batch_no) THEN RETURN NULL; END IF;
         SELECT l.* INTO STRICT ledger FROM inv_ledger l WHERE l.batch_no=NEW.batch_no
-          AND vet_egg_own_write(l.xmin) AND l.qty_change<0;
+          AND vet_egg_own_write(l.xmin) AND l.qty_change=NEW.qty-OLD.qty
+          AND (l.change_type,l.business_type) IN (('LOSS','SCRAP'),('PRODUCTION_INBOUND_REVERSAL','FORMAL_PRODUCTION_REVERSAL'))
+          AND NOT EXISTS(SELECT 1 FROM brd_egg_disposition_receipts r WHERE r.ledger_id=l.id);
         IF ledger.qty_change IS DISTINCT FROM NEW.qty-OLD.qty OR (
           ledger.change_type='LOSS' AND ledger.business_type='SCRAP' AND EXISTS(SELECT 1 FROM wms_stocktake w
             WHERE w.stocktake_no=ledger.ref_no AND w.status='APPROVED' AND w.auditor=ledger.operator
@@ -281,8 +394,8 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
     `);
   }
   async down(q: QueryRunner): Promise<void> {
-    await q.query(`LOCK TABLE brd_egg_vet_reviews,brd_egg_disposition_receipts,brd_egg_inherited_packs IN ACCESS EXCLUSIVE MODE`);
-    if ((await q.query('SELECT 1 FROM brd_egg_vet_reviews UNION ALL SELECT 1 FROM brd_egg_disposition_receipts UNION ALL SELECT 1 FROM brd_egg_inherited_packs LIMIT 1')).length) {
+    await q.query(`LOCK TABLE brd_egg_vet_reviews,brd_egg_disposition_receipts,brd_egg_inherited_packs,brd_egg_temp_origins,brd_egg_derived_origins,brd_egg_reservation_releases IN ACCESS EXCLUSIVE MODE`);
+    if ((await q.query('SELECT 1 FROM brd_egg_vet_reviews UNION ALL SELECT 1 FROM brd_egg_disposition_receipts UNION ALL SELECT 1 FROM brd_egg_inherited_packs UNION ALL SELECT 1 FROM brd_egg_temp_origins UNION ALL SELECT 1 FROM brd_egg_derived_origins UNION ALL SELECT 1 FROM brd_egg_reservation_releases LIMIT 1')).length) {
       throw new Error('隔离签认已有业务记录，须先执行受控恢复');
     }
     await q.query(`
@@ -295,6 +408,10 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
       DROP TRIGGER vet_check_grading ON pkg_grading_source_links;
       DROP FUNCTION vet_egg_check_grading();
       DROP FUNCTION vet_egg_assert_package_source(bigint);
+      DROP TRIGGER vet_check_reservation_credit ON inv_batches;
+      DROP TABLE brd_egg_reservation_releases;
+      DROP FUNCTION vet_egg_verify_cancelled_order();
+      DROP FUNCTION vet_egg_check_reservation_release();
       DROP TRIGGER vet_verify_disposition ON inv_batches;
       DROP FUNCTION vet_egg_verify_disposition();
       DROP FUNCTION vet_egg_own_write(xid);
@@ -302,6 +419,11 @@ export class EggWithdrawalReview1795478400000 implements MigrationInterface {
       DROP TRIGGER vet_check_stock ON inv_batches;
       DROP FUNCTION vet_egg_check_stock();
       DROP FUNCTION vet_egg_batch_sources(text);
+      DROP FUNCTION vet_egg_linked_sources(text);
+      DROP FUNCTION vet_egg_parent_batches(text);
+      DROP FUNCTION vet_egg_old_temp_flock(inv_batches);
+      DROP FUNCTION vet_egg_house_flock(text,text,date);
+      DROP TABLE brd_egg_derived_origins,brd_egg_temp_origins;
       DROP FUNCTION vet_egg_pack_refs(text);
       DROP TABLE brd_egg_inherited_packs;
       DROP INDEX ix_egg_source_flock_day;

@@ -45,7 +45,7 @@ export class EggWithdrawalReviewService {
       WHERE d.log_date=$1 AND ${visible} ORDER BY d.house_code,d.shift,m.id,d.id`, params);
   }
 
-  async requestReview(scope: OrgScope, actor: FlockActor, medicationId: number, logId: string, reason: string, requestId: string) {
+  async requestReview(scope: OrgScope, actor: FlockActor, medicationId: number, logId: string, reason: string, requestId: string, priorReviewId?: string) {
     const userId = signer(actor);
     if (typeof requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))
       throw new BadRequestException('缺少有效核查请求号');
@@ -73,8 +73,10 @@ export class EggWithdrawalReviewService {
         LEFT JOIN brd_egg_qc_decisions q ON q.review_id=v.id WHERE v.medication_id=$1 AND v.daily_log_id=$2 AND v.source_facts=$3::jsonb
         ORDER BY v.sequence_no DESC LIMIT 1`, [medicationId, logId,source.facts]);
       if (prior && !prior.outcome) {
-        if (prior.vet_id === userId && prior.vet_reason === reason.trim()) return prior.id;
-        throw new ConflictException('该产蛋日已有待质检签认的兽医核查');
+        throw new ConflictException(`该产蛋日已有待质检的核查单 ${prior.id}，请刷新查看`);
+      }
+      if ((priorReviewId ?? null) !== (prior?.id ?? null)) {
+        throw new ConflictException('质检结论已变化，请刷新并确认需重新核查的原单');
       }
       if (prior?.outcome === 'RELEASE' || prior?.outcome === 'DISPOSE') throw new ConflictException('该用药单在此产蛋日已签认');
       const id = requestId;

@@ -1181,22 +1181,13 @@ export class EggInventoryService {
       const releaseQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (releaseQty <= 0) continue;
 
-        // INV-301b：守卫化 UPDATE 走统一入口（正数 delta 自动带 qty_available+n<=qty 防超账面守卫）
-        const changed = await guardedBatchUpdate(mgr, {
-          batchNo:        allocation.batch_no,
-          companyCode,
-          warehouseCode:  allocation.warehouse_code,
-          deltaAvailable: releaseQty,
-          requireStatus:  'AVAILABLE',
-        });
-      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
-
       const ledgerId = await this.writeLedger({
           batchNo:     allocation.batch_no,
           changeType:  INV_LEDGER_CHANGE_TYPE.RELEASED,
           qtyChange:   releaseQty,
           operator:    this.operator,
           companyCode,
+          warehouseCode: allocation.warehouse_code,
           refNo:       orderNo,
           note:        `订单取消释放预占 order=${orderNo} allocation=${allocation.id} batch=${allocation.batch_no}`,
           skuCode:     allocation.sku_code ?? null,
@@ -1209,6 +1200,16 @@ export class EggInventoryService {
         `,
         [allocation.id, orderId, `order-cancel:${orderId}`, releaseQty, ledgerId, this.operator],
       );
+      // The protected stock guard verifies the exact allocation action written in this transaction.
+      const changed = await guardedBatchUpdate(mgr, {
+        batchNo:        allocation.batch_no,
+        companyCode,
+        warehouseCode:  allocation.warehouse_code,
+        deltaAvailable: releaseQty,
+        requireStatus:  'AVAILABLE',
+      });
+      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+
       const updated = await q(
         `WITH changed AS (
            UPDATE sal_order_item_batch_allocations

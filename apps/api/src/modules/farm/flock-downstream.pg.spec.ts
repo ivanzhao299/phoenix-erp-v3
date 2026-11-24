@@ -1,3 +1,6 @@
+import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
+import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
+import { SalesOrderLifecycleService } from '../sales-v2/services/sales-order-lifecycle.service';
 import {sharedBatches,QuantitySnapshot} from '../product-master/services/quantity-contract';
 import {EggWithdrawalReview1795478400000} from '../../database/migrations/1795478400000-EggWithdrawalReview';
 import {EggWithdrawalReviewService} from './egg-withdrawal-review.service';
@@ -155,7 +158,22 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       CREATE TABLE production_conversion_inputs(id int,raw_segment_id int);
       CREATE TABLE pkg_handover_records(packing_code text);
       CREATE TABLE wms_stocktake(stocktake_no text,status text,auditor text,warehouse_code text,updated_at timestamptz);
-      CREATE TABLE sal_order_item_batch_allocations(batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric);
+      ALTER TABLE wms_transfer_items ADD COLUMN damaged_batch_no text;
+      ALTER TABLE inv_ledger ADD COLUMN batch_expire_date date,ADD COLUMN location_code text;
+      CREATE TABLE production_batch_derivation_parents(batch_no text,parent_batch_no text);
+      CREATE TABLE production_conversion_return_receipts(batch_no text,source_batch_no text);
+      CREATE TABLE wms_defect_dispositions(batch_no text,target_batch_no text,status text);
+      CREATE TABLE sal_return_orders(id int,return_no text,company_code text);
+      CREATE TABLE sal_return_items(id int,return_order_id int,sales_order_item_id int);
+      CREATE TABLE sal_store_sales(id int,sale_no text,company_code text);
+      CREATE TABLE store_sale_allocations(id int,sale_id int,batch_no text,returned_qty numeric);
+      CREATE TABLE sal_sales_orders(id int PRIMARY KEY,order_no text,status text,company_code text,updated_at timestamptz);
+      CREATE TABLE sal_order_items(id int,sales_order_id int,allocated_batch_no text,allocated_qty numeric);
+      CREATE TABLE sal_order_item_batch_allocations(id int,sales_order_item_id int,reservation_ledger_id int,batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric,updated_at timestamptz);
+      CREATE TABLE sal_order_item_batch_allocation_actions(allocation_id int,sales_order_id int,action_type text,action_key text,qty numeric,ledger_id int UNIQUE,created_by text);
+      CREATE TABLE sal_order_lifecycle_events(event_id uuid UNIQUE,sales_order_id int,order_no text,event_type text,from_status text,to_status text,
+        actor_user_id text,actor_name text,actor_type text,reason_code text,comment text,source_endpoint text,source_module text,source_ref_type text,
+        source_ref_id text,source_ref_no text,request_id text,metadata jsonb,occurred_at timestamptz);
       CREATE TABLE production_inbound_documents(id int,kind text,state text,document_no text,approved_by text,created_by text,approved_hash text,content_hash text);
       CREATE TABLE production_inbound_allocations(id int,original_allocation_id int,document_id int,line_no int,quantity numeric,direction int);
       CREATE TABLE production_inbound_lines(document_id int,line_no int,inventory_ledger_id int,batch_no text,quantity numeric);
@@ -167,9 +185,6 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
     await migration.up(runner);
     await migration.down(runner);
     await migration.up(runner);
-    const review=new EggWithdrawalReviewService(m);
-    const global={isGlobal:true,farmCode:null,siteCode:null}, outside={isGlobal:false,farmCode:'Y',siteCode:null};
-    const vet={id:'fixture-vet',accountId:'11'}, qa={id:'fixture-qa',accountId:'22'};
     const reader=db.createQueryRunner();
     await reader.startTransaction();
     try {
@@ -177,6 +192,48 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       await expect(m.transaction(tx=>tx.query("INSERT INTO brd_medication_records(flock_no,start_date,status) VALUES('FA','2026-11-10','USING')"))).rejects.toThrow('请重试');
       await expect(m.transaction(tx=>tx.query("UPDATE brd_daily_logs SET eggs_produced=11 WHERE id=1"))).rejects.toThrow('请重试');
     } finally {await reader.rollbackTransaction();await reader.release();}
+    const orderScope={get:(key:string)=>key==='dataScope'?{isGlobal:true,allowedCompanyCodes:[],allowedWarehouseCodes:[]}:{id:'4',username:'order-fixture'}} as never;
+    const inventory=new EggInventoryService(m as unknown as DataSource,orderScope);
+    const sales=new SalesOrdersService(m as unknown as DataSource,orderScope,null!,null!,null!,null!,null!,inventory,new SalesOrderLifecycleService(db),null!);
+    await m.query(`INSERT INTO sal_sales_orders VALUES(31,'SO-CANCEL','ALLOCATED','CA',now());
+      INSERT INTO sal_order_items VALUES(41,31,'SOURCE',2),(42,31,'SOURCE',2);
+      UPDATE inv_batches SET qty_available=6 WHERE batch_no='SOURCE';
+      WITH l AS (INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no,company_code,warehouse_code)
+        VALUES('SOURCE',-2,'RESERVED','SO-CANCEL','CA','WA') RETURNING id)
+        INSERT INTO sal_order_item_batch_allocations SELECT 51,41,id,'SOURCE',2,0,0,now() FROM l;
+      WITH l AS (INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no,company_code,warehouse_code)
+        VALUES('SOURCE',-4,'RESERVED','SO-CANCEL','CA','WA') RETURNING id)
+        INSERT INTO sal_order_item_batch_allocations SELECT 52,42,id,'SOURCE',4,1,1,now() FROM l`);
+    await m.query(`INSERT INTO brd_daily_logs(id,flock_no,house_code,company_code,log_date,shift) VALUES(88,'OTHER','HX','CA','2026-11-11','AM');
+      INSERT INTO inv_batches(batch_no,source_type,company_code,source_no,collection_batch_ref,egg_date,qty,qty_available,status)
+      VALUES('OLD-TEMP','TEMP_PRODUCTION','CA','DAILY-OLD-A','HOUSE-HA','2026-11-11',3,3,'AVAILABLE'),
+        ('OTHER-TEMP','TEMP_PRODUCTION','CA','DAILY-OLD-X','HOUSE-HX','2026-11-11',3,3,'AVAILABLE'),
+        ('MISSING-TEMP','TEMP_PRODUCTION','CA','DAILY-OLD-M','SITE-SA','2026-11-11',3,3,'AVAILABLE'),
+        ('RET-HIST-66','RETURN','CA','HIST',NULL,NULL,1,0,'QUARANTINE'),
+        ('OLD-SPLIT','TRANSFER','CB','T-HIST',NULL,NULL,1,1,'AVAILABLE'),
+        ('RET-POS-89','STORE_RETURN','CA','POS',NULL,NULL,1,0,'QUARANTINE'),
+        ('RET-MIX-69','RETURN','CA','MIX',NULL,NULL,1,0,'QUARANTINE'),
+        ('POS-ORPHAN','STORE_RETURN','CA','UNKNOWN',NULL,NULL,1,0,'QUARANTINE');
+      INSERT INTO inv_ledger(batch_no,ref_no,change_type,qty_change,company_code) VALUES
+        ('OLD-TEMP','DAILY-OLD-A','TEMP_PRODUCTION_INBOUND',3,'CA'),('OTHER-TEMP','DAILY-OLD-X','TEMP_PRODUCTION_INBOUND',3,'CA'),
+        ('RET-HIST-66','HIST','SALE_RETURN',1,'CA'),('RET-POS-89','POS','SALE_RETURN',1,'CA'),('RET-MIX-69','MIX','SALE_RETURN',1,'CA');
+      INSERT INTO sal_store_sales VALUES(88,'POS','CA');
+      INSERT INTO store_sale_allocations VALUES(89,88,'OLD-TEMP',1);
+      INSERT INTO sal_return_orders VALUES(68,'MIX','CA');INSERT INTO sal_return_items VALUES(69,68,70);
+      INSERT INTO sal_order_item_batch_allocations VALUES(72,70,NULL,'OLD-TEMP',1,1,0,now()),(73,70,NULL,'OTHER-TEMP',1,1,0,now());
+      INSERT INTO sal_return_orders VALUES(65,'HIST','CA');INSERT INTO sal_return_items VALUES(66,65,67);
+      INSERT INTO sal_order_item_batch_allocations VALUES(71,67,NULL,'OLD-TEMP',1,1,0,now());
+      INSERT INTO wms_transfer(transfer_no,status) VALUES('T-HIST','COMPLETED');
+      INSERT INTO wms_transfer_items(transfer_no,source_batch_no,target_batch_no) VALUES('T-HIST','RET-HIST-66','OLD-SPLIT');
+      INSERT INTO inv_batches(batch_no,source_type,company_code,egg_date) VALUES('NEW-TEMP','TEMP_PRODUCTION','CA','2026-11-11')`);
+    await recordFlockProductionSources(m,{companyCode:'CA',sourceType:'TEMP_PRODUCTION',eggDate:'2026-11-11',qty:1},
+      'NEW-TEMP',[{houseCode:'HA',profileCode:'A'}]);
+    const flags=async()=>Object.fromEntries((await m.query(`SELECT batch_no,vet_egg_batch_held(batch_no) AS held FROM inv_batches WHERE batch_no IN
+      ('NEW-TEMP','OLD-TEMP','OTHER-TEMP','MISSING-TEMP','RET-HIST-66','OLD-SPLIT','POS-ORPHAN','RET-MIX-69','RET-POS-89')`)).map((r:{batch_no:string;held:boolean})=>[r.batch_no,r.held]));
+    expect(await flags()).toEqual({'NEW-TEMP':false,'OLD-TEMP':false,'OTHER-TEMP':false,'MISSING-TEMP':true,'RET-HIST-66':false,'OLD-SPLIT':false,'POS-ORPHAN':true,'RET-MIX-69':true,'RET-POS-89':false});
+    const review=new EggWithdrawalReviewService(m);
+    const global={isGlobal:true,farmCode:null,siteCode:null}, outside={isGlobal:false,farmCode:'Y',siteCode:null};
+    const vet={id:'fixture-vet',accountId:'11'}, qa={id:'fixture-qa',accountId:'22'};
     await m.query(`INSERT INTO pkg_source_batches(id,batch_code,house_code,flock_code,lay_date,production_date,is_test,batch_status)
       VALUES(7,'OLD-EGGS','HA','FA','2026-11-11','2026-11-14',false,'RECEIVED'),(8,'OLD-CONFLICT','HA','FB','2026-11-11','2026-11-14',false,'RECEIVED');
       INSERT INTO pkg_grading_records(id,code,is_test) VALUES(7,'G-OLD',false),(8,'G-CONFLICT',false);
@@ -193,6 +250,22 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
     await m.query("INSERT INTO inv_batches(batch_no,qty,qty_available,source_type,status,warehouse_code) VALUES('OLD-RETURN',2,0,'RETURN','QUARANTINE','WA')");
     await inheritFlockProductionSources(m,'LEGACY-PACK','OLD-RETURN',2);
     await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET status='AVAILABLE',qty_available=2 WHERE batch_no='OLD-RETURN'"))).rejects.toThrow('休药隔离期');
+    expect(await flags()).toEqual({'NEW-TEMP':true,'OLD-TEMP':true,'OTHER-TEMP':false,'MISSING-TEMP':true,'RET-HIST-66':true,'OLD-SPLIT':true,'POS-ORPHAN':true,'RET-MIX-69':true,'RET-POS-89':true});
+    await expect(m.transaction(async tx=>{
+      await inventory.releaseInventory('31','SO-CANCEL','CA',tx);
+      await tx.query('SET CONSTRAINTS vet_verify_cancelled_order IMMEDIATE');
+    })).rejects.toThrow('须与原订单撤销一起提交');
+    expect((await m.query('SELECT count(*)::int AS n FROM brd_egg_reservation_releases'))[0].n).toBe(0);
+    await expect(m.transaction(tx=>tx.query("UPDATE inv_batches SET qty_available=8 WHERE batch_no='SOURCE'"))).rejects.toThrow('释放流水');
+    expect((await sales.cancel('31',{remark:'fixture cancellation'})).status).toBe('CANCELLED');
+    await m.query('SET CONSTRAINTS vet_verify_cancelled_order IMMEDIATE');
+    expect((await sales.cancel('31',{remark:'fixture cancellation'})).status).toBe('CANCELLED');
+    expect((await m.query("SELECT qty::int,qty_available::int,vet_egg_batch_held(batch_no) AS held FROM inv_batches WHERE batch_no='SOURCE'"))[0])
+      .toEqual({qty:10,qty_available:10,held:true});
+    expect((await m.query(`SELECT count(*)::int AS n,sum(a.released_qty)::int AS released,sum(l.qty_change)::int AS ledger
+      FROM sal_order_item_batch_allocations a JOIN brd_egg_reservation_releases r ON r.allocation_id=a.id
+      JOIN inv_ledger l ON l.id=r.ledger_id WHERE l.change_type='RELEASED' AND l.ref_no='SO-CANCEL'`))[0]).toEqual({n:2,released:5,ledger:4});
+    expect((await m.query("SELECT count(*)::int AS n FROM sal_order_lifecycle_events WHERE event_type='CANCELLED'"))[0].n).toBe(1);
     const held=async(day:string)=>(await m.query("SELECT vet_egg_day_held('FA',$1) AS held",[day]))[0].held;
     expect(await held('2026-11-09')).toBe(false);expect(await held('2026-11-12')).toBe(true);expect(await held('2026-11-13')).toBe(false);
     const debit=()=>m.transaction(tx=>tx.query("UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE batch_no='SOURCE'"));
@@ -231,11 +304,17 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
     const proof=async(ref:string,doc:string)=>m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
       VALUES($1,'ACTIVE','PROTECTED','application/pdf','EGG_WITHDRAWAL','EGG_REVIEW',$2,'CA','SA','fixture-qa','fixture-hash')`,[ref,doc]);
     await proof('PM1',pm);
+    const otherTab='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    await expect(review.requestReview(global,vet,course.id,'2','PM checked',otherTab)).rejects.toThrow(pm);
     await review.decide(global,qa,pm,'RETAIN','PM1');
+    await expect(review.requestReview(global,vet,course.id,'2','PM checked',otherTab)).rejects.toThrow('刷新');
     expect(await review.requestReview(global,vet,course.id,'2','PM checked',pm)).toBe(pm);
-    const pm2=await review.requestReview(global,vet,course.id,'2','PM rechecked','33333333-3333-4333-8333-333333333333');
+    const pm2=await review.requestReview(global,vet,course.id,'2','PM rechecked','33333333-3333-4333-8333-333333333333',pm);
     await proof('PM2',pm2);await review.decide(global,qa,pm2,'RELEASE','PM2');
     expect(await held('2026-11-11')).toBe(false);
+    expect((await sharedBatches(m,'CA',['WA'],{productCode:'P',gradeCode:'GRADE_1',baseUnit:'枚'} as QuantitySnapshot))
+      .find((b:{batch_no:string})=>b.batch_no==='SOURCE')).toBeDefined();
+    expect((await m.query("SELECT qty_available::int AS available FROM inv_batches WHERE batch_no='SOURCE'"))[0].available).toBe(10);
     await debit();
     await m.query('SET CONSTRAINTS vet_verify_disposition IMMEDIATE');
     await m.query('SET CONSTRAINTS vet_verify_disposition DEFERRED');

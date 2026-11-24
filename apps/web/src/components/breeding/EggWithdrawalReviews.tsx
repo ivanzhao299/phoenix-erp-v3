@@ -57,7 +57,7 @@ function ReviewRow({row,quality,canEdit,onSaved}: {row:Source;quality:boolean;ca
     try {
       await request(outcome ? `${api}/reviews/${row.review_id}/decision` : `${api}/reviews`,{
         method:'POST',body:JSON.stringify(outcome ? {outcome,evidence:files[0]} :
-          {medicationId:row.medication_id,dailyLogId:row.daily_log_id,reason,requestId})});
+          {medicationId:row.medication_id,dailyLogId:row.daily_log_id,reason,requestId,priorReviewId:row.review_id ?? undefined})});
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : t('common.error','操作失败')); }
     finally { setBusy(false); }

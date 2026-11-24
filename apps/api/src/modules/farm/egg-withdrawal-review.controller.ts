@@ -26,8 +26,8 @@ export class EggWithdrawalReviewController {
   }
 
   @Post('reviews') @RequireMenu('MENU_FARM_VET','E')
-  async request(@Body() body: {medicationId:number;dailyLogId:string;reason:string;requestId:string},@Req() req: any) {
-    return {code:201,data:await this.service.requestReview(deriveOrgScope(req),actor(req),body.medicationId,body.dailyLogId,body.reason,body.requestId)};
+  async request(@Body() body: {medicationId:number;dailyLogId:string;reason:string;requestId:string;priorReviewId?:string},@Req() req: any) {
+    return {code:201,data:await this.service.requestReview(deriveOrgScope(req),actor(req),body.medicationId,body.dailyLogId,body.reason,body.requestId,body.priorReviewId)};
   }
 
   @Post('reviews/:id/decision') @RequireMenu('MENU_QA_OP','E')

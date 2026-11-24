@@ -24,7 +24,7 @@ import {
 } from '../dto/sales-order.dto';
 
 // ── 不可取消的状态（已发货后不可取消）────────────────────────────────────────
-const NO_CANCEL_STATUSES = new Set(['SHIPPED', 'DELIVERED', 'RECEIVED', 'RECONCILED', 'CANCELLED']);
+const NO_CANCEL_STATUSES = new Set(['SHIPPED', 'DELIVERED', 'RECEIVED', 'RECONCILED']);
 
 @Injectable()
 export class SalesOrdersService implements OnApplicationBootstrap {
@@ -829,6 +829,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     return this.ds.transaction(async (mgr) => {
       const [current] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1`, [id]);
       if (!current) throw new NotFoundException(`销售订单 ${id} 不存在`);
+      if (current.status === 'CANCELLED') return current;
       if (NO_CANCEL_STATUSES.has(current.status)) throw new BadRequestException(`状态 ${current.status} 的订单不可取消`);
       // 与 approve/reject 保持一致的锁顺序：实例 → 业务单据，规避双向联动死锁。
       if (current.status === 'PENDING_APPROVAL') {
@@ -836,8 +837,9 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         await this.approvalEngine.cancelInstance(String(current.wf_instance_id), mgr, false);
       }
       const [locked] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [id]);
+      if (locked.status === 'CANCELLED') return locked;
       if (NO_CANCEL_STATUSES.has(locked.status)) throw new BadRequestException(`状态 ${locked.status} 的订单不可取消`);
-      if (locked.status === 'APPROVED' || locked.status === 'ALLOCATED') {
+      if (['APPROVED','ALLOCATED','PICKED','LOADED'].includes(locked.status)) {
         await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code, mgr);
       }
       const updated = await this.lifecycle.transitionStatus(mgr, id, locked.status, 'CANCELLED');
@@ -864,6 +866,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
   async manualOverride(id: string, dto: ManualOverrideSalesOrderDto) {
     const rec = await this.assertOwnership(id);
     if (rec.status === dto.targetStatus) throw new BadRequestException('目标状态与当前状态相同');
+    if (dto.targetStatus === 'CANCELLED') throw new BadRequestException('取消订单须使用撤单入口释放预占');
     if (dto.targetStatus === 'APPROVED') {
       throw new BadRequestException('人工纠偏不可进入 APPROVED；批准必须通过订单提交/审批唯一入口');
     }
