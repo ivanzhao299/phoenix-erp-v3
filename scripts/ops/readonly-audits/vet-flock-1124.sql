@@ -18,11 +18,16 @@ SELECT 'VET_EGG_SOURCE_COVERAGE' AS section, count(*) AS expected_houses,
        array_agg(house_code ORDER BY house_code) FILTER (WHERE active_profiles<>1 OR matching_profiles<>1) AS review_houses
 FROM checked;
 
-SELECT 'VET_MATERIAL_MAPPING' AS section, mat.material_code,mat.status AS material_status,
-       mat.medication_code AS configured_medication,mat.unit,
-       m.medication_code AS reported_medication,m.status AS medication_status,m.product_type
-FROM mst_materials mat LEFT JOIN brd_medications m ON m.medication_code='MED-001'
-WHERE mat.material_code='MAT-VET-NDV';
+SELECT 'VET_ACTUAL_ITEM' AS section, material_code,material_name,material_type,unit,spec,status
+FROM mst_materials WHERE material_code='MAT-VET-NDV';
+
+SELECT 'VET_SCHEMA_COLUMNS' AS section, table_name, column_name, data_type
+FROM information_schema.columns WHERE table_schema='public' AND
+  ((table_name='inv_ledger' AND column_name IN ('house_code','medication_code','material_code')) OR
+   (table_name='wms_inbound' AND column_name IN ('item_name','item_type','material_code','remark')) OR
+   (table_name='brd_vaccinations' AND column_name IN ('vaccine_code','material_code','planned_issue_lines')) OR
+   (table_name='brd_medication_records' AND column_name IN ('actual_heads','material_code','medication_code')))
+ORDER BY table_name,column_name;
 
 SELECT 'VET_REPORTED_BATCH' AS section,b.batch_no,b.item_type,b.material_code,b.status,
        b.qty_available,b.unit,b.expire_date,b.warehouse_code,w.company_code,w.site_code
