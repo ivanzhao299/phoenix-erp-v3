@@ -46,7 +46,8 @@ test('the receipt hashes the opened archive and rejects a changed or linked file
   const adapter={...fs, lstatSync:()=>owned(fs.lstatSync(local)), fstatSync:fd=>owned(fs.fstatSync(fd)),
     openSync:(_path,flags)=>fs.openSync(local,flags)};
   const read=()=>archiveEvidence(run,'123-1','a'.repeat(40),digest,adapter);
-  assert.equal(read().sha256,digest);
+  const receipt=read();assert.equal(receipt.sha256,digest);
+  const actual=fs.statSync(local);assert.deepEqual(receipt.archivePin,[actual.dev,actual.ino,actual.size,actual.mtimeMs,actual.ctimeMs]);
   fs.appendFileSync(local,'changed');assert.throws(read,/ARCHIVE_CHANGED/);
   fs.linkSync(local,local+'-linked');assert.throws(read,/FILE_PERMISSIONS_OR_LINK/);
 });

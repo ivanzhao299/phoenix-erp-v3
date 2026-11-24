@@ -55,7 +55,8 @@ export function archiveEvidence(directory, runId, target, expectedDigest, io = f
   if (directory !== path.join(physicalParent, 'pending-migration-' + runId) ||
       !/^[0-9]+-[0-9]+$/.test(runId) || !/^[a-f0-9]{40}$/.test(target) || !/^[a-f0-9]{64}$/.test(expectedDigest)) hold('ARCHIVE_INPUT');
   const archive = path.join(directory, 'phoenix_erp_pre_' + target.slice(0, 12) + '.dump');
-  const identity = s => [s.dev, s.ino, s.size, s.mtimeMs, s.ctimeMs].join(':');
+  const pin = s => [s.dev, s.ino, s.size, s.mtimeMs, s.ctimeMs];
+  const identity = s => pin(s).join(':');
   const before = io.lstatSync(archive);
   assertRegularFile(before);
   const fd = io.openSync(archive, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
@@ -69,6 +70,6 @@ export function archiveEvidence(directory, runId, target, expectedDigest, io = f
     if (hash.digest('hex') !== expectedDigest || identity(opened) !== identity(io.fstatSync(fd)) ||
         identity(opened) !== identity(io.lstatSync(archive))) hold('ARCHIVE_CHANGED');
     io.fsyncSync(fd);
-    return {schema:'phoenix.vet-1124-migration-backup/v1', runId, sourceSha:target, archive, bytes:opened.size, sha256:expectedDigest, volumeUuid};
+    return {schema:'phoenix.vet-1124-migration-backup/v1', runId, sourceSha:target, archive, archivePin:pin(opened), bytes:opened.size, sha256:expectedDigest, volumeUuid};
   } finally { io.closeSync(fd); }
 }

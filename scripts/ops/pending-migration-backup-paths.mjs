@@ -82,6 +82,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
    check();
    const file=receiptFile(runId);
    receipt.files=evidenceFiles(receipt.archive).map(filePin);
+   assertSameDirectory(receipt.archivePin,receipt.files[0]);
    if(fs.lstatSync(file,{throwIfNoEntry:false}))hold('RECEIPT_EXISTS');
    const manifest=path.join(directory,'backup-receipt.json');
    const handle=fs.openSync(manifest,'wx',0o600);

@@ -222,6 +222,8 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
   const inspect = run({PHASE:'inspect'});
   assert.equal(inspect.status,0); assert.match(inspect.stdout,/INSPECT=COMPLETE/);
   assert.doesNotMatch(inspect.stdout + inspect.stderr,/docker:|REACHED_BACKUP/);
+  const badVolume=run({PHASE:'inspect',SNAPSHOT:'bad_volume'});
+  assert.notEqual(badVolume.status,0);assert.doesNotMatch(badVolume.stdout,/INSPECT=COMPLETE/);
   const apply = run({}); assert.equal(apply.status,0,apply.stderr); assert.match(apply.stdout,/REACHED_BACKUP/);
   for (const fields of [{AUDIT_SCOPE:'ordinary'},{SNAPSHOT:'invalid'},{SNAPSHOT:'drift'},
     {EXPECTED_VET_INSPECTION_SHA256:''},{EXPECTED_BEFORE_LEDGER_SHA256:'moved'}]) {
