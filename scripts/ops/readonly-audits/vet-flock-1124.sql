@@ -33,3 +33,10 @@ SELECT 'VET_REPORTED_BATCH' AS section,b.batch_no,b.item_type,b.material_code,b.
        b.qty_available,b.unit,b.expire_date,b.warehouse_code,w.company_code,w.site_code
 FROM inv_batches b LEFT JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
 WHERE b.batch_no='IBN-20261117-UCPTON';
+
+SELECT 'VET_RELEASE_RELATIONS' AS section,r.name,to_regclass('public.' || r.name) IS NOT NULL AS installed
+FROM (VALUES ('brd_vet_material_catalog'), ('brd_egg_vet_reviews'), ('brd_egg_qc_decisions'),
+             ('brd_egg_disposition_receipts')) AS r(name) ORDER BY r.name;
+
+SELECT 'VET_EGG_HOLD_FUNCTION' AS section,
+       to_regprocedure('public.vet_egg_day_held(text,date)') IS NOT NULL AS installed;
