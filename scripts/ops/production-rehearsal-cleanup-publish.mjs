@@ -36,17 +36,19 @@ function readVhost(){
 function workers(){
  const master=fs.readFileSync('/run/nginx.pid','utf8').trim();
  assert(/^[1-9][0-9]*$/.test(master),'nginx master missing');
- const processes={};
+ const processes={},shuttingDown=[];
  for(const pid of fs.readFileSync(`/proc/${master}/task/${master}/children`,'utf8').trim().split(/\s+/)){
   if(!/^[1-9][0-9]*$/.test(pid))continue;
   try{
-   if(!fs.readFileSync(`/proc/${pid}/cmdline`).includes(Buffer.from('nginx: worker process')))continue;
+   const command=fs.readFileSync(`/proc/${pid}/cmdline`,'utf8');
+   if(!command.includes('nginx: worker process'))continue;
    const started=fs.readFileSync(`/proc/${pid}/stat`,'utf8').split(/\)\s/).at(-1).trim().split(/\s+/)[19];
    assert(/^\d+$/.test(started),'nginx worker identity missing');
    processes[pid]=started;
+   if(command.includes('is shutting down'))shuttingDown.push(pid);
   }catch(error){if(error.code!=='ENOENT')throw error;}
  }
- return {master,processes};
+ return {master,processes,shuttingDown:shuttingDown.sort()};
 }
 function edgeProbe(held){
  const routes=[['http','/',held?503:301],['https','/',held?503:200],
@@ -81,8 +83,12 @@ async function observeEdge(before,held){
  for(let attempt=0;attempt<60;attempt++){
   const current=workers();
   assert.equal(current.master,before.master,'nginx master changed');
-  if(Object.keys(current.processes).length&&Object.entries(before.processes).every(([pid,start])=>current.processes[pid]!==start)){
-   try{edgeProbe(held);return current;}catch(error){if(attempt===59)throw error;}
+  if(Object.keys(current.processes).length&&!current.shuttingDown.length&&
+     Object.entries(before.processes).every(([pid,start])=>current.processes[pid]!==start)){
+   try{
+    edgeProbe(held);
+    if(same(current,workers()))return current;
+   }catch(error){if(attempt===59)throw error;}
   }
   await delay(500);
  }
