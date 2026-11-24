@@ -80,7 +80,7 @@ export default function DailyPage() {
 }
 function DailyEntry(){
   const lifecycle=usePermission('MENU_FARM_DATA'),lifecycleCreate=usePermission('MENU_FLOCK_CREATE');
-  const canCorrect=lifecycle.canView&&lifecycleCreate.canCreate;
+  const canCorrect=lifecycle.canView&&lifecycleCreate.canEdit;
   const writing=useRef(false),selection=useRef(0);
   const [posting,setPosting]=useState(false);
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';

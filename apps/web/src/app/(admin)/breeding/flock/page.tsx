@@ -1,6 +1,7 @@
 'use client';
 
 import type { FarmRow, HouseRow } from '@/types';
+import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 interface FlockCard {
   id: unknown;
@@ -13,7 +14,7 @@ interface FlockCard {
   breedCode?: string;
   breedSearch?: string;
   inDate?: unknown;
-  ageWeeks?: number;
+  age?: ReturnType<typeof flockArchiveAge>;
   quantity?: unknown;
   layingRate?: unknown;
   feedRatio?: unknown;
@@ -22,9 +23,11 @@ interface FlockCard {
 }
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
-import { StatusBadge } from '@/components/design-system';
-import RightDrawer from '@/components/RightDrawer';
+import { DrawerV2, StatusBadge } from '@/components/design-system';
 import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation';
+import FlockCycleDrawer from '@/components/breeding/FlockCycleDrawer';
+import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchivePlacementDate, flockArchiveTransferUrl } from '@/components/breeding/flock-archive';
+import { flockBusinessToday, flockDay } from '@/components/flock-lifecycle-form';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
@@ -34,7 +37,6 @@ import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
 import MasterNameCode from '@/components/MasterNameCode';
 import { flockMasterLabels } from '@/lib/flock-display';
-import { formatMasterData } from '@/lib/business-display';
 import { useMasterNames } from '@/hooks/useMasterNames';
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
@@ -42,15 +44,12 @@ import { useDictOptions } from '@/hooks/useDictOptions';
 // g200f 模板 token(2026-06-20)
 import { primaryActionButton, secondaryActionButton, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 const emptyForm = () => ({
-  farmCode: '',
-  house: '',
   breed: '',
   source: '',
-  placementAge: '1',
-  cost: '0',
+  placementAge: '',
+  cost: '',
   inDate: '',
-  qty: '',
-  targetWeeks: '80',
+  targetWeeks: '',
   eliminationDate: '',
   peakLayRate: '',
   feedConvRatio: '',
@@ -58,9 +57,6 @@ const emptyForm = () => ({
 });
 export default function FlockPage() {
   const toast = useToast();
-  const {
-    can
-  } = usePermission('MENU_FARM_DATA');
   const {canEdit:canCreateFlock}=usePermission('MENU_FLOCK_CREATE');
   // G23-B：can(role[]) → PBAC
   const { canEdit: canEditFlock } = usePermission('MENU_FARM_DATA');
@@ -89,7 +85,7 @@ export default function FlockPage() {
     },
     RETIRED: {
       status: 'default',
-      label: t('ui.已淘汰', '已淘汰')
+      label: t('flockArchive.closed', '已关群')
     },
     /* g200f(2026-06-20):兼容 DB 历史值 ACTIVE → 产蛋期(LAYING 同义) */
     ACTIVE: {
@@ -110,15 +106,18 @@ export default function FlockPage() {
     key: 'PEAK',
     label: t('ui.高峰期', '高峰期')
   }, {
+    key: 'DECLINING',
+    label: t('ui.产蛋下降期', '产蛋下降期')
+  }, {
     key: 'RETIRED',
-    label: t('ui.已淘汰', '已淘汰')
+    label: t('flockArchive.closed', '已关群')
   }];
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [originalForm, setOriginalForm] = useState(emptyForm());
   const [flockFacts, setFlockFacts] = useState<Record<string, unknown>[]>([]);
-  const [flockLoadedAt, setFlockLoadedAt] = useState(0);
+  const [businessDate, setBusinessDate] = useState(flockBusinessToday);
   const farmMasters = useMasterNames('farm');
   const houseMasters = useMasterNames('house');
   const farms: FarmRow[] = useMemo(() => [...farmMasters.values()].map(row => ({
@@ -129,19 +128,19 @@ export default function FlockPage() {
   })), [houseMasters]);
   const { optionPairs: breedOptions, loading: breedsLoading } = useDictOptions('BRD_BREED');
   const [historicalBreed, setHistoricalBreed] = useState('');
-  const [originalBreed, setOriginalBreed] = useState('');
-  const [originalInDate, setOriginalInDate] = useState('');
   const [confirmFlockNo, setConfirmFlockNo] = useState<string | null>(null);
+  const [cycleFlockNo, setCycleFlockNo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const {
     fetchRecords,
-    createRecord,
     updateRecord
   } = useCrud('brd_flocks');
   const load = useCallback(async () => {
     const data = await fetchRecords();
-    setFlockFacts(data || []);
-    setFlockLoadedAt(Date.now());
+    if (!Array.isArray(data)) return false;
+    setFlockFacts(data);
+    setBusinessDate(flockBusinessToday());
+    return true;
   }, [fetchRecords]);
   const flocks: FlockCard[] = useMemo(() => flockMasterLabels(flockFacts, farms, houses, lang).map(d => ({
       id: d.flock_no,
@@ -154,96 +153,95 @@ export default function FlockPage() {
       breedSearch: [d.breed_code, d.strain, d.breed_type, breedOptions.find(option => option.value === d.breed_code)?.label].filter(Boolean).join(' '),
       breed: breedOptions.find(option => option.value === d.breed_code)?.label
         || String(d.strain || d.breed_type || d.breed_code || '—'),
-      inDate: d.start_date,
-      ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((flockLoadedAt - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
+      inDate: flockArchivePlacementDate(d.placement_date, d.start_date),
+      age: flockArchiveAge(flockArchivePlacementDate(d.placement_date, d.start_date), d.placement_age,
+        d.status === 'RETIRED' ? d.closed_on : businessDate),
       quantity: d.current_qty,
       layingRate: d.current_lay_rate ?? '—',
       feedRatio: d.feed_conversion_ratio ?? '—',
-      status: String(d.status || 'GROWING'),
+      status: String(d.status ?? ''),
       _raw: d
-    })), [flockFacts, flockLoadedAt, farms, houses, lang, breedOptions]);
+    })), [flockFacts, businessDate, farms, houses, lang, breedOptions]);
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+  useEffect(() => {
+    const refreshBusinessDate = () => setBusinessDate(flockBusinessToday());
+    const interval = window.setInterval(refreshBusinessDate, 60_000);
+    window.addEventListener('focus', refreshBusinessDate);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshBusinessDate);
+    };
+  }, []);
   const handleEdit = (row: FlockCard) => {
     const r = (row._raw || {}) as Record<string, string | number | null>;
     setEditId(row.id as string);
-    const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
+    const s = (v: string | number | null) => String(v ?? '');
     // 不猜测历史中文名的标准码，也不默认首项；未知码由 DictSelect 原样展示。
     const breedCode = s(r.breed_code);
-    const inDate = s(r.start_date).slice(0, 10);
-    setOriginalBreed(breedCode);
-    setOriginalInDate(inDate);
-    setHistoricalBreed([s(r.breed_code), s(r.strain), s(r.breed_type)].filter(Boolean).join(' / '));
-    setForm({
-      farmCode: s(r.farm_code),
-      house: s(r.house_code),
+    const inDate = flockArchivePlacementDate(r.placement_date, r.start_date);
+    setHistoricalBreed([...new Set([s(r.breed_code), s(r.strain), s(r.breed_type)].filter(Boolean))].join(' / '));
+    const next = {
       breed: breedCode,
       source: s(r.source_farm),
-      placementAge: s(r.placement_age, '1'),
-      cost: s(r.cost, '0'),
+      placementAge: s(r.placement_age),
+      cost: s(r.cost),
       inDate,
-      qty: s(r.current_qty),
-      targetWeeks: s(r.target_weeks, '80'),
-      eliminationDate: s(r.planned_elimination_date),
+      targetWeeks: s(r.target_weeks),
+      eliminationDate: flockDay(r.planned_elimination_date),
       peakLayRate: s(r.peak_lay_rate),
       feedConvRatio: s(r.feed_conversion_ratio),
-      flockStatus: s(r.status, 'GROWING')
-    });
-    setShowDrawer(true);
+      flockStatus: s(r.status)
+    };
+    setOriginalForm(next);
+    setForm(next);
   };
   const handleSubmit = async () => {
-    const breedChanged = form.breed !== originalBreed;
+    if (!editId || submitting) return;
+    const breedChanged = form.breed !== originalForm.breed;
     if (breedChanged && (breedsLoading || !breedOptions.some(o => o.value === form.breed))) {
       toast.warning(t('ui.请选择有效鸡群品种', '请选择有效的鸡群品种标准码'));
       return;
     }
-    if (originalInDate && !form.inDate) {
+    if (originalForm.inDate && !form.inDate) {
       toast.warning(t('ui.不能清空已登记入栏日期', '不能清空已登记的入栏日期'));
       return;
     }
-    if (form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
+    if ((form.eliminationDate !== originalForm.eliminationDate || form.inDate !== originalForm.inDate)
+      && form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
       toast.warning(t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期'));
       return;
     }
-    const payload = {
-      farm_code: form.farmCode,
-      farm_name: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
-      source_farm: form.source,
-      house_code: form.house,
+    const placementAge = flockArchiveNumber(form.placementAge);
+    if (form.placementAge !== originalForm.placementAge && form.placementAge !== ''
+      && (placementAge === null || placementAge < 0 || !Number.isInteger(placementAge))) {
+      toast.warning(t('flockArchive.invalidAge', '入舍日龄须为大于或等于 0 的整数。'));
+      return;
+    }
+    const payload: Record<string, unknown> = {
+      ...(form.source !== originalForm.source ? { source_farm: form.source } : {}),
       ...(breedChanged ? { breed_code: form.breed } : {}),
-      ...(form.inDate && form.inDate !== originalInDate ? { start_date: form.inDate } : {}),
-      placement_age: Number(form.placementAge) || 1,
-      cost: Number(form.cost) || 0,
-      target_weeks: Number(form.targetWeeks) || 80,
-      status: form.flockStatus,
-      planned_elimination_date: form.eliminationDate || null,
-      peak_lay_rate: form.peakLayRate ? Number(form.peakLayRate) : null,
-      feed_conversion_ratio: form.feedConvRatio ? Number(form.feedConvRatio) : null
+      ...(form.inDate && form.inDate !== originalForm.inDate ? { start_date: form.inDate, placement_date: form.inDate } : {}),
+      ...(form.placementAge !== originalForm.placementAge ? { placement_age: placementAge } : {}),
+      ...(form.cost !== originalForm.cost ? { cost: flockArchiveNumber(form.cost) } : {}),
+      ...(form.targetWeeks !== originalForm.targetWeeks ? { target_weeks: flockArchiveNumber(form.targetWeeks) } : {}),
+      ...(form.flockStatus !== originalForm.flockStatus ? { status: form.flockStatus } : {}),
+      ...(form.eliminationDate !== originalForm.eliminationDate ? { planned_elimination_date: form.eliminationDate || null } : {}),
+      ...(form.peakLayRate !== originalForm.peakLayRate ? { peak_lay_rate: flockArchiveNumber(form.peakLayRate) } : {}),
+      ...(form.feedConvRatio !== originalForm.feedConvRatio ? { feed_conversion_ratio: flockArchiveNumber(form.feedConvRatio) } : {}),
     };
+    if (!Object.keys(payload).length) {
+      setEditId(null);
+      return;
+    }
     setSubmitting(true);
     try {
-      let ok: boolean;
-      const successMessage = editId ? t('ui.更新成功', '更新成功') : t('ui.新建成功', '新建成功');
-      if (editId) {
-        ok = await updateRecord(editId, payload, 'flock_no');
-      } else {
-        const flockNo = 'FK-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(-3).toUpperCase();
-        ok = await createRecord({
-          ...payload,
-          flock_no: flockNo,
-          batch_no: flockNo,
-          current_qty: Number(form.qty) || 0,
-          initial_qty: Number(form.qty) || 0
-        });
-      }
-      if (ok) {
-        // The controlled latest request is authoritative. Keeping a separate
-        // optimistic map here would reintroduce two competing sources of truth.
-        await load();
-        setShowDrawer(false);
+      if (await updateRecord(editId, payload, 'flock_no')) {
+        const refreshed = await load();
         setEditId(null);
-        toast.success(successMessage);
+        toast.success(t('ui.更新成功', '更新成功'));
+        if (!refreshed) toast.warning(t('flockArchive.refreshAfterSave', '档案已保存，列表刷新失败。'));
       }
     } finally {
       setSubmitting(false);
@@ -251,7 +249,8 @@ export default function FlockPage() {
   };
   const breedLabelOf = useCallback((code: string) => breedOptions.find(o => o.value === code)?.label || code, [breedOptions]);
   const needsBreedReview = (code?: string) => !code?.trim() || (!breedsLoading && !breedOptions.some(o => o.value === code));
-  const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter);
+  const editedFlock = flocks.find(flock => flock.id === editId);
+  const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter || statusFilter === 'LAYING' && f.status === 'ACTIVE');
   const columns = [{
     key: 'batchNo',
     title: t('ui.批次号', '批次号'),
@@ -279,50 +278,53 @@ export default function FlockPage() {
     key: 'inDate',
     title: t('ui.进雏日期', '进雏日期'),
     width: '100px',
-    /* g200f:ISO 字符串 → 本地日期(yyyy/M/d) */
-    render: (v: unknown) => v ? new Date(String(v)).toLocaleDateString('zh-CN') : '—'
+    render: (v: unknown) => flockArchiveDate(v, lang)
   }, {
-    key: 'ageWeeks',
+    key: 'age',
     title: t('ui.鸡龄', '鸡龄'),
-    width: '70px',
-    render: (v: unknown) => `${String(v ?? '')}${t('ui.周', '周')}`
+    width: '100px',
+    render: (_: unknown, { age }: FlockCard) => age
+      ? `${flockArchiveFormatNumber(age.weeks, lang)}${t('ui.周', '周')} ${flockArchiveFormatNumber(age.remainingDays, lang)}${t('flockArchive.dayUnit', '天')}`
+      : '—'
   }, {
     key: 'quantity',
     title: t('ui.存栏量', '存栏量'),
     width: '90px',
-    render: (v: unknown) => `${Number(v).toLocaleString()}${t('ui.羽', '羽')}`
+    render: (v: unknown) => flockArchiveNumber(v) === null ? '—' : `${flockArchiveFormatNumber(v, lang)}${t('ui.羽', '羽')}`
   }, {
     key: 'layingRate',
     title: t('ui.产蛋率', '产蛋率'),
     width: '80px',
-    render: (v: unknown) => typeof v === 'number' ? <span style={{
-      fontWeight: 700,
-      color: v >= 90 ? 'var(--status-success)' : v >= 85 ? 'var(--status-warning)' : 'var(--status-danger)'
-    }}>{v}%</span> : <span className={u.muted}>—</span>
+    render: (v: unknown) => {
+      const rate = flockArchiveNumber(v);
+      return rate === null ? <span className={u.muted}>—</span> : <span style={{
+        fontWeight: 700,
+        color: rate >= 90 ? 'var(--status-success)' : rate >= 85 ? 'var(--status-warning)' : 'var(--status-danger)'
+      }}>{flockArchiveFormatNumber(rate, lang)}%</span>;
+    }
   }, {
     key: 'feedRatio',
     title: t('ui.料蛋比', '料蛋比'),
     width: '80px',
-    render: (v: unknown) => typeof v === 'number' ? <span style={{
-      color: v <= 2.35 ? 'var(--status-success)' : 'var(--status-warning)'
-    }}>{v}</span> : '—'
+    render: (v: unknown) => {
+      const ratio = flockArchiveNumber(v);
+      return ratio === null ? '—' : <span style={{
+        color: ratio <= 2.35 ? 'var(--status-success)' : 'var(--status-warning)'
+      }}>{flockArchiveFormatNumber(ratio, lang, 4)}</span>;
+    }
   }, {
     key: 'targetWeeks',
     title: t('ui.目标周数', '目标周数'),
     width: '80px',
     render: (v: unknown, row: FlockCard) => {
-      const tw = v ?? row._raw?.target_weeks;
-      return tw ? `${String(tw)}${t('ui.周', '周')}` : '—';
+      const tw = flockArchiveNumber(v ?? row._raw?.target_weeks);
+      return tw === null ? '—' : `${flockArchiveFormatNumber(tw, lang)}${t('ui.周', '周')}`;
     }
   }, {
     key: 'eliminationDate',
     title: t('ui.预计淘汰日', '预计淘汰日'),
     width: '100px',
-    /* g200f:ISO 字符串 → 本地日期 */
-    render: (_: unknown, row: FlockCard) => {
-      const d = row._raw?.planned_elimination_date;
-      return d ? new Date(String(d)).toLocaleDateString('zh-CN') : '—';
-    }
+    render: (_: unknown, row: FlockCard) => flockArchiveDate(row._raw?.planned_elimination_date, lang)
   }, {
     key: 'status',
     title: t('common.status', '状态'),
@@ -330,22 +332,26 @@ export default function FlockPage() {
     render: (v: unknown) => {
       const st = STATUS_MAP[v as string] || {
         status: 'default',
-        label: String(v)
+        label: String(v || '—')
       };
       return <StatusBadge status={st.status} label={st.label} />;
     }
   }, {
     key: 'actions',
     title: t('common.operation', '操作'),
-    width: '140px',
+    width: '180px',
     render: (_: unknown, row: FlockCard) => <div className={s.tableActions}>
-        {canEditFlock && <button type="button" className={s.btnIcon} aria-label={`编辑鸡群 ${String(row.id)}`} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
+        {canEditFlock && <button type="button" className={s.btnIcon} aria-label={t('flockArchive.editFlock', '编辑鸡群 {flock}').replace('{flock}', String(row.id))} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
+        <button type="button" style={secondaryActionButton} onClick={() => setCycleFlockNo(String(row.id))}>
+          {t('flockArchive.cycle', '鸡群周期')}
+        </button>
         {needsBreedReview(row.breedCode) && <button type="button" style={secondaryActionButton} onClick={() => setConfirmFlockNo(String(row.id))}>
           {t('ui.核对品种', '核对品种')}
         </button>}
       </div>
   }];
   return <div className="animate-fade-in">
+      {cycleFlockNo && <FlockCycleDrawer key={cycleFlockNo} flockNo={cycleFlockNo} canTransfer={canCreateFlock} onClose={() => setCycleFlockNo(null)} />}
       {confirmFlockNo && <FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo}
         onClose={() => setConfirmFlockNo(null)} onConfirmed={({ receiptId }) => {
           setConfirmFlockNo(null);
@@ -360,7 +366,7 @@ export default function FlockPage() {
         subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
         breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
         actions={canCreateFlock && (
-          <button type="button" style={primaryActionButton} onClick={() => { window.location.href='/breeding/flock-lifecycle'; }}>
+          <button type="button" style={primaryActionButton} onClick={() => { window.location.href='/breeding/flock-lifecycle/admissions?kind=ADMIT'; }}>
             <Plus size={14} />{t('ui.办理入栏与生命周期', '办理入栏与生命周期')}
           </button>
         )}
@@ -376,47 +382,32 @@ export default function FlockPage() {
         </div>
       } />
 
-      <RightDrawer isOpen={showDrawer} closeDisabled={submitting} onClose={() => {
-      if (submitting) return;
-      setShowDrawer(false);
-      setEditId(null);
-    }} title={`${editId ? t('common.edit', '编辑') : t('common.new', '新建')}${t('ui.鸡群档案', '鸡群档案')}`} width="460px">
-        <div style={{
+      <DrawerV2 open={Boolean(editedFlock)} closeDisabled={submitting} onClose={() => setEditId(null)}
+        title={`${t('common.edit', '编辑')} ${t('ui.鸡群档案', '鸡群档案')}`} width={460}>
+        <form noValidate onSubmit={event => { event.preventDefault(); void handleSubmit(); }} style={{
         display: 'flex',
         flexDirection: 'column',
         gap: 14
       }}>
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>{t('ui.归属养殖场', '归属养殖场')}</label>
-              <select data-i18n-skip="true" value={form.farmCode} onChange={e => setForm({
-              ...form,
-              farmCode: e.target.value,
-              house: ''
-            })} className={s.inp}>
-                <option value="">{t('ui.选择养殖场', '选择养殖场')}</option>
-                {farms.map(f => <option key={f.farm_code} value={f.farm_code}>{formatMasterData(f, 'farm_name', f.farm_code, lang)}</option>)}
-              </select>
+              <label className={s.lbl} htmlFor="flock-archive-farm">{t('ui.归属养殖场', '归属养殖场')}</label>
+              <input id="flock-archive-farm" data-i18n-skip="true" value={editedFlock?.farmName ?? editedFlock?.farmCode ?? ''}
+                readOnly className={s.inp} style={{ background: 'var(--bg-muted)' }} />
             </div>
             <div>
-              <label className={s.lbl}>{t('ui.入驻鸡舍', '入驻鸡舍')}</label>
-              <select data-i18n-skip="true" value={form.house} onChange={e => setForm({
-              ...form,
-              house: e.target.value
-            })} disabled={!form.farmCode} className={s.inp} style={{
-              opacity: form.farmCode ? 1 : 0.6,
-              cursor: form.farmCode ? 'pointer' : 'not-allowed'
-            }}>
-                <option value="">{form.farmCode ? t('ui.选择鸡舍', '选择鸡舍') : t('ui.请先选择养殖场', '请先选择养殖场')}</option>
-                {houses.filter(h => h.farm_code === form.farmCode).map(h => <option key={h.house_code} value={h.house_code}>{formatMasterData(h, 'house_name', h.house_code, lang)}</option>)}
-              </select>
+              <label className={s.lbl} htmlFor="flock-archive-house">{t('flockArchive.currentHouse', '当前鸡舍')}</label>
+              <input id="flock-archive-house" data-i18n-skip="true" value={editedFlock?.houseName ?? editedFlock?.houseCode ?? ''}
+                readOnly className={s.inp} style={{ background: 'var(--bg-muted)' }} />
+              {canCreateFlock && editId && editedFlock?.houseCode && editedFlock.status !== 'RETIRED' &&
+                <Link href={flockArchiveTransferUrl(editId, editedFlock.houseCode)}>{t('flockArchive.transfer', '办理整群转舍')}</Link>}
             </div>
           </div>
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl}>{t('ui.鸡群品种', '鸡群品种')}</label>
-              {editId && needsBreedReview(originalBreed) ? <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => {
-                setShowDrawer(false);
+              {editId && needsBreedReview(originalForm.breed) ? <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => {
+                setEditId(null);
                 setConfirmFlockNo(editId);
               }}>{t('ui.核对品种', '核对品种')}</button> : <DictSelect dictType="BRD_BREED" value={form.breed} onChange={breed => setForm(p => ({ ...p, breed }))}
                 ariaLabel={t('ui.鸡群品种', '鸡群品种')} allowEmpty={false} className={s.inp} disabled={submitting || breedsLoading} />}
@@ -430,56 +421,54 @@ export default function FlockPage() {
             })} placeholder={t('ui.选择种禽供应商', '选择种禽供应商')} /></div>
           </div>
           <div className={s.fieldRow}>
-            <div><label className={s.lbl}>{t('ui.入舍日龄(天)', '入舍日龄(天)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.placementAge} onChange={e => setForm({
+            <div><label className={s.lbl} htmlFor="flock-archive-age">{t('ui.入舍日龄(天)', '入舍日龄(天)')}</label><input id="flock-archive-age" type="number" min={0} step={1} onFocus={e => e.currentTarget.select()} value={form.placementAge} onChange={e => setForm({
               ...form,
               placementAge: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{t('ui.种苗单价(元/羽)', '种苗单价(元/羽)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.cost} onChange={e => setForm({
+            <div><label className={s.lbl} htmlFor="flock-archive-cost">{t('ui.种苗单价(元/羽)', '种苗单价(元/羽)')}</label><input id="flock-archive-cost" type="number" step="any" onFocus={e => e.currentTarget.select()} value={form.cost} onChange={e => setForm({
               ...form,
               cost: e.target.value
             })} className={s.inp} /></div>
           </div>
           <div className={s.fieldRow}>
-            <div><label className={s.lbl}>{t('ui.进雏入栏日期', '进雏入栏日期')}</label><input type="date" value={form.inDate} onChange={e => setForm({
+            <div><label className={s.lbl} htmlFor="flock-archive-placement">{t('ui.进雏入栏日期', '进雏入栏日期')}</label><input id="flock-archive-placement" type="date" value={form.inDate} onChange={e => setForm({
               ...form,
               inDate: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{editId ? t('ui.当前存栏(羽)', '当前存栏(羽)') : t('ui.初始存栏(羽)', '初始存栏(羽)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.qty} readOnly={!!editId} style={editId ? { background: 'var(--bg-muted)', cursor: 'not-allowed' } : undefined} onChange={e => setForm({
-              ...form,
-              qty: e.target.value
-            })} placeholder={t('ui.如8000', '如8000')} className={s.inp} /></div>
+            <div><label className={s.lbl} htmlFor="flock-archive-quantity">{t('ui.当前存栏(羽)', '当前存栏(羽)')}</label><input id="flock-archive-quantity"
+              type="number" value={String(editedFlock?.quantity ?? '')} readOnly style={{ background: 'var(--bg-muted)' }} className={s.inp} /></div>
           </div>
           <div className={s.fieldRow}>
-            <div><label className={s.lbl}>{t('ui.计划产蛋周数(周)', '计划产蛋周数(周)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.targetWeeks} onChange={e => setForm({
+            <div><label className={s.lbl} htmlFor="flock-archive-target-weeks">{t('ui.计划产蛋周数(周)', '计划产蛋周数(周)')}</label><input id="flock-archive-target-weeks" type="number" onFocus={e => e.currentTarget.select()} value={form.targetWeeks} onChange={e => setForm({
               ...form,
               targetWeeks: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{t('ui.计划淘汰日期', '计划淘汰日期')}</label><input type="date" aria-label="计划淘汰日期" value={form.eliminationDate} onChange={e => setForm({
+            <div><label className={s.lbl} htmlFor="flock-archive-elimination">{t('ui.计划淘汰日期', '计划淘汰日期')}</label><input id="flock-archive-elimination" type="date" value={form.eliminationDate} onChange={e => setForm({
               ...form,
               eliminationDate: e.target.value
             })} className={s.inp} /></div>
           </div>
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>{t('ui.历史峰值产蛋率(%)', '历史峰值产蛋率(%)')}</label>
+              <label className={s.lbl} htmlFor="flock-archive-peak-rate">{t('ui.历史峰值产蛋率(%)', '历史峰值产蛋率(%)')}</label>
               <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 4
             }}>{t('ui.日报提交后自动更新', '日报提交后自动更新')}</div>
-              <input type="number" onFocus={e => e.currentTarget.select()} step="0.1" value={form.peakLayRate} onChange={e => setForm({
+              <input id="flock-archive-peak-rate" type="number" onFocus={e => e.currentTarget.select()} step="any" value={form.peakLayRate} onChange={e => setForm({
               ...form,
               peakLayRate: e.target.value
             })} className={s.inp} />
             </div>
             <div>
-              <label className={s.lbl}>{t('ui.当前料蛋比', '当前料蛋比')}</label>
+              <label className={s.lbl} htmlFor="flock-archive-feed-ratio">{t('ui.当前料蛋比', '当前料蛋比')}</label>
               <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 4
             }}>{t('ui.日报提交后自动更新', '日报提交后自动更新')}</div>
-              <input type="number" onFocus={e => e.currentTarget.select()} step="0.01" value={form.feedConvRatio} onChange={e => setForm({
+              <input id="flock-archive-feed-ratio" type="number" onFocus={e => e.currentTarget.select()} step="any" value={form.feedConvRatio} onChange={e => setForm({
               ...form,
               feedConvRatio: e.target.value
             })} className={s.inp} />
@@ -487,18 +476,18 @@ export default function FlockPage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.鸡群状态', '鸡群状态')}</label>
-            <DictSelect dictType="BRD_FLOCK_STATUS" value={form.flockStatus} allowedValues={['GROWING','LAYING','PEAK','DECLINING']} disabled={form.flockStatus==='RETIRED'} onChange={flockStatus=>setForm(p=>({...p,flockStatus}))} className={s.inp}/>
-            <small>关闭鸡群请使用生命周期关闭单；已关闭群保留原状态。</small>
+            <DictSelect dictType="BRD_FLOCK_STATUS" ariaLabel={t('ui.鸡群状态', '鸡群状态')} value={form.flockStatus} allowedValues={['GROWING','LAYING','PEAK','DECLINING']} disabled={form.flockStatus==='RETIRED'} onChange={flockStatus=>setForm(p=>({...p,flockStatus}))} className={s.inp}/>
+            <small>{t('flockArchive.closeThroughLifecycle', '请通过生命周期关闭单办理关群。')}</small>
           </div>
           <div style={{
           display: 'flex',
           gap: 10,
           marginTop: 8
         }}>
-            <button type="button" disabled={submitting} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={() => { if (submitting) return; setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
-            <button type="button" disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={handleSubmit}>{submitting ? t('common.saving', '保存中...') : editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
+            <button type="button" disabled={submitting} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={() => setEditId(null)}>{t('common.cancel', '取消')}</button>
+            <button type="submit" disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: submitting ? 0.65 : 1 }}>{submitting ? t('common.saving', '保存中...') : t('ui.保存修改', '保存修改')}</button>
           </div>
-        </div>
-      </RightDrawer>
+        </form>
+      </DrawerV2>
     </div>;
 }

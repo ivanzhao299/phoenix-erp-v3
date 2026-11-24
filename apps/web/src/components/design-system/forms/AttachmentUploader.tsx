@@ -11,16 +11,18 @@ import { useLanguage } from '@/contexts/LanguageContext';
 export interface AttachmentUploaderProps {
   value: string[];
   onChange: (urls: string[]) => void;
+  onUploadingChange?: (uploading: boolean) => void;
   readOnly?: boolean;
   label?: string;
   apiBase?: string;
   ownership?: {moduleCode: string;ownerType: string;ownerId: string;companyCode: string;storeCode?: string;financeReviewId?: string};
 }
 
-export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, ownership }: AttachmentUploaderProps) {
+export function AttachmentUploader({ value, onChange, onUploadingChange, readOnly, label, apiBase, ownership }: AttachmentUploaderProps) {
   const { t } = useLanguage();
   const resolvedLabel = label ?? t('ui.上传附件（PDF/图片 ≤15MB）', '上传附件（PDF/图片 ≤15MB）');
   const [uploading, setUploading] = useState(false);
+  const uploadActive = useRef(false);
   const [err, setErr] = useState('');
   const [devicePanelOpen, setDevicePanelOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -51,7 +53,11 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, 
   //   （避免并行 onChange 各读到 stale value 互相覆盖，导致"只剩最后一个"）。
   const MAX_MB = 15;   // 与应用层 FileInterceptor(15MB) + nginx(20m) 一致（原 10 与"≤15MB"标签不符）
   const uploadFiles = async (files: File[]) => {
-    setErr(''); setUploading(true);
+    if (uploadActive.current) return;
+    uploadActive.current = true;
+    setErr('');
+    setUploading(true);
+    onUploadingChange?.(true);
     const added: string[] = [];
     const errs: string[] = [];
     try {
@@ -85,7 +91,11 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, 
       if (added.length) onChange([...value, ...added]);
       if (errs.length) setErr(errs.join('；'));
     } catch (e: unknown) { setErr((e instanceof Error ? e.message : '') || t('ui.上传失败','上传失败')); }
-    finally { setUploading(false); }
+    finally {
+      uploadActive.current = false;
+      setUploading(false);
+      onUploadingChange?.(false);
+    }
   };
 
   async function loadVideoDevices() {
@@ -169,7 +179,7 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, 
       {value.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: readOnly ? 0 : 8 }}>
           {value.map((u, i) => (
-            <AttachmentChip key={i} url={u} index={i} readOnly={readOnly}
+            <AttachmentChip key={i} url={u} index={i} readOnly={readOnly || uploading}
               onRemove={() => onChange(value.filter((_, idx) => idx !== i))} />
           ))}
         </div>

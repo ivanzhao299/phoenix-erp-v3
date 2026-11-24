@@ -115,6 +115,7 @@ export interface FarmLog {
   eggs_produced:   number | string;
   mortality_qty:   number | string;
   elimination_qty?: number | string;
+  culling_reason?: string | null;
   dirty_eggs?:     number | string;
   broken_eggs?:    number | string;
   feed_consumed?:  number | string;
@@ -262,6 +263,7 @@ export interface HenReportRow {
   house_name?:    string | null;
   flock_no:       string;
   has_daily_log: boolean;
+  occupancy_id?: string | null;
   current_qty:    number | null;
   initial_qty:    number;
   age_days:       number | null;
@@ -342,6 +344,9 @@ export const mobileApi = {
   /** 养殖日报（仅 ROLE_FARM_MGR/ROLE_ADMIN 可访问；其他角色返回 403 则降级） */
   getFarmLogs: (date: string) =>
     get<{ data: FarmLog[]; total: number }>(`/api/crud/brd_daily_logs?log_date=${date}&limit=200`),
+
+  getFarmLogsForHouse: (date: string, house: string) =>
+    get<FarmLog[]>(`/api/crud/brd_daily_logs?${new URLSearchParams({ log_date: date, house_code: house, limit: '2' })}`),
 
   /** 未处理告警列表（IoT 设备告警，管理员/农场经理可访问） */
   getOpenAlerts: () =>

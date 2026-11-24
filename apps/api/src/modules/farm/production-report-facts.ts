@@ -1,3 +1,5 @@
+import type { EntityManager } from 'typeorm';
+
 // Event identity is captured at posting, including for reversals. Resolving today's
 // house from the flock/date would move pre-transfer losses into the receiving house.
 export const occupancyLossesSql = `SELECT e.occupancy_id,e.flock_no,e.house_code,e.company_code,e.farm_code,e.site_code,
@@ -7,6 +9,16 @@ export const occupancyLossesSql = `SELECT e.occupancy_id,e.flock_no,e.house_code
   FROM brd_flock_events e
   WHERE e.occupancy_id IS NOT NULL AND e.kind IN ('MORTALITY','REVERSE_MORTALITY','CULL','REVERSE_CULL')
   GROUP BY e.occupancy_id,e.flock_no,e.house_code,e.company_code,e.farm_code,e.site_code,e.business_date`;
+
+/** Managed DAILY reports cache the losses of their own occupancy and day. */
+export async function reportOccupancyLosses(m: EntityManager, occupancyId: string, date: string) {
+  const [loss] = await m.query(
+    `SELECT mortality_qty,elimination_qty FROM (${occupancyLossesSql}) losses
+      WHERE occupancy_id=$1 AND log_date=$2`,
+    [occupancyId, date],
+  );
+  return { mortality_qty: Number(loss?.mortality_qty ?? 0), elimination_qty: Number(loss?.elimination_qty ?? 0) };
+}
 
 /** Reports retain shift grain. Each managed occupancy/day contributes its event losses exactly once. */
 export function productionReportFactsSql(ledger: boolean) {

@@ -38,10 +38,11 @@ export function ConfirmDialogV2({
       title={titleResolved}
       width={420}
       onClose={onCancel}
+      closeDisabled={loading}
       footer={
         <>
-          <button onClick={onCancel} disabled={loading} style={btn('var(--bg-card)', 'var(--text-primary)', '1px solid var(--border)')}>{cancelLabelResolved}</button>
-          <button onClick={onConfirm} disabled={loading} style={btn(danger ? 'var(--status-danger)' : 'var(--color-primary)', 'var(--text-on-dark)')}>
+          <button type="button" onClick={onCancel} disabled={loading} style={btn('var(--bg-card)', 'var(--text-primary)', '1px solid var(--border)')}>{cancelLabelResolved}</button>
+          <button type="button" onClick={onConfirm} disabled={loading} style={btn(danger ? 'var(--status-danger)' : 'var(--color-primary)', 'var(--text-on-dark)')}>
             {loading ? t('ui.处理中…', '处理中…') : confirmLabelResolved}
           </button>
         </>

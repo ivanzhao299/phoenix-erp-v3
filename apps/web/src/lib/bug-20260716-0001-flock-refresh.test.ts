@@ -14,8 +14,8 @@ const useCrudSource = readFileSync(
 describe("BUG-20260716-0001 flock refresh", () => {
   it("refreshes the flock list before closing the editor and showing non-blocking success", () => {
     const refresh = flockPageSource.indexOf("await load();");
-    const close = flockPageSource.indexOf("setShowDrawer(false);", refresh);
-    const success = flockPageSource.indexOf("toast.success(successMessage);", close);
+    const close = flockPageSource.indexOf("setEditId(null);", refresh);
+    const success = flockPageSource.indexOf("toast.success(t('ui.更新成功'", close);
 
     expect(refresh).toBeGreaterThan(-1);
     expect(close).toBeGreaterThan(refresh);
@@ -33,7 +33,8 @@ describe("BUG-20260716-0001 flock refresh", () => {
     expect(flockPageSource).toContain("const [submitting, setSubmitting] = useState(false)");
     expect(flockPageSource).toContain("disabled={submitting}");
     expect(flockPageSource).toContain("closeDisabled={submitting}");
-    expect(flockPageSource).toContain("onClick={() => { if (submitting) return; setShowDrawer(false);");
+    expect(flockPageSource).toContain("if (!editId || submitting) return;");
+    expect(flockPageSource).toContain("onClick={() => setEditId(null)}");
     expect(flockPageSource).toContain("setSubmitting(false)");
   });
 

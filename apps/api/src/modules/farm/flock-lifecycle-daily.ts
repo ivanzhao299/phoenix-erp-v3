@@ -1,6 +1,7 @@
 import { assertReportGradeCoverage, requiredReportGrades, sameReportGrades } from './daily-report-grades';
 import { BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { reportOccupancyLosses } from './production-report-facts';
 
 /** Called under the shared house/flock locks. Legacy flocks retain P0 safeguards until approved activation. */
 export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior: any, next: any, input: any) {
@@ -43,14 +44,13 @@ export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior:
   const [o]=await m.query(`SELECT id FROM brd_flock_occupancies WHERE flock_no=$1 AND house_code=$2
     AND began_on<=$3 AND (ended_on IS NULL OR ended_on>$3)`,[flock.flock_no,next.house_code,next.log_date]);
   if (!o) throw new BadRequestException('日报日期没有唯一有效占栏');
-  const [totals]=await m.query(`SELECT COALESCE(SUM(CASE WHEN kind IN ('MORTALITY','REVERSE_MORTALITY') THEN -quantity_delta ELSE 0 END),0)::integer AS deaths,
-    COALESCE(SUM(CASE WHEN kind IN ('CULL','REVERSE_CULL') THEN -quantity_delta ELSE 0 END),0)::integer AS culls,
-    COALESCE(SUM(quantity_delta) FILTER(WHERE business_date<$2),0)::integer AS opening,
+  const [totals]=await m.query(`SELECT COALESCE(SUM(quantity_delta) FILTER(WHERE business_date<$2),0)::integer AS opening,
     COALESCE(SUM(quantity_delta),0)::integer AS closing
     FROM brd_flock_events WHERE flock_no=$1 AND business_date<=$2`,[flock.flock_no,next.log_date]);
-  const [loss]=await m.query(`SELECT COALESCE(mortality_qty,0) AS deaths,COALESCE(elimination_qty,0) AS culls
-    FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2`,[flock.flock_no,next.log_date]);
-  for (const [key,value] of [['mortality_qty',next.shift==='DAILY'?Number(loss?.deaths??0):0],['elimination_qty',next.shift==='DAILY'?Number(loss?.culls??0):0]] as const) {
+  const loss = next.shift === 'DAILY' ? await reportOccupancyLosses(m, o.id, next.log_date)
+    : { mortality_qty: 0, elimination_qty: 0 };
+  for (const key of ['mortality_qty','elimination_qty'] as const) {
+    const value = loss[key];
     if (input[key]!==undefined && Number(input[key])!==value) throw new BadRequestException('已激活群死淘由生命周期单据汇总，日报不可重复扣减');
     next[key]=value;
   }

@@ -1,0 +1,57 @@
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 14px;
+  margin: 0 0 14px;
+}
+
+.facts > div {
+  padding: 12px;
+  background: var(--bg-muted);
+  border-radius: 8px;
+}
+
+.facts dt {
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.facts dd { margin: 0; }
+.facts a, .records a { overflow-wrap: anywhere; }
+
+.transfer { display: inline-block; }
+
+.section {
+  padding: 18px 0;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section h3 { margin: 0 0 12px; }
+.section p { margin: 0 0 10px; }
+
+.records {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.records li, .paging {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+
+.records li + li { margin-top: 8px; }
+.paging:not(:empty) { margin-top: 10px; }
+.tableScroll { overflow-x: auto; }
+.table { border-collapse: collapse; width: 100%; }
+
+.table th, .table td {
+  padding: 8px;
+  text-align: start;
+  border-bottom: 1px solid var(--border);
+}
+
+.table time { white-space: nowrap; }

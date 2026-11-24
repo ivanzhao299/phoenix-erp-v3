@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
-import { mobileApi, FarmLog } from '@/lib/mobile-api';
+import { mobileApi } from '@/lib/mobile-api';
 import { buildMortalityRequest } from '@/lib/mortality-payload';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { usePermission } from '@/hooks/usePermission';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -21,29 +22,6 @@ function addDays(d: Date, n: number): Date {
 function toDate(s: string): Date {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
-}
-function aggregateByHouse(logs: FarmLog[]) {
-  const map = new Map<string, {
-    eggs: number;
-    mortality: number;
-    elimination: number;
-    reason: string;
-  }>();
-  for (const r of logs) {
-    const key = r.house_code || r.flock_no || '未知';
-    const cur = map.get(key) ?? {
-      eggs: 0,
-      mortality: 0,
-      elimination: 0,
-      reason: ''
-    };
-    cur.eggs += Number(r.eggs_produced || 0);
-    cur.mortality += Number(r.mortality_qty || 0);
-    cur.elimination += Number((r as any).elimination_qty || 0);
-    if ((r as any).culling_reason) cur.reason = (r as any).culling_reason;
-    map.set(key, cur);
-  }
-  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 function NumStepper({
   value,
@@ -114,9 +92,21 @@ export default function MortalityPage() {
     readonly
   } = useMobilePermission('mortality');
   const toast = useToast();
-  const today = fmtDate(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
   const [date, setDate] = useState(today);
-  const [logs, setLogs] = useState<FarmLog[]>([]);
+  const [loadedDate, setLoadedDate] = useState<string | null>(null);
+  const [managedHouses, setManagedHouses] = useState<Set<string>>(new Set());
+  const [changedHouses, setChangedHouses] = useState<Set<string>>(new Set());
+  const request = useRef(0);
+  const loadedLosses = useRef<Record<string, { mortality: number; elimination: number; reason: string }>>({});
+  const lifecycle = usePermission('MENU_FARM_DATA');
+  const lifecycleCreate = usePermission('MENU_FLOCK_CREATE');
+  const canRecord = lifecycle.canView && lifecycleCreate.canEdit;
+  const locked = (house: string) => readonly || loadedDate !== date || managedHouses.has(house);
+  const changeHouse = (house: string) => {
+    setChangedHouses(previous => new Set([...previous, house]));
+    setSaved(false);
+  };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -131,39 +121,61 @@ export default function MortalityPage() {
   const isToday = date === today;
   const dateLabel = isToday ? tr('mob.brd.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tr('mob.brd.yesterday', '昨天') : date;
   const loadData = useCallback(async (d: string) => {
+    const requestId = ++request.current;
     setLoading(true);
+    setLoadedDate(null);
     setError('');
     setPermErr(false);
     setSaved(false);
     try {
-      const res = await mobileApi.getFarmLogs(d);
-      const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
-      setLogs(arr);
+      const { rows } = await mobileApi.getDailyHenReport(d);
+      if (request.current !== requestId) return;
       const initMort: Record<string, number> = {};
       const initElim: Record<string, number> = {};
       const initReason: Record<string, string> = {};
-      for (const [house, v] of aggregateByHouse(arr)) {
-        initMort[house] = v.mortality;
-        initElim[house] = v.elimination;
-        initReason[house] = v.reason;
+      const managed = new Set<string>();
+      for (const row of rows) {
+        const house = row.house_code;
+        initMort[house] = (initMort[house] ?? 0) + row.mortality;
+        initElim[house] = (initElim[house] ?? 0) + row.elimination;
+        if (row.culling_reason) initReason[house] = row.culling_reason;
+        if (row.occupancy_id) managed.add(house);
       }
+      loadedLosses.current = Object.fromEntries(Object.keys(initMort).map(house => [house, {
+        mortality: initMort[house], elimination: initElim[house], reason: initReason[house] ?? '',
+      }]));
+      setLoadedDate(d);
+      setNewHouse('');
+      setManagedHouses(managed);
+      setChangedHouses(new Set());
       setMortEdits(initMort);
       setElimEdits(initElim);
       setReasonEdits(initReason);
-    } catch (e: any) {
-      if (e.message?.includes('403')) setPermErr(true);else setError(e.message || tr('mob.brd.load_fail', '加载失败'));
+    } catch (error) {
+      if (request.current !== requestId) return;
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('403')) setPermErr(true);
+      else setError(message || tr('mob.brd.load_fail', '加载失败'));
     } finally {
-      setLoading(false);
+      if (request.current === requestId) setLoading(false);
     }
-  }, []);
+  }, [tr, setSaved, setLoading]);
   useEffect(() => {
-    loadData(date);
-  }, [date, loadData]);
+    let active = true;
+    if (allowed) queueMicrotask(() => { if (active) void loadData(date); });
+    return () => {
+      active = false;
+      request.current += 1;
+    };
+  }, [allowed, date, loadData]);
   useEffect(() => {
+    if (!allowed) return;
+    let active = true;
     mobileApi.getFeedHousesDetail()
-      .then((rows: any) => setAllHouses(Array.isArray(rows) ? rows : (rows?.data ?? [])))
+      .then(rows => { if (active) setAllHouses(rows); })
       .catch(() => {});
-  }, []);
+    return () => { active = false; };
+  }, [allowed]);
   if (permLoading || !allowed) return null;
   const houseList = [...new Set([...Object.keys(mortEdits), ...Object.keys(elimEdits)])].sort();
   const totalMort = houseList.reduce((s, h) => s + (mortEdits[h] ?? 0), 0);
@@ -171,7 +183,8 @@ export default function MortalityPage() {
   const totalLoss = totalMort + totalElim;
   const handleAddHouse = () => {
     const h = newHouse.trim();
-    if (!h || mortEdits[h] !== undefined) return;
+    if (!h || mortEdits[h] !== undefined || locked(h)) return;
+    changeHouse(h);
     setMortEdits(p => ({
       ...p,
       [h]: 0
@@ -187,6 +200,8 @@ export default function MortalityPage() {
     setNewHouse('');
   };
   const handleSave = async () => {
+    const editable = [...changedHouses].filter(house => !locked(house));
+    if (saving || !editable.length) return;
     setSaving(true);
     setError('');
     const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -194,10 +209,22 @@ export default function MortalityPage() {
     try {
       // Validate the whole selection before issuing any request: a daily total
       // cannot safely be redistributed across historical shifts here.
-      const requests = houseList.filter(house=>!logs.some(row=>row.house_code===house&&row.occupancy_id)).map(house => buildMortalityRequest(logs, house, date, {
-        mortality_qty: mortEdits[house] ?? 0,
-        elimination_qty: elimEdits[house] ?? 0,
-        reason: reasonEdits[house] || null,
+      const requests = await Promise.all(editable.map(async house => {
+        const logs = await mobileApi.getFarmLogsForHouse(date, house);
+        if (logs.some(row => row.occupancy_id)) throw new Error(tr('mob.brd.mortality_managed', '已接续事件账，请办理死淘单。'));
+        if (logs.length > 1) throw new Error(tr('mob.brd.mortality_multi_shift').replace('{house}', house));
+        const original = loadedLosses.current[house];
+        const [current] = logs;
+        if (Number(current?.mortality_qty ?? 0) !== (original?.mortality ?? 0)
+          || Number(current?.elimination_qty ?? 0) !== (original?.elimination ?? 0)
+          || (current?.culling_reason ?? '') !== (original?.reason ?? '')) {
+          throw new Error(tr('mob.brd.mortality_source_changed').replace('{house}', house));
+        }
+        return buildMortalityRequest(logs, house, date, {
+          mortality_qty: mortEdits[house] ?? 0,
+          elimination_qty: elimEdits[house] ?? 0,
+          reason: reasonEdits[house] || null,
+        });
       }));
       const results = await Promise.allSettled(requests.map(async request => {
         const response = await fetch(`${API_BASE}${request.path}`, {
@@ -206,24 +233,25 @@ export default function MortalityPage() {
           body: JSON.stringify(request.body),
         });
         const result = await response.json();
-        if (!response.ok || result.code !== 200) throw new Error(result.message || result.msg || '保存失败');
+        if (!response.ok || result.code !== 200) throw new Error(result.message || result.msg || tr('mob.brd.save_fail', '保存失败'));
         return result;
       }));
       const failure = results.find(result => result.status === 'rejected');
-      const anyFail = Boolean(failure);
-      if (!anyFail) {
+      if (!failure) {
         haptic('success');
         toast.success(tr('mob.brd.mortality_save_ok', '死淘记录保存成功'));
         await loadData(date);
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        setError(failure?.status === 'rejected' ? String(failure.reason?.message || failure.reason) : tr('mob.brd.partial_save_fail', '部分记录保存失败，请重试'));
+        setChangedHouses(new Set(editable.filter((_, index) => results[index].status === 'rejected')));
+        setError(String(failure.reason?.message || failure.reason));
       }
-    } catch (e: any) {
+    } catch (error) {
       haptic('error');
-      toast.error(e.message || tr('mob.brd.save_fail', '保存失败'));
-      setError(e.message || tr('mob.brd.save_fail', '保存失败'));
+      const message = error instanceof Error ? error.message : tr('mob.brd.save_fail', '保存失败');
+      toast.error(message);
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -262,8 +290,8 @@ export default function MortalityPage() {
         color: t.text,
         flex: 1
       }}>💀 {tr('mob.brd.mortality_quick_entry', '死淘快录')}</span>
-        <a href="/mobile/flock-lifecycle" style={{color:t.text,fontSize:13}}>办理死淘单</a>
-        <button onClick={() => loadData(date)} style={{
+        {canRecord && <a href={`/mobile/flock-lifecycle/losses?${new URLSearchParams({ entry: 'mortality', date })}`} style={{color:t.text,fontSize:13}}>{tr('productionJobs.recordLoss')}</a>}
+        <button disabled={saving} onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
         color: t.textMuted,
@@ -283,7 +311,7 @@ export default function MortalityPage() {
       }}>
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <button onClick={handleSave} disabled={saving || loading || permErr} style={{
+        <button onClick={handleSave} disabled={saving || loading || permErr || loadedDate !== date || readonly || changedHouses.size === 0} style={{
         display: 'flex',
         alignItems: 'center',
         gap: 5,
@@ -310,7 +338,7 @@ export default function MortalityPage() {
       background: 'var(--status-danger-bg-page)',
       borderBottom: '1px solid var(--status-danger-bg-light)'
     }}>
-        <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))} style={{
+        <button disabled={saving} onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))} style={{
         background: 'none',
         border: 'none',
         color: t.textSub,
@@ -331,7 +359,7 @@ export default function MortalityPage() {
         }}>{date}</div>}
         </div>
         <button onClick={() => {
-        if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1)));
+        if (!isToday && !saving) setDate(d => fmtDate(addDays(toDate(d), 1)));
       }} disabled={isToday} style={{
         background: 'none',
         border: 'none',
@@ -453,7 +481,7 @@ export default function MortalityPage() {
           const mort = mortEdits[house] ?? 0;
           const elim = elimEdits[house] ?? 0;
           const hasLoss = mort > 0 || elim > 0;
-          const managed=logs.some(row=>row.house_code===house&&row.occupancy_id);
+          const managed = managedHouses.has(house);
           return <div key={house} style={{
             padding: '14px 16px',
             borderRadius: 14,
@@ -467,7 +495,7 @@ export default function MortalityPage() {
               fontWeight: 700,
               color: t.text,
               marginBottom: 12
-            }}>{house}{managed&&<p>已接续事件账：本页只读，请用“办理死淘单”。</p>}</div>
+            }}>{house}{managed && <p>{tr('mob.brd.mortality_managed', '已接续事件账，请办理死淘单。')}{canRecord && <> <a href={`/mobile/flock-lifecycle/losses?${new URLSearchParams({ kind: 'MORTALITY', houseCode: house, date })}`}>{tr('productionJobs.recordLoss')}</a></>}</p>}</div>
 
                   {/* 死亡行 */}
                   <div style={{
@@ -487,12 +515,12 @@ export default function MortalityPage() {
                   color: 'var(--status-danger)'
                 }}>⚠ {tr('mob.brd.large_qty', '数量较大')}</span>}
                     </div>
-                    <NumStepper disabled={managed} value={mort} onChange={v => {
+                    <NumStepper disabled={locked(house) || saving} value={mort} onChange={v => {
                 setMortEdits(p => ({
                   ...p,
                   [house]: v
                 }));
-                setSaved(false);
+                changeHouse(house);
               }} />
                   </div>
 
@@ -510,22 +538,22 @@ export default function MortalityPage() {
                   color: elim > 0 ? 'var(--status-warning)' : t.textSub
                 }}>{tr('mob.brd.elimination', '淘汰')}</span>
                     </div>
-                    <NumStepper disabled={managed} value={elim} onChange={v => {
+                    <NumStepper disabled={locked(house) || saving} value={elim} onChange={v => {
                 setElimEdits(p => ({
                   ...p,
                   [house]: v
                 }));
-                setSaved(false);
+                changeHouse(house);
               }} />
                   </div>
 
                   {/* 淘汰原因（当淘汰 > 0 时展开） */}
-                  {elim > 0 && <input type="text" value={reasonEdits[house] || ''} onChange={e => {
+                  {elim > 0 && <input type="text" disabled={locked(house) || saving} value={reasonEdits[house] || ''} onChange={e => {
               setReasonEdits(p => ({
                 ...p,
                 [house]: e.target.value
               }));
-              setSaved(false);
+              changeHouse(house);
             }} placeholder={tr('mob.brd.culling_reason_placeholder', '淘汰原因（如：产蛋率低、受伤等）')} style={{
               width: '100%',
               height: 36,
@@ -551,7 +579,7 @@ export default function MortalityPage() {
           background: t.sectionBg,
           border: `1px dashed ${t.btnBorder}`
         }}>
-              <select value={newHouse} onChange={e => setNewHouse(e.target.value)} style={{
+              <select disabled={readonly || saving || loadedDate !== date} value={newHouse} onChange={e => setNewHouse(e.target.value)} style={{
             flex: 1,
             height: 36,
             padding: '0 10px',
@@ -567,7 +595,7 @@ export default function MortalityPage() {
                   <option key={h.house_code} value={h.house_code}>{h.house_name || h.house_code}</option>
                 ))}
               </select>
-              <button onClick={handleAddHouse} style={{
+              <button disabled={readonly || saving || loadedDate !== date || !newHouse} onClick={handleAddHouse} style={{
             padding: '0 14px',
             borderRadius: 8,
             background: 'var(--status-warning-bg-medium)',
