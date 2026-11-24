@@ -1,4 +1,5 @@
 {
+  "breeding.eggSourceUnverified": "The egg source profile could not be verified.",
   "flockTransfer.baseline": "Physical-count baseline date",
   "flockTransfer.admission": "Formal placement date",
   "flockTransfer.lastTransfer": "Last transfer-in date",
