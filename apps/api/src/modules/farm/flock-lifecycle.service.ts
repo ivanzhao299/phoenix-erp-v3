@@ -10,6 +10,7 @@ import { hasPerm } from '../../auth/permissions.util';
 import { birdCount } from './daily-stock-policy';
 import { flockHandoverBlockers } from './flock-handover-blockers';
 import { assertHouseReadyForEntry, assertHouseTurnaround, houseEntryReadiness, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } from './flock-house-turnaround';
+import { assertFlockTransferSource, FLOCK_TRANSFER_DATES, FLOCK_TRANSFER_SOURCE } from './flock-transfer-source';
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 
@@ -243,6 +244,7 @@ export class FlockLifecycleService {
       }
       if(p.kind==='REPORT_CORRECTION'){
         await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[p.houseCode]);
+        await this.assertHistoricalReportWindow(m,p.flockNo,p.houseCode,p.businessDate);
         const row=p.dailyLogId?await this.reportSnapshot(m,p.dailyLogId):null;
         if(p.dailyLogId){await this.assertReportIdentity(row,{...p,companyCode:h.company_code},m);if(this.reportHash(row)!==p.expectedReportHash)throw new ConflictException('原日报已变化，请刷新后重新制单');}
         else if((await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 LIMIT 1',[p.houseCode,p.businessDate])).length)throw new ConflictException('该舍日已有日报，请选择原日报更正');
@@ -259,6 +261,15 @@ export class FlockLifecycleService {
         [id,p.sourceKey,hash,p.kind,h.company_code,h.farm_code,h.site_code,h.house_code,p.kind==='ADMIT'?`FLK-${id}`:p.flockNo??'',p.businessDate,p,actor.id]);
       await this.audit(m,doc,'CREATE',actor,0); return doc;
     });
+  }
+
+  private async assertHistoricalReportWindow(m: EntityManager, flockNo: string, houseCode: string, day: string) {
+    const [blocked]=await m.query(`SELECT 1 FROM brd_flock_balances b WHERE b.flock_no=$1
+      AND EXISTS (SELECT 1 FROM brd_flock_occupancies o WHERE o.flock_no=b.flock_no AND o.house_code=$3)
+      AND (b.baseline_on>$2::date OR b.baseline_on=$2::date AND EXISTS
+        (SELECT 1 FROM brd_flock_events e WHERE e.flock_no=b.flock_no AND e.kind='BASELINE'))`,[flockNo,day,houseCode]);
+    if (blocked) throw new BadRequestException({code:'FLOCK_REPORT_BASELINE_READ_ONLY',
+      message:'历史生产日报在实盘基线日及之前只读。请将原始凭据提交专项核对'});
   }
 
   private async reportSnapshot(m:EntityManager,id:number){
@@ -296,7 +307,6 @@ export class FlockLifecycleService {
     if(!p.dailyLogId&&(await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 FOR UPDATE',[p.houseCode,p.businessDate])).length)throw new ConflictException('补录期间已有日报，不能覆盖');
     if(!occ||occ.id!==p.originalOccupancyId||stored&&occ.id!==stored.occupancy_id||occ.house_code!==h.house_code)throw new BadRequestException('原日报占栏身份与业务日不一致');
     const r=stored??{id:0,eggs_by_grade:{},eggs_produced:0};
-    if(p.businessDate===b.baseline_on&&(await m.query("SELECT 1 FROM brd_flock_events WHERE flock_no=$1 AND kind='BASELINE' LIMIT 1",[d.flock_no])).length)throw new BadRequestException('基线当天历史日报未获认证，须专项核对回执');
     if(p.originalZeroConfirmation){
       const z=p.originalZeroConfirmation;const [zero]=await m.query("SELECT id FROM brd_flock_documents WHERE id=$1 AND content_hash=$2 AND kind='CLOSE' AND status='POSTED' AND flock_no=$3 AND house_code=$4 AND business_date=$5 AND payload->>'finalProductionStatus'='CONFIRMED_ZERO'",[z.documentId,z.contentHash,d.flock_no,h.house_code,p.businessDate]);
       if(!zero)throw new ConflictException('被更正的原零产蛋声明不匹配，请重新核对');
@@ -406,8 +416,9 @@ export class FlockLifecycleService {
   }
   async balances(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'b.');
-    return this.db.query(`SELECT b.*,b.baseline_on::text AS baseline_on,b.last_business_date::text AS last_business_date,b.closed_on::text AS closed_on,f.breed_code,f.planned_elimination_date::text AS planned_elimination_date FROM brd_flock_balances b
-      JOIN brd_flocks f ON f.flock_no=b.flock_no ${where?'WHERE '+where:''} ORDER BY b.flock_no`,params);
+    return this.db.query(`SELECT b.*,b.baseline_on::text AS baseline_on,b.last_business_date::text AS last_business_date,b.closed_on::text AS closed_on,f.breed_code,f.planned_elimination_date::text AS planned_elimination_date,
+      ${FLOCK_TRANSFER_DATES} FROM brd_flock_balances b JOIN brd_flocks f ON f.flock_no=b.flock_no
+      ${FLOCK_TRANSFER_SOURCE} ${where?'WHERE '+where:''} ORDER BY b.flock_no`,params);
   }
   async held(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
@@ -512,6 +523,13 @@ export class FlockLifecycleService {
         if (!target || target.status!=='ACTIVE' || target.farm_status!=='ACTIVE') throw new BadRequestException('目标舍必须为同公司有效鸡舍');
         await assertHouseReadyForEntry(m,target.house_code,doc.business_date);
         this.capacity(target,0);
+        await assertFlockTransferSource(m,doc.flock_no,h.house_code,doc.business_date);
+        // A day with existing production cannot be reassigned to another house.
+        const logs=await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=ANY($1) AND log_date>=$2 LIMIT 1',[[h.house_code,target.house_code],doc.business_date]);
+        if (logs.length) throw new BadRequestException('来源舍或目标舍在转舍日及以后已有日报，请先核对实际生产来源');
+      }
+      if (action!=='cancel' && doc.kind==='REPORT_CORRECTION') {
+        await this.assertHistoricalReportWindow(m,doc.flock_no,doc.house_code,doc.business_date);
       }
       if (action==='approve' || action==='post') await this.validateEvidence(m,doc.payload,h,doc.created_by);
       if (action==='post') await this.post(m,doc,h,scope,actor);
@@ -641,14 +659,10 @@ export class FlockLifecycleService {
       await this.event(m,doc,actor,{kind:'SELL_HELD',heldDelta:-p.quantity,heldId:held.id});
     } else if (doc.kind==='ADJUST') delta=p.quantity;
     else if (doc.kind==='TRANSFER') {
-      if (day<=occ.began_on) throw new BadRequestException('一期禁止同日入栏后转舍');
       const t=await this.house(m,p.targetHouseCode,scope);
       const capacity=this.capacity(t,balance.quantity);
       if (t.status!=='ACTIVE' || t.farm_status!=='ACTIVE' || t.company_code!==h.company_code) throw new BadRequestException('目标舍必须为同公司有效鸡舍');
       if (!balance.quantity) throw new BadRequestException('空群不能转舍');
-      // Date-granularity source identity cannot split today's old-house production.
-      const logs=await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=ANY($1) AND log_date>=$2 LIMIT 1',[[h.house_code,t.house_code],day]);
-      if (logs.length) throw new BadRequestException('转舍日已有日报，须在无日报日期办理并先核对生产来源');
       await m.query('UPDATE brd_flock_occupancies SET ended_on=$2,closed_document_id=$3 WHERE id=$1',[occ.id,day,doc.id]);
       const next=randomUUID();
       await m.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,opened_document_id,capacity_snapshot)
