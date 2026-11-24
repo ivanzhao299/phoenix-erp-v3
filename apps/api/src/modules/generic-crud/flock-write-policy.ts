@@ -83,14 +83,20 @@ export async function writeFlock(
     if (dateChanged && merged.placement_date && merged.start_date && merged.placement_date !== merged.start_date) {
       throw new BadRequestException('鸡群入栏日期与开始日期不一致');
     }
-    if (typeof merged.breed_code !== 'string' || !merged.breed_code.trim() || merged.breed_code !== merged.breed_code.trim()) {
-      throw new BadRequestException('请选择标准 BRD_BREED 品种；无法识别的历史名称不得自动代填');
+    const breedChanged = body.breed_code !== undefined && String(body.breed_code ?? '') !== String(current?.breed_code ?? '');
+    let breedLabel: string | null = null;
+    if (breedChanged) {
+      if (!current?.breed_code?.trim()) throw new BadRequestException('请在鸡群档案使用“确认遗传品种”，由有权限的审核人核对后补录');
+      if (typeof body.breed_code !== 'string' || !body.breed_code.trim() || body.breed_code !== body.breed_code.trim()) {
+        throw new BadRequestException('请选择有效的遗传品种标准码');
+      }
+      const breeds = await tx.query(
+        `SELECT dict_label_zh FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE' FOR SHARE`,
+        [body.breed_code],
+      );
+      if (breeds.length !== 1) throw new BadRequestException('鸡群品种不是唯一有效的 BRD_BREED 标准码');
+      breedLabel = breeds[0].dict_label_zh || body.breed_code;
     }
-    const breeds = await tx.query(
-      `SELECT dict_code, dict_label_zh FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE' FOR SHARE`,
-      [merged.breed_code],
-    );
-    if (breeds.length !== 1) throw new BadRequestException('鸡群品种不是唯一有效的 BRD_BREED 标准码');
     const ownership = await tx.query(
       `SELECT h.farm_code, f.company_code, f.mapped_site_code FROM brd_houses h
          JOIN brd_farms f ON f.farm_code=h.farm_code
@@ -105,26 +111,26 @@ export async function writeFlock(
       || (merged.site_code && merged.site_code !== owner.mapped_site_code)) {
       throw new BadRequestException('鸡群公司/场站与鸡舍权威归属不一致');
     }
-    // Explicitly selecting the exact existing, unambiguous genetic name may
-    // normalize a missing code; it is not permission to relabel a different breed.
-    const historicalNames = current ? [current.strain, current.breed_type].filter(value => typeof value === 'string' && value.trim()) : [];
-    const normalizingBreed = current && !current.breed_code && historicalNames.length > 0
-      && historicalNames.every(value => value === breeds[0].dict_label_zh || value === merged.breed_code);
-    // A breed/house/date correction must not silently relabel already recorded production.
+    // Corrections to established identities must not silently relabel already recorded production.
     const identityFields = ['breed_code', 'house_code', 'farm_code', 'placement_date', 'start_date', 'elimination_date'];
-    if (current && identityFields.some(key => !(key === 'breed_code' && normalizingBreed)
-      && Object.prototype.hasOwnProperty.call(body, key) && String(body[key] ?? '') !== String(current[key] ?? ''))) {
+    if (current && identityFields.some(key => Object.prototype.hasOwnProperty.call(body, key)
+      && String(body[key] ?? '') !== String(current[key] ?? ''))) {
       const facts = await tx.query('SELECT 1 FROM brd_daily_logs WHERE flock_no=$1 LIMIT 1', [current.flock_no]);
-      if (facts.length) throw new BadRequestException('鸡群已有生产日报，品种/归属/在栏日期修正须走专项追溯治理');
+      if (facts.length) throw new BadRequestException('鸡群已有生产日报，已登记品种、归属或在栏日期需经追溯更正；请联系生产管理审核人核对原始单据');
     }
     const valuesBody: Record<string, unknown> = { ...body,
       ...(body.start_date && !merged.placement_date ? { placement_date: body.start_date } : {}),
-      breed_code: merged.breed_code,
-      strain: breeds[0].dict_label_zh || merged.breed_code,
-      breed_type: breeds[0].dict_label_zh || merged.breed_code,
       company_code: owner.company_code,
       site_code: owner.mapped_site_code || null,
     };
+    delete valuesBody.strain;
+    delete valuesBody.breed_type;
+    if (breedChanged) {
+      valuesBody.strain = breedLabel;
+      valuesBody.breed_type = breedLabel;
+    } else {
+      delete valuesBody.breed_code;
+    }
     const fields = Object.keys(valuesBody);
     const values = Object.values(valuesBody);
     if (existing) {

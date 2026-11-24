@@ -81,6 +81,10 @@ on:
         description: "已开放续发填原运行号；11月23日精确候选支持 inspect1123 或绑定取证、CI 和窗口的 approve1123 指令"
         type: string
         default: ''
+      held_follow_up:
+        description: "公网维护期间仅代码发布；API 填 api，Web 填 web-<已终验 API 运行号-尝试号>；补验可追加 -verify-<原 Web 运行号-尝试号>"
+        type: string
+        default: ''
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -123,6 +127,7 @@ jobs:
       build_api:   ${{ steps.decide.outputs.build_api }}
       run_test:    ${{ steps.decide.outputs.run_test }}
       run_mig:     ${{ steps.decide.outputs.run_mig }}
+      held_receipt_only: ${{ steps.decide.outputs.held_receipt_only }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -194,6 +199,8 @@ jobs:
       - name: Decide mode
         id: decide
         env:
+          HELD_FOLLOW_UP: ${{ inputs.held_follow_up || '' }}
+          PRESERVE_ARTIFACTS: ${{ inputs.preserve_artifacts }}
           MANUAL_MODE: ${{ inputs.mode || 'auto' }}
           MANUAL_RUN_MIG: ${{ inputs.run_migrations || 'auto' }}
           IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
@@ -263,6 +270,21 @@ jobs:
           if [ -n "$APPROVED_CONFIG_FLOOR_SHA" ] && [ "$MODE" != "api" ]; then
             echo "::error::approved_config_floor_sha 只允许 api 模式"
             exit 23
+          fi
+
+          if [ -n "$HELD_FOLLOW_UP" ]; then
+            test "$IS_DISPATCH:$GITHUB_REF:$MANUAL_RUN_MIG:$MODERN_SCHEMA_RELEASE:$APPROVE_PRODUCTION:$PRESERVE_ARTIFACTS:$SKIP_DEPLOY" = true:refs/heads/main:false:false:true:true:false || exit 25
+            test "$GITHUB_ACTOR:$GITHUB_ACTOR_ID:$GITHUB_TRIGGERING_ACTOR" = emvia:7245339:emvia || exit 25
+            test -z "$MODERN_SCHEMA_RESUME_OWNER$MAINTENANCE_RELEASE_INPUT$SKU_SOURCE_EFFECTIVE_DATE$SKU_SOURCE_PLAN_SHA256" || exit 25
+            test "$ROTATE_CHANJET_CREDENTIALS:$ONE_TIME_CONFIG_FLOOR_TRANSITION" = false:false || exit 25
+            case "$MANUAL_MODE" in
+              api) test "$HELD_FOLLOW_UP" = api && test "$APPROVED_CONFIG_FLOOR_SHA" = "$GITHUB_SHA" && [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 25 ;;
+              web) [[ "$HELD_FOLLOW_UP" =~ ^web-[1-9][0-9]{0,19}-[1-9][0-9]{0,9}(-verify-[1-9][0-9]{0,19}-[1-9][0-9]{0,9})?$ ]] && test -z "$APPROVED_CONFIG_FLOOR_SHA$APPROVED_PREVIOUS_FLOOR_SHA" || exit 25 ;;
+              *) exit 25 ;;
+            esac
+            if [[ "$HELD_FOLLOW_UP" == *-verify-* ]]; then
+              echo "held_receipt_only=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
           if [[ "$MODERN_SCHEMA_RESUME_OWNER" = web1123-* ]]; then
@@ -354,7 +376,7 @@ jobs:
   test:
     name: Type-check & Regression
     needs: detect-changes
-    if: needs.detect-changes.outputs.run_test == 'true' && !inputs.modern_schema_resume_owner
+    if: needs.detect-changes.outputs.run_test == 'true' && !inputs.modern_schema_resume_owner && needs.detect-changes.outputs.held_receipt_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -615,6 +637,7 @@ jobs:
     if: |
       success() &&
       !inputs.modern_schema_resume_owner &&
+      needs.detect-changes.outputs.held_receipt_only != 'true' &&
       (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       github.ref == 'refs/heads/main' &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
@@ -791,7 +814,7 @@ jobs:
       (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
       ((!inputs.modern_schema_resume_owner && needs.build-push.result == 'success') ||
        (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped') ||
-       (inputs.mode == 'web' && startsWith(inputs.modern_schema_resume_owner, 'web1123-') && needs.build-push.result == 'skipped')) &&
+       (inputs.mode == 'web' && (startsWith(inputs.modern_schema_resume_owner, 'web1123-') || needs.detect-changes.outputs.held_receipt_only == 'true') && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ startsWith(inputs.modern_schema_resume_owner, 'approve1123-') && 360 || inputs.modern_schema_resume_owner == 'inspect1123' && 275 || inputs.modern_schema_release && 230 || 40 }}
@@ -878,6 +901,7 @@ jobs:
           BUILD_WEB:   ${{ needs.detect-changes.outputs.build_web }}
           BUILD_API:   ${{ needs.detect-changes.outputs.build_api }}
           RUN_MIG:     ${{ needs.detect-changes.outputs.run_mig }}
+          HELD_FOLLOW_UP: ${{ inputs.held_follow_up || '' }}
           MODERN_SCHEMA_WEB_SELECTION: ${{ startsWith(inputs.modern_schema_resume_owner, 'web1123-') && inputs.modern_schema_resume_owner || '' }}
           NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
           DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -908,7 +932,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 35m
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,MODERN_SCHEMA_WEB_SELECTION,SKU_SOURCE_EFFECTIVE_DATE,SKU_SOURCE_PLAN_SHA256,APPROVE_PRODUCTION,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,HELD_FOLLOW_UP,MODERN_SCHEMA_WEB_SELECTION,SKU_SOURCE_EFFECTIVE_DATE,SKU_SOURCE_PLAN_SHA256,APPROVE_PRODUCTION,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -916,7 +940,6 @@ jobs:
             cd /data/phoenix-erp
             DEPLOY_REPO_ROOT="$(pwd -P)"
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
-
             DEPLOY_REPO_ROOT="$(pwd -P)"
             git() {
               command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
@@ -940,7 +963,6 @@ jobs:
             fi
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
             API_SWITCH_STARTED=false
-            WEB_SWITCH_STARTED=false
             CODE_SYNCED=false
 
             CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
@@ -997,7 +1019,10 @@ jobs:
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             export held_handoff="$STATE_DIR/schema-release-1123-handoff-45144287071-1.json"
-            if [ -e "$held_handoff" ] && [ ! -e "$STATE_DIR/schema-release-1123-origin-open.json" ]; then
+            if [ -n "${HELD_FOLLOW_UP:-}" ]; then
+              stage_held_follow_up
+              [ "$HELD_ADMISSION" != HELD_WEB_RECEIPT_VERIFIED ] || exit 0
+            elif [ -e "$held_handoff" ] && [ ! -e "$STATE_DIR/schema-release-1123-origin-open.json" ]; then
               test "$DEPLOY_MODE" = web && test -n "${MODERN_SCHEMA_WEB_SELECTION:-}" || exit 25
             fi
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
@@ -1018,7 +1043,6 @@ jobs:
               cp "$LEGACY_STAGE/apps/api/src/common/database/api-bootstrap-schema-contract.json" "$LEGACY_STAGE/scripts/ops/api-bootstrap-schema-contract.json"
               export MAINTENANCE_RELEASE_ARTIFACT_DIGEST="sha256:${MAINTENANCE_RELEASE_ARTIFACT_DIGEST#sha256:}"
               node "$LEGACY_STAGE/scripts/ops/production-maintenance-bootstrap.mjs" run
-              echo "✅ Legacy API-only first switch complete"
               exit 0
             fi
             assert_target_main() {
@@ -1038,13 +1062,12 @@ jobs:
             perform_deployment() {
             check_candidate_web() {
               local marker="$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json"
-              if [ "$BUILD_WEB" = true ] && { [ -e "$held_handoff" ] || [ -e "$marker" ] || [ -L "$marker" ] || [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ]; }; then
+              if [ -z "${HELD_FOLLOW_UP:-}" ] && [ "$BUILD_WEB" = true ] && { [ -e "$held_handoff" ] || [ -e "$marker" ] || [ -L "$marker" ] || [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ]; }; then
                 node scripts/ops/production-modern-schema-web-successor.mjs "$1"
               fi
             }
             WEB_ADMISSION="$(check_candidate_web admit)"
             if [ "$WEB_ADMISSION" = RECEIPT_ONLY ]; then
-              echo "Web receipt verified."
               return 0
             fi
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
@@ -1103,7 +1126,6 @@ jobs:
               exit 21
             fi
             CODE_SYNCED=true
-            echo "✅ Code synced"
 
             bash scripts/ops/require-phoenix-data-mount.sh
 
@@ -1168,7 +1190,6 @@ jobs:
             fi
 
             test "$(docker inspect phoenix-v3-db --format '{{.State.Health.Status}}')" = healthy
-            echo "✅ DB healthy"
 
             if [ "$RUN_MIG" = "true" ]; then
               AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 { print $4 }')"
@@ -1197,7 +1218,6 @@ jobs:
               test -s "${CANDIDATE_LEDGER_INVENTORY:-}"
               MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration --inventory "$CANDIDATE_LEDGER_INVENTORY" | tee "${BACKUP_DIR}/ledger-preflight.json"
               node scripts/ci/phase1-generic-deploy-guard.mjs "${BACKUP_DIR}/ledger-preflight.json" scripts/ci/phase1-production-migration-manifest.json
-              echo "✅ migration ledger preflight passed"
 
               mapfile -t OBSOLETE_BACKUPS < <(
                 find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
@@ -1211,7 +1231,6 @@ jobs:
                   *) echo "::error::Refusing unexpected backup path: $OLD_BACKUP_DIR"; exit 29 ;;
                 esac
                 rm -rf --one-file-system -- "$OLD_BACKUP_DIR"
-                echo "♻ removed old deploy backup: $OLD_BACKUP_DIR"
               done
 
               fi
@@ -1256,6 +1275,7 @@ jobs:
                 CANDIDATE_API_IMAGE="$API_IMAGE"
                 echo "PRODUCTION_MIGRATION_REQUIRED=NO; skipping schema-first migration"
               fi
+              test -z "${HELD_FOLLOW_UP:-}" || held_follow_up before
               assert_target_main
               production_state switch api
               API_SWITCH_STARTED=true
@@ -1269,8 +1289,8 @@ jobs:
 
             if [ "$BUILD_WEB" = "true" ]; then
               check_candidate_web before
+              test -z "${HELD_FOLLOW_UP:-}" || held_follow_up before
               production_state switch web
-              WEB_SWITCH_STARTED=true
               docker compose up -d --no-deps --wait web
             fi
 
@@ -1279,7 +1299,6 @@ jobs:
             sleep 3
             production_api_readiness
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
-            echo "✅ API/Web smoke test passed"
             export PRODUCTION_READINESS_VERIFIED=true
             export PRODUCTION_WEB_HTTP_VERIFIED=true
             EVIDENCE_HELPER="${EVIDENCE_HELPER:-scripts/ops/production-deployment-evidence.mjs}"
@@ -1302,6 +1321,7 @@ jobs:
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
             check_candidate_web after
+            test -z "${HELD_FOLLOW_UP:-}" || held_follow_up after
             assert_target_main
             production_state complete
             check_candidate_web seal
@@ -1323,15 +1343,16 @@ jobs:
               done
               export -f git docker rollback_deploy assert_target_main perform_deployment
               export -f production_state production_promote_floor production_api_readiness
-              export DEPLOY_REPO_ROOT PREV_GIT_SHA STATE_DIR CODE_SYNCED API_SWITCH_STARTED WEB_SWITCH_STARTED BACKGROUND_STAGE
+              export DEPLOY_REPO_ROOT PREV_GIT_SHA STATE_DIR CODE_SYNCED API_SWITCH_STARTED BACKGROUND_STAGE
               { printf '%s\n' 'set -x'; declare -f perform_deployment; printf '%s\n' 'perform_deployment'; } | node "$BACKGROUND_STAGE/background-deployment-session.mjs" run 2>&1 | tee "/tmp/phoenix-body-output-${DEPLOY_RUN_ID}.log"
             else
               perform_deployment
             fi
+            held_follow_up seal
             echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Send deploy notification
-        if: always() && !inputs.modern_schema_resume_owner
+        if: always() && !inputs.modern_schema_resume_owner && needs.detect-changes.outputs.held_receipt_only != 'true'
         env:
           WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}

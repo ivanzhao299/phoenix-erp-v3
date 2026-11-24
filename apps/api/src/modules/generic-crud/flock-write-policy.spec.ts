@@ -27,7 +27,7 @@ describe('flock provenance writes', () => {
   });
   it('rejects inactive/missing breed at the backend', async () => {
     const f = fixture(); const original=f.query.getMockImplementation()!;f.query.mockImplementation(async(sql:string)=>sql.includes('BRD_BREED')?[]:original(sql));
-    await expect(writeFlock(f.manager, payload, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('唯一有效');
+    await expect(writeFlock(f.manager, { ...payload, breed_code: 'DISABLED' }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('唯一有效');
   });
   it('rejects a spoofed company or mismatched farm before writing', async () => {
     const f = fixture();
@@ -35,7 +35,7 @@ describe('flock provenance writes', () => {
     await expect(writeFlock(f.manager, { ...payload, farm_code: 'OTHER' }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('归属不一致');
   });
   it('takes the canonical breed display and organisation from locked masters', async () => {
-    const f = fixture();
+    const f = fixture({ ...payload, breed_code: 'OLD' });
     await expect(writeFlock(f.manager, { ...payload, strain: 'wrong' }, {pkName:'flock_no',id:'FK1'})).resolves.toMatchObject({ msg: 'Updated successfully' });
     const call = f.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE')) as unknown as [string, unknown[]];
     expect(call[0]).toContain('company_code');
@@ -45,14 +45,24 @@ describe('flock provenance writes', () => {
   });
   it('does not silently relabel provenance after production has been recorded', async () => {
     const f = fixture({ ...payload, breed_code: 'OLD' }, [{ exists: 1 }]);
-    await expect(writeFlock(f.manager, { breed_code: 'B1' }, { pkName: 'flock_no', id: 'FK1' })).rejects.toThrow('专项追溯治理');
+    await expect(writeFlock(f.manager, { breed_code: 'B1' }, { pkName: 'flock_no', id: 'FK1' })).rejects.toThrow('需经追溯更正');
     expect(f.query.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))).toBe(false);
   });
-  it('normalizes only an explicitly selected code matching all exact historic breed labels', async () => {
-    const same = fixture({ ...payload, breed_code: null, strain: '已核实品种', breed_type: '已核实品种' }, [{ exists: 1 }]);
-    await expect(writeFlock(same.manager, { breed_code: 'B1' }, { pkName: 'flock_no', id: 'FK1' })).resolves.toMatchObject({ msg: 'Updated successfully' });
-    const uncertain = fixture({ ...payload, breed_code: null, strain: '已核实品种', breed_type: '另一个品种' }, [{ exists: 1 }]);
-    await expect(writeFlock(uncertain.manager, { breed_code: 'B1' }, { pkName: 'flock_no', id: 'FK1' })).rejects.toThrow('专项追溯治理');
+  it('routes any first assignment through audited breed confirmation', async () => {
+    for (const strain of [null, '已核实品种', '另一个品种']) {
+      const legacy = fixture({ ...payload, breed_code: null, strain }, [{ exists: 1 }]);
+      await expect(writeFlock(legacy.manager, { breed_code: 'B1' }, { pkName: 'flock_no', id: 'FK1' })).rejects.toThrow('确认遗传品种');
+      expect(legacy.query.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))).toBe(false);
+    }
+  });
+  it('accepts unrelated edits on blank or inactive legacy breeds without writing identities or display aliases', async () => {
+    for (const breed_code of [null, 'DISABLED']) {
+      const legacy = fixture({ ...payload, breed_code, start_date: null, strain: '原始品种' }, [{ exists: 1 }]);
+      await expect(writeFlock(legacy.manager, { target_weeks: 79, breed_code, strain: '错误别名' }, { pkName: 'flock_no', id: 'FK1' })).resolves.toMatchObject({ msg: 'Updated successfully' });
+      const update = legacy.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE'))?.[0];
+      expect(update).toContain('target_weeks');
+      expect(update).not.toMatch(/breed_code|strain|start_date/);
+    }
   });
   it('rejects invalid or timestamp dates rather than shifting date-only provenance', async () => {
     for (const start_date of ['2026-02-30', '2025-12-31T16:00:00.000Z']) {

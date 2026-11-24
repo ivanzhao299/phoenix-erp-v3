@@ -262,6 +262,7 @@ export class AuthService {
       role: payload.role, roles: payload.roles, roleType: payload.roleType,
       userKind: payload.userKind, storeCode: payload.storeCode,
       locale: payload.locale, perms_version: payload.perms_version,
+      ...(payload.impersonatedBy ? { impersonatedBy: payload.impersonatedBy } : {}),
     }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
     return {

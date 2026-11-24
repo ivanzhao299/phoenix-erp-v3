@@ -67,8 +67,10 @@ test('flock edit preserves read-only stock and refreshes the saved record', asyn
   await page.getByRole('button', { name: '保存修改' }).click();
   const saveResponse = await saved;
   expect(saveResponse.ok(), `flock PUT ${saveResponse.status()}: ${await saveResponse.text()}`).toBe(true);
-  expect(saveResponse.request().postDataJSON()).toMatchObject({ breed_code: BREED_CODE, start_date: startDate });
-  expect(saveResponse.request().postDataJSON()).not.toHaveProperty('current_qty');
+  const payload = saveResponse.request().postDataJSON();
+  for (const unchanged of ['breed_code', 'breed_type', 'strain', 'start_date', 'current_qty', 'initial_qty']) {
+    expect(payload).not.toHaveProperty(unchanged);
+  }
   const refreshResponse = await refreshed;
   expect(refreshResponse.ok()).toBe(true);
   const refreshedBody: unknown = await refreshResponse.json();
