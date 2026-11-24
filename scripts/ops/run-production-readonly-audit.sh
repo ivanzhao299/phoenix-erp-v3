@@ -79,6 +79,28 @@ else
   echo "PASS REVISION checkout=$checkout_revision api/web=not-required(sql-only)"
 fi
 
+# Diagnose the backup preflight using fixed directories and metadata only.
+if [ "$sql_path" = scripts/ops/readonly-audits/vet-1124-ledger-proof.sql ] && [ -z "$http_path" ]; then
+  /usr/bin/python3 -I -S - <<'METADATA'
+import errno, os, stat
+for path in ['/', '/opt', '/opt/phoenix-erp-backups', '/var', '/var/lib',
+             '/var/lib/phoenix-erp', '/var/lib/phoenix-erp/production-deployment-state']:
+    try:
+        info = os.lstat(path)
+    except OSError as exc:
+        print('BACKUP_METADATA', path, 'LSTAT', errno.errorcode.get(exc.errno))
+        continue
+    acl = []
+    for name in ['system.posix_acl_access', 'system.posix_acl_default']:
+        try:
+            os.getxattr(path, name, follow_symlinks=False)
+            acl.append('PRESENT')
+        except OSError as exc:
+            acl.append(errno.errorcode.get(exc.errno, 'UNKNOWN'))
+    print('BACKUP_METADATA', path, stat.filemode(info.st_mode), 'uid', info.st_uid, 'acl', ','.join(acl))
+METADATA
+fi
+
 audit_stage=READONLY_DATABASE_SETUP
 # Dedicated readonly runners must never inherit ordinary DB/libpq credentials.
 if [ "${READONLY_DB_REQUIRED:-0}" = 1 ] && [ -n "$sql_path" ]; then
