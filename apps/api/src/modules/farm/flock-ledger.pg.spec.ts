@@ -350,6 +350,8 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     expect((await s.balances(scope))[0]).toMatchObject({transfer_source_kind:'TRANSFER',transfer_earliest_on:'2026-11-12'});
     await expect(post(await create({...move,houseCode:'HA2',targetHouseCode:'HX',businessDate:'2026-11-11',expectedVersion:1})))
       .rejects.toMatchObject({response:{code:'FLOCK_TRANSFER_ON_TRANSFER_IN_DAY',earliestBusinessDate:'2026-11-12'}});
+    await expect(post(await create({...move,houseCode:'HA2',targetHouseCode:'HX',businessDate:'2026-11-10',expectedVersion:1})))
+      .rejects.toMatchObject({response:{code:'FLOCK_TRANSFER_BEFORE_CURRENT_OCCUPANCY',earliestBusinessDate:'2026-11-12'}});
   });
 
   it.each(['HA','HA2'])('blocks transfer if %s has a report on the actual transfer day',async(reportHouse)=>{

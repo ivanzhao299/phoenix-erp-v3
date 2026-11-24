@@ -28,6 +28,9 @@ export async function assertFlockTransferSource(manager: EntityManager, flockNo:
   if (day<baseline_on) {
     code='FLOCK_TRANSFER_BEFORE_BASELINE';
     reason=`转舍业务日期早于本群账本起始日（${baseline_on}）`;
+  } else if (day<transfer_source_began_on) {
+    code='FLOCK_TRANSFER_BEFORE_CURRENT_OCCUPANCY';
+    reason=`转舍业务日期早于当前来源舍的占栏开始日（${transfer_source_began_on}）`;
   } else if (day===transfer_source_began_on) {
     const opening={
       BASELINE:['FLOCK_TRANSFER_ON_BASELINE_DAY','历史实盘基线日'],
