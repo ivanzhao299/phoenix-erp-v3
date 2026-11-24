@@ -104,7 +104,7 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
   const row = page.locator('tbody tr').filter({ hasText: 'PW-FLOCK-I18N' });
   await expect(row).toContainText('150ຂົນ');
   await row.locator('button').first().click();
-  const breedSelect = page.getByRole('dialog').locator('select').nth(2);
+  const breedSelect = page.getByRole('dialog').locator(`select:has(option[value="${BREED_CODE}"])`);
   await expect(breedSelect).toBeEnabled();
   await expect(breedSelect).toHaveValue(BREED_CODE);
   const dialog = page.getByRole('dialog');
@@ -123,6 +123,72 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
   await page.locator('header select').selectOption('zh');
   await expect(row).toContainText('150羽');
   await expect(row).toContainText('90周');
+});
+
+test('flock archive uses Singapore business days and keeps zero distinct from missing', async ({ page }) => {
+  await authenticate(page);
+  // Midnight in Singapore is still the preceding UTC day.
+  await page.clock.setFixedTime(new Date('2026-11-24T16:10:00Z'));
+  await mockBreedDictionary(page);
+  const identity = { farm_code: 'PW-FARM', farm_name: '测试养殖场', house_code: 'PW-HOUSE', house_name: '测试鸡舍',
+    breed_code: BREED_CODE, status: 'LAYING', start_date: '2026-11-23' };
+  let saved = false;
+  await page.route('**/api/crud/brd_flocks**', async route => {
+    if (route.request().method() === 'PUT') {
+      const patch = route.request().postDataJSON();
+      expect(patch).toHaveProperty('placement_age', 0);
+      for (const field of ['farm_code', 'farm_name', 'house_code', 'current_qty']) expect(patch).not.toHaveProperty(field);
+      saved = true;
+      return route.fulfill({ json: { ok: true } });
+    }
+    return route.fulfill({ json: [
+      { ...identity, flock_no: 'CYCLE-118', placement_age: saved ? 0 : 118, current_qty: 0, current_lay_rate: '0.00', feed_conversion_ratio: '0.00' },
+      { ...identity, flock_no: 'CYCLE-NOT-KNOWN', placement_age: null, current_qty: null },
+    ] });
+  });
+  await page.route('**/api/master-data/runtime/supplier/active**', route => route.fulfill({ json: [] }));
+  await page.route('**/api/lookup/{farms,houses}**', route => route.fulfill({ json: { data: [] } }));
+  const occupancyId = '11111111-1111-4111-8111-111111111111';
+  await page.route('**/api/v3/farm/flock-lifecycle/flocks/CYCLE-118/cycle', route => route.fulfill({ json: { code: 200, data: {
+    status: 'LAYING', breed_code: BREED_CODE, placement_date: '2026-11-23', placement_age: 118, age_as_of: '2026-11-25',
+    house_code: 'PW-HOUSE', house_name: '测试鸡舍', farm_code: 'PW-FARM', farm_name: '测试养殖场',
+    current_qty: 0, baseline_on: '2026-11-23', closed_on: null, active_balance: true, occupancy_id: occupancyId,
+    admitted_quantity: null, mortality: '0', culled: '0', recorded_eggs_for_admitted: null, report_days: 1,
+    production: [{ date: '2026-11-25', eggs: 0, closing_qty: 0 }],
+  } } }));
+  await page.route('**/api/v3/farm/flock-lifecycle/flocks/CYCLE-118/cycle/care', route => route.fulfill({ json: { code: 200, data: [] } }));
+  await page.route('**/api/v3/farm/flock-lifecycle/*/search?**', route => {
+    expect(new URL(route.request().url()).searchParams.get('flockNo')).toBe('CYCLE-118');
+    return route.fulfill({ json: { code: 200, data: { items: [], nextCursor: null } } });
+  });
+
+  await page.goto('/breeding/flock');
+  const known = page.getByRole('row').filter({ hasText: 'CYCLE-118' });
+  const unknown = page.getByRole('row').filter({ hasText: 'CYCLE-NOT-KNOWN' });
+  await expect(known).toContainText('17周 1天');
+  await expect(known).toContainText('0羽');
+  await expect(known).toContainText('0%');
+  await expect(unknown).not.toContainText('0羽');
+  await expect(unknown).not.toContainText('0周');
+  const cycleButton = known.getByRole('button', { name: '鸡群周期' });
+  await cycleButton.focus();
+  await page.keyboard.press('Enter');
+  const cycle = page.getByRole('dialog', { name: '鸡群周期 · CYCLE-118' });
+  await expect(cycle).toBeVisible();
+  await expect(cycle.getByText('120天')).toBeVisible();
+  await expect(cycle.getByText('资料不足')).toBeVisible();
+  await expect(cycle.getByRole('link', { name: '办理整群转舍' })).toHaveAttribute('href',
+    `/breeding/flock-lifecycle/transfers?kind=TRANSFER&formHouseCode=PW-HOUSE&formFlockNo=CYCLE-118&occupancyId=${occupancyId}`);
+  await page.keyboard.press('Escape');
+  await expect(cycle).toHaveCount(0);
+  await expect(cycleButton).toBeFocused();
+
+  await known.getByRole('button', { name: '编辑鸡群 CYCLE-118' }).click();
+  const edit = page.getByRole('dialog');
+  await expect(edit.getByLabel('当前鸡舍')).not.toBeEditable();
+  await edit.getByLabel('入舍日龄(天)', { exact: true }).fill('0');
+  await edit.getByRole('button', { name: '保存修改' }).click();
+  await expect(known).toContainText('0周 2天');
 });
 
 for (const scenario of [
@@ -175,6 +241,7 @@ for (const scenario of [
   await expect(editor.getByRole('button', { name: '核对品种', exact: true })).toBeVisible();
   await expect(editor.getByRole('combobox', { name: '鸡群品种' })).toHaveCount(0);
   // Planning edits preserve the stored identity even if the catalog is unavailable.
+  await editor.getByLabel('计划产蛋周数(周)', { exact: true }).fill('84');
   await editor.getByRole('button', { name: '保存修改' }).click();
   await expect(page.getByText('更新成功', { exact: true })).toBeVisible();
   expect(planningSaves).toBe(1);
@@ -265,11 +332,12 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
   await search.fill('');
   await row.locator('button').first().click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.locator('select').nth(0)).toContainText(`${farm.farm_name}（${farm.farm_code}）`);
-  await expect(dialog.locator('select').nth(1)).toContainText(`${house.house_name}（${house.house_code}）`);
-  await dialog.locator('select').nth(0).selectOption('');
-  await expect(dialog.locator('select').nth(1)).toBeDisabled();
-  await expect(dialog.locator('select').nth(1)).toHaveValue('');
+  const farmField = dialog.getByLabel('归属养殖场', { exact: true });
+  const houseField = dialog.getByLabel('当前鸡舍', { exact: true });
+  await expect(farmField).toHaveValue(`${farm.farm_name}（${farm.farm_code}）`);
+  await expect(houseField).toHaveValue(`${house.house_name}（${house.house_code}）`);
+  await expect(farmField).not.toBeEditable();
+  await expect(houseField).not.toBeEditable();
 });
 
 test('flock missing-name fallback displays each code once; henhouse keeps the reference hierarchy', async ({ page }) => {

@@ -6,27 +6,25 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
-import { hasPerm } from '../../auth/permissions.util';
+import { FlockActor, hasFlockActionPermission, hasFlockSpecialPermission } from './flock-lifecycle-access';
 import { birdCount } from './daily-stock-policy';
 import { flockHandoverBlockers } from './flock-handover-blockers';
 import { assertHouseReadyForEntry, assertHouseTurnaround, houseEntryReadiness, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } from './flock-house-turnaround';
 import { assertFlockTransferSource, FLOCK_TRANSFER_DATES, FLOCK_TRANSFER_SOURCE } from './flock-transfer-source';
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
+import { occupancyLossesSql, reportOccupancyLosses } from './production-report-facts';
 
-export type FlockActor = { id: string; accountId?: string; permissions?: string[]; admin?: boolean; impersonatedBy?: { id: number | string; username: string } };
+export type { FlockActor } from './flock-lifecycle-access';
+export { FLOCK_ACTION_MENUS } from './flock-lifecycle-access';
+
 type BreedFlock = {
   flock_no: string; house_code: string; farm_code: string; company_code: string | null; site_code: string | null;
   breed_code: string | null; strain: string | null; breed_type: string | null; status: string;
 };
 const flockBreedColumns = 'flock_no,house_code,farm_code,company_code,site_code,breed_code,strain,breed_type,status';
 const baselineBreedRequired = '历史鸡群缺少有效遗传品种标准码。请打开本单的品种核对，由有权限的审核人确认后重试。';
-export const FLOCK_ACTION_MENUS = {
-  create: 'MENU_FLOCK_CREATE', submit: 'MENU_FLOCK_CREATE', approve: 'MENU_FLOCK_APPROVE', post: 'MENU_FLOCK_POST',
-  cancel: 'MENU_FLOCK_CREATE', BASELINE: 'MENU_FLOCK_BASELINE', ADJUST: 'MENU_FLOCK_ADJUST', REVERSE: 'MENU_FLOCK_REVERSE',
-  REPORT_CORRECTION:'MENU_FLOCK_REPORT', HISTORY_AUTH: 'MENU_FLOCK_HISTORY', CLOSE: 'MENU_FLOCK_CLOSE', CLEAN_START: 'MENU_FLOCK_CLEAN', CLEAN_ACCEPT: 'MENU_FLOCK_CLEAN',
-} as const;
-const kinds = ['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','TRANSFER','ADJUST','REVERSE','CLOSE','CLEAN_START','CLEAN_ACCEPT','HISTORY_AUTH','REPORT_CORRECTION'];
+export const FLOCK_DOCUMENT_KINDS = ['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','TRANSFER','ADJUST','REVERSE','CLOSE','CLEAN_START','CLEAN_ACCEPT','HISTORY_AUTH','REPORT_CORRECTION'];
 const payloadFields = new Set(['kind','sourceKey','houseCode','flockNo','businessDate','quantity','expectedVersion',
   'expectedHeldVersion','expectedHouseVersion','expectedLegacyQty','reason','evidence','responsible','differenceReceipt',
   'sourceCode','breedCode','placementAge','plannedEliminationDate','targetHouseCode','heldId','positionCode','salesRef',
@@ -40,10 +38,112 @@ export function flockBusinessDate(v: unknown): string {
     || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString().slice(0,10)!==v) throw new BadRequestException('日期必须为真实YYYY-MM-DD');
   return v;
 }
-function canonical(v: unknown): string {
+export function canonical(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
   if (v && typeof v==='object') return `{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical((v as Record<string,unknown>)[k])}`).join(',')}}`;
   return JSON.stringify(v);
+}
+
+export function reportHash(row: unknown) {
+  return createHash('sha256').update(canonical(row)).digest('hex');
+}
+
+export function flockReportSnapshotColumns(alias: string) {
+  return ['id','flock_no','house_code','log_date::text AS log_date','shift','occupancy_id','eggs_by_grade','eggs_produced',
+    'dirty_eggs','broken_eggs','feed_consumed','water_consumed','note AS notes','opening_qty','closing_qty','mortality_qty','elimination_qty']
+    .map(column => `${alias}.${column}`).join(',');
+}
+
+export function isOrdinaryFlockAction(kind: string) {
+  return ['MORTALITY','CULL','TRANSFER','ADJUST','CLOSE'].includes(kind);
+}
+
+type FlockPosition = { house_code: string; company_code: string; farm_code: string; site_code?: string | null; closed_on?: unknown };
+
+export function assertOrdinaryFlockState(kind: string, balance: FlockPosition | undefined, house: FlockPosition) {
+  // Unmanaged legacy drafts can still be prepared; posting requires an approved baseline.
+  if (!balance || !(isOrdinaryFlockAction(kind) || kind === 'BASELINE')) return;
+  if (balance.company_code !== house.company_code || balance.farm_code !== house.farm_code || balance.house_code !== house.house_code
+    || (balance.site_code ?? '') !== (house.site_code ?? '')) {
+    throw new ConflictException({code:'FLOCK_OWNERSHIP_CHANGED',message:'鸡群当前归属已变，请刷新'});
+  }
+  if (balance.closed_on) throw new BadRequestException({code:'FLOCK_ALREADY_CLOSED',message:'鸡群已关闭'});
+}
+
+function assertHeldSalePrice(unitPrice: number, quantity: number) {
+  const decimal = String(unitPrice);
+  if (!/^\d+(?:\.\d{1,6})?$/.test(decimal)) throw new BadRequestException('单价最多支持六位小数');
+  const [whole, fraction = ''] = decimal.split('.');
+  const millionths = BigInt(whole + fraction.padEnd(6, '0'));
+  if (millionths >= 10n ** 18n) throw new BadRequestException('单价超出结算凭据存储范围');
+  const amountInCents = (millionths * BigInt(quantity) + 5000n) / 10000n;
+  if (amountInCents === 0n || amountInCents >= 10n ** 18n) {
+    throw new BadRequestException('按六位单价计算的两位结算金额须为有效正数且不能超出存储范围');
+  }
+}
+
+export async function assertNoHealthPending(m: EntityManager,flock: string,day: string,onlyWithdrawal=false) {
+  const [tables]=await m.query("SELECT to_regclass('brd_vaccinations') AS immune,to_regclass('brd_medication_records') AS medicines");
+  if(tables.immune && !onlyWithdrawal) {
+    const pending=await m.query("SELECT 1 FROM brd_vaccinations WHERE flock_no=$1 AND status IN ('PLANNED','OVERDUE') AND actual_date IS NULL LIMIT 1",[flock]);
+    if(pending.length) throw new BadRequestException('群还有未完免疫计划，请先受控执行或取消');
+  }
+  if(tables.medicines) {
+    const pending=await m.query("SELECT 1 FROM brd_medication_records WHERE flock_no=$1 AND status<>'CANCELLED' AND (end_date IS NULL OR end_date>=$2 OR withdraw_until>=$2) LIMIT 1",[flock,day]);
+    if(pending.length) throw new BadRequestException('鸡群仍在用药或休药隔离期，不允许关闭/交付待售鸡');
+  }
+}
+
+export async function assertFlockEvidence(
+  m: EntityManager, p: {evidence?: unknown}, h: {house_code:string;company_code:string;site_code:string}, creator: string,
+) {
+  if (p.evidence != null && !Array.isArray(p.evidence)) throw new BadRequestException('证据附件无效');
+  for(const id of p.evidence??[]) {
+    const [file]=await m.query(`SELECT file_id FROM file_metadata WHERE file_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
+      AND visibility IN ('PROTECTED','PRIVATE') AND mime_type IN ('application/pdf','image/png','image/jpeg','image/webp')
+      AND module_code='FLOCK_LIFECYCLE' AND owner_type='HOUSE' AND owner_id=$2 AND company_code=$3
+      AND store_code=$4 AND uploaded_by=$5`,[id,h.house_code,h.company_code,h.site_code,creator]);
+    if(!file) throw new BadRequestException('证据附件不存在、未授权、失效或不属于本鸡舍/制单人');
+  }
+}
+
+type FlockCloseIntent = {
+  id: string;
+  flock_no: string;
+  house_code: string;
+  company_code: string;
+  payload: { businessDate: string; finalProductionStatus: 'REPORTED' | 'CONFIRMED_ZERO' };
+};
+
+export async function assertFlockCloseReadiness(
+  m: EntityManager, doc: FlockCloseIntent, occupancyId: string, scope: OrgScope, { lock = false } = {},
+) {
+  const p = doc.payload;
+  const day = p.businessDate;
+  await assertNoHealthPending(m,doc.flock_no,day);
+  const lastReports=await m.query(`SELECT flock_no,shift,occupancy_id,eggs_by_grade,eggs_produced,dirty_eggs,broken_eggs FROM brd_daily_logs
+    WHERE house_code=$1 AND log_date=$2 ${lock ? 'FOR UPDATE' : ''}`,[doc.house_code,day]);
+  if(lastReports.some((r:any)=>r.flock_no!==doc.flock_no||r.occupancy_id!==occupancyId)
+    ||lastReports.length>1&&lastReports.some((r:any)=>r.shift==='DAILY'))throw new BadRequestException('关闭日存在身份不符或重复覆盖的汇总/班次日报');
+  if(lastReports.some((r:any)=>r.shift!=='DAILY')) {
+    const [schema]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+    const active=schema?.scopes?await m.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1
+      AND house_code=$2 AND first_production_date<=$3 AND state='ACTIVE'`,[doc.company_code,doc.house_code,day]):[];
+    const shifts=await m.query("SELECT dict_code FROM sys_dict WHERE dict_type='PRODUCTION_REPORT_SHIFT' AND status='ACTIVE' AND dict_code<>'DAILY'");
+    if(!active.length||!shifts.length||shifts.some((s:any)=>!lastReports.some((r:any)=>r.shift===s.dict_code))
+      ||lastReports.some((r:any)=>!shifts.some((s:any)=>s.dict_code===r.shift)))throw new BadRequestException('关闭日正式班次未全部确认，请补齐含零产蛋班次的实际日报');
+  }
+  const lastReport=lastReports[0];
+  if(!lastReport&&p.finalProductionStatus!=='CONFIRMED_ZERO')throw new BadRequestException('请先确认关闭当天DAILY日报，或上传真实零产蛋签认后再关闭');
+  if(p.finalProductionStatus==='CONFIRMED_ZERO'&&lastReports.some((r:any)=>Object.values(r.eggs_by_grade??{}).some(n=>Number(n)>0)||['eggs_produced','dirty_eggs','broken_eggs'].some(k=>Number(r[k]??0)>0)))throw new BadRequestException('关闭日已有实际产蛋，不得签认为零');
+  const blockers=await flockHandoverBlockers(m,occupancyId,day,scope);
+  if (blockers.length) throw new ConflictException({code:'FLOCK_HANDOVER_CLOSE_HOLD',blockers,
+    message:`该鸡群仍有交接或生产单据待核：${blockers[0].reference}，请查看关群待办`});
+  const pending=await m.query("SELECT 1 FROM brd_flock_documents WHERE flock_no=$1 AND id<>$2 AND status IN ('DRAFT','SUBMITTED','APPROVED') LIMIT 1",[doc.flock_no,doc.id]);
+  if (pending.length) throw new BadRequestException({
+    code:'FLOCK_OPEN_DOCUMENTS',
+    message:'还有未完生命周期单据，请有权限的人员办理或取消重复的关群单',
+  });
 }
 
 /** All quantity writes go through this ledger; historical activation is explicit per flock/house. */
@@ -51,12 +151,12 @@ function canonical(v: unknown): string {
 export class FlockLifecycleService {
   constructor(@InjectEntityManager() private readonly db: EntityManager,@Optional() private readonly files?: FileAccessService) {}
 
-  private permit(actor: FlockActor, action: keyof typeof FLOCK_ACTION_MENUS, approval = false) {
+  private permit(actor: FlockActor, action: 'create'|'submit'|'approve'|'post'|'cancel'|'BASELINE') {
     if (!actor.id || actor.id==='unknown') throw new ForbiddenException('缺少实名操作人');
-    if (!actor.admin && !hasPerm(actor.permissions,FLOCK_ACTION_MENUS[action],approval?'A':'E')) throw new ForbiddenException('缺少鸡群生命周期动作权限');
+    if (!hasFlockActionPermission(actor,action)) throw new ForbiddenException('缺少鸡群生命周期动作权限');
   }
   private special(actor: FlockActor, kind: string) {
-    if (kind in FLOCK_ACTION_MENUS) this.permit(actor,kind as keyof typeof FLOCK_ACTION_MENUS,true);
+    if (!hasFlockSpecialPermission(actor,kind)) throw new ForbiddenException('缺少鸡群生命周期动作权限');
   }
   private async house(m: EntityManager, code: string, scope: OrgScope) {
     const [h] = await m.query(`SELECT h.house_code,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
@@ -85,8 +185,8 @@ export class FlockLifecycleService {
   }
 
   async confirmBreed(flockNo: string, input: Record<string, unknown>, scope: OrgScope, actor: FlockActor) {
-    this.permit(actor, 'approve', true);
-    this.permit(actor, 'BASELINE', true);
+    this.permit(actor, 'approve');
+    this.permit(actor, 'BASELINE');
     if (!actor.accountId || !/^[1-9][0-9]{0,18}$/.test(actor.accountId)) throw new ForbiddenException('缺少实名审核账户');
     if (!input || Array.isArray(input) || Object.keys(input).some(k => !['houseCode','breedCode','basis'].includes(k))) {
       throw new BadRequestException('品种确认仅接受鸡舍、遗传品种和核对依据');
@@ -156,7 +256,7 @@ export class FlockLifecycleService {
   private normalize(input: Record<string,any>) {
     if (!input || Array.isArray(input) || Object.keys(input).some(k=>!payloadFields.has(k))) throw new BadRequestException('单据含非法字段');
     const p = {...input};
-    if (!kinds.includes(p.kind)) throw new BadRequestException('单据类型无效');
+    if (!FLOCK_DOCUMENT_KINDS.includes(p.kind)) throw new BadRequestException('单据类型无效');
     for (const k of ['sourceKey','houseCode','reason']) p[k]=text(p[k],k);
     if (p.sourceKey.length>120) throw new BadRequestException('幂等来源长度超过120');
     p.businessDate=flockBusinessDate(p.businessDate);
@@ -228,25 +328,33 @@ export class FlockLifecycleService {
   async create(input: Record<string,any>, scope: OrgScope, actor: FlockActor) {
     this.permit(actor,'create');
     const p=this.normalize(input); this.special(actor,p.kind);
-    const h=await this.house(this.db,p.houseCode,scope);
-    if (p.targetHouseCode) {
-      const t=await this.house(this.db,p.targetHouseCode,scope);
-      if (t.company_code!==h.company_code || t.house_code===h.house_code) throw new BadRequestException('一期仅支持同公司整群转入其他空舍');
-    }
-    await this.validateEvidence(this.db,p,h,actor.id);
-    const hash=createHash('sha256').update(canonical(p)).digest('hex');
+    const initialHouse=await this.house(this.db,p.houseCode,scope);
+    const hash=reportHash(p);
     return this.db.transaction(async m=>{
-      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`flock-doc:${h.company_code}:${p.sourceKey}`]);
-      const [prior]=await m.query('SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE company_code=$1 AND source_key=$2',[h.company_code,p.sourceKey]);
-      if (prior) {
-        if (prior.content_hash!==hash) throw new ConflictException('相同幂等来源内容不同');
-        await this.house(m,prior.house_code,scope); return prior;
+      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`flock-doc:${initialHouse.company_code}:${p.sourceKey}`]);
+      const [prior]=await m.query('SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE company_code=$1 AND source_key=$2',[initialHouse.company_code,p.sourceKey]);
+      if (!prior) await this.lockHouses(m,[p.houseCode,p.targetHouseCode]);
+      const h=await this.house(m,p.houseCode,scope);
+      if (h.company_code!==initialHouse.company_code) throw new ConflictException('鸡舍归属已变，请重新审查单据');
+      if (p.targetHouseCode) {
+        const t=await this.house(m,p.targetHouseCode,scope);
+        if (t.company_code!==h.company_code || t.house_code===h.house_code) throw new BadRequestException('一期仅支持同公司整群转入其他空舍');
       }
+      if (prior) {
+        if (prior.created_by!==actor.id) await assertFlockEvidence(m,p,h,actor.id);
+        if (prior.content_hash!==hash) throw new ConflictException('相同幂等来源内容不同');
+        await this.house(m,prior.house_code,scope);
+        return prior;
+      }
+      // Close locks the same balance before it checks for outstanding documents.
+      const balance = p.flockNo ? await this.lockBalance(m,p.flockNo) : undefined;
+      assertOrdinaryFlockState(p.kind,balance,h);
+      if (p.kind==='SELL_HELD') assertHeldSalePrice(p.unitPrice,p.quantity);
+      await assertFlockEvidence(m,p,h,actor.id);
       if(p.kind==='REPORT_CORRECTION'){
-        await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[p.houseCode]);
         await this.assertHistoricalReportWindow(m,p.flockNo,p.houseCode,p.businessDate);
         const row=p.dailyLogId?await this.reportSnapshot(m,p.dailyLogId):null;
-        if(p.dailyLogId){await this.assertReportIdentity(row,{...p,companyCode:h.company_code},m);if(this.reportHash(row)!==p.expectedReportHash)throw new ConflictException('原日报已变化，请刷新后重新制单');}
+        if(p.dailyLogId){await this.assertReportIdentity(row,{...p,companyCode:h.company_code},m);if(reportHash(row)!==p.expectedReportHash)throw new ConflictException('原日报已变化，请刷新后重新制单');}
         else if((await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 LIMIT 1',[p.houseCode,p.businessDate])).length)throw new ConflictException('该舍日已有日报，请选择原日报更正');
         const [o]=await m.query('SELECT id FROM brd_flock_occupancies WHERE house_code=$1 AND flock_no=$2 AND began_on<=$3 AND (ended_on IS NULL OR ended_on>$3)',[p.houseCode,p.flockNo,p.businessDate]);
         if(!o)throw new BadRequestException('无法证明该业务日真实占栏，不得补造旧日报来源');
@@ -273,11 +381,9 @@ export class FlockLifecycleService {
   }
 
   private async reportSnapshot(m:EntityManager,id:number){
-    const [r]=await m.query(`SELECT id,flock_no,house_code,log_date::text AS log_date,shift,occupancy_id,eggs_by_grade,eggs_produced,
-      dirty_eggs,broken_eggs,feed_consumed,water_consumed,note AS notes,opening_qty,closing_qty,mortality_qty,elimination_qty
-      FROM brd_daily_logs WHERE id=$1 FOR UPDATE`,[id]);return r;
+    const [r]=await m.query(`SELECT ${flockReportSnapshotColumns('d')} FROM brd_daily_logs d WHERE d.id=$1 FOR UPDATE`,[id]);
+    return r;
   }
-  private reportHash(row:any){return createHash('sha256').update(canonical(row)).digest('hex');}
   private async assertReportIdentity(row:any,p:any,m:EntityManager){
     if(!row||!row.occupancy_id||row.flock_no!==p.flockNo||row.house_code!==p.houseCode||row.log_date!==p.businessDate)throw new BadRequestException('仅可更正已接续且占栏身份明确的原日报；未知历史须专项核对');
     if(row.shift!=='DAILY') {
@@ -293,17 +399,16 @@ export class FlockLifecycleService {
   async occupancies(scope:OrgScope){const params:any[]=[];const where=scopeWhere(scope,params,'o.');return this.db.query(`SELECT o.id AS occupancy_id,o.flock_no,o.house_code,o.began_on::text AS began_on,o.ended_on::text AS ended_on FROM brd_flock_occupancies o ${where?'WHERE '+where:''} ORDER BY o.began_on DESC LIMIT 1000`,params);}
   async reports(scope:OrgScope){
     const params:any[]=[];const where=scopeWhere(scope,params,'o.');
-    const rows=await this.db.query(`SELECT d.id,d.flock_no,d.house_code,d.log_date::text AS log_date,d.shift,d.occupancy_id,d.eggs_by_grade,d.eggs_produced,
-      d.dirty_eggs,d.broken_eggs,d.feed_consumed,d.water_consumed,d.note AS notes,d.opening_qty,d.closing_qty,d.mortality_qty,d.elimination_qty
+    const rows=await this.db.query(`SELECT ${flockReportSnapshotColumns('d')}
       FROM brd_daily_logs d JOIN brd_flock_occupancies o ON o.id=d.occupancy_id AND o.flock_no=d.flock_no AND o.house_code=d.house_code
       AND o.began_on<=d.log_date AND (o.ended_on IS NULL OR o.ended_on>d.log_date)
       ${where?'WHERE '+where:''} ORDER BY d.log_date DESC,d.id DESC LIMIT 500`,params);
-    return rows.map((r:any)=>({...r,report_hash:this.reportHash(r)}));
+    return rows.map((r:any)=>({...r,report_hash:reportHash(r)}));
   }
   private async correctReport(m:EntityManager,d:any,h:any,b:any,occ:any,actor:FlockActor){
     const p=d.payload;const stored=p.dailyLogId?await this.reportSnapshot(m,p.dailyLogId):null;
     if(stored)await this.assertReportIdentity(stored,{...p,companyCode:d.company_code},m);
-    if(p.dailyLogId&&(!stored||this.reportHash(stored)!==p.expectedReportHash||canonical(stored)!==canonical(p.originalReport)))throw new ConflictException('原日报已变化，请重新核对制单，不能覆盖他人更正');
+    if(p.dailyLogId&&(!stored||reportHash(stored)!==p.expectedReportHash||canonical(stored)!==canonical(p.originalReport)))throw new ConflictException('原日报已变化，请重新核对制单，不能覆盖他人更正');
     if(!p.dailyLogId&&(await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 FOR UPDATE',[p.houseCode,p.businessDate])).length)throw new ConflictException('补录期间已有日报，不能覆盖');
     if(!occ||occ.id!==p.originalOccupancyId||stored&&occ.id!==stored.occupancy_id||occ.house_code!==h.house_code)throw new BadRequestException('原日报占栏身份与业务日不一致');
     const r=stored??{id:0,eggs_by_grade:{},eggs_produced:0};
@@ -338,14 +443,13 @@ export class FlockLifecycleService {
     if (eggs < 0 || eggs > Object.values(grades).reduce((sum,qty)=>sum+qty,0)) throw new BadRequestException('原日报产蛋合计与分级不符，须核对销售分级依据');
     if(!stored){
       const [snapshot]=await m.query(`SELECT (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<=$2 ORDER BY balance_date DESC LIMIT 1) AS closing,
-        COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<$2 ORDER BY balance_date DESC LIMIT 1),0) AS opening,
-        COALESCE((SELECT mortality_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),0) AS deaths,
-        COALESCE((SELECT elimination_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),0) AS culls`,[d.flock_no,p.businessDate]);
+        COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<$2 ORDER BY balance_date DESC LIMIT 1),0) AS opening`,[d.flock_no,p.businessDate]);
       if(snapshot.closing==null)throw new BadRequestException('缺业务日存栏余额，不能补造日报');
+      const loss = await reportOccupancyLosses(m,occ.id,p.businessDate);
       const [inserted]=await m.query(`INSERT INTO brd_daily_logs(flock_no,house_code,farm_code,company_code,site_code,log_date,business_date,shift,occupancy_id,
         mortality_qty,elimination_qty,opening_qty,closing_qty,eggs_by_grade,eggs_produced,dirty_eggs,broken_eggs,feed_consumed,water_consumed,note,operator)
         VALUES($1,$2,$3,$4,$5,$6,$6,'DAILY',$7,$8,$9,$10,$11,'{}',0,0,0,NULL,NULL,'',$12) RETURNING id`,
-        [d.flock_no,h.house_code,occ.farm_code,occ.company_code,occ.site_code,p.businessDate,occ.id,snapshot.deaths,snapshot.culls,snapshot.opening,snapshot.closing,actor.id]);r.id=inserted.id;
+        [d.flock_no,h.house_code,occ.farm_code,occ.company_code,occ.site_code,p.businessDate,occ.id,loss.mortality_qty,loss.elimination_qty,snapshot.opening,snapshot.closing,actor.id]);r.id=inserted.id;
     }
     await m.query(`UPDATE brd_daily_logs SET eggs_by_grade=$2::jsonb,eggs_produced=$3::integer,dirty_eggs=$4::integer,broken_eggs=$5::integer,
       feed_consumed=$6,water_consumed=$7,note=$8,lay_rate=CASE WHEN closing_qty>0 THEN round($3::numeric*100/closing_qty,2) ELSE NULL END WHERE id=$1`,
@@ -355,15 +459,6 @@ export class FlockLifecycleService {
     await this.event(m,d,actor,{kind:'REPORT_CORRECTION',occupancy:occ.id});
   }
 
-  private async validateEvidence(m: EntityManager,p: any,h: any,creator: string) {
-    for(const id of p.evidence??[]) {
-      const [file]=await m.query(`SELECT file_id FROM file_metadata WHERE file_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
-        AND visibility IN ('PROTECTED','PRIVATE') AND mime_type IN ('application/pdf','image/png','image/jpeg','image/webp')
-        AND module_code='FLOCK_LIFECYCLE' AND owner_type='HOUSE' AND owner_id=$2 AND company_code=$3
-        AND store_code=$4 AND uploaded_by=$5`,[id,h.house_code,h.company_code,h.site_code,creator]);
-      if(!file) throw new BadRequestException('证据附件不存在、未授权、失效或不属于本鸡舍/制单人');
-    }
-  }
   async provisionActions(actor: FlockActor) {
     if(!actor.admin)throw new ForbiddenException('仅系统管理员可注册权限项；不自动授予业务角色');
     const labels: Record<string,string>={MENU_FLOCK_CREATE:'鸡群制单提交',MENU_FLOCK_APPROVE:'鸡群独立审核',MENU_FLOCK_POST:'鸡群过账',
@@ -388,11 +483,18 @@ export class FlockLifecycleService {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
     const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
       COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,e.steps,e.previously_used,e.open_occupancy,f.farm_status,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
-      o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
+      acceptance.last_acceptance_on,o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
       (SELECT COUNT(*)::integer FROM brd_flocks x WHERE x.house_code=h.house_code AND
         (x.status IS DISTINCT FROM 'RETIRED' OR COALESCE(x.current_qty,0)>0)) AS legacy_flocks
       FROM brd_houses h JOIN (SELECT farm_code,company_code,status AS farm_status,mapped_site_code,mapped_site_code AS site_code FROM brd_farms) f ON f.farm_code=h.farm_code
       LEFT JOIN brd_flock_house_states s ON s.house_code=h.house_code
+      LEFT JOIN (
+        SELECT DISTINCT ON (house_code,company_code,farm_code,site_code) house_code,company_code,farm_code,site_code,
+          business_date::text AS last_acceptance_on
+        FROM brd_flock_documents WHERE kind='CLEAN_ACCEPT' AND status='POSTED' AND posted_at IS NOT NULL
+        ORDER BY house_code,company_code,farm_code,site_code,posted_at DESC,id DESC
+      ) acceptance ON acceptance.house_code=h.house_code AND acceptance.company_code=f.company_code
+        AND acceptance.farm_code=h.farm_code AND acceptance.site_code=COALESCE(f.site_code,'')
       LEFT JOIN LATERAL (${HOUSE_TURNAROUND_EVIDENCE}) e ON s.state IS DISTINCT FROM 'OCCUPIED'
       LEFT JOIN brd_flock_occupancies o ON o.house_code=h.house_code AND o.ended_on IS NULL
       LEFT JOIN brd_flock_balances b ON b.flock_no=o.flock_no ${where?'WHERE '+where:''} ORDER BY h.house_code`,params);
@@ -461,24 +563,44 @@ export class FlockLifecycleService {
     const [doc]=await this.db.query('SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE id=$1',[id]);
     if (!doc) throw new NotFoundException('单据不存在');
     await this.house(this.db,doc.house_code,scope);
-    const events=await this.db.query(`WITH grouped AS (SELECT document_id,flock_no,MIN(recorded_at) AS at,SUM(quantity_delta) AS delta FROM brd_flock_events GROUP BY document_id,flock_no),
+    const events=await this.db.query(`WITH grouped AS (SELECT document_id,flock_no,MIN(recorded_at) AS at,SUM(quantity_delta) AS delta FROM brd_flock_events WHERE flock_no=$2 GROUP BY document_id,flock_no),
       balances AS (SELECT *,SUM(delta) OVER(PARTITION BY flock_no ORDER BY at,document_id) AS closing FROM grouped)
       SELECT e.*,e.business_date::text AS business_date,b.closing-b.delta AS document_opening_qty,b.closing AS document_closing_qty FROM brd_flock_events e JOIN balances b ON b.document_id=e.document_id AND b.flock_no=e.flock_no
-      WHERE e.document_id=$1 ORDER BY e.line_no`,[id]);
+      WHERE e.document_id=$1 ORDER BY e.line_no`,[id,doc.flock_no]);
     const audits=await this.db.query('SELECT * FROM brd_flock_document_audits WHERE document_id=$1 ORDER BY version',[id]);
     const amendments=doc.kind==='CLOSE'?await this.db.query("SELECT id,business_date::text AS business_date,payload->>'differenceReceipt' AS difference_receipt,posted_at FROM brd_flock_documents WHERE kind='REPORT_CORRECTION' AND status='POSTED' AND payload->'originalZeroConfirmation'->>'documentId'=$1 ORDER BY posted_at",[id]):[];
-    return {...doc,events,audits,amendments};
+    const [settlement]=doc.kind==='SELL_HELD'&&doc.status==='POSTED'
+      ? await this.db.query('SELECT * FROM brd_flock_sales_settlements WHERE document_id=$1',[id]) : [];
+    const [authorizedDocument]=doc.kind==='HISTORY_AUTH' ? await this.db.query(`
+      SELECT id FROM brd_flock_documents
+      WHERE company_code=$1 AND farm_code=$2 AND house_code=$3 AND flock_no=$4 AND site_code IS NOT DISTINCT FROM $5
+        AND source_key=$6 AND kind<>'HISTORY_AUTH'`,
+      [doc.company_code,doc.farm_code,doc.house_code,doc.flock_no,doc.site_code,doc.payload.authorizedSourceKey]) : [];
+    return {...doc,events,audits,amendments,settlement:settlement??null,authorized_document_id:authorizedDocument?.id??null};
   }
 
   async evidence(id: string,fileId: string,scope: OrgScope) {
     const doc=await this.detail(id,scope);const h=await this.house(this.db,doc.house_code,scope);
     if(!doc.payload.evidence?.includes(fileId) || !this.files) throw new NotFoundException('附件不可访问');
-    await this.validateEvidence(this.db,doc.payload,h,doc.created_by);
+    await assertFlockEvidence(this.db,doc.payload,h,doc.created_by);
     return this.files.openProtectedFile(fileId,{moduleCode:'FLOCK_LIFECYCLE',ownerType:'HOUSE',ownerId:doc.house_code,
       companyCode:doc.company_code,storeCode:doc.site_code,requiredMenu:'MENU_FARM_DATA',canonicalBreedingHouseScopeVerified:true},'preview');
   }
+  private async lockHouses(m: EntityManager, houseCodes: string[]) {
+    const lockedHouses = [...new Set(houseCodes.filter(Boolean))].sort();
+    for (const code of lockedHouses) {
+      await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
+    }
+    return lockedHouses;
+  }
+
+  private async lockBalance(m: EntityManager, flockNo: string) {
+    const [balance]=await m.query('SELECT *,baseline_on::text AS baseline_on,last_business_date::text AS last_business_date,closed_on::text AS closed_on FROM brd_flock_balances WHERE flock_no=$1 FOR UPDATE',[flockNo]);
+    return balance;
+  }
+
   async transition(id: string, action: 'submit'|'approve'|'post'|'cancel', version: number, scope: OrgScope, actor: FlockActor) {
-    this.permit(actor,action,action==='approve'); birdCount(version,'单据版本');
+    this.permit(actor,action); birdCount(version,'单据版本');
     return this.db.transaction(async m=>{
       const [identity]=await m.query('SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE id=$1',[id]);
       if (!identity) throw new NotFoundException('单据不存在');
@@ -489,8 +611,7 @@ export class FlockLifecycleService {
         const previous=await m.query('SELECT DISTINCT house_code FROM brd_flock_occupancies WHERE flock_no=$1',[identity.flock_no]);
         houseCodes.push(...previous.map((row:{house_code:string})=>row.house_code));
       }
-      const lockedHouses=[...new Set(houseCodes)].sort();
-      for (const code of lockedHouses) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
+      const lockedHouses=await this.lockHouses(m,houseCodes);
       if (action!=='cancel'&&['ADMIT','TRANSFER','CLEAN_START','CLEAN_ACCEPT'].includes(identity.kind)) {
         await m.query(`SELECT h.house_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
           WHERE h.house_code=ANY($1) ORDER BY h.house_code FOR SHARE OF h,f`,[lockedHouses]);
@@ -508,8 +629,11 @@ export class FlockLifecycleService {
       if (Number(doc.version)!==version) throw new ConflictException('单据版本冲突，请刷新后重试');
       const allowed={submit:'DRAFT',approve:'SUBMITTED',post:'APPROVED',cancel:doc.status==='DRAFT'?'DRAFT':doc.status==='APPROVED'?'APPROVED':'SUBMITTED'};
       if (doc.status!==allowed[action]) throw new ConflictException('单据状态不允许此动作');
-      if (action==='cancel' && doc.status==='APPROVED') this.permit(actor,'approve',true);
+      if (action==='cancel' && doc.status==='APPROVED') this.permit(actor,'approve');
       if (action==='approve' && actor.id===doc.created_by) throw new ForbiddenException('审核人必须与制单人不同');
+      const checkOrdinary = action!=='cancel' && (isOrdinaryFlockAction(doc.kind) || doc.kind==='BASELINE');
+      const balance = checkOrdinary ? await this.lockBalance(m,doc.flock_no) : undefined;
+      if (checkOrdinary) assertOrdinaryFlockState(doc.kind,balance,h);
       if (doc.kind==='BASELINE' && (action==='submit' || action==='approve')) {
         const [flock]=await m.query('SELECT breed_code FROM brd_flocks WHERE flock_no=$1 AND house_code=$2 AND farm_code=$3 FOR SHARE',[doc.flock_no,doc.house_code,h.farm_code]);
         if (!flock || !await this.activeBreed(m,flock.breed_code)) throw new BadRequestException(baselineBreedRequired);
@@ -522,7 +646,7 @@ export class FlockLifecycleService {
       if (action!=='cancel' && doc.kind==='TRANSFER') {
         if (!target || target.status!=='ACTIVE' || target.farm_status!=='ACTIVE') throw new BadRequestException('目标舍必须为同公司有效鸡舍');
         await assertHouseReadyForEntry(m,target.house_code,doc.business_date);
-        this.capacity(target,0);
+        this.capacity(target,balance?.quantity??0);
         await assertFlockTransferSource(m,doc.flock_no,h.house_code,doc.business_date);
         // A day with existing production cannot be reassigned to another house.
         const logs=await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=ANY($1) AND log_date>=$2 LIMIT 1',[[h.house_code,target.house_code],doc.business_date]);
@@ -531,7 +655,7 @@ export class FlockLifecycleService {
       if (action!=='cancel' && doc.kind==='REPORT_CORRECTION') {
         await this.assertHistoricalReportWindow(m,doc.flock_no,doc.house_code,doc.business_date);
       }
-      if (action==='approve' || action==='post') await this.validateEvidence(m,doc.payload,h,doc.created_by);
+      if (action==='approve' || action==='post') await assertFlockEvidence(m,doc.payload,h,doc.created_by);
       if (action==='post') await this.post(m,doc,h,scope,actor);
       const status={submit:'SUBMITTED',approve:'APPROVED',post:'POSTED',cancel:'CANCELLED'}[action];
       await m.query(`UPDATE brd_flock_documents SET status=$2,version=version+1,
@@ -570,7 +694,7 @@ export class FlockLifecycleService {
         throw new BadRequestException('跨月历史更正需真实已过账且绑定本单及影响期间的授权');
     }
     const [state]=await m.query('SELECT *,last_occupied_on::text AS last_occupied_on FROM brd_flock_house_states WHERE house_code=$1 FOR UPDATE',[h.house_code]);
-    let balance=(await m.query('SELECT *,baseline_on::text AS baseline_on,last_business_date::text AS last_business_date,closed_on::text AS closed_on FROM brd_flock_balances WHERE flock_no=$1 FOR UPDATE',[doc.flock_no]))[0];
+    const balance=await this.lockBalance(m,doc.flock_no);
     if (['CLEAN_START','CLEAN_ACCEPT'].includes(doc.kind)) {
       if ((state?.version??0)!==p.expectedHouseVersion) throw new ConflictException('鸡舍版本冲突');
       const active=await m.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) LIMIT 1",[h.house_code]);
@@ -643,6 +767,7 @@ export class FlockLifecycleService {
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[held,doc.flock_no,h.company_code,h.farm_code,h.house_code,p.positionCode,p.quantity,doc.id]);
       await this.event(m,doc,actor,{occupancy:occ.id,delta,heldDelta:p.quantity,heldId:held,kind:'CULL'});
     } else if (doc.kind==='SELL_HELD') {
+      assertHeldSalePrice(p.unitPrice,p.quantity);
       const [held]=await m.query('SELECT * FROM brd_flock_held_balances WHERE id=$1 FOR UPDATE',[p.heldId]);
       if (!held || held.flock_no!==doc.flock_no || held.company_code!==h.company_code || held.house_code!==h.house_code) throw new BadRequestException('待售批次不匹配');
       const [origin]=await m.query('SELECT MIN(business_date)::text AS began_on FROM brd_flock_events WHERE held_id=$1 AND held_delta>0',[held.id]);
@@ -652,9 +777,9 @@ export class FlockLifecycleService {
       const [customer]=await m.query("SELECT 1 FROM sal_customers WHERE customer_no=$1 AND company_code=$2 AND status='ACTIVE'",[p.customerCode,h.company_code]);
       const [currency]=await m.query("SELECT 1 FROM sys_dict WHERE dict_type='SYS_CURRENCY' AND dict_code=$1 AND status='ACTIVE'",[p.currencyCode]);
       if(!customer || !currency) throw new BadRequestException('客户/币种未启用或不属于本公司');
-      await this.assertNoHealthPending(m,doc.flock_no,day,true);
+      await assertNoHealthPending(m,doc.flock_no,day,true);
       await m.query(`INSERT INTO brd_flock_sales_settlements(document_id,held_id,company_code,customer_code,currency_code,quantity,unit_price,amount,receipt_reference)
-        VALUES($1,$2,$3,$4,$5,$6::integer,$7::numeric,round($6::numeric*$7::numeric,2),$8)`,[doc.id,held.id,h.company_code,p.customerCode,p.currencyCode,p.quantity,p.unitPrice,p.salesRef]);
+        VALUES($1,$2,$3,$4,$5,$6::integer,$7::numeric(18,6),round($6::numeric*$7::numeric(18,6),2),$8)`,[doc.id,held.id,h.company_code,p.customerCode,p.currencyCode,p.quantity,p.unitPrice,p.salesRef]);
       await m.query('UPDATE brd_flock_held_balances SET quantity=quantity-$2,version=version+1 WHERE id=$1',[held.id,p.quantity]);
       await this.event(m,doc,actor,{kind:'SELL_HELD',heldDelta:-p.quantity,heldId:held.id});
     } else if (doc.kind==='ADJUST') delta=p.quantity;
@@ -674,27 +799,8 @@ export class FlockLifecycleService {
       await m.query('UPDATE brd_flock_balances SET house_code=$2,farm_code=$3,site_code=$4 WHERE flock_no=$1',[doc.flock_no,t.house_code,t.farm_code,t.site_code]);
       await m.query('UPDATE brd_flocks SET house_code=$2,farm_code=$3,site_code=$4 WHERE flock_no=$1',[doc.flock_no,t.house_code,t.farm_code,t.site_code]);
     } else if (doc.kind==='CLOSE') {
-      await this.assertNoHealthPending(m,doc.flock_no,day);
       if (balance.quantity!==0) throw new BadRequestException('存栏未归零，不能关闭');
-      const lastReports=await m.query('SELECT flock_no,shift,occupancy_id,eggs_by_grade,eggs_produced,dirty_eggs,broken_eggs FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 FOR UPDATE',[h.house_code,day]);
-      if(lastReports.some((r:any)=>r.flock_no!==doc.flock_no||r.occupancy_id!==occ.id)
-        ||lastReports.length>1&&lastReports.some((r:any)=>r.shift==='DAILY'))throw new BadRequestException('关闭日存在身份不符或重复覆盖的汇总/班次日报');
-      if(lastReports.some((r:any)=>r.shift!=='DAILY')) {
-        const [schema]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
-        const active=schema?.scopes?await m.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1
-          AND house_code=$2 AND first_production_date<=$3 AND state='ACTIVE'`,[h.company_code,h.house_code,day]):[];
-        const shifts=await m.query("SELECT dict_code FROM sys_dict WHERE dict_type='PRODUCTION_REPORT_SHIFT' AND status='ACTIVE' AND dict_code<>'DAILY'");
-        if(!active.length||!shifts.length||shifts.some((s:any)=>!lastReports.some((r:any)=>r.shift===s.dict_code))
-          ||lastReports.some((r:any)=>!shifts.some((s:any)=>s.dict_code===r.shift)))throw new BadRequestException('关闭日正式班次未全部确认，请补齐含零产蛋班次的实际日报');
-      }
-      const lastReport=lastReports[0];
-      if(!lastReport&&p.finalProductionStatus!=='CONFIRMED_ZERO')throw new BadRequestException('请先确认关闭当天DAILY日报，或上传真实零产蛋签认后再关闭');
-      if(p.finalProductionStatus==='CONFIRMED_ZERO'&&lastReports.some((r:any)=>Object.values(r.eggs_by_grade??{}).some(n=>Number(n)>0)||['eggs_produced','dirty_eggs','broken_eggs'].some(k=>Number(r[k]??0)>0)))throw new BadRequestException('关闭日已有实际产蛋，不得签认为零');
-      const blockers=await flockHandoverBlockers(m,occ.id,day,scope);
-      if (blockers.length) throw new ConflictException({code:'FLOCK_HANDOVER_CLOSE_HOLD',blockers,
-        message:`该鸡群仍有交接或生产单据待核：${blockers[0].reference}，请查看关群待办`});
-      const pending=await m.query("SELECT 1 FROM brd_flock_documents WHERE flock_no=$1 AND id<>$2 AND status IN ('DRAFT','SUBMITTED','APPROVED') LIMIT 1",[doc.flock_no,doc.id]);
-      if (pending.length) throw new BadRequestException('还有未完生命周期单据');
+      await assertFlockCloseReadiness(m,doc,occ.id,scope,{lock:true});
       // End exclusive on following day: today's eggs keep old provenance; next flock starts later.
       await m.query("UPDATE brd_flock_occupancies SET ended_on=$2::date+1,closed_document_id=$3 WHERE id=$1",[occ.id,day,doc.id]);
       await m.query('UPDATE brd_flock_balances SET closed_on=$2 WHERE flock_no=$1',[doc.flock_no,day]);
@@ -714,17 +820,6 @@ export class FlockLifecycleService {
     await this.rebuild(m,doc.flock_no);
   }
 
-  private async assertNoHealthPending(m: EntityManager,flock: string,day: string,onlyWithdrawal=false) {
-    const [tables]=await m.query("SELECT to_regclass('brd_vaccinations') AS immune,to_regclass('brd_medication_records') AS medicines");
-    if(tables.immune && !onlyWithdrawal) {
-      const pending=await m.query("SELECT 1 FROM brd_vaccinations WHERE flock_no=$1 AND status IN ('PLANNED','OVERDUE') AND actual_date IS NULL LIMIT 1",[flock]);
-      if(pending.length) throw new BadRequestException('群还有未完免疫计划，请先受控执行或取消');
-    }
-    if(tables.medicines) {
-      const pending=await m.query("SELECT 1 FROM brd_medication_records WHERE flock_no=$1 AND status<>'CANCELLED' AND (end_date IS NULL OR end_date>=$2 OR withdraw_until>=$2) LIMIT 1",[flock,day]);
-      if(pending.length) throw new BadRequestException('鸡群仍在用药或休药隔离期，不允许关闭/交付待售鸡');
-    }
-  }
   private capacity(h: any, quantity: number) {
     const capacity = resolveHouseCapacity(h);
     if (capacity === null) throw new BadRequestException('鸡舍设计容量未核实，请核对鸡舍档案');
@@ -809,15 +904,16 @@ export class FlockLifecycleService {
     const officialPeriod=cutover?.scopes?`AND NOT EXISTS(SELECT 1 FROM production_cutover_scopes s
       WHERE s.house_code=d.house_code AND s.state<>'DRAFT' AND d.log_date<s.first_production_date)`:'';
     // DAILY projects losses at its own occupancy, including on transfer days; shift reports do not duplicate mortality. Archived reports retain their original cache.
-    await m.query(`UPDATE brd_daily_logs d SET
-      mortality_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT -SUM(e.quantity_delta) FROM brd_flock_events e WHERE e.flock_no=d.flock_no AND e.occupancy_id=d.occupancy_id
-        AND e.business_date=d.log_date AND e.kind IN ('MORTALITY','REVERSE_MORTALITY')),0) ELSE 0 END,
-      elimination_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT -SUM(e.quantity_delta) FROM brd_flock_events e WHERE e.flock_no=d.flock_no AND e.occupancy_id=d.occupancy_id
-        AND e.business_date=d.log_date AND e.kind IN ('CULL','REVERSE_CULL')),0) ELSE 0 END,
+    await m.query(`WITH losses AS (
+      SELECT * FROM (${occupancyLossesSql}) l WHERE l.flock_no=$1
+    ) UPDATE brd_daily_logs d SET
+      mortality_qty=CASE WHEN d.shift='DAILY' THEN COALESCE(l.mortality_qty,0) ELSE 0 END,
+      elimination_qty=CASE WHEN d.shift='DAILY' THEN COALESCE(l.elimination_qty,0) ELSE 0 END,
       opening_qty=COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),
         (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<d.log_date ORDER BY balance_date DESC LIMIT 1)),
       closing_qty=(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<=d.log_date ORDER BY balance_date DESC LIMIT 1)
-      WHERE d.flock_no=$1 AND d.occupancy_id IS NOT NULL ${officialPeriod}`,[flock]);
+      FROM brd_daily_logs r LEFT JOIN losses l ON l.occupancy_id=r.occupancy_id AND l.log_date=r.log_date
+      WHERE d.id=r.id AND d.flock_no=$1 AND d.occupancy_id IS NOT NULL ${officialPeriod}`,[flock]);
     await m.query(`UPDATE brd_daily_logs d SET lay_rate=CASE WHEN closing_qty>0 THEN round(eggs_produced*100.0/closing_qty,2) ELSE 0 END
       WHERE flock_no=$1 AND occupancy_id IS NOT NULL ${officialPeriod}`,[flock]);
     await refreshDailyFlockLayRate(m,flock);

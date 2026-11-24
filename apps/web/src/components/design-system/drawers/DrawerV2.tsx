@@ -1,5 +1,8 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useId } from 'react';
+import { createPortal } from 'react-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useDialogFocus, useDialogPortalReady } from '../dialogs/useDialogFocus';
 import { X } from 'lucide-react';
 
 /**
@@ -14,26 +17,32 @@ export interface DrawerV2Props {
   children: React.ReactNode;
   footer?: React.ReactNode;
   closeOnBackdrop?: boolean;
+  closeDisabled?: boolean;
 }
 
-export function DrawerV2({ open, title, width = 560, onClose, children, footer, closeOnBackdrop = true }: DrawerV2Props) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-  if (!open) return null;
-  return (
+export function DrawerV2({ open, title, width = 560, onClose, children, footer, closeOnBackdrop = true, closeDisabled = false }: DrawerV2Props) {
+  const { t } = useLanguage();
+  const mounted = useDialogPortalReady();
+  const titleId = useId();
+  const { dialogRef, requestClose } = useDialogFocus(open && mounted, onClose, closeDisabled);
+  if (!open || !mounted) return null;
+  return createPortal(
     <div
-      onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) requestClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 950,
+        position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
         backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
         display: 'flex', justifyContent: 'flex-end', animation: 'phx-fade-in .15s ease',
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : t('ui.请确认', '请确认')}
+        aria-busy={closeDisabled || undefined}
+        tabIndex={-1}
         style={{
           background: 'var(--bg-card)', color: 'var(--text-primary)', width, maxWidth: '95vw', height: '100%',
           display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)',
@@ -42,8 +51,8 @@ export function DrawerV2({ open, title, width = 560, onClose, children, footer, 
       >
         {title && (
           <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)' }}>{title}</div>
-            <button onClick={onClose} style={{ marginLeft: 'auto', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+            <div id={titleId} style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)' }}>{title}</div>
+            <button type="button" onClick={requestClose} disabled={closeDisabled} aria-label={t('ui.关闭', '关闭')} style={{ marginLeft: 'auto', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
               <X size={18} />
             </button>
           </div>
@@ -51,6 +60,7 @@ export function DrawerV2({ open, title, width = 560, onClose, children, footer, 
         <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
         {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

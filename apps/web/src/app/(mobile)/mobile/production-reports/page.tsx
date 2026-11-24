@@ -32,7 +32,7 @@ function ReportForm(){
   const verified=!!house&&rangeKey===verifiedRange;
   const inbound=usePermission('MENU_PROD_INBOUND');
   const flock=usePermission('MENU_FARM_DATA'),createFlock=usePermission('MENU_FLOCK_CREATE');
-  const canOpenLifecycle=flock.canView&&createFlock.canCreate;
+  const canOpenLifecycle=flock.canView&&createFlock.canEdit;
   const touched=useRef(false), saving=useRef(false);
   useEffect(()=>{
     const signal=new AbortController();

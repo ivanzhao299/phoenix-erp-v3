@@ -23,6 +23,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission";
 import { useRefreshToken } from "@/lib/list-refresh";
 import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight, Archive, ArchiveRestore, Eye, EyeOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -283,6 +284,8 @@ const apiPatch = (path: string, body: Record<string, unknown>) => fetch(path, {
 export default function RoleManagementPage() {
   const toast = useToast();
   const router = useRouter();
+  const { isSuper } = usePermission();
+  const [registeringFlockActions, setRegisteringFlockActions] = useState(false);
   const {
     t
   } = useLanguage();
@@ -418,6 +421,24 @@ export default function RoleManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useRefreshToken(loadAll);
+
+  const registerFlockActions = async () => {
+    if (registeringFlockActions) return;
+    setRegisteringFlockActions(true);
+    try {
+      const response = await apiPost('/api/v3/farm/flock-lifecycle/provision-actions', {});
+      if (response.code !== 200 || !Array.isArray(response.data?.registered)) {
+        throw new Error(response.message || t('breeding.lifecycle.registerError'));
+      }
+      toast.success(t('breeding.lifecycle.registered'));
+      await loadAll();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('breeding.lifecycle.registerError'));
+    } finally {
+      setRegisteringFlockActions(false);
+    }
+  };
+
 
   // ── 平铺所有菜单（便于查找） ───────────────────────────────────────────
   const allMenus = useMemo(() => menuGroups.flatMap(g => g.menus), [menuGroups]);
@@ -684,6 +705,9 @@ export default function RoleManagementPage() {
       display: "flex",
       gap: "8px"
     }}>
+            {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
+              <Shield size={14} /> {t('breeding.lifecycle.register')}
+            </button>}
             {deprecatedCount > 0 && <button type="button" style={secondaryActionButton} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
               {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
             </button>}

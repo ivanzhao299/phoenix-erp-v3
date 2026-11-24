@@ -1,2 +1,6 @@
-import FlockLifecycle from '@/components/FlockLifecycle';
-export default function Page(){return <FlockLifecycle/>;}
+import { redirect } from 'next/navigation';
+import { lifecycleLegacyLocation, type LegacySearch } from '@/components/breeding/flock-lifecycle-workspace';
+
+export default async function Page({ searchParams }: { searchParams: Promise<LegacySearch> }) {
+  redirect(lifecycleLegacyLocation(true, await searchParams));
+}

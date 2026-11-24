@@ -138,6 +138,19 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   const detail=(await api(2,'get',`/documents/${d.id}`).expect(200)).body.data;expect(detail.business_date).toBe('2026-11-10');expect(detail.events[0].business_date).toBe('2026-11-10');
   const balances=(await api(1,'get','/balances').expect(200)).body.data;expect(balances[0].baseline_on).toBe('2026-11-10');expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(100);
   await api(2,'get',`/documents/${d.id}/evidence/${file.body.fileId}`).expect(200);
+
+  let loss=(await api(1,'post','/documents').send(payload({
+    kind:'MORTALITY',businessDate:'2026-11-11',quantity:4,expectedVersion:balances[0].version,
+    disposalMethod:'verified disposal',receiver:'fixture vet',evidence:[file.body.fileId],
+  })).expect(201)).body.data;
+  const current=(actor:number)=>api(actor,'get',`/documents/${loss.id}`).expect(200);
+  expect((await current(1)).body.data).toMatchObject({allowedActions:['submit','cancel'],blockers:[]});
+  loss=(await api(1,'post',`/documents/${loss.id}/submit`).send({version:loss.version}).expect(201)).body.data;
+  expect((await current(2)).body.data).toMatchObject({allowedActions:['approve'],blockers:[]});
+  loss=(await api(2,'post',`/documents/${loss.id}/approve`).send({version:loss.version}).expect(201)).body.data;
+  expect((await current(3)).body.data).toMatchObject({allowedActions:['post'],blockers:[]});
+  await api(3,'post',`/documents/${loss.id}/post`).send({version:loss.version}).expect(201);
+  expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(96);
  });
  it('guides first placement before submission and keeps a legacy approval intact until real inspection',async()=>{
   const evidence=(await upload(1,'HNEW').expect(201)).body.fileId;
@@ -168,7 +181,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   expect(await house()).toMatchObject({entry_readiness:'CLEANING',house_version:0});
   expect((await act(oldApproved,6,'post').expect(400)).body.message).toContain('完成清舍验收');
   await post(await createDocument(payload({kind:'CLEAN_ACCEPT',houseCode:'HNEW',expectedHouseVersion:0,evidence:[evidence]})));
-  expect(await house()).toMatchObject({entry_readiness:'READY',house_version:1});
+  expect(await house()).toMatchObject({entry_readiness:'READY',house_version:1,last_acceptance_on:'2026-11-10'});
   expect((await act(oldApproved,6,'post').expect(409)).body.message).toContain('重新制单审核');
   expect((await api(6,'get',`/documents/${legacy.id}`).expect(200)).body.data).toMatchObject({status:'APPROVED',version:2,events:[]});
   await act(oldApproved,6,'cancel').expect(201);
@@ -179,7 +192,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   expect(results.map(r=>r.status).sort()).toEqual([201,400]);
   const winner=results.find(r=>r.status===201)!.body.data;
   expect((await act(winner,3,'post').expect(201)).body.data.id).toBe(winner.id);
-  expect(await house()).toMatchObject({entry_readiness:'OCCUPIED',quantity:100});
+  expect(await house()).toMatchObject({entry_readiness:'OCCUPIED',quantity:100,last_acceptance_on:'2026-11-10'});
   expect(await db.query("SELECT kind FROM brd_flock_events WHERE kind='ADMIT'")).toEqual([{kind:'ADMIT'}]);
   expect(await db.query('SELECT quantity FROM brd_flock_admission_receipts')).toEqual([{quantity:100}]);
   expect(await db.query('SELECT house_code FROM brd_flock_occupancies')).toEqual([{house_code:'HNEW'}]);
@@ -295,5 +308,126 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   await api(1,'post','/documents').send(payload({evidence:['FILE-forged']})).expect(400);
   for(const status of ['PENDING','DISABLED']){await db.query('UPDATE file_metadata SET status=$2 WHERE file_id=$1',[f,status]);await api(1,'post','/documents').send(payload({evidence:[f]})).expect(400);}
   await db.query("UPDATE file_metadata SET status='ACTIVE',uploaded_by='reviewer' WHERE file_id=$1",[f]);await api(1,'post','/documents').send(payload({evidence:[f]})).expect(400);
+ });
+ it('finds older pending documents after 550 drafts while preserving the legacy array and workbench scope',async()=>{
+  const oldest='10000000-0000-0000-0000-000000000001';
+  const approved='10000000-0000-0000-0000-000000000002';
+  const own='10000000-0000-0000-0000-000000000003';
+  await db.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,status,created_by,created_at)
+    VALUES ($1,'oldest','hash','REPORT_CORRECTION','CA','A','SA','HA','FA','2026-11-10','{"evidence":["FILE-hidden"],"originalReport":{"notes":"detail only"}}','SUBMITTED','keeper','2026-11-10T01:00:00Z'),
+      ($2,'approved','hash','REPORT_CORRECTION','CA','A','SA','HA','FA','2026-11-10','{}','APPROVED','keeper','2026-11-10T02:00:00Z'),
+      ($3,'own','hash','REPORT_CORRECTION','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','reviewer','2026-11-10T03:00:00Z'),
+      ('10000000-0000-0000-0000-000000000004','other-kind','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','reviewer','2026-11-10T04:00:00Z'),
+      ('10000000-0000-0000-0000-000000000005','other-day','hash','REPORT_CORRECTION','CA','A','SA','HA','FA','2026-11-09','{}','SUBMITTED','reviewer','2026-11-10T04:00:00Z'),
+      ('10000000-0000-0000-0000-000000000006','other-house','hash','CLOSE','CA','A2','SA2','HX','FX','2026-11-10','{}','SUBMITTED','keeper','2026-11-10T04:00:00Z');
+    `,[oldest,approved,own]);
+  await db.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,created_by,created_at)
+    SELECT '20000000-0000-0000-0000-'||lpad(i::text,12,'0'),'draft-'||i,'hash','MORTALITY','CA','A','SA','HA','FA','2026-11-11','{}','keeper','2026-11-11T01:00:00Z'
+    FROM generate_series(1,550) i`);
+  const legacy=(await api(2,'get','/documents').expect(200)).body.data;
+  expect(legacy).toHaveLength(500);
+  expect(legacy.some((row:{id:string})=>row.id===oldest)).toBe(false);
+  const pending=(await api(2,'get','/inbox').query({action:'approve',kinds:'REPORT_CORRECTION',houseCode:'HA',dateFrom:'2026-11-10',dateTo:'2026-11-10'}).expect(200)).body.data;
+  expect(pending.nextCursor).toBeNull();
+  expect(pending.items).toMatchObject([{id:oldest,nextAction:'approve'}]);
+  expect(pending.items[0].payload).not.toHaveProperty('evidence');
+  expect(pending.items[0].payload).not.toHaveProperty('originalReport');
+  expect((await api(2,'get',`/documents/${oldest}`).expect(200)).body.data)
+    .toMatchObject({allowedActions:['approve'],blockers:['FLOCK_EVIDENCE_UNAVAILABLE']});
+  const workbench={review:'pending',houseCode:'HA',date:'2026-11-10'};
+  const review=(await api(2,'get','/documents/search').query(workbench).expect(200)).body.data;
+  expect(review.items.map((row:{id:string})=>row.id)).toEqual([own,approved,oldest]);
+  expect((await api(4,'get','/documents/search').query(workbench).expect(200)).body.data.items).toEqual([]);
+  expect((await api(2,'get',`/documents/${approved}`).expect(200)).body.data).toMatchObject({allowedActions:[],nextAction:'post'});
+  expect((await api(2,'get',`/documents/${own}`).expect(200)).body.data).toMatchObject({allowedActions:[],blockers:['FLOCK_SELF_APPROVAL']});
+ });
+ it('paginates same-timestamp and same-millisecond documents without leaking sibling scope or action eligibility',async()=>{
+  const ids=Array.from({length:11},(_,i)=>`30000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`);
+  await db.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,status,created_by,created_at)
+    VALUES ($1,'same-ts-1','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','keeper','2026-11-11T01:00:00.123452Z'),
+      ($2,'same-ts-2','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','keeper','2026-11-11T01:00:00.123453Z'),
+      ($3,'high','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','keeper','2026-11-11T01:00:00.123453Z'),
+      ($4,'sibling','hash','MORTALITY','CA','A2','SA2','HX','FX','2026-11-10','{}','SUBMITTED','keeper','2026-11-11T01:00:00.123454Z'),
+      ($5,'transfer','hash','TRANSFER','CA','A','SA','HA','FA','2026-11-10','{"targetHouseCode":"HX"}','SUBMITTED','keeper','2026-11-11T01:00:00.123455Z'),
+      ($6,'special','hash','ADJUST','CA','A','SA','HA','FA','2026-11-10','{}','SUBMITTED','keeper','2026-11-11T01:00:00.123456Z'),
+      ($7,'post-current','hash','REPORT_CORRECTION','CA','A','SA','HA','FA','2026-11-10','{}','APPROVED','keeper','2026-11-11T01:00:00.123456Z'),
+      ($8,'submit-foreign','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{}','DRAFT','reviewer','2026-11-11T01:00:00.123456Z'),
+      ($9,'ordinary-post-after-transfer','hash','MORTALITY','CA','A','SA','HA','FA','2026-11-10','{"quantity":120,"expectedVersion":99}','APPROVED','keeper','2026-11-11T01:00:00.123457Z'),
+      ($10,'admit-origin-post','hash','ADMIT','CA','A','SA','HA','F10','2026-11-10','{"sourceKind":"INTERNAL","sourceFarmCode":"A2"}','APPROVED','keeper','2026-11-11T01:00:00.123458Z'),
+      ($11,'admit-origin-approve','hash','ADMIT','CA','A','SA','HA','F11','2026-11-10','{"sourceKind":"INTERNAL","sourceFarmCode":"A2"}','SUBMITTED','keeper','2026-11-11T01:00:00.123459Z')`,ids);
+  await db.query(`INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
+    VALUES('FA','CA','A2','SA2','HX',100,'2026-11-10','2026-11-10')`);
+  const filters={kind:'MORTALITY',status:'SUBMITTED',houseCode:'HA',limit:1};
+  const getPage=async(cursor?:string)=>(await api(2,'get','/documents/search').query({...filters,...(cursor?{cursor}:{})}).expect(200)).body.data;
+  const first=await getPage();
+  const second=await getPage(first.nextCursor);
+  const third=await getPage(second.nextCursor);
+  expect([first,second,third].map(page=>page.items[0].id)).toEqual([ids[2],ids[1],ids[0]]);
+  expect(third.nextCursor).toBeNull();
+  await api(2,'get','/documents/search').query({...filters,houseCode:'HX',cursor:first.nextCursor}).expect(400);
+  await api(2,'get','/documents/search').query({id:'partial'}).expect(400);
+  const sourceView=await api(2,'get','/documents/search').query({id:ids[4],targetHouseCode:'HX'}).expect(200);
+  expect(sourceView.body.data.items).toMatchObject([{id:ids[4],payload:{targetHouseCode:'HX'}}]);
+  expect((await api(4,'get','/documents/search').query({id:ids[4],targetHouseCode:'HX'}).expect(200)).body.data.items).toEqual([]);
+  await api(4,'get',`/documents/${ids[4]}`).expect(403);
+  expect((await api(2,'get','/inbox').query({action:'approve'}).expect(200)).body.data.items.map((row:{id:string})=>row.id)).toEqual([ids[10],ids[2],ids[1],ids[0]]);
+  expect((await api(3,'get','/inbox').query({action:'post',kind:'ADMIT'}).expect(200)).body.data.items).toEqual([]);
+  expect((await api(6,'get','/inbox').query({action:'post',kind:'ADMIT'}).expect(200)).body.data.items).toMatchObject([{id:ids[9],nextAction:'post'}]);
+  expect((await api(3,'get',`/documents/${ids[9]}`).expect(200)).body.data).toMatchObject({allowedActions:[],blockers:['FLOCK_REQUIRED_HOUSE_SCOPE']});
+  expect((await api(2,'get','/inbox').query({action:'approve',mine:true}).expect(200)).body.data.items).toEqual([]);
+  expect((await api(3,'get','/inbox').query({action:'post',kind:'REPORT_CORRECTION'}).expect(200)).body.data.items).toEqual([]);
+  const outsideBalance=(await api(3,'get','/inbox').query({action:'post',kind:'MORTALITY'}).expect(200)).body.data.items;
+  expect(outsideBalance).toMatchObject([{id:ids[8],blockers:['FLOCK_OWNERSHIP_CHANGED']}]);
+  expect((await api(3,'get',`/documents/${ids[8]}`).expect(200)).body.data).toMatchObject({blockers:['FLOCK_OWNERSHIP_CHANGED']});
+  await db.query("UPDATE brd_flock_balances SET quantity=150,version=99,closed_on=NULL WHERE flock_no='FA'");
+  expect((await api(3,'get',`/documents/${ids[8]}`).expect(200)).body.data).toMatchObject({blockers:['FLOCK_OWNERSHIP_CHANGED']});
+  expect((await api(3,'get',`/documents/${ids[6]}`).expect(200)).body.data).toMatchObject({allowedActions:[],blockers:['FLOCK_REQUIRED_HOUSE_SCOPE']});
+  expect((await api(1,'get','/inbox').query({action:'submit'}).expect(200)).body.data.items).toMatchObject([{id:ids[7]}]);
+  expect((await api(5,'get','/inbox').expect(200)).body.data.items).toEqual([]);
+ });
+ it('looks up a report beyond the legacy window and binds checksums to the exact historical occupancy and shift',async()=>{
+  const oa='40000000-0000-0000-0000-000000000001';
+  const ox='40000000-0000-0000-0000-000000000002';
+  const open='40000000-0000-0000-0000-000000000003';
+  await db.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,status,created_by)
+    VALUES($1,'opening','hash','BASELINE','CA','A','SA','HA','FA','2025-01-01','{}','POSTED','keeper')`,[open]);
+  await db.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,ended_on,opened_document_id,capacity_snapshot)
+    VALUES($1,'FA','HA','CA','A','SA','2025-01-01','2026-11-10',$3,200),($2,'FA','HX','CA','A2','SA2','2026-11-10',NULL,$3,200)`,[oa,ox,open]);
+  const [old]=await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,occupancy_id)
+    VALUES('FA','HA','2025-01-01','EARLY',$1) RETURNING id`,[oa]);
+  await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,occupancy_id)
+    SELECT 'FA','HA','2025-01-01'::date+i,'DAILY',$1 FROM generate_series(1,505) i`,[oa]);
+  await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,occupancy_id)
+    VALUES('FA','HA','2025-01-01','LATE',$1),('FA','HX','2026-11-11','DAILY',NULL)`,[oa]);
+  const legacy=(await api(1,'get','/reports').expect(200)).body.data;
+  expect(legacy).toHaveLength(500);
+  expect(legacy.some((row:{id:number})=>row.id===old.id)).toBe(false);
+  const exact={houseCode:'HA',date:'2025-01-01',flockNo:'FA',shift:'EARLY',occupancyId:oa,id:old.id};
+  const result=(await api(1,'get','/reports/search').query(exact).expect(200)).body.data;
+  expect(result).toMatchObject({nextCursor:null,hasHouseDayReports:true,items:[{id:old.id,shift:'EARLY',occupancy_id:oa,report_hash:expect.stringMatching(/^[a-f0-9]{64}$/)}]});
+  const daily={houseCode:'HA',date:'2025-01-01',limit:1};
+  const page=(await api(1,'get','/reports/search').query(daily).expect(200)).body.data;
+  expect(page.items[0].shift).toBe('LATE');
+  expect((await api(1,'get','/reports/search').query({...daily,cursor:page.nextCursor}).expect(200)).body.data.items).toEqual(result.items);
+  expect((await api(4,'get','/reports/search').query(exact).expect(200)).body.data).toEqual({items:[],nextCursor:null});
+  expect((await api(4,'get','/reports/search').query({houseCode:'HX',date:'2026-11-11'}).expect(200)).body.data).toEqual({items:[],nextCursor:null,hasHouseDayReports:true});
+  expect((await api(1,'get','/occupancies/search').query({flockNo:'FA',date:'2026-11-09'}).expect(200)).body.data.items).toMatchObject([{occupancy_id:oa}]);
+  expect((await api(1,'get','/occupancies/search').query({flockNo:'FA',date:'2026-11-10'}).expect(200)).body.data.items).toEqual([]);
+  expect((await api(4,'get','/occupancies/search').query({id:ox,date:'2026-11-10'}).expect(200)).body.data.items).toMatchObject([{occupancy_id:ox}]);
+  const held='40000000-0000-0000-0000-000000000004';
+  await db.query(`INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
+    VALUES('FA','CA','A2','SA2','HX',10,'2025-01-01','2026-11-10')`);
+  await db.query(`INSERT INTO brd_flock_held_balances(id,flock_no,company_code,farm_code,house_code,position_code,quantity,document_id)
+    VALUES($1,'FA','CA','A','HA','fixture-position',10,$2)`,[held,open]);
+  const closeFromOldHouse=()=>api(1,'get',`/occupancies/${oa}/close-preview`).query({businessDate:'2026-11-09'}).expect(200);
+  expect((await closeFromOldHouse()).body.data).toEqual({blockers:['FLOCK_OWNERSHIP_CHANGED']});
+  expect((await api(4,'get',`/occupancies/${ox}/close-preview`).query({businessDate:'2026-11-11'}).expect(200)).body.data)
+    .toEqual({blockers:['FLOCK_CLOSE_NONZERO_BALANCE']});
+  await db.query("UPDATE brd_flock_balances SET quantity=0,closed_on='2026-11-11' WHERE flock_no='FA'");
+  expect((await closeFromOldHouse()).body.data).toEqual({blockers:['FLOCK_OWNERSHIP_CHANGED']});
+  const delivery=`/held/${held}/delivery-blockers`;
+  expect((await api(1,'get',delivery).query({businessDate:'2026-11-11'}).expect(200)).body.data)
+    .toEqual({blocked:true,reason:'FLOCK_REQUIRED_HOUSE_SCOPE'});
+  await api(4,'get',delivery).query({businessDate:'2026-11-11'}).expect(404);
  });
 });

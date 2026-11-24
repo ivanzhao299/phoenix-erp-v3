@@ -15,6 +15,7 @@ import { FlockActor, FlockLifecycleService } from './flock-lifecycle.service';
 import {FarmService,OrgScope} from './farm.service';
 import {OrgOwnershipService} from '../org/services/org-ownership.service';
 import { lifecycleDailyBalance } from './flock-lifecycle-daily';
+import { readFlockCycle, readFlockCycleCare } from './flock-cycle';
 
 const url=process.env.FLOCK_LEDGER_PG_URL;
 const suite=url?describe:describe.skip;
@@ -60,8 +61,14 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
       CREATE TABLE IF NOT EXISTS brd_daily_logs(id serial PRIMARY KEY,house_code text,flock_no text,log_date date,shift text,
         mortality_qty integer DEFAULT 0,elimination_qty integer DEFAULT 0,opening_qty int,closing_qty int,eggs_produced int DEFAULT 0,lay_rate numeric,eggs_by_grade jsonb);`);
     await ds.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int,ADD COLUMN IF NOT EXISTS farm_name text,ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS source_farm text;
       ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text;ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_by_grade jsonb,ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS farm_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS feed_consumed numeric,ADD COLUMN IF NOT EXISTS water_consumed numeric,ADD COLUMN IF NOT EXISTS note text,ADD COLUMN IF NOT EXISTS dirty_eggs integer,ADD COLUMN IF NOT EXISTS broken_eggs integer,ADD COLUMN IF NOT EXISTS business_date date,ADD COLUMN IF NOT EXISTS operator text;
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_fixture_daily_report ON brd_daily_logs(log_date,house_code,shift);
       CREATE TABLE IF NOT EXISTS inv_batches(batch_no text PRIMARY KEY,quality_grade text,qty numeric);
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS grade_code_std text,ADD COLUMN IF NOT EXISTS source_type text,
+        ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS egg_date date,ADD COLUMN IF NOT EXISTS collection_batch_ref text;
+      CREATE TABLE IF NOT EXISTS production_cutover_scopes(
+        company_code text,house_code text,first_production_date date,state text);
       CREATE TABLE IF NOT EXISTS product_grades(grade_code text PRIMARY KEY,is_saleable boolean,status text);
       CREATE TABLE IF NOT EXISTS mon_device_property_history(erp_house_code text,property_code text,value numeric,collect_time bigint,log_date date);
       CREATE TABLE IF NOT EXISTS mon_device_realtime_snapshot(erp_house_code text,property_code text,value numeric,collect_time bigint);
@@ -70,7 +77,7 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     s=new FlockLifecycleService(ds.manager);
   });
   beforeEach(async()=>{
-    await ds.query(`TRUNCATE inv_batches,product_grades,mon_device_property_history,mon_device_realtime_snapshot,mon_device_property_daily_agg,brd_flock_admission_receipts,prc2_suppliers,brd_flock_activity_sources,brd_flock_sales_settlements,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,file_metadata,sal_customers,brd_flock_document_audits,brd_flock_events,brd_flock_held_balances,brd_flock_house_states,
+    await ds.query(`TRUNCATE production_cutover_scopes,inv_batches,product_grades,mon_device_property_history,mon_device_realtime_snapshot,mon_device_property_daily_agg,brd_flock_admission_receipts,prc2_suppliers,brd_flock_activity_sources,brd_flock_sales_settlements,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,file_metadata,sal_customers,brd_flock_document_audits,brd_flock_events,brd_flock_held_balances,brd_flock_house_states,
       brd_flock_daily_balances,brd_flock_balances,brd_flock_occupancies,brd_flock_documents,brd_daily_logs,brd_flocks,brd_houses,brd_farms CASCADE;
       INSERT INTO brd_farms(farm_code,company_code,mapped_site_code,status) VALUES('A','CA','SA','ACTIVE'),('B','CB','SB','ACTIVE'),('A2','CA','SA2','ACTIVE');
       INSERT INTO brd_houses(house_code,house_name,farm_code,max_capacity,status) VALUES('HA','house A','A',200,'ACTIVE'),('HA2','house A2','A',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE'),('HX','other site','A2',200,'ACTIVE');
@@ -166,7 +173,7 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
       SELECT 'FA','HA','2026-11-11','DAILY',50,'{"GRADE_1":50}',id FROM brd_flock_occupancies WHERE flock_no='FA'`);
     const [r]=await s.reports(scope);const correction={eggsByGrade:{GRADE_1:10},feedConsumed:0,waterConsumed:0,notes:''};
     const d=await create({kind:'REPORT_CORRECTION',flockNo:'FA',businessDate:r.log_date,dailyLogId:Number(r.id),expectedReportHash:r.report_hash,correction});
-    await ds.query("INSERT INTO inv_batches VALUES('SRC','GRADE_1',40)");
+    await ds.query("INSERT INTO inv_batches(batch_no,quality_grade,qty) VALUES('SRC','GRADE_1',40)");
     await ds.query(`INSERT INTO inv_flock_source_links(id,batch_no,origin_batch_no,daily_log_id,occupancy_id,flock_no,house_code,company_code,production_date,source_key,source_input_qty,batch_output_qty,allocated_output_qty,precision,source_profile_snapshot)
       VALUES('REPORT-LINK','SRC','SRC',$1,$2,'FA','HA','CA','2026-11-11','TEMP:SRC',40,40,40,'EXACT','{}')`,[r.id,r.occupancy_id]);
     await expect(post(d)).rejects.toThrow('少于已接收');expect((await ds.query('SELECT eggs_produced FROM brd_daily_logs'))[0].eggs_produced).toBe(50);expect((await bal()).version).toBe(0);
@@ -263,6 +270,23 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     const [held]=await ds.query('SELECT * FROM brd_flock_held_balances');expect(held.quantity).toBe(10);
     await post(await create({kind:'SELL_HELD',customerCode:'CUST',currencyCode:'CNY',unitPrice:10,receiver:'customer-witness',flockNo:'FA',quantity:6,heldId:held.id,salesRef:'DISPATCH-1',expectedHeldVersion:0,expectedVersion:2,businessDate:'2026-11-13'}));
     expect((await bal()).quantity).toBe(85);expect((await ds.query('SELECT quantity FROM brd_flock_held_balances'))[0].quantity).toBe(4);
+  });
+  it('rejects unsupported sale precision or a zero settlement and posts a reproducible receipt after close',async()=>{
+    await baseline();
+    await post(await create({kind:'CULL',flockNo:'FA',quantity:10,positionCode:'P1',businessDate:'2026-11-11'}));
+    await post(await create({kind:'ADJUST',flockNo:'FA',quantity:-90,expectedVersion:1,businessDate:'2026-11-11'}));
+    await post(await create({kind:'CLOSE',flockNo:'FA',expectedVersion:2,businessDate:'2026-11-11'}));
+    const [held]=await ds.query('SELECT id FROM brd_flock_held_balances');
+    const sale={kind:'SELL_HELD',customerCode:'CUST',currencyCode:'CNY',receiver:'customer-witness',flockNo:'FA',quantity:6,
+      heldId:held.id,salesRef:'DISPATCH-1',expectedHeldVersion:0,expectedVersion:3,businessDate:'2026-11-12'};
+    await expect(create({...sale,unitPrice:1.2345678})).rejects.toThrow('六位小数');
+    await expect(create({...sale,unitPrice:0.000001})).rejects.toThrow('结算金额');
+    const doc=await post(await create({...sale,unitPrice:1.234567}));
+    expect((await s.detail(doc.id,scope)).settlement).toMatchObject({
+      quantity:6,unit_price:'1.234567',amount:'7.41',currency_code:'CNY',finance_status:'PENDING_FINANCE',
+    });
+    expect(await ds.query('SELECT quantity,version FROM brd_flock_held_balances')).toEqual([{quantity:4,version:1}]);
+    expect(await bal()).toMatchObject({quantity:0});
   });
   it('serializes conflicting operators and rejects stale balance, negative/decimal/overdraw',async()=>{
     await baseline();
@@ -437,6 +461,58 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     expect((await ds.query("SELECT mortality_qty FROM brd_daily_logs WHERE house_code='HA2'"))[0].mortality_qty).toBe(0);
     expect((await ds.query("SELECT house_code FROM brd_flock_events WHERE kind='MORTALITY'"))[0].house_code).toBe('HA');
   });
+  it.each(['first report','approved supplement'])('retains transfer-day losses at the originating occupancy through %s and rebuild',async(path)=>{
+    await baseline();await clean('HA2');
+    const death=await post(await create({kind:'MORTALITY',flockNo:'FA',quantity:10,disposalMethod:'dispose',receiver:'vet',businessDate:'2026-11-11'}));
+    await post(await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2',expectedVersion:1,businessDate:'2026-11-11'}));
+    const farm=new FarmService(ds.manager,new OrgOwnershipService(ds.manager));
+    const getTarget=async()=> (await ds.query("SELECT mortality_qty,elimination_qty,closing_qty FROM brd_daily_logs WHERE house_code='HA2'"))[0];
+    const reportsBefore=await farm.getDailyHenReport('2026-11-11',scope);
+    expect(reportsBefore.rows.find((r:any)=>r.house_code==='HA')).toMatchObject({
+      balance_status:'ENDED_OCCUPANCY',has_daily_log:false,mortality:10,elimination:0,
+    });
+    if(path==='first report'){
+      await farm.submitBreedingDailyLog({house_code:'HA2',flock_no:'FA',log_date:'2026-11-11',eggs_by_grade:{GRADE_1:10}},scope);
+    } else {
+      await post(await create({kind:'REPORT_CORRECTION',houseCode:'HA2',flockNo:'FA',businessDate:'2026-11-11',expectedVersion:2,
+        dailyLogId:0,expectedReportHash:'ABSENT',correction:{eggsByGrade:{GRADE_1:10},feedConsumed:null,waterConsumed:null,notes:'Signed supplement'}}));
+    }
+    expect(await getTarget()).toEqual({mortality_qty:0,elimination_qty:0,closing_qty:90});
+    const current=await bal();
+    const reportsAfter=await farm.getDailyHenReport('2026-11-11',scope);
+    expect(reportsAfter.rows.find((r:any)=>r.house_code==='HA2')).toMatchObject({has_daily_log:true,mortality:0,elimination:0,current_qty:90});
+    expect(reportsAfter.totals).toMatchObject({mortality:10,elimination:0,current_qty:90});
+    expect(await ds.query("SELECT mortality_qty,elimination_qty,closing_qty FROM brd_flock_daily_balances WHERE balance_date='2026-11-11'"))
+      .toEqual([{mortality_qty:10,elimination_qty:0,closing_qty:90}]);
+    await post(await create({kind:'REVERSE',flockNo:'FA',originalDocumentId:death.id,expectedVersion:current.version,businessDate:'2026-11-12',
+      replacementKind:'CULL',replacementQuantity:10,positionCode:'P1'}));
+    expect(await getTarget()).toEqual({mortality_qty:0,elimination_qty:0,closing_qty:90});
+    expect(await ds.query("SELECT mortality_qty,elimination_qty,closing_qty FROM brd_flock_daily_balances WHERE balance_date='2026-11-11'"))
+      .toEqual([{mortality_qty:0,elimination_qty:10,closing_qty:90}]);
+    const rebuilt=await farm.getDailyHenReport('2026-11-11',scope);
+    expect(rebuilt.rows.find((r:any)=>r.house_code==='HA')).toMatchObject({mortality:0,elimination:10});
+    expect(rebuilt.rows.find((r:any)=>r.house_code==='HA2')).toMatchObject({mortality:0,elimination:0,current_qty:90});
+    expect(rebuilt.totals).toMatchObject({mortality:0,elimination:10,current_qty:90});
+  });
+  it('combines event-only and formal shifts with more than 200 legacy house reports in the day summary',async()=>{
+    await baseline();
+    await ds.query(`INSERT INTO sys_dict(dict_type,dict_code,dict_label_zh,dict_label_en,sort_no,status)
+      VALUES('PRODUCTION_REPORT_SHIFT','AM','早班','AM',1,'ACTIVE'),('PRODUCTION_REPORT_SHIFT','PM','晚班','PM',2,'ACTIVE') ON CONFLICT DO NOTHING;
+      INSERT INTO production_cutover_scopes VALUES('CA','HA','2026-11-11','ACTIVE');
+      INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,company_code,mortality_qty,elimination_qty)
+      SELECT 'LEGACY-'||n,'HOUSE-'||n,'2026-11-11','DAILY','CA',1,0 FROM generate_series(1,201) n`);
+    const farm=new FarmService(ds.manager,new OrgOwnershipService(ds.manager));
+    await post(await create({kind:'CULL',flockNo:'FA',quantity:3,positionCode:'P1',businessDate:'2026-11-11'}));
+    const eventOnly=await farm.getDailyHenReport('2026-11-11',scope);
+    expect(eventOnly.rows.find((r:any)=>r.house_code==='HA')).toMatchObject({elimination:3,has_daily_log:false});
+    const body={house_code:'HA',flock_no:'FA',log_date:'2026-11-11',eggs_by_grade:{GRADE_1:5,DIRTY:0,BROKEN:0}};
+    for(const shift of ['AM','PM']) await farm.submitBreedingDailyLog({...body,shift},scope);
+    expect(await ds.query("SELECT mortality_qty,elimination_qty FROM brd_daily_logs WHERE flock_no='FA'"))
+      .toEqual([{mortality_qty:0,elimination_qty:0},{mortality_qty:0,elimination_qty:0}]);
+    const summary=await farm.getDailyHenReport('2026-11-11',scope);
+    expect(summary.rows.find((r:any)=>r.house_code==='HA')).toMatchObject({elimination:3,eggs:10,has_daily_log:true});
+    expect(summary.totals).toMatchObject({current_qty:97,logged_houses:202,mortality:201,elimination:3,total_loss:204});
+  });
   it('serializes a witnessed transfer racing a historical correction at the same flock version',async()=>{
     await baseline();await clean('HA2');
     const death=await post(await create({kind:'MORTALITY',flockNo:'FA',quantity:10,disposalMethod:'dispose',receiver:'vet',businessDate:'2026-11-11'}));
@@ -465,6 +541,53 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     expect((await ds.query("SELECT current_qty,status FROM brd_flocks WHERE flock_no='FA'"))[0]).toEqual({current_qty:0,status:'RETIRED'});
     expect(await count('brd_flock_occupancies')).toBe(2);
     expect(await ds.query('SELECT capacity_snapshot FROM brd_flock_occupancies WHERE flock_no=$1',[next.flock_no])).toEqual([{capacity_snapshot:80}]);
+  });
+  it('rejects new ordinary drafts after close and preserves successful replays without another create audit',async()=>{
+    await baseline();
+    const loss={kind:'MORTALITY',sourceKey:'original-loss',flockNo:'FA',quantity:100,disposalMethod:'confirmed',receiver:'vet',businessDate:'2026-11-11'};
+    const original=await post(await create(loss));
+    await post(await create({kind:'CLOSE',flockNo:'FA',expectedVersion:1,businessDate:'2026-11-11'}));
+    const audits=await count('brd_flock_document_audits');
+    await expect(create({...loss,sourceKey:'new-loss',expectedVersion:2,currencyCode:'CNY'}))
+      .rejects.toMatchObject({response:{code:'FLOCK_ALREADY_CLOSED'}});
+    await expect(create({...loss,quantity:99})).rejects.toThrow('幂等');
+    await ds.query("UPDATE file_metadata SET status='INACTIVE' WHERE file_id='FILE-fixture'");
+    expect(await create(loss)).toMatchObject({id:original.id,status:'POSTED'});
+    expect(await count('brd_flock_document_audits')).toBe(audits);
+
+    await ds.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,created_by)
+      SELECT 'old-closed-draft','old-closed-draft',content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,created_by
+      FROM brd_flock_documents WHERE id=$1`,[original.id]);
+    await expect(s.transition('old-closed-draft','submit',0,scope,admin)).rejects.toMatchObject({response:{code:'FLOCK_ALREADY_CLOSED'}});
+    await s.transition('old-closed-draft','cancel',0,scope,admin);
+  });
+  it('serializes close posting with ordinary creation and preserves the other close draft as a blocker',async()=>{
+    await baseline();
+    await post(await create({kind:'CULL',flockNo:'FA',quantity:100,positionCode:'P1',businessDate:'2026-11-11'}));
+    const close=await create({kind:'CLOSE',flockNo:'FA',expectedVersion:1,businessDate:'2026-11-11'});
+    await s.transition(close.id,'submit',0,scope,admin);
+    await s.transition(close.id,'approve',1,scope,approver);
+    const other=await create({kind:'CLOSE',flockNo:'FA',expectedVersion:1,businessDate:'2026-11-11'});
+    await expect(s.transition(close.id,'post',2,scope,admin)).rejects.toMatchObject({response:{code:'FLOCK_OPEN_DOCUMENTS'}});
+    await s.transition(other.id,'cancel',0,scope,admin);
+
+    const [closing,creating]=await Promise.allSettled([
+      s.transition(close.id,'post',2,scope,admin),
+      create({kind:'MORTALITY',sourceKey:'racing-loss',flockNo:'FA',quantity:1,expectedVersion:1,
+        disposalMethod:'confirmed',receiver:'vet',businessDate:'2026-11-11'}),
+    ]);
+    if(creating.status==='fulfilled'){
+      expect(closing).toMatchObject({status:'rejected',reason:{response:{code:'FLOCK_OPEN_DOCUMENTS'}}});
+      expect((await bal()).closed_on).toBeNull();
+      await s.transition(creating.value.id,'cancel',0,scope,admin);
+      await s.transition(close.id,'post',2,scope,admin);
+    }else{
+      expect(closing.status).toBe('fulfilled');
+      expect(creating).toMatchObject({reason:{response:{code:'FLOCK_ALREADY_CLOSED'}}});
+      expect(await ds.query("SELECT id FROM brd_flock_documents WHERE source_key='racing-loss'")).toHaveLength(0);
+    }
+    expect((await bal()).closed_on).not.toBeNull();
+    expect(await ds.query("SELECT id FROM brd_flock_events WHERE kind='CLOSE'")).toHaveLength(1);
   });
   it('reverses once and replays historical daily balances; facts cannot be edited',async()=>{
     await baseline();
@@ -518,8 +641,12 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await authorize('oct-death');const original=await post(await create({kind:'MORTALITY',sourceKey:'oct-death',flockNo:'FA',quantity:10,disposalMethod:'verified disposal',receiver:'vet',businessDate:'2026-10-21'}));
     const reversal=await create({kind:'REVERSE',flockNo:'FA',originalDocumentId:original.id,expectedVersion:1,businessDate:'2026-11-13',sourceKey:'real-reversal'});
     await expect(post(reversal)).rejects.toThrow('影响期间');expect((await bal()).quantity).toBe(90);
-    await authorize('unrelated-source');await expect(s.transition(reversal.id,'post',2,scope,admin)).rejects.toThrow('影响期间');
-    await authorize('real-reversal');await s.transition(reversal.id,'post',2,scope,admin);expect((await bal()).quantity).toBe(100);
+    const unrelated=await authorize('unrelated-source');
+    expect((await s.detail(unrelated.id,scope)).authorized_document_id).toBeNull();
+    await expect(s.transition(reversal.id,'post',2,scope,admin)).rejects.toThrow('影响期间');
+    const authorization=await authorize('real-reversal');
+    expect((await s.detail(authorization.id,scope)).authorized_document_id).toBe(reversal.id);
+    await s.transition(reversal.id,'post',2,scope,admin);expect((await bal()).quantity).toBe(100);
   });
   it('preserves original activity location and rejects a backdated fact from before the current occupancy',async()=>{
     await baseline();await clean('HA2');await post(await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2',businessDate:'2026-11-11'}));
@@ -535,7 +662,7 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
       CREATE TABLE IF NOT EXISTS pkg_grading_source_links(grading_id int,source_batch_id int,input_qty int);
       CREATE TABLE IF NOT EXISTS pkg_packing_records(code text PRIMARY KEY,grading_code text,grading_codes_json jsonb,is_test boolean);
       TRUNCATE inv_batches,pkg_source_batches,pkg_grading_records,pkg_grading_source_links,pkg_packing_records;
-      INSERT INTO inv_batches VALUES('SOURCE','GRADE_1',50),('CHILD','GRADE_1',20);
+      INSERT INTO inv_batches(batch_no,quality_grade,qty) VALUES('SOURCE','GRADE_1',50),('CHILD','GRADE_1',20);
       INSERT INTO pkg_source_batches VALUES(1,'HA','FA',50,'2026-11-11','2026-11-11',false);
       INSERT INTO pkg_grading_records VALUES(1,'G1',false);INSERT INTO pkg_grading_source_links VALUES(1,1,50);
       INSERT INTO pkg_packing_records VALUES('PKG-1','G1','["G1"]',false);
@@ -546,8 +673,60 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await ds.transaction(m=>inheritFlockProductionSources(m,'SOURCE','CHILD',20));
     const links=await ds.query('SELECT batch_no,flock_no,occupancy_id,allocated_output_qty,precision FROM inv_flock_source_links ORDER BY batch_no');
     expect(links).toMatchObject([{batch_no:'CHILD',flock_no:'FA',allocated_output_qty:null,precision:'INHERITED'},{batch_no:'SOURCE',flock_no:'FA',precision:'EXACT'}]);
-    await expect(ds.transaction(async m=>{await m.query("INSERT INTO inv_batches VALUES('BAD','GRADE_1',50)");await recordFlockProductionSources(m,{companyCode:'CA',eggDate:'2026-11-11',qty:50,qualityGrade:'GRADE_1',sourceType:'PACKAGING',packagingBatchRef:'PKG-1'},'BAD',profiles,scope);})).rejects.toThrow('两路重复入账');
+    await expect(ds.transaction(async m=>{await m.query("INSERT INTO inv_batches(batch_no,quality_grade,qty) VALUES('BAD','GRADE_1',50)");await recordFlockProductionSources(m,{companyCode:'CA',eggDate:'2026-11-11',qty:50,qualityGrade:'GRADE_1',sourceType:'PACKAGING',packagingBatchRef:'PKG-1'},'BAD',profiles,scope);})).rejects.toThrow('两路重复入账');
     expect(await ds.query("SELECT * FROM inv_batches WHERE batch_no='BAD'")).toHaveLength(0);expect(await count('brd_egg_source_receipts')).toBe(1);
+  });
+
+  it('reads the archive cycle from posted records and only discloses facts from the authorized scope', async () => {
+    const receivingFarm: OrgScope = { isGlobal: false, farmCode: 'A2', siteCode: null };
+    const sourceFarm: OrgScope = { isGlobal: false, farmCode: 'A', siteCode: null };
+    await expect(readFlockCycle(ds.manager, 'FA', scope)).resolves.toMatchObject({
+      placement_age: null, admitted_quantity: null, current_qty: 100, mortality: null, culled: null,
+    });
+    await ds.query(`INSERT INTO brd_daily_logs (flock_no,house_code,log_date,shift,mortality_qty,elimination_qty,eggs_produced)
+      VALUES ('FA','HA','2026-11-09','DAILY',3,0,20)`);
+    await baseline();
+    await post(await create({ kind: 'MORTALITY', flockNo: 'FA', businessDate: '2026-11-11', quantity: 10, disposalMethod: 'verified', receiver: 'vet' }));
+    await ds.transaction(async m => {
+      const source = await lockManagedActivity(m, 'FA');
+      await recordFlockActivity(m, 'MEDICATION', 'source-care', source, '2026-11-11');
+    });
+    await ds.query("INSERT INTO file_metadata VALUES('FILE-fixture-HX','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HX','CA','SA2','keeper')");
+    await post(await create({ kind: 'CLEAN_START', houseCode: 'HX', expectedHouseVersion: 0, evidence: ['FILE-fixture-HX'] }));
+    await post(await create({ kind: 'CLEAN_ACCEPT', houseCode: 'HX', expectedHouseVersion: 0, evidence: ['FILE-fixture-HX'] }));
+    await post(await create({ kind: 'TRANSFER', flockNo: 'FA', targetHouseCode: 'HX', businessDate: '2026-11-12', expectedVersion: 1 }));
+    await ds.query(`INSERT INTO brd_daily_logs (flock_no,house_code,log_date,shift,mortality_qty,elimination_qty,eggs_produced,occupancy_id)
+      SELECT 'FA','HX','2026-11-13','DAILY',999,0,0,id FROM brd_flock_occupancies WHERE flock_no='FA' AND house_code='HX'`);
+
+    await expect(readFlockCycle(ds.manager, 'FA', scope)).resolves.toMatchObject({
+      house_code: 'HX', current_qty: 90, mortality: '13', culled: '0', admitted_quantity: null, recorded_eggs_for_admitted: null,
+      production: [
+        { date: '2026-11-13', eggs: 0, closing_qty: 90, admitted_quantity: null },
+        { date: '2026-11-09', eggs: 20, closing_qty: null, admitted_quantity: null },
+      ],
+    });
+    await expect(readFlockCycle(ds.manager, 'FA', receivingFarm)).resolves.toMatchObject({
+      house_code: 'HX', current_qty: 90, mortality: '0', report_days: 1,
+      production: [{ date: '2026-11-13', eggs: 0, closing_qty: null, admitted_quantity: null }],
+    });
+    await expect(readFlockCycle(ds.manager, 'FA', sourceFarm)).rejects.toThrow('不存在或不可见');
+    await expect(readFlockCycleCare(ds.manager, 'FA', receivingFarm)).resolves.toEqual([]);
+    await expect(readFlockCycleCare(ds.manager, 'FA', sourceFarm)).resolves.toEqual([
+      { activity_type: 'MEDICATION', activity_id: 'source-care', house_code: 'HA', business_date: '2026-11-11' },
+    ]);
+  });
+
+  it('keeps the original admission receipt and zero-day age as the denominator for flock reports', async () => {
+    await clean('HA2');
+    const document = await post(await create({ kind: 'ADMIT', houseCode: 'HA2', quantity: 50, expectedHouseVersion: 1,
+      sourceCode: 'SUPPLIER-1', sourceReceipt: 'CYCLE-ADMISSION', breedCode: 'BREED', placementAge: 0 }));
+    await ds.query(`INSERT INTO brd_daily_logs (flock_no,house_code,log_date,shift,eggs_produced,occupancy_id)
+      SELECT flock_no,'HA2','2026-11-11','DAILY',0,id FROM brd_flock_occupancies WHERE flock_no=$1`, [document.flock_no]);
+    await expect(readFlockCycle(ds.manager, document.flock_no, scope)).resolves.toMatchObject({
+      placement_age: 0, placement_date: '2026-11-10', admission_id: document.id, receipt_reference: 'CYCLE-ADMISSION',
+      admitted_quantity: 50, recorded_eggs_for_admitted: '0', mortality: '0',
+      production: [{ date: '2026-11-11', eggs: 0, closing_qty: 50, admitted_quantity: 50 }],
+    });
   });
 
 });

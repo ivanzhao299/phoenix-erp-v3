@@ -1,290 +1,669 @@
-'use client';
-import EggWithdrawalReviews from '@/components/breeding/EggWithdrawalReviews';
-import {downloadProtectedPdf} from '@/lib/attachments';
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import request,{farmProductionApi} from '@/lib/api-client';
-import {useLanguage} from '@/contexts/LanguageContext';
-import {usePermission} from '@/hooks/usePermission';
-import {DictSelect} from '@/components/shared-selectors/DictSelect';
-import {useDictOptions} from '@/hooks/useDictOptions';
-import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation';
-import {SupplierSelector,CustomerSelector,UserSelector,FarmSelector,GradeSelector} from '@/components/shared-selectors/MasterDataSelectors';
-import {AttachmentUploader} from '@/components/design-system/forms/AttachmentUploader';
-import css from './FlockLifecycle.module.css';
+"use client";
 
-type Row=Record<string,unknown>;
-type Doc=Row&{id:string;kind:string;status:string;version:number;house_code:string;flock_no:string;created_by:string;payload:Row;breed_confirmation_required?:boolean};
-const endpoint='/v3/farm/flock-lifecycle';
-const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
-const kindNames:Record<string,string>={REPORT_CORRECTION:'历史日报更正与补录',TRANSFER_IN:'整群转入',TRANSFER_OUT:'整群转出',REVERSE_MORTALITY:'冲销死亡',REVERSE_CULL:'冲销淘汰',REVERSE_ADJUST:'冲销盘点',BASELINE:'历史实盘接续',ADMIT:'入栏',MORTALITY:'死亡处置',CULL:'淘汰移出待售',SELL_HELD:'待售鸡交付结算',TRANSFER:'整群转舍',ADJUST:'盘点调整',REVERSE:'冲销更正',CLOSE:'关闭鸡群',CLEAN_START:'开始清舍',CLEAN_ACCEPT:'清舍验收',HISTORY_AUTH:'历史期间更正授权'};
-const stateNames:Record<string,string>={DRAFT:'草稿',SUBMITTED:'待审核',APPROVED:'已审核',POSTED:'已过账',CANCELLED:'已取消',OCCUPIED:'在栏',DIRTY:'待清舍',CLEANING:'清舍中',READY:'可入栏'};
-const entryHints: Record<string,string> = {
-  FIRST_CLEAN:'flockEntry.firstClean', DIRTY:'flockEntry.dirty', CLEANING:'flockEntry.cleaning', OCCUPIED:'flockEntry.occupied',
-  HISTORY_REVIEW:'flockEntry.historyReview', INACTIVE:'flockEntry.inactive',
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { ArrowLeft, ClipboardCheck } from "lucide-react";
+import { FlockLifecycleFields, type FlockLifecycleInput } from "./FlockLifecycleFields";
+import {
+  clearFlockCreate, createPendingFlockCreate, flockBusinessToday, flockDay, flockDifferenceKinds, flockEvidenceKinds, flockFormActor, flockFormIdentity,
+  flockFormParams, flockInteger, flockEntryHint, flockLifecycleEndpoint as endpoint, flockCountKinds, flockReverseKinds,
+  flockSettlementPreview, flockSpecialMenus, isFlockLifecycleKind, isFlockLifecyclePage, loadFlockCreate,
+  readyForFlockEntry, retainFlockCreate, shortFlockTasks, type FlockLifecycleDocument, type FlockLifecycleFormContext,
+  type FlockLifecycleKind, type FlockRow, type PendingFlockCreate,
+} from "./flock-lifecycle-form";
+import css from "./FlockLifecycleForm.module.css";
+import { documentIdPattern } from "./breeding/flock-lifecycle-workspace";
+import FlockBreedConfirmation from "@/components/breeding/FlockBreedConfirmation";
+import { DrawerV2, ModalV2, ConfirmDialogV2 } from "@/components/design-system";
+import { AttachmentUploader } from "@/components/design-system/forms/AttachmentUploader";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermission } from "@/hooks/usePermission";
+import request, { type ApiError } from "@/lib/api-client";
+
+export { isFlockLifecyclePage };
+export type { FlockLifecycleDocument, FlockLifecycleFormContext };
+
+interface Props {
+  context: FlockLifecycleFormContext;
+  onClose: () => void;
+  onSaved: (document: FlockLifecycleDocument, originalId?: string) => void;
+  mobile?: boolean;
+}
+
+const str = (value: unknown) => String(value ?? "");
+const formLabelKey = (key: string) => "flockForm." + key;
+
+function useResource<T>(path: string) {
+  const [revision, setRevision] = useState(0);
+  const [result, setResult] = useState<{ key: string; data?: T; error?: string }>();
+  const key = JSON.stringify([path, revision]);
+  useEffect(() => {
+    if (!path) return;
+    const controller = new AbortController();
+    request<{ data: T }>(path, { signal: controller.signal, cache: "no-store", silent: true }).then(
+      ({ data }) => { if (!controller.signal.aborted) setResult({ key, data }); },
+      (error: Error) => { if (!controller.signal.aborted) setResult({ key, error: error.message }); },
+    );
+    return () => controller.abort();
+  }, [key, path]);
+  const current = result?.key === key ? result : undefined;
+  return { ...current, loading: Boolean(path && !current), refresh: () => setRevision(prev => prev + 1) };
+}
+
+interface SearchRows {
+  items: FlockRow[];
+  nextCursor?: string;
+  hasHouseDayReports?: boolean;
+}
+
+interface OriginalDocument extends FlockLifecycleDocument {
+  events?: FlockRow[];
+  reversal?: { already_reversed?: boolean; reclassify_without_changing_quantity?: boolean };
+}
+
+interface Selection {
+  houseCode: string;
+  date: string;
+  flockNo: string;
+  heldId: string;
+  documentId: string;
+  reportId?: string;
+  shift?: string;
+  occupancyId?: string;
+}
+
+const emptyInput: FlockLifecycleInput = {
+  actual: "", sourceKind: "SUPPLIER", sourceCode: "", sourceFarmCode: "", sourceReceipt: "", breedCode: "",
+  placementAge: "", plannedEliminationDate: "", targetHouseCode: "", positionCode: "", salesRef: "",
+  disposalMethod: "", receiver: "", differenceReceipt: "", replacementKind: "", replacementQuantity: "",
+  customerCode: "", currencyCode: "", unitPrice: "", finalProductionStatus: "REPORTED",
+  reason: "", responsible: "", grades: {}, feed: "", water: "", notes: "", evidence: [],
 };
-const readyForEntry=(house: Row)=>house.entry_readiness==='READY'
-  || (house.entry_readiness===undefined && house.status==='ACTIVE' && house.state==='READY' && !house.turnaround_history_review);
-const blank=()=>({finalProductionStatus:'REPORTED',dailyLogId:'0',expectedReportHash:'ABSENT',reportFeed:'',reportWater:'',reportNotes:'',addGrade:'',kind:'MORTALITY',houseCode:'',flockNo:'',businessDate:today(),quantity:'',reason:'',responsible:'',
-  sourceKind:'SUPPLIER',sourceFarmCode:'',sourceReceipt:'',sourceCode:'',breedCode:'',placementAge:'',plannedEliminationDate:'',targetHouseCode:'',positionCode:'',heldId:'',salesRef:'',
-  disposalMethod:'',receiver:'',differenceReceipt:'',periodApprovalRef:'',originalDocumentId:'',replacementKind:'',replacementQuantity:'',
-  customerCode:'',currencyCode:'',unitPrice:'',periodFrom:'',periodTo:'',authorizedSourceKey:''});
-function specificFields(detail:Row):Record<string,unknown>{
-  const p=detail.payload as Row;const type=String(detail.kind);
-  const byType:Record<string,Record<string,unknown>>={
-    BASELINE:{实盘数量:p.quantity,核对时系统旧余额:p.expectedLegacyQty,实际责任人:p.responsible,差异处理回执:p.differenceReceipt},
-    ADMIT:{来源类型:p.sourceKind==='INTERNAL'?'内部育成交接':'外购供应商',来源供应商:p.sourceCode,内部来源农场:p.sourceFarmCode,实际交接单号:p.sourceReceipt,遗传品种:p.breedCode,入栏日龄:p.placementAge,计划淘汰日期:p.plannedEliminationDate},
-    MORTALITY:{处置方式:p.disposalMethod,接收确认人:p.receiver,实际责任人:p.responsible},
-    CULL:{待售实际安置位置:p.positionCode,实际责任人:p.responsible},
-    SELL_HELD:{待售批次:p.heldId,客户:p.customerCode,币种:p.currencyCode,每羽单价:p.unitPrice,交付结算金额:Number(p.unitPrice)*Number(p.quantity),客户签收人:p.receiver,客户签收回执:p.salesRef,财务处理:'待财务审核入账；此单不表示已经收款'},
-    TRANSFER:{转出鸡舍:detail.house_code,目标空舍:p.targetHouseCode,数量口径:'过账时全群余额，不支持部分转入或混群'},
-    REVERSE:{原过账单:p.originalDocumentId,重记类型:kindNames[String(p.replacementKind)]??'不重记',重记数量或差额:p.replacementQuantity,更正待售去向:p.positionCode,更正处置方式:p.disposalMethod,更正接收人:p.receiver,差异处理回执:p.differenceReceipt},
-    ADJUST:{实际盘点差额:p.quantity,责任人:p.responsible,差异处理回执:p.differenceReceipt},
-    CLOSE:{关闭条件:'存栏归零、未完业务/免疫及疗程休药处理完成'},
-    CLEAN_START:{工作依据:p.reason},CLEAN_ACCEPT:{验收人:p.responsible,验收依据:p.reason},
-    HISTORY_AUTH:{受影响原日期起:p.periodFrom,受影响原日期止:p.periodTo,绑定更正业务来源:p.authorizedSourceKey},
-  };
-  return byType[type]??{};
-}
-export default function FlockLifecycle(){
-  const {user}=usePermission('MENU_FARM_DATA');
-  return <ActorLifecycle key={String(user.userId??user.id??user.username??'')}/>;
-}
-function ActorLifecycle(){
-  const {t}=useLanguage();
-  const access=usePermission('MENU_FARM_DATA');
-  const [confirmFlockNo,setConfirmFlockNo]=useState('');
-  const {optionPairs:breedOptions,loading:breedsLoading}=useDictOptions('BRD_BREED');
-  const [review,setReview]=useState<{house:string;date:string}|null>(null);
-  const vetAccess=usePermission('MENU_FARM_VET');
-  const cleanAccess=usePermission('MENU_FLOCK_CLEAN');
-  const createAccess=usePermission('MENU_FLOCK_CREATE');const approveAccess=usePermission('MENU_FLOCK_APPROVE');const postAccess=usePermission('MENU_FLOCK_POST');
-  const [houses,setHouses]=useState<Row[]>([]),[balances,setBalances]=useState<Row[]>([]),[held,setHeld]=useState<Row[]>([]),[legacy,setLegacy]=useState<Row[]>([]);
-  const [occupancies,setOccupancies]=useState<Row[]>([]);
-  const [reports,setReports]=useState<Row[]>([]),[reportGrades,setReportGrades]=useState<Record<string,string>>({});
-  const [care,setCare]=useState<{plans:Row[];medications:Row[]}>({plans:[],medications:[]});
-  const [docs,setDocs]=useState<Doc[]>([]),[form,setForm]=useState(blank),[evidence,setEvidence]=useState<string[]>([]);
-  const [previewUrl,setPreviewUrl]=useState('');
-  useEffect(()=>()=>{if(previewUrl)URL.revokeObjectURL(previewUrl);},[previewUrl]);
-  const [sourceKey,setSourceKey]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[detail,setDetail]=useState<Row|null>(null);
-  const loadData=useCallback(()=>Promise.all([
-      request<{data:Row[]}>(`${endpoint}/houses`),request<{data:Row[]}>(`${endpoint}/balances`),request<{data:Row[]}>(`${endpoint}/held`),
-      request<{data:Doc[]}>(`${endpoint}/documents`),request<{data:Row[]}>('/crud/brd_flocks?limit=1000'),request<{data:Row[]}>(`${endpoint}/reports`),request<{data:Row[]}>(`${endpoint}/occupancies`)]),[]);
-  const linked=useRef(false);
-  const applyData=useCallback(([h,b,l,d,f,r,o]:Awaited<ReturnType<typeof loadData>>)=>{
-    setHouses(h.data);setBalances(b.data);setHeld(l.data);setDocs(d.data);setLegacy(f.data??[]);setReports(r.data);setOccupancies(o.data);setSourceKey(p=>p||crypto.randomUUID());
-    if(linked.current)return;
-    linked.current=true;
-    const query=new URLSearchParams(location.search), houseCode=query.get('houseCode'), date=query.get('date'),kind=query.get('kind');
-    if(query.get('review')==='pending')setReview({house:houseCode??'',date:date??''});
-    const house=h.data.find(row=>row.house_code===houseCode);
-    if(!house||!houseCode||!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
-    if(kind==='MORTALITY')setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(house.flock_no??'')});
-    if(kind==='REPORT_CORRECTION'){
-      const matches=r.data.filter(row=>row.house_code===houseCode&&String(row.log_date).slice(0,10)===date
-        &&(!query.has('dailyLogId')||String(row.id)===query.get('dailyLogId'))&&(!query.has('shift')||row.shift===query.get('shift')));
-      if(matches.length===1){const report=matches[0];setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(report.flock_no),dailyLogId:String(report.id),
-        expectedReportHash:String(report.report_hash),reportFeed:String(report.feed_consumed??''),reportWater:String(report.water_consumed??''),reportNotes:String(report.notes??'')});
-        setReportGrades(Object.fromEntries(Object.entries((report.eggs_by_grade??{}) as Row).map(([k,v])=>[k,String(v)])));
-      }else{setMessage(t('productionJobs.selectReport'));setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(house.flock_no??'')});}
-    }
-  },[t]);
-  const refresh=useCallback(async()=>applyData(await loadData()),[loadData,applyData]);
-  useEffect(()=>{let alive=true;loadData().then(data=>{if(alive)applyData(data);}).catch(e=>{if(alive)setMessage(e.message);});return()=>{alive=false;};},[loadData,applyData]);
-  useEffect(()=>{if(!vetAccess.canView)return;let alive=true;request<{data:{plans:Row[];medications:Row[]}}>(`${endpoint}/care`).then(r=>{if(alive)setCare(r.data);}).catch(e=>{if(alive)setMessage(e.message);});return()=>{alive=false;};},[vetAccess.canView,docs]);
-  const house=houses.find(h=>h.house_code===form.houseCode);
-  const balance=balances.find(b=>b.flock_no===form.flockNo);
-  const oldFlock=legacy.find(b=>b.flock_no===form.flockNo);
-  const selectedBaselineBreedNeedsReview=form.kind==='BASELINE'&&Boolean(oldFlock)&&(!String(oldFlock?.breed_code??'').trim()||(!breedsLoading&&!breedOptions.some(o=>o.value===oldFlock?.breed_code)));
-  const heldRow=held.find(b=>b.id===form.heldId);
-  const flockOptions=useMemo(()=>[...new Map([...balances,...legacy,...occupancies].filter(f=>f.house_code===form.houseCode).map(b=>[String(b.flock_no),b])).values()], [balances,legacy,occupancies,form.houseCode]);
-  const field=(name:keyof ReturnType<typeof blank>,value:string)=>{setForm(p=>({...p,[name]:value}));setSourceKey(crypto.randomUUID());};
-  const chooseHouse=(code:string)=>{
-    const h=houses.find(x=>x.house_code===code);const flock=h?.flock_no??legacy.find(x=>x.house_code===code&&x.status!=='RETIRED')?.flock_no??'';
-    setForm(p=>({...p,houseCode:code,flockNo:String(flock),targetHouseCode:'',heldId:'',originalDocumentId:'',dailyLogId:'0',expectedReportHash:'ABSENT'}));setEvidence([]);setSourceKey(crypto.randomUUID());
-  };
-  const entryHint=(target?:Row)=>{
-    const key=entryHints[String(target?.entry_readiness)];
-    return key?t(key):'';
-  };
-  const transferDateHint=(source?:Row)=>{
-    if (!source?.transfer_earliest_on) return '';
-    const kind=source.transfer_source_kind==='BASELINE'?t('flockTransfer.baseline'):
-      source.transfer_source_kind==='ADMIT'?t('flockTransfer.admission'):t('flockTransfer.lastTransfer');
-    return t('flockTransfer.earliest').replace('{kind}',kind)
-      .replace('{opened}',String(source.transfer_source_began_on)).replace('{earliest}',String(source.transfer_earliest_on));
-  };
-  const transferDateError=(source:Row|undefined,houseCode:string,day:string)=>{
-    if (!source || source.house_code!==houseCode) return t('flockTransfer.sourceReview');
-    if ('transfer_earliest_on' in source && !source.transfer_earliest_on) return t('flockTransfer.sourceReview');
-    return source.transfer_earliest_on && day<String(source.transfer_earliest_on)
-      ? transferDateHint(source)+' '+t('flockTransfer.useActualDate') : '';
-  };
-  const formTransferError=form.kind==='TRANSFER'&&form.flockNo?transferDateError(balance,form.houseCode,form.businessDate):'';
-  const prepareHouse=(target:Row)=>{
-    const initial=blank();
-    const hasUnsavedInput=evidence.length>0||Object.keys(reportGrades).length>0||
-      (Object.keys(form) as (keyof typeof form)[]).some(key=>!['kind','houseCode','flockNo'].includes(key)&&form[key]!==initial[key]);
-    if (hasUnsavedInput&&!window.confirm(t('flockEntry.replaceDraft'))) return;
-    setReportGrades({});
-    const kind=target.entry_readiness==='CLEANING'?'CLEAN_ACCEPT':'CLEAN_START';
-    setForm({...blank(),kind,houseCode:String(target.house_code)});
-    setEvidence([]);
-    setSourceKey(crypto.randomUUID());
-    document.getElementById('flock-new-document')?.scrollIntoView({block:'start'});
-  };
-  const hasCleanAction=(target?:Row)=>createAccess.canEdit&&cleanAccess.canApprove&&
-    ['FIRST_CLEAN','DIRTY','CLEANING'].includes(String(target?.entry_readiness));
-  const cleanActionLabel=(target:Row)=>target.entry_readiness==='CLEANING'?t('flockEntry.acceptAction'):t('flockEntry.cleanAction');
-  const entryDocumentHint=(d:Doc,target?:Row)=>{
-    if (!target || !['ADMIT','TRANSFER'].includes(d.kind) || !['DRAFT','SUBMITTED','APPROVED'].includes(d.status)) return '';
-    if (!readyForEntry(target)) return entryHint(target);
-    if (target.entry_readiness!==undefined && target.max_capacity==null) return t('flockEntry.capacity');
-    if (d.kind==='ADMIT' && Number(target.house_version)!==d.payload.expectedHouseVersion) return t('flockEntry.versionChanged');
-    return '';
-  };
-  const run=async(fn:()=>Promise<unknown>,ok:string)=>{setBusy(true);setMessage('');try{await fn();await refresh();setMessage(ok);}catch(e){setMessage(e instanceof Error?e.message:'操作失败，请核对');}finally{setBusy(false);}};
-  const submit=()=>run(async()=>{
-    if(!house)throw new Error('请选择有效鸡舍');
-    if(formTransferError)throw new Error(formTransferError);
-    if(['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','ADJUST'].includes(form.kind)&&form.quantity.trim()==='')throw new Error('请明确填写实际数量；真实零须显式输入0');
-    if(form.kind==='ADMIT'&&form.placementAge.trim()==='')throw new Error('请填写真实入栏日龄');
-    const body:Row={kind:form.kind,sourceKey,houseCode:form.houseCode,flockNo:form.flockNo,businessDate:form.businessDate,
-      expectedVersion:Number(balance?.version??0),reason:form.reason};
-    if(['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','ADJUST'].includes(form.kind))body.quantity=Number(form.quantity);
-    if(['CLEAN_START','CLEAN_ACCEPT','ADMIT'].includes(form.kind))body.expectedHouseVersion=Number(house.house_version??0);
-    if(form.kind==='BASELINE')body.expectedLegacyQty=Number(oldFlock?.current_qty);
-    if(evidence.length)body.evidence=evidence;
-    if(form.responsible)body.responsible=form.responsible;
-    if(form.kind==='REPORT_CORRECTION'){body.dailyLogId=Number(form.dailyLogId);body.expectedReportHash=form.expectedReportHash;body.correction={eggsByGrade:Object.fromEntries(Object.entries(reportGrades).map(([k,v])=>[k,Number(v)])),feedConsumed:form.reportFeed===''?null:Number(form.reportFeed),waterConsumed:form.reportWater===''?null:Number(form.reportWater),notes:form.reportNotes};}
-    const fields:Record<string,string[]>={ADMIT:['sourceKind','sourceFarmCode','sourceCode','sourceReceipt','breedCode','plannedEliminationDate'],MORTALITY:['disposalMethod','receiver'],CULL:['positionCode'],
-      SELL_HELD:['heldId','salesRef','customerCode','currencyCode','receiver'],TRANSFER:['targetHouseCode'],REVERSE:['originalDocumentId','replacementKind','positionCode','disposalMethod','receiver'],
-      HISTORY_AUTH:['periodFrom','periodTo','authorizedSourceKey']};
-    for(const key of [...(fields[form.kind]??[]),...(['REPORT_CORRECTION','BASELINE','ADJUST','REVERSE'].includes(form.kind)?['differenceReceipt']:[]), 'periodApprovalRef']) {
-      const val=form[key as keyof typeof form];if(val)body[key]=val;
-    }
-    if(form.kind==='CLOSE')body.finalProductionStatus=form.finalProductionStatus;
-    if(form.kind==='SELL_HELD'){body.expectedHeldVersion=Number(heldRow?.version);body.unitPrice=Number(form.unitPrice);}
-    if(form.kind==='ADMIT')body.placementAge=Number(form.placementAge);
-    if(form.kind==='REVERSE'&&form.replacementKind)body.replacementQuantity=Number(form.replacementQuantity);
-    await request(`${endpoint}/documents`,{method:'POST',body:JSON.stringify(body)});
-    setForm(blank());setEvidence([]);setSourceKey(crypto.randomUUID());
-  },'单据已保存，请提交并由另一人审核后过账。');
-  const showDetail=(id:string)=>run(async()=>{const r=await request<{data:Row}>(`${endpoint}/documents/${encodeURIComponent(id)}`);setDetail(r.data);},'已加载原单、事件与审核记录。');
-  if(!access.canView)return <p role="alert">当前账号没有鸡群管理查看权限。</p>;
-  return <main className={css.root}>
-    <h1>鸡群生命周期</h1>
-    {confirmFlockNo&&<FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo} onClose={()=>setConfirmFlockNo('')}
-      onConfirmed={({receiptId})=>{
-        setConfirmFlockNo('');
-        const confirmation = receiptId
-          ? t('breeding.breed.confirmedReceipt', '品种已确认，审计编号 {id}').replace('{id}', receiptId)
-          : t('breeding.breed.confirmed', '品种已确认');
-        void refresh().then(() => setMessage(`${confirmation} · ${t('breeding.breed.resumeDocument', '可继续处理原单。')}`))
-          .catch(() => setMessage(t('breeding.breed.refreshAfterConfirmation', '品种已确认，请刷新单据与审核时间线。')));
-      }}/>}
 
-    <p>{t('flockEntry.instructions')}</p>
-    <nav className={css.actions}><a href="/breeding/flock">鸡群档案</a><a href="/mobile/mortality">移动死淘汇总</a><button disabled={busy} onClick={()=>run(refresh,'已刷新。')}>刷新</button>
-      {access.isSuper&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/provision-actions`,{method:'POST',body:'{}'}),'权限项已注册，请在角色管理分别授权并重新登录。')}>注册角色动作权限</button>}</nav>
-    {message&&<p role="status" className={css.message}>{message}</p>}
-    <section className={css.cards} aria-label="鸡舍占栏看板">{houses.map(h=>{
-      const first=h.entry_readiness==='FIRST_CLEAN', empty=first||readyForEntry(h)||['DIRTY','CLEANING'].includes(String(h.entry_readiness));
-      return <article key={String(h.house_code)}>
-        <strong>{String(h.house_name??h.house_code)}</strong><p>{String(h.company_code)} / {String(h.farm_code)}</p>
-        <p>{first?t('flockEntry.newEmpty'):stateNames[String(h.state)]??'未接续'} · 存栏 <span data-i18n-skip="true">{h.quantity==null?(empty?'0':'待实盘'):String(h.quantity)}</span> / 容量 {String(h.max_capacity??'待核实')}</p>
-        <small>{h.flock_no?`当前群 ${String(h.flock_no)}`:`历史在栏档案 ${String(h.legacy_flocks)}`}</small>
-        {h.entry_readiness!=='OCCUPIED'&&entryHint(h)&&<p>{entryHint(h)}</p>}
-        <button disabled={busy} onClick={()=>chooseHouse(String(h.house_code))}>选择此舍</button>
-        {hasCleanAction(h)&&<button disabled={busy} onClick={()=>prepareHouse(h)}>{cleanActionLabel(h)}</button>}
-      </article>;
-    })}</section>
-    {createAccess.canEdit&&<section id="flock-new-document" aria-label="生命周期制单" className={css.panel}><h2>新建业务单据</h2>
-      <p>当前余额与版本自动带出，过账时再次校验。失败后可重试同一内容；修改内容会创建新来源。</p>
-      <div className={css.grid}>
-        <label>业务类型<DictSelect ariaLabel="业务类型" dictType="BRD_LIFECYCLE_KIND" value={form.kind} onChange={v=>field('kind',v)} allowEmpty={false}/></label>
-        <label>鸡舍<select aria-label="鸡舍" value={form.houseCode} onChange={e=>chooseHouse(e.target.value)}><option value="">请选择鸡舍</option>{houses.filter(h=>h.status==='ACTIVE').map(h=><option key={String(h.house_code)} value={String(h.house_code)}>{String(h.house_name)}（{String(h.house_code)}）</option>)}</select></label>
-        {!['ADMIT','CLEAN_START','CLEAN_ACCEPT'].includes(form.kind)&&<label>鸡群<select aria-label="鸡群" value={form.flockNo} onChange={e=>field('flockNo',e.target.value)}><option value="">请选择已核实鸡群</option>{flockOptions.filter(f=>f.house_code===form.houseCode||f.flock_no===form.flockNo).map(f=><option key={String(f.flock_no)} value={String(f.flock_no)}>{String(f.flock_no)}</option>)}</select></label>}
-        <label>业务日期<input type="date" min={form.kind==='TRANSFER'&&balance?.transfer_earliest_on?String(balance.transfer_earliest_on):undefined} readOnly={form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'} value={form.businessDate} onChange={e=>field('businessDate',e.target.value)}/></label>
-        {['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','ADJUST'].includes(form.kind)&&<label>{form.kind==='ADJUST'?'实盘差额（可正可负）':'实际数量（羽）'}<input type="number" step="1" value={form.quantity} onChange={e=>field('quantity',e.target.value)}/></label>}
-        <label>当前存栏<input readOnly value={balance?String(balance.quantity):house&&(['FIRST_CLEAN','DIRTY','CLEANING'].includes(String(house.entry_readiness))||readyForEntry(house))?'0':'未接续，须实盘签认'}/></label>
-        {form.kind==='ADMIT'&&<><label>来源类型<DictSelect ariaLabel="来源类型" dictType="BRD_FLOCK_SOURCE" value={form.sourceKind} onChange={v=>{setForm(p=>({...p,sourceKind:v,sourceCode:'',sourceFarmCode:'',sourceReceipt:''}));setSourceKey(crypto.randomUUID());}} allowEmpty={false}/></label>{form.sourceKind==='SUPPLIER'?<label>来源供应商<SupplierSelector ariaLabel="来源供应商" value={form.sourceCode} onChange={v=>field('sourceCode',v)}/></label>:<label>内部育成来源农场<FarmSelector ariaLabel="内部育成来源农场" value={form.sourceFarmCode} onChange={v=>field('sourceFarmCode',v)}/></label>}<label>实际来源交接单号<input value={form.sourceReceipt} onChange={e=>field('sourceReceipt',e.target.value)}/></label><label>遗传品种<DictSelect ariaLabel="遗传品种" dictType="BRD_BREED" value={form.breedCode} onChange={v=>field('breedCode',v)}/></label><label>入栏日龄<input type="number" min="0" value={form.placementAge} onChange={e=>field('placementAge',e.target.value)}/></label><label>计划淘汰日期<input type="date" value={form.plannedEliminationDate} onChange={e=>field('plannedEliminationDate',e.target.value)}/></label></>}
-        {['MORTALITY','REVERSE'].includes(form.kind)&&<><label>处置方式<input value={form.disposalMethod} onChange={e=>field('disposalMethod',e.target.value)} placeholder="实际处置与确认依据"/></label><label>处置接收人<input value={form.receiver} onChange={e=>field('receiver',e.target.value)}/></label></>}
-        {['CULL','REVERSE'].includes(form.kind)&&<label>待售实际位置<input value={form.positionCode} onChange={e=>field('positionCode',e.target.value)} placeholder="鸡只实际安置位置说明"/></label>}
-        {form.kind==='TRANSFER'&&<label>目标空舍<select value={form.targetHouseCode} onChange={e=>field('targetHouseCode',e.target.value)}><option value="">{t('flockEntry.pickTransfer')}</option>{houses.filter(h=>h.company_code===house?.company_code&&h.house_code!==form.houseCode&&readyForEntry(h)&&h.max_capacity!=null).map(h=><option key={String(h.house_code)} value={String(h.house_code)}>{String(h.house_name)}</option>)}</select></label>}
-        {form.kind==='SELL_HELD'&&<><label>待售批次<select value={form.heldId} onChange={e=>{const r=held.find(x=>x.id===e.target.value);setForm({...blank(),kind:'SELL_HELD',heldId:e.target.value,flockNo:String(r?.flock_no??''),houseCode:String(r?.house_code??'')});setEvidence([]);setSourceKey(crypto.randomUUID());}}><option value="">请选择真实待售余额</option>{held.filter(h=>Number(h.quantity)>0).map(h=><option key={String(h.id)} value={String(h.id)}>{String(h.flock_no)} / {String(h.position_code)} / {String(h.quantity)}羽</option>)}</select></label>
-          <label>客户<CustomerSelector ariaLabel="客户" value={form.customerCode} onChange={v=>field('customerCode',v)}/></label><label>币种<DictSelect ariaLabel="币种" dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v=>field('currencyCode',v)}/></label><label>每羽单价<input type="number" min="0" step="0.01" value={form.unitPrice} onChange={e=>field('unitPrice',e.target.value)}/></label><label>客户签收回执编号<input value={form.salesRef} onChange={e=>field('salesRef',e.target.value)}/></label><label>客户签收人<input value={form.receiver} onChange={e=>field('receiver',e.target.value)}/></label></>}
-        {form.kind==='REVERSE'&&<><label>原过账单<select value={form.originalDocumentId} onChange={e=>{const d=docs.find(x=>x.id===e.target.value);setForm({...blank(),kind:'REVERSE',originalDocumentId:e.target.value,houseCode:d?.house_code??'',flockNo:d?.flock_no??''});setSourceKey(crypto.randomUUID());setEvidence([]);}}><option value="">请选择原单</option>{docs.filter(d=>d.status==='POSTED'&&['MORTALITY','CULL','ADJUST'].includes(d.kind)).map(d=><option key={d.id} value={d.id}>{kindNames[d.kind]} · {d.flock_no} · {String(d.business_date).slice(0,10)} · {String(d.payload.quantity)}</option>)}</select></label>
-          <label>同时重记类型<DictSelect dictType="BRD_LIFECYCLE_KIND" allowedValues={['MORTALITY','CULL','ADJUST']} value={form.replacementKind} onChange={v=>field('replacementKind',v)}/></label><label>重记实际数量/差额<input type="number" step="1" value={form.replacementQuantity} onChange={e=>field('replacementQuantity',e.target.value)}/></label></>}
-        {['REPORT_CORRECTION','BASELINE','ADJUST','REVERSE'].includes(form.kind)&&<label>差异处理回执<textarea value={form.differenceReceipt} onChange={e=>field('differenceReceipt',e.target.value)}/></label>}
-        {form.kind==='CLOSE'&&<label>最后产蛋确认<DictSelect ariaLabel="最后产蛋确认" dictType="BRD_FINAL_PRODUCTION_CONFIRM" value={form.finalProductionStatus} onChange={v=>field('finalProductionStatus',v)} allowEmpty={false}/></label>}
-        {form.kind==='REPORT_CORRECTION'&&<><label>原占栏日报<select aria-label="原占栏日报" value={form.dailyLogId} onChange={e=>{if(e.target.value==='0'){setForm(p=>({...p,dailyLogId:'0',expectedReportHash:'ABSENT',reportFeed:'',reportWater:'',reportNotes:''}));setReportGrades({});setSourceKey(crypto.randomUUID());return;}const r=reports.find(x=>String(x.id)===e.target.value);if(!r)return;setForm(p=>({...p,dailyLogId:String(r.id),expectedReportHash:String(r.report_hash),houseCode:String(r.house_code),flockNo:String(r.flock_no),businessDate:String(r.log_date),reportFeed:String(r.feed_consumed??''),reportWater:String(r.water_consumed??''),reportNotes:String(r.notes??'')}));setReportGrades(Object.fromEntries(Object.entries((r.eggs_by_grade??{}) as Record<string,unknown>).map(([k,v])=>[k,String(v)])));setSourceKey(crypto.randomUUID());setEvidence([]);}}><option value="0">所选业务日缺日报 · 独立审批补录</option>{reports.filter(r=>r.house_code===form.houseCode&&r.flock_no===form.flockNo).map(r=><option key={String(r.id)} value={String(r.id)}>{String(r.log_date)} · {String(r.flock_no)} · 原产蛋 {String(r.eggs_produced)}</option>)}</select></label>
-          {Object.entries(reportGrades).map(([grade,value])=><label key={grade}>更正分级 {grade}<input type="number" min="0" step="1" value={value} onChange={e=>{setReportGrades(p=>({...p,[grade]:e.target.value}));setSourceKey(crypto.randomUUID());}}/></label>)}
-          <label>增加实际等级<GradeSelector ariaLabel="增加实际等级" value={form.addGrade} onChange={v=>{if(v)setReportGrades(p=>({...p,[v]:p[v]??'0'}));field('addGrade',v);}}/></label>
-          <label>更正实际饲料（公斤）<input type="number" min="0" step="0.01" value={form.reportFeed} onChange={e=>field('reportFeed',e.target.value)}/></label><label>更正实际用水（升）<input type="number" min="0" step="0.01" value={form.reportWater} onChange={e=>field('reportWater',e.target.value)}/></label><label>更正日报备注<textarea value={form.reportNotes} onChange={e=>field('reportNotes',e.target.value)}/></label><p>原值快照随单保留；审批期间原日报变化会阻止过账。死淘由冲销单更正，库存差异须关联正式库存单据，不会自动补记产蛋入库。</p></>}
-        {form.kind==='HISTORY_AUTH'&&<><label>授权影响日起<input type="date" value={form.periodFrom} onChange={e=>field('periodFrom',e.target.value)}/></label><label>授权影响日止<input type="date" value={form.periodTo} onChange={e=>field('periodTo',e.target.value)}/></label><label>待更正业务单据<select value={form.authorizedSourceKey} onChange={e=>field('authorizedSourceKey',e.target.value)}><option value="">请选择待授权单据</option>{docs.filter(d=>d.flock_no===form.flockNo&&d.status!=='POSTED'&&d.status!=='CANCELLED').map(d=><option key={d.id} value={String(d.source_key)}>{kindNames[d.kind]} · {String(d.business_date).slice(0,10)} · {String(d.payload.reason)}</option>)}</select></label></>}
-        <label>历史期间批准单（跨月时）<select value={form.periodApprovalRef} onChange={e=>field('periodApprovalRef',e.target.value)}><option value="">当期业务无需选择</option>{docs.filter(d=>d.kind==='HISTORY_AUTH'&&d.status==='POSTED'&&d.flock_no===form.flockNo).map(d=><option key={d.id} value={d.id}>{String(d.payload.periodFrom)} — {String(d.payload.periodTo)}</option>)}</select></label>
-        <label>责任人<UserSelector ariaLabel="责任人" value={form.responsible} onChange={v=>field('responsible',v)}/></label>
-        <label>业务原因及交接说明<textarea value={form.reason} onChange={e=>field('reason',e.target.value)}/></label>
+function initialSelection(context: FlockLifecycleFormContext): Selection {
+  return {
+    houseCode: context.houseCode ?? "", date: context.kind === "HISTORY_AUTH" ? flockBusinessToday() : context.date ?? flockBusinessToday(),
+    flockNo: context.flockNo ?? "", heldId: context.heldId ?? "", documentId: context.documentId ?? "",
+    reportId: context.dailyLogId, shift: context.shift, occupancyId: context.occupancyId,
+  };
+}
+
+function originalInput(report?: FlockRow): FlockLifecycleInput {
+  if (!report) return emptyInput;
+  return {
+    ...emptyInput, feed: str(report.feed_consumed), water: str(report.water_consumed), notes: str(report.notes),
+    grades: Object.fromEntries(Object.entries((report.eggs_by_grade ?? {}) as FlockRow).map(([key, value]) => [key, str(value)])),
+  };
+}
+
+const documentKinds = ["REVERSE", "HISTORY_AUTH"];
+const historicalKinds = ["REPORT_CORRECTION", "REVERSE", "HISTORY_AUTH"];
+// Keep same-tab history navigation reversible during an unsaved task. Transmitted requests use
+// the separately scoped sessionStorage protocol so they can also survive a page reload.
+let draftOwner: string | undefined;
+const drafts = new Map<string, { selection: Selection; input: FlockLifecycleInput }>();
+function getDraft(owner: string, identity: string) {
+  return draftOwner === owner ? drafts.get(identity) : undefined;
+}
+function rememberDraft(owner: string, identity: string, selection: Selection, input?: FlockLifecycleInput) {
+  if (draftOwner !== owner) { drafts.clear(); draftOwner = owner; }
+  drafts.delete(identity);
+  if (input) drafts.set(identity, { selection, input });
+  const oldest = drafts.keys().next().value;
+  if (drafts.size > 16 && oldest) drafts.delete(oldest);
+}
+
+const noFlockKinds = ["ADMIT", "CLEAN_START", "CLEAN_ACCEPT"];
+const byOccupancyKinds = ["REPORT_CORRECTION", "MORTALITY", "CULL", "CLOSE", "TRANSFER", "ADJUST"];
+
+export default function FlockLifecycle(props: Props) {
+  const { context, mobile, onClose } = props;
+  const { t } = useLanguage();
+  const access = usePermission("MENU_FARM_DATA");
+  const create = usePermission("MENU_FLOCK_CREATE");
+  const kind = isFlockLifecycleKind(context.kind) ? context.kind : null;
+  const specialName = kind ? flockSpecialMenus[kind] : undefined;
+  const special = usePermission(specialName);
+  const actor = flockFormActor(access.user);
+  if (kind && actor && access.canView && create.canEdit && (!specialName || special.canApprove)) {
+    return <FlockTask key={actor + flockFormIdentity(context)} {...props} owner={actor} kind={kind} />;
+  }
+  return <TaskContainer kind={context.kind} title={t("flockForm.unavailable")} mobile={mobile}
+    onClose={onClose} footer={<button className={css.secondary} type="button" onClick={onClose}>{t("flockForm.back")}</button>}>
+    <p role="alert">{t("flockForm.unavailableDetail")}</p>
+  </TaskContainer>;
+}
+
+function TaskContainer({ kind, title, mobile, onClose, footer, closeDisabled, children }: {
+  kind: string; title: string; mobile?: boolean; closeDisabled?: boolean;
+  onClose: () => void; footer: ReactNode; children: ReactNode;
+}) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const page = isFlockLifecyclePage(kind, mobile);
+  useEffect(() => { if (page) titleRef.current?.focus(); }, [page]);
+  if (page) return <section className={css.page}>
+    <header className={css.pageHeader}>
+      <span className={css.pageIcon}><ClipboardCheck size={22} aria-hidden /></span>
+      <h1 tabIndex={-1} ref={titleRef}>{title}</h1>
+    </header>
+    {children}
+    <div className={css.pageFooter}>{footer}</div>
+  </section>;
+  if (shortFlockTasks.includes(kind)) {
+    return <ModalV2 open title={title} width={670} onClose={onClose} closeDisabled={closeDisabled} footer={footer}>{children}</ModalV2>;
+  }
+  return <DrawerV2 open title={title} width={690} onClose={onClose} closeDisabled={closeDisabled} footer={footer}>{children}</DrawerV2>;
+}
+
+function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & { owner: string; kind: FlockLifecycleKind }) {
+  const { t, lang } = useLanguage();
+  const formId = useId();
+  const identity = flockFormIdentity(context);
+  const archived = getDraft(owner, identity);
+  const [selection, setSelection] = useState(() => archived?.selection ?? initialSelection(context));
+  const [edited, setEdited] = useState<FlockLifecycleInput | undefined>(() => archived?.input);
+  const [confirm, setConfirm] = useState<() => void>();
+  const [breed, setBreed] = useState(false);
+  const [breedReceipt, setBreedReceipt] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [pending, setPending] = useState<PendingFlockCreate | null>(() => loadFlockCreate(owner, identity));
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const sending = useRef(false);
+  const uploadActive = useRef(false);
+  const mounted = useRef(true);
+  const feedbackRef = useRef<HTMLParagraphElement>(null);
+  const selectionToken = useRef(0);
+  const [selectionVersion, setSelectionVersion] = useState(0);
+  const houses = useResource<FlockRow[]>(endpoint + "/houses");
+  const held = useResource<FlockRow[]>(kind === "SELL_HELD" && !pending ? endpoint + "/held" : "");
+  const validOriginalId = documentIdPattern.test(selection.documentId);
+  const original = useResource<OriginalDocument>(documentKinds.includes(kind) && validOriginalId && !pending
+    ? endpoint + "/documents/" + encodeURIComponent(selection.documentId) : "");
+  const originalRow = original.data;
+  const heldRow = held.data?.find(row => row.id === selection.heldId && Number(row.quantity) > 0);
+  const houseCode = str(originalRow?.house_code ?? heldRow?.house_code ?? selection.houseCode);
+  const house = houses.data?.find(row => row.house_code === houseCode);
+  const day = selection.date.length === 10 ? flockDay(selection.date) : "";
+  const validHouseDay = Boolean(house && day && !pending);
+  const byOccupancy = byOccupancyKinds.includes(kind);
+  const needLinkedFlock = Boolean(context.flockId && !context.flockNo);
+  const archiveFlocks = useResource<FlockRow[]>(house && !pending && (kind === "BASELINE" || needLinkedFlock)
+    ? "/crud/brd_flocks?" + flockFormParams({ house_code: houseCode, limit: "1000" }) : "");
+  const linkedFlock = needLinkedFlock ? archiveFlocks.data?.find(row => row.house_code === houseCode && str(row.id) === context.flockId) : undefined;
+  const selectedFlockNo = selection.flockNo || str(linkedFlock?.flock_no);
+  const occupancies = useResource<SearchRows>(byOccupancy && validHouseDay
+    ? endpoint + "/occupancies/search?" + flockFormParams({ houseCode, date: day }) : "");
+  const matches = (occupancies.data?.items ?? []).filter(row => (!selectedFlockNo || selectedFlockNo === row.flock_no)
+    && (!selection.occupancyId || selection.occupancyId === row.occupancy_id));
+  const occupancy = matches.length === 1 ? matches[0] : undefined;
+  const legacyRows = kind === "BASELINE" ? (archiveFlocks.data ?? []).filter(row => row.house_code === houseCode && row.status !== "RETIRED") : [];
+  const oldFlock = legacyRows.find(row => selectedFlockNo ? row.flock_no === selectedFlockNo : !needLinkedFlock && legacyRows.length === 1);
+  const flockNo = str(originalRow?.flock_no ?? heldRow?.flock_no ?? oldFlock?.flock_no ?? occupancy?.flock_no);
+  const breedStatus = useResource<{ status: string }>(kind === "BASELINE" && oldFlock && flockNo && !pending
+    ? endpoint + "/flocks/" + encodeURIComponent(flockNo) + "/breed-confirmation" : "");
+  const needsBalance = Boolean(flockNo && !noFlockKinds.includes(kind) && !["BASELINE", "HISTORY_AUTH"].includes(kind));
+  const balances = useResource<FlockRow[]>(needsBalance ? endpoint + "/balances" : "");
+  const balance = balances.data?.find(row => row.flock_no === flockNo);
+  const reports = useResource<SearchRows>(["REPORT_CORRECTION", "CLOSE"].includes(kind) && validHouseDay
+    ? endpoint + "/reports/search?" + flockFormParams({ houseCode, date: day }) : "");
+  const allReports = reports.data?.items ?? [];
+  const reportRows = allReports.filter(row => row.occupancy_id === occupancy?.occupancy_id && row.flock_no === flockNo);
+  const eligibleReports = reportRows.filter(row => !selection.shift || row.shift === selection.shift);
+  const canSupplement = reports.data?.hasHouseDayReports === false && !allReports.length
+    && (!selection.shift || selection.shift === "DAILY");
+  const chosenReport = selection.reportId && selection.reportId !== "0" ? eligibleReports.find(row => str(row.id) === selection.reportId)
+    : selection.reportId !== "0" && eligibleReports.length === 1 ? eligibleReports[0] : undefined;
+  const supplement = canSupplement && !chosenReport && (!selection.reportId || selection.reportId === "0");
+  const reportBound = Boolean(chosenReport || supplement);
+  const reportHash = chosenReport ? str(chosenReport.report_hash) : supplement ? "ABSENT" : undefined;
+  const reportChanged = Boolean(reportHash && edited?.reportHash && reportHash !== edited.reportHash);
+  const closeChecks = useResource<FlockRow[]>(kind === "CLOSE" && occupancy && day
+    ? endpoint + "/occupancies/" + encodeURIComponent(str(occupancy.occupancy_id)) + "/close-blockers?" + flockFormParams({ businessDate: day }) : "");
+  const impacted = useResource<OriginalDocument>(kind === "HISTORY_AUTH" && originalRow?.kind === "REVERSE" && originalRow.payload?.originalDocumentId
+    ? endpoint + "/documents/" + encodeURIComponent(str(originalRow.payload.originalDocumentId)) : "");
+  const input = edited ?? originalInput(chosenReport);
+  const closePreview = useResource<{ blockers: string[] }>(kind === "CLOSE" && occupancy && day
+    ? endpoint + "/occupancies/" + encodeURIComponent(str(occupancy.occupancy_id)) + "/close-preview?"
+      + flockFormParams({ businessDate: day, finalProductionStatus: input.finalProductionStatus }) : "");
+  const delivery = useResource<{ blocked: boolean; reason: string | null }>(kind === "SELL_HELD" && heldRow && day
+    ? endpoint + "/held/" + encodeURIComponent(selection.heldId) + "/delivery-blockers?" + flockFormParams({ businessDate: day }) : "");
+  const dirty = Boolean(edited);
+  const locked = Boolean(pending || busy);
+  const target = houses.data?.find(row => row.house_code === input.targetHouseCode);
+  const targets = (houses.data ?? []).filter(row => row.house_code !== houseCode && row.company_code === house?.company_code
+    && readyForFlockEntry(row) && row.max_capacity != null);
+  const dateStart = flockDay(balance?.transfer_earliest_on);
+  const quantity = flockInteger(input.actual);
+  const expected = balance?.quantity == null ? null : Number(balance.quantity);
+  const diff = quantity !== null && expected !== null ? quantity - expected : null;
+  const unitAmount = flockSettlementPreview(input.unitPrice, quantity);
+  const originalEvent = originalRow?.events?.[0];
+  const originalDelta = originalEvent?.quantity_delta == null ? null : Number(originalEvent.quantity_delta);
+  const replacement = input.replacementKind ? flockInteger(input.replacementQuantity) : 0;
+  const replacementDelta = replacement === null ? null : input.replacementKind === "ADJUST" ? replacement : -replacement;
+  const reverseEffect = originalDelta !== null && replacementDelta !== null ? replacementDelta - originalDelta : null;
+  const effectOnHeld = originalEvent && replacement !== null ? -Number(originalEvent.held_delta ?? 0)
+    + (input.replacementKind === "CULL" ? replacement : 0) : null;
+  const monthStart = flockBusinessToday().slice(0, 7) + "-01";
+  const periodDay = flockDay(impacted.data?.business_date ?? originalRow?.business_date);
+  const numericLocale = lang === "lo" ? "lo-LA" : lang === "en" ? "en-SG" : "zh-CN";
+  const countFormat = new Intl.NumberFormat(numericLocale);
+  const amount = (value: unknown) => value == null ? "—" : t("flockForm.birdCount").replace("{count}", countFormat.format(Number(value)));
+  const dayLabel = (value: unknown) => flockDay(value) ? new Intl.DateTimeFormat(numericLocale, { dateStyle: "medium", timeZone: "Asia/Singapore" })
+    .format(new Date(flockDay(value) + "T00:00:00+08:00")) : "—";
+  const signed = (value: number | null) => value == null ? "—" : (value > 0 ? "+" : "") + amount(value);
+  const shiftName = (value: unknown) => t(formLabelKey("shift." + str(value)), str(value) || "—");
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    if (feedback) feedbackRef.current?.focus();
+  }, [feedback]);
+  useEffect(() => {
+    rememberDraft(owner, identity, selection, edited);
+  }, [owner, identity, selection, edited]);
+  useEffect(() => {
+    if (!dirty && !busy && !uploading) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [busy, dirty, uploading]);
+
+  function edit<K extends keyof FlockLifecycleInput>(name: K, value: FlockLifecycleInput[K]) {
+    setEdited(current => ({ ...(current ?? input), reportHash: current?.reportHash ?? reportHash, [name]: value }));
+  }
+
+  function changeSelection(next: Selection) {
+    if (locked || uploadActive.current) return;
+    const run = () => {
+      selectionToken.current += 1;
+      setSelectionVersion(selectionToken.current);
+      setSelection(next);
+      setEdited(undefined);
+      setFeedback("");
+      setBreedReceipt("");
+    };
+    if (dirty) setConfirm(() => run);
+    else run();
+  }
+
+  function leave() {
+    if (sending.current || uploadActive.current) return;
+    const run = () => {
+      if (pending) clearFlockCreate(pending);
+      rememberDraft(owner, identity, selection);
+      onClose();
+    };
+    if (dirty || pending) setConfirm(() => run);
+    else run();
+  }
+
+  const needsOriginal = documentKinds.includes(kind);
+  const boundKind = needsOriginal || kind === "SELL_HELD";
+  const contextMismatch = Boolean(
+    context.houseCode && houses.data && !houses.data.some(row => row.house_code === context.houseCode)
+    || context.houseCode && houseCode && context.houseCode !== houseCode
+    || context.flockNo && flockNo && context.flockNo !== flockNo
+    || needLinkedFlock && archiveFlocks.data && !linkedFlock
+    || context.dailyLogId && (!context.houseCode || !context.date));
+  const invalidReport = reports.data && kind === "REPORT_CORRECTION" && occupancy && !reportBound
+    ? (selection.reportId && selection.reportId !== "0") || selection.shift && eligibleReports.length === 0
+      ? "flockForm.invalidReport"
+      : reports.data.hasHouseDayReports && selection.reportId === "0" ? "flockForm.supplementAlreadyExists"
+        : reports.data.hasHouseDayReports && reportRows.length === 0 ? "flockForm.reportOutsideOccupancy"
+          : !reportRows.length && reports.data.hasHouseDayReports === undefined ? "flockForm.reportEligibilityUncertain" : "" : "";
+  const originalInvalid = originalRow && (kind === "REVERSE"
+    ? originalRow.status !== "POSTED" || !flockReverseKinds.includes(originalRow.kind) || !originalEvent
+    : ["POSTED", "CANCELLED"].includes(originalRow.status) || originalRow.kind === "HISTORY_AUTH" || !originalRow.source_key);
+  const closeHasEggs = reportRows.some(row => ["eggs_produced", "dirty_eggs", "broken_eggs"].some(key => Number(row[key] ?? 0) > 0)
+    || Object.values((row.eggs_by_grade ?? {}) as FlockRow).some(value => Number(value) > 0));
+  const resources = [houses, held, original, occupancies, archiveFlocks, balances, reports, closeChecks, impacted];
+  const loading = resources.some(r => r.loading);
+  const resourceProblems = resources.filter(r => r.error);
+  const hardErrors = [
+    contextMismatch ? "flockForm.unavailableDetail" : "",
+    needsOriginal && selection.documentId && !validOriginalId ? "flockForm.uuidFormat" : "",
+    !day ? "flockForm.invalidDate" : "",
+    kind === "ADMIT" && house && !readyForFlockEntry(house) ? flockEntryHint[str(house.entry_readiness)] ?? "flockForm.admissionBlocked" : "",
+    kind === "ADMIT" && house && readyForFlockEntry(house) && house.max_capacity == null ? "flockEntry.capacity" : "",
+    kind === "ADMIT" && quantity !== null && house?.max_capacity != null && quantity > Number(house.max_capacity) ? "flockForm.capacityExceeded" : "",
+    kind === "CLEAN_START" && house && !["FIRST_CLEAN", "DIRTY", "READY"].includes(str(house.entry_readiness ?? house.state)) ? "flockForm.cleanStartBlocked" : "",
+    kind === "CLEAN_ACCEPT" && house && (house.entry_readiness ?? house.state) !== "CLEANING" ? "flockForm.cleanAcceptBlocked" : "",
+    byOccupancy && occupancies.data && !matches.length ? "flockForm.noOccupancy" : "",
+    needsBalance && balances.data && !balance ? "flockForm.noBalance" : "",
+    ["TRANSFER", "CLOSE", "ADJUST", "MORTALITY", "CULL"].includes(kind) && balance && (balance.house_code !== houseCode || balance.closed_on)
+      ? "flockForm.inactiveOccupancy" : "",
+    kind === "BASELINE" && archiveFlocks.data && (!legacyRows.length || selection.flockNo && !oldFlock) ? "flockForm.noOccupancy" : "",
+    kind === "TRANSFER" && balance && !dateStart ? "flockTransfer.sourceReview" : "",
+    kind === "TRANSFER" && dateStart && day && day < dateStart ? "flockTransfer.useActualDate" : "",
+    kind === "TRANSFER" && target && expected !== null && expected > Number(target.max_capacity) ? "flockForm.capacityExceeded" : "",
+    kind === "TRANSFER" && balance && expected === 0 ? "flockForm.emptyTransfer" : "",
+    ["MORTALITY", "CULL"].includes(kind) && quantity !== null && expected !== null && quantity > expected ? "flockForm.quantityExceeded" : "",
+    kind === "SELL_HELD" && selection.heldId && held.data && !heldRow ? "flockForm.heldUnavailable" : "",
+    kind === "SELL_HELD" && heldRow && quantity !== null && quantity > Number(heldRow.quantity) ? "flockForm.heldExceeded" : "",
+    kind === "SELL_HELD" && input.unitPrice && (!unitAmount || unitAmount === "0.00") && quantity !== null ? "flockForm.invalidPrice" : "",
+    kind === "ADJUST" && diff === 0 ? "flockForm.noDifference" : "",
+    invalidReport,
+    reportChanged ? "flockForm.reportChanged" : "",
+    originalInvalid ? "flockForm.invalidOriginal" : "",
+    kind === "HISTORY_AUTH" && originalRow && !impacted.loading && periodDay >= monthStart ? "flockForm.currentPeriod" : "",
+    kind === "HISTORY_AUTH" && day && day.slice(0, 7) !== monthStart.slice(0, 7) ? "flockForm.authorizationDate" : "",
+    kind === "REVERSE" && originalRow?.reversal?.already_reversed ? "flockForm.alreadyReversed" : "",
+    kind === "REVERSE" && reverseEffect !== 0 && originalRow?.reversal?.reclassify_without_changing_quantity ? "flockForm.reverseTransferBlocked" : "",
+    kind === "CLOSE" && input.finalProductionStatus === "CONFIRMED_ZERO" && closeHasEggs ? "flockForm.zeroDenied" : "",
+  ].filter(Boolean);
+  const requireEvidence = flockEvidenceKinds.includes(kind);
+
+  async function transmit(packet: PendingFlockCreate, recovering: boolean) {
+    if (sending.current) return;
+    sending.current = true;
+    setBusy(true);
+    setFeedback("");
+    let receipt: FlockLifecycleDocument;
+    try {
+      const { data } = await request<{ data: FlockLifecycleDocument }>(endpoint + "/documents",
+        { method: "POST", body: packet.request, silent: true });
+      if (!data?.id) throw new Error(t("flockForm.invalidReceipt"));
+      receipt = data;
+    } catch (caught) {
+      if (!mounted.current) return;
+      const error = caught as ApiError;
+      if (!recovering && error.status && [400, 404, 422].includes(error.status)) {
+        clearFlockCreate(packet);
+        setPending(null);
+      }
+      const businessKey = error.businessCode ? "breeding.lifecycleWorkspace." + error.businessCode : "";
+      setFeedback(businessKey ? t(businessKey, error.message || t("flockForm.requestError"))
+        : error.message || t("flockForm.requestError"));
+      return;
+    } finally {
+      sending.current = false;
+      if (mounted.current) setBusy(false);
+    }
+    if (mounted.current) {
+      clearFlockCreate(packet);
+      rememberDraft(owner, identity, selection);
+      setPending(null);
+      setEdited(undefined);
+      onSaved(receipt, packet.originalId);
+    }
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!canSubmit || pending || sending.current || uploadActive.current || !house) return;
+    const body: FlockRow = {
+      kind, sourceKey: crypto.randomUUID(), houseCode, flockNo, businessDate: day,
+      expectedVersion: Number(balance?.version ?? 0), reason: input.reason.trim(),
+    };
+    if (!input.reason.trim() || requireEvidence && !input.responsible
+      || flockDifferenceKinds.includes(kind) && !input.differenceReceipt.trim()) {
+      setFeedback(t("flockForm.requiredFields")); return;
+    }
+    if (requireEvidence && !input.evidence.length) {
+      setFeedback(t("flockForm.evidenceRequired")); return;
+    }
+    if (input.evidence.length) body.evidence = input.evidence;
+    if (input.responsible) body.responsible = input.responsible;
+    if (input.differenceReceipt.trim()) body.differenceReceipt = input.differenceReceipt.trim();
+    if (["ADMIT", "CLEAN_START", "CLEAN_ACCEPT"].includes(kind)) body.expectedHouseVersion = Number(house.house_version ?? 0);
+    if (flockCountKinds.includes(kind) || kind === "ADJUST") {
+      if (quantity === null || quantity < (kind === "BASELINE" || kind === "ADJUST" ? 0 : 1)) {
+        setFeedback(t("flockForm.explicitCount")); return;
+      }
+      body.quantity = kind === "ADJUST" ? diff : quantity;
+    }
+    switch (kind) {
+      case "BASELINE":
+        if (oldFlock?.current_qty == null) { setFeedback(t("flockForm.noLegacyBalance")); return; }
+        body.expectedLegacyQty = Number(oldFlock.current_qty);
+        break;
+      case "ADMIT": {
+        const age = flockInteger(input.placementAge);
+        if (age === null || age < 0) { setFeedback(t("flockForm.explicitAge")); return; }
+        Object.assign(body, { sourceKind: input.sourceKind, sourceReceipt: input.sourceReceipt.trim(), breedCode: input.breedCode,
+          placementAge: age, ...(input.sourceKind === "SUPPLIER" ? { sourceCode: input.sourceCode } : { sourceFarmCode: input.sourceFarmCode }),
+          ...(input.plannedEliminationDate ? { plannedEliminationDate: input.plannedEliminationDate } : {}) });
+        break;
+      }
+      case "MORTALITY":
+        Object.assign(body, { disposalMethod: input.disposalMethod.trim(), receiver: input.receiver.trim() });
+        break;
+      case "CULL":
+        body.positionCode = input.positionCode.trim();
+        break;
+      case "TRANSFER":
+        body.targetHouseCode = input.targetHouseCode;
+        break;
+      case "SELL_HELD":
+        if (!heldRow || !unitAmount || unitAmount === "0.00") { setFeedback(t("flockForm.invalidPrice")); return; }
+        Object.assign(body, { heldId: selection.heldId, expectedHeldVersion: Number(heldRow.version), unitPrice: Number(input.unitPrice),
+          customerCode: input.customerCode, currencyCode: input.currencyCode, salesRef: input.salesRef.trim(), receiver: input.receiver.trim() });
+        break;
+      case "CLOSE":
+        body.finalProductionStatus = input.finalProductionStatus;
+        break;
+      case "REVERSE":
+        if (!originalRow || replacement === null || input.replacementKind && input.replacementKind !== "ADJUST" && replacement < 0) {
+          setFeedback(t("flockForm.explicitCount")); return;
+        }
+        body.originalDocumentId = originalRow.id;
+        if (input.replacementKind) {
+          Object.assign(body, { replacementKind: input.replacementKind, replacementQuantity: replacement });
+          if (input.replacementKind === "MORTALITY") Object.assign(body, { disposalMethod: input.disposalMethod.trim(), receiver: input.receiver.trim() });
+          if (input.replacementKind === "CULL" && input.positionCode.trim()) body.positionCode = input.positionCode.trim();
+        }
+        break;
+      case "REPORT_CORRECTION": {
+        const quantities = Object.entries(input.grades).map(([grade, value]) => [grade, flockInteger(value)] as const);
+        if (!reportBound || !quantities.length || quantities.some(([, value]) => value === null || value < 0)) {
+          setFeedback(t("flockForm.reportGradeRequired")); return;
+        }
+        Object.assign(body, { dailyLogId: Number(chosenReport?.id ?? 0), expectedReportHash: chosenReport ? chosenReport.report_hash : "ABSENT",
+          correction: { eggsByGrade: Object.fromEntries(quantities), feedConsumed: input.feed === "" ? null : Number(input.feed),
+            waterConsumed: input.water === "" ? null : Number(input.water), notes: input.notes } });
+        break;
+      }
+      case "HISTORY_AUTH":
+        if (!originalRow || !periodDay || periodDay >= monthStart) { setFeedback(t("flockForm.currentPeriod")); return; }
+        Object.assign(body, { periodFrom: periodDay, periodTo: periodDay, authorizedSourceKey: originalRow.source_key });
+        break;
+    }
+    const packet = createPendingFlockCreate({ owner, identity, request: JSON.stringify(body), sourceKey: str(body.sourceKey),
+      houseCode, companyCode: str(house.company_code), originalId: kind === "HISTORY_AUTH" ? originalRow?.id : undefined });
+    try {
+      retainFlockCreate(packet);
+    } catch {
+      setFeedback(t("flockForm.storageUnavailable")); return;
+    }
+    setPending(packet);
+    void transmit(packet, false);
+  }
+
+  const missingIdentity = needsOriginal ? !originalRow : kind === "SELL_HELD" ? !heldRow : !house || (!noFlockKinds.includes(kind) && !flockNo);
+  const canSubmit = !loading && !resourceProblems.length && !hardErrors.length && !missingIdentity && !uploading
+    && (kind !== "REPORT_CORRECTION" || reportBound);
+  const renderFacts = (items: Array<[string, ReactNode]>) => <dl className={css.facts}>{items.map(([label, value]) =>
+    <div key={label}><dt>{t(formLabelKey(label))}</dt><dd>{value ?? "—"}</dd></div>)}</dl>;
+  const pendingHouse = pending && houses.data?.find(row => row.house_code === pending.houseCode && row.company_code === pending.companyCode);
+  const uploadIdentity = selectionVersion;
+  const footer = <>
+    <button type="button" className={css.secondary} disabled={busy || uploading} onClick={leave}>
+      <ArrowLeft size={16} aria-hidden /> {t("flockForm.back")}
+    </button>
+    {pending ? <button className={css.primary} type="button" onClick={() => { if (pendingHouse) void transmit(pending, true); }} disabled={busy || !pendingHouse}>
+      {t(busy ? "flockForm.saving" : "flockForm.retrySave")}
+    </button> : <button className={css.primary} type="submit" form={formId} disabled={!canSubmit || locked}>
+      {t("flockForm.saveDraft")}
+    </button>}
+  </>;
+
+  return <>
+    <TaskContainer kind={kind} mobile={mobile} title={t(formLabelKey("title." + kind))} onClose={leave}
+      footer={footer} closeDisabled={busy || uploading}>
+      <div className={css.content}>
+        {feedback && <p className={css.error} ref={feedbackRef} tabIndex={-1} role="alert">{feedback}</p>}
+        {pending ? <section aria-live="polite" className={css.callout}>
+          <p>{t(busy ? "flockForm.saving" : "flockForm.pendingExplanation")}</p>
+          <p>{t("flockForm.house")} <strong>{pending.houseCode}</strong></p>
+          {!pendingHouse && houses.data && <p role="alert">{t("flockForm.pendingScope")}</p>}
+          {houses.error && <button type="button" className={css.secondary} onClick={houses.refresh}>{t("flockForm.reload")}</button>}
+        </section> : <form id={formId} onSubmit={submit} aria-busy={loading || busy}>
+          <fieldset className={css.fieldset} disabled={locked || uploading}>
+            <legend>{t("flockForm.objectAndDate")}</legend>
+            <div className={css.fields}>
+              {!boundKind && <label>{t("flockForm.house")}
+                <select value={selection.houseCode} required disabled={Boolean(context.houseCode)}
+                  onChange={event => changeSelection({ houseCode: event.target.value, date: selection.date, flockNo: "", heldId: "", documentId: "" })}>
+                  <option value="">{t("flockForm.chooseHouse")}</option>
+                  {(houses.data ?? []).filter(row => historicalKinds.includes(kind) || row.status === "ACTIVE").map(row =>
+                    <option key={str(row.house_code)} value={str(row.house_code)}>{str(row.house_name)} · {str(row.house_code)}</option>)}
+                </select>
+              </label>}
+              {kind === "SELL_HELD" && <label>{t("flockForm.held")}
+                <select value={selection.heldId} required disabled={Boolean(context.heldId)}
+                  onChange={event => changeSelection({ ...initialSelection(context), heldId: event.target.value, date: selection.date })}>
+                  <option value="">{t("flockForm.chooseHeld")}</option>
+                  {(held.data ?? []).filter(row => Number(row.quantity) > 0).map(row => <option key={str(row.id)} value={str(row.id)}>
+                    {str(row.flock_no)} · {str(row.position_code)} · {amount(row.quantity)}
+                  </option>)}
+                </select>
+              </label>}
+              {needsOriginal && <label>{t("flockForm.originalDocument")}
+                <input value={selection.documentId} onChange={event => changeSelection({ ...selection, documentId: event.target.value.trim() })}
+                  readOnly={Boolean(context.documentId)} required />
+              </label>}
+              <label>{t("flockForm.date")}
+                <input type="date" value={selection.date} min={kind === "TRANSFER" ? dateStart || undefined : undefined}
+                  readOnly={Boolean((context.dailyLogId || context.shift) && context.date) || kind === "HISTORY_AUTH"} required
+                  onChange={event => changeSelection({ ...selection, date: event.target.value, reportId: undefined, shift: undefined,
+                    occupancyId: context.occupancyId, flockNo: context.flockNo ?? "" })} />
+              </label>
+              {kind === "BASELINE" && legacyRows.length > 1 && <label>{t("flockForm.flock")}
+                <select value={flockNo} disabled={Boolean(context.flockNo || context.flockId)} required
+                  onChange={event => changeSelection({ ...selection, flockNo: event.target.value })}>
+                  <option value="">{t("flockForm.chooseFlock")}</option>
+                  {legacyRows.map(row => <option key={str(row.flock_no)} value={str(row.flock_no)}>{str(row.flock_no)}</option>)}
+                </select>
+              </label>}
+              {byOccupancy && (occupancies.data?.items.length ?? 0) > 1 && <label>{t("flockForm.flock")}
+                <select value={flockNo} disabled={Boolean(context.flockNo || context.flockId || context.occupancyId)} required
+                  onChange={event => changeSelection({ ...selection, flockNo: event.target.value, occupancyId: undefined, reportId: undefined })}>
+                  <option value="">{t("flockForm.chooseFlock")}</option>
+                  {occupancies.data?.items.map(row => <option key={str(row.occupancy_id)} value={str(row.flock_no)}>{str(row.flock_no)}</option>)}
+                </select>
+              </label>}
+              {kind === "REPORT_CORRECTION" && occupancy && reports.data && (reportRows.length > 0 || canSupplement) && <label>
+                {t("flockForm.report")}
+                <select value={str(chosenReport?.id ?? (supplement ? "0" : ""))} required disabled={Boolean(context.dailyLogId || context.shift)}
+                  onChange={event => changeSelection({ ...selection, reportId: event.target.value })}>
+                  <option value="">{t("flockForm.chooseReport")}</option>
+                  {eligibleReports.map(row => <option key={str(row.id)} value={str(row.id)}>{str(row.id)} · {shiftName(row.shift)} · {dayLabel(row.log_date)}</option>)}
+                  {canSupplement && <option value="0">{t("flockForm.supplement")}</option>}
+                </select>
+              </label>}
+            </div>
+          </fieldset>
+          {kind === "CLEAN_ACCEPT" && (house?.entry_readiness ?? house?.state) === "CLEANING"
+            && renderFacts([["cleaningDocument", str(house?.document_id) || "—"]])}
+          {loading && <p className={css.callout} role="status">{t("flockForm.loading")}</p>}
+          {resourceProblems.map((r, i) => <p key={i} className={css.error} role="alert">
+            {r.error} <button type="button" className={css.inlineButton} onClick={r.refresh}>{t("flockForm.reload")}</button>
+          </p>)}
+          {hardErrors.map(error => <p key={error} className={css.error} role="alert">{t(error)}</p>)}
+          {reportChanged && <button type="button" className={css.inlineButton} onClick={() => changeSelection(selection)}>
+            {t("flockForm.acceptReportSnapshot")}
+          </button>}
+          {kind === "REPORT_CORRECTION" && invalidReport === "flockForm.invalidReport" && selection.shift &&
+            <p className={css.callout}>{t("flockForm.missingShift")}</p>}
+          {house && renderFacts([
+            ["house", str(house.house_name ?? houseCode) + " · " + houseCode],
+            ...(!noFlockKinds.includes(kind) ? [["flock", flockNo || "—"]] as Array<[string, ReactNode]> : []),
+            ...(occupancy ? [["occupancy", str(occupancy.occupancy_id)]] as Array<[string, ReactNode]> : []),
+            ...(balance ? [["balance", amount(balance.quantity)]] as Array<[string, ReactNode]> : []),
+            ...(["ADMIT", "TRANSFER"].includes(kind) ? [["capacity", amount(kind === "TRANSFER" ? target?.max_capacity : house.max_capacity)]] as Array<[string, ReactNode]> : []),
+            ...(kind === "BASELINE" ? [["legacyBalance", amount(oldFlock?.current_qty)], ["actualCount", amount(quantity)],
+              ["difference", signed(quantity === null || oldFlock?.current_qty == null ? null : quantity - Number(oldFlock.current_qty))]] as Array<[string, ReactNode]> : []),
+            ...(kind === "ADJUST" ? [["difference", signed(diff)], ["expectedBalance", amount(quantity)]] as Array<[string, ReactNode]> : []),
+            ...(kind === "TRANSFER" ? [["wholeFlock", amount(balance?.quantity)], ["targetHouse", str(target?.house_name) || "—"],
+              ["earliest", dayLabel(dateStart)]] as Array<[string, ReactNode]> : []),
+            ...(kind === "SELL_HELD" ? [["heldBalance", amount(heldRow?.quantity)], ["heldPosition", str(heldRow?.position_code) || "—"],
+              ["settlement", unitAmount ? unitAmount + " " + input.currencyCode : "—"]] as Array<[string, ReactNode]> : []),
+          ])}
+          {kind === "TRANSFER" && <p className={css.callout}>{t("flockEntry.transferHint")}</p>}
+          {kind === "SELL_HELD" && heldRow && <p className={delivery.data?.blocked ? css.error : css.callout} role="status">
+            {t(delivery.loading ? "flockForm.withdrawalLoading" : delivery.data?.blocked
+              ? delivery.data.reason === "FLOCK_REQUIRED_HOUSE_SCOPE" ? "flockForm.noBalance" : "flockForm.withdrawalBlocked"
+              : delivery.data ? "flockForm.withdrawalClear" : "flockForm.withdrawalPostingCheck")}
+            {delivery.error && <button type="button" className={css.inlineButton} onClick={delivery.refresh}>{t("flockForm.reload")}</button>}
+          </p>}
+          {kind === "REVERSE" && originalRow && renderFacts([
+            ["originalDocument", originalRow.id], ["originalDate", dayLabel(originalRow.business_date)], ["originalEvent", t(formLabelKey("title." + originalRow.kind))],
+            ["originalChange", signed(originalDelta)], ["replacementChange", signed(replacementDelta)], ["difference", signed(reverseEffect)],
+            ["heldDifference", signed(effectOnHeld)], ["heldPosition", str(originalRow.payload?.positionCode) || "—"],
+          ])}
+          {kind === "HISTORY_AUTH" && originalRow && renderFacts([
+            ["originalDocument", originalRow.id], ["affectedDate", dayLabel(periodDay)], ["originalEvent", t(formLabelKey("title." + originalRow.kind))],
+          ])}
+          {kind === "HISTORY_AUTH" && <p className={css.callout}>{t("flockForm.authorizationBinding")}</p>}
+          {kind === "CLOSE" && occupancy && <fieldset className={css.fieldset}>
+            <legend>{t("flockForm.closeChecklist")}</legend>
+            <ul className={css.checklist}>
+              <li>{t(expected === 0 ? "flockForm.zeroBalance" : "flockForm.balanceNotZero")}</li>
+              <li>{t("flockForm.productionCheck")} {reportRows.length ? reportRows.map(row => shiftName(row.shift)).join(" / ") : t("flockForm.noReports")}</li>
+              {!!(closeChecks.data?.length) ? closeChecks.data?.map(row => <li key={str(row.reference) + str(row.reason)}>
+                {row.reason === "OTHER_SCOPE_REVIEW" ? t("flockForm.otherScopeReview")
+                  : t(formLabelKey("close." + str(row.reason)), str(row.reason)) + " · " + str(row.reference)}
+              </li>) : closeChecks.data && <li>{t("flockForm.handoverClear")}</li>}
+              {closePreview.data ? (closePreview.data.blockers.length
+                ? closePreview.data.blockers.map(reason => <li key={reason}>
+                  {t(formLabelKey("close." + reason), t("flockForm.close.FLOCK_CLOSE_REVIEW_REQUIRED"))}
+                </li>) : <li>{t("flockForm.closePreviewClear")}</li>)
+                : <li>{t(closePreview.loading ? "flockForm.loading" : "flockForm.careAndOpenDocuments")}</li>}
+            </ul>
+            <button type="button" className={css.inlineButton} onClick={() => {
+              closeChecks.refresh(); closePreview.refresh(); reports.refresh(); balances.refresh();
+            }}>
+              {t("flockForm.refreshChecks")}
+            </button>
+          </fieldset>}
+          {!missingIdentity && (kind !== "REPORT_CORRECTION" || reportBound) && <>
+            <FlockLifecycleFields kind={kind} value={input} edit={edit}
+              setSourceKind={value => setEdited({ ...input, sourceKind: value, sourceCode: "", sourceFarmCode: "", sourceReceipt: "" })}
+              originalReport={chosenReport} transferTargets={targets} originalHeldId={str(originalEvent?.held_id)} />
+            {house && <fieldset className={css.fieldset} disabled={locked}>
+              <legend>{t("flockForm.evidence")}{requireEvidence ? " *" : ""}</legend>
+              <AttachmentUploader key={[houseCode, day, flockNo, str(chosenReport?.id), selection.heldId, selection.documentId].join("|")}
+                value={input.evidence} onChange={value => {
+                  if (mounted.current && selectionToken.current === uploadIdentity) edit("evidence", value);
+                }} onUploadingChange={active => {
+                  if (mounted.current) { uploadActive.current = active; setUploading(active); }
+                }}
+                ownership={{ moduleCode: "FLOCK_LIFECYCLE", ownerType: "HOUSE", ownerId: houseCode, companyCode: str(house.company_code),
+                  storeCode: str(house.site_code) }} />
+            </fieldset>}
+          </>}
+          {kind === "BASELINE" && oldFlock && !breedReceipt && (
+            !str(oldFlock.breed_code).trim() || ["MISSING", "CATALOG_REVIEW"].includes(str(breedStatus.data?.status))
+          ) && <div className={css.callout}>
+            <p>{t("breeding.breed.draftNeedsConfirmation")}</p>
+            <button className={css.secondary} type="button" onClick={() => setBreed(true)}>{t("ui.核对品种", "核对品种")}</button>
+          </div>}
+          {breedReceipt && <p className={css.callout} role="status">{breedReceipt}</p>}
+        </form>}
       </div>
-      {form.kind==='ADMIT'&&house&&entryHint(house)&&<p role="status">{entryHint(house)} {t('flockEntry.preSubmit')}</p>}
-      {form.kind==='ADMIT'&&house&&readyForEntry(house)&&house.max_capacity==null&&<p role="status">{t('flockEntry.capacity')}</p>}
-      {form.kind==='TRANSFER'&&<>
-        <p>{t('flockEntry.transferHint')}</p>
-        {(formTransferError||transferDateHint(balance))&&<p role="status">{formTransferError||transferDateHint(balance)}</p>}
-      </>}
-      {selectedBaselineBreedNeedsReview&&<p role="status">{t('breeding.breed.draftNeedsConfirmation', '该鸡群的遗传品种标准码待核对。可以先保存草稿，确认品种后再提交。')}
-        <button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(form.flockNo)}>{t('ui.核对品种', '核对品种')}</button>
-      </p>}
-      {house&&<AttachmentUploader value={evidence} onChange={v=>{setEvidence(v);setSourceKey(crypto.randomUUID());}} ownership={{moduleCode:'FLOCK_LIFECYCLE',ownerType:'HOUSE',ownerId:form.houseCode,companyCode:String(house.company_code),storeCode:String(house.site_code??'')}}/>}
-      <p>业务来源编号：{sourceKey}（自动生成，供历史授权绑定）</p>
-      <button disabled={busy||!form.houseCode||Boolean(formTransferError)} onClick={submit}>保存草稿</button>
-    </section>}
-    <section id="flock-documents" className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
-      {review&&<p>{t('productionJobs.flockReview')} · {review.house} {review.date} <button onClick={()=>setReview(null)}>{t('productionInstallments.history')}</button></p>}
-      {docs.filter(d=>!review||['REPORT_CORRECTION','CLOSE'].includes(d.kind)&&['SUBMITTED','APPROVED'].includes(d.status)&&(!review.house||d.house_code===review.house)&&(!review.date||String(d.business_date).slice(0,10)===review.date)).map(d=>{
-        const target=houses.find(h=>h.house_code===(d.kind==='TRANSFER'?d.payload.targetHouseCode:d.house_code));
-        const dateHint=d.kind==='TRANSFER'&&['DRAFT','SUBMITTED','APPROVED'].includes(d.status)
-          ? transferDateError(balances.find(b=>b.flock_no===d.flock_no),d.house_code,String(d.business_date)) : '';
-        const hint=entryDocumentHint(d,target)||dateHint;
-        const canHandleCleaning=!['CLEAN_START','CLEAN_ACCEPT'].includes(d.kind)||cleanAccess.canApprove;
-        const canCancel=createAccess.canEdit&&canHandleCleaning&&(d.status!=='APPROVED'||approveAccess.canApprove);
-        return <article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>
-        {hint&&<p role="status">{hint} {d.status==='APPROVED'&&!canCancel&&t('flockEntry.cancelAccess')}</p>}
-        {d.breed_confirmation_required&&<p>{t('breeding.breed.documentNeedsConfirmation', '品种标准码待核对。确认后可继续处理本单。')}</p>}
-        <div className={css.actions}><button disabled={busy} onClick={()=>showDetail(d.id)}>原单与事件</button>
-          {hint&&target&&hasCleanAction(target)&&<button disabled={busy} onClick={()=>prepareHouse(target)}>{cleanActionLabel(target)}</button>}
-          {d.breed_confirmation_required&&<button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(d.flock_no)}>{t('ui.核对品种', '核对品种')}</button>}
-          {d.status==='DRAFT'&&createAccess.canEdit&&canHandleCleaning&&<button disabled={busy||d.breed_confirmation_required||Boolean(hint)} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/submit`,{method:'POST',body:JSON.stringify({version:d.version})}),'已提交审核。')}>提交</button>}
-          {d.status==='SUBMITTED'&&approveAccess.canApprove&&canHandleCleaning&&d.created_by!==access.user.username&&<button disabled={busy||d.breed_confirmation_required||Boolean(hint)} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/approve`,{method:'POST',body:JSON.stringify({version:d.version})}),'已审核。')}>审核</button>}
-          {d.status==='APPROVED'&&postAccess.canEdit&&canHandleCleaning&&<button disabled={busy||d.breed_confirmation_required||Boolean(hint)} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/post`,{method:'POST',body:JSON.stringify({version:d.version})}),'已原子过账。')}>过账</button>}
-          {d.status!=='POSTED'&&d.status!=='CANCELLED'&&canCancel&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/cancel`,{method:'POST',body:JSON.stringify({version:d.version})}),'已取消，原单保留。')}>取消</button>}
-        </div></article>;})}
-    </section>
-    {vetAccess.canView&&<section className={css.panel}><h2>免疫与休药承接</h2><p>计划原位置、用药发生位置与当前照管位置分开保留；转舍后由当前群继续承接，休药期蛋品禁止正常入库。</p>
-      {care.plans.map(p=><article className={css.document} key={String(p.id)}><strong>{String(p.flock_no)} · {String(p.executed_material_name??p.vaccine_name??p.material_code??p.vaccine_code)} · {String(p.status)}</strong><p>原计划舍 {String(p.house_code)} → 当前舍 {String(p.current_house_code)} · 计划日期 {String(p.plan_date).slice(0,10)}{p.actual_date?` · 实际执行 ${String(p.actual_date).slice(0,10)} / ${String(p.executed_house_code??'未记录执行舍')}`:''}</p>
-        {!p.actual_date&&vetAccess.canEdit&&<div className={css.actions}><a href={`/breeding/immune?planId=${encodeURIComponent(String(p.id))}`}>登记本次免疫与实际批次用量</a><button disabled={busy} onClick={()=>run(()=>farmProductionApi.cancelImmunePlan(Number(p.id)),'计划已受控取消。')}>取消未完计划</button></div>}
-      </article>)}
-      {care.medications.map(m=><article className={css.document} key={String(m.id)}><strong>{String(m.flock_no)} · {String(m.material_name??m.material_code??m.medication_code)} · 用药/休药隔离</strong><p>发生时鸡舍 {String(m.house_code)} → 当前照管舍 {String(m.current_house_code)} · 开始 {String(m.start_date).slice(0,10)} · 休药至 {m.withdraw_until?String(m.withdraw_until).slice(0,10):'疗程未结束，须兽医核实'}</p>{m.house_code!==m.current_house_code&&<small>撤销用药涉及原药品仓回账，须核对原场区、原仓及当前照管权限。</small>}</article>)}
-    </section>}
-    <EggWithdrawalReviews/>
-    {detail&&<section className={css.panel} aria-label="单据详情"><h2>{kindNames[String(detail.kind)]} · {stateNames[String(detail.status)]}</h2><button onClick={()=>setDetail(null)}>收起详情</button>
-      <dl className={css.grid}>{Object.entries({鸡群:detail.flock_no,鸡舍:detail.house_code,公司:detail.company_code,业务日期:String(detail.business_date).slice(0,10),
-        实际数量:String((detail.payload as Row)?.quantity??'—'),业务原因:(detail.payload as Row)?.reason,制单人:detail.created_by,审核人:detail.approved_by,
-        过账人:detail.posted_by,过账时间:detail.posted_at,差异处理回执:(detail.payload as Row)?.differenceReceipt,...specificFields(detail)}).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{String(value||'—')}</dd></div>)}</dl>
-      {detail.kind==='REPORT_CORRECTION'&&(()=>{const p=detail.payload as Row,o=(p.originalReport??{}) as Row,c=p.correction as Row;return <section><h3>日报原值与批准更正</h3><p>{p.originalReport?'稳定原日报':'受控补录（此前无日报）'}编号 {String(p.dailyLogId)} · {String(o.log_date??p.businessDate)} · 原占栏 {String(o.occupancy_id??p.originalOccupancyId)}</p><table><thead><tr><th>字段</th><th>原值</th><th>批准值</th></tr></thead><tbody>{Object.keys({...((o.eggs_by_grade??{}) as Row),...((c.eggsByGrade??{}) as Row)}).map(g=><tr key={g}><td>等级 {g}</td><td>{String(((o.eggs_by_grade??{}) as Row)[g]??0)}</td><td>{String(((c.eggsByGrade??{}) as Row)[g]??0)}</td></tr>)}<tr><td>饲料（公斤）</td><td>{String(o.feed_consumed??'未知')}</td><td>{c.feedConsumed==null?'未知':String(c.feedConsumed)}</td></tr><tr><td>用水（升）</td><td>{String(o.water_consumed??'未知')}</td><td>{c.waterConsumed==null?'未知':String(c.waterConsumed)}</td></tr><tr><td>备注</td><td>{String(o.notes??'')}</td><td>{String(c.notes)}</td></tr></tbody></table></section>;})()}
-      {((detail.payload as Row).originalZeroConfirmation as Row|undefined)&&<p>本单明确更正原关闭单 {String(((detail.payload as Row).originalZeroConfirmation as Row).documentId)} 对该业务日的零产蛋声明；原声明保留，实际日报以本次批准结果为准。</p>}
-      {((detail.amendments as Row[])??[]).map(a=><p key={String(a.id)}>本单零产蛋声明已由 <button onClick={()=>showDetail(String(a.id))}>历史日报更正 {String(a.id)}</button> 重新签认，差异回执：{String(a.difference_receipt)}</p>)}
-      <h3>存栏事件</h3>{((detail.events as Row[])??[]).map(e=><article key={String(e.id)} className={css.document}><strong>{kindNames[String(e.kind)]??String(e.kind)}</strong><p>{String(e.business_date).slice(0,10)} · {String(e.house_code)} · 存栏变动 {Number(e.quantity_delta)>0?'+':''}{String(e.quantity_delta)} 羽 · 过账前 {String(e.document_opening_qty??'待核对')} 羽 → 过账后 {String(e.document_closing_qty??'待核对')} 羽 · 待售变动 {Number(e.held_delta)>0?'+':''}{String(e.held_delta)} 羽</p><small>{String(e.actor)}过账，{String(e.approved_by)}审核</small></article>)}
-      <h3>审核记录</h3>{((detail.audits as Row[])??[]).map(a=><p key={String(a.id)}>{({CREATE:'制单',SUBMIT:'提交审核',APPROVE:'审核通过',POST:'过账',CANCEL:'取消'} as Record<string,string>)[String(a.action)]??String(a.action)} · {String(a.actor)} · {new Date(String(a.recorded_at)).toLocaleString('zh-CN',{timeZone:'Asia/Singapore'})}</p>)}
-      <h3>业务证据</h3>{(((detail.payload as Row)?.evidence as string[])??[]).map((id,index)=><button key={id} disabled={busy} onClick={()=>run(async()=>{
-        const token=sessionStorage.getItem('phoenix_token');const res=await fetch(`/api${endpoint}/documents/${String(detail.id)}/evidence/${encodeURIComponent(id)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}});
-        if(!res.ok)throw new Error('附件不可访问或已失效，请核对权限');
-        const blob=await res.blob();if(!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(blob.type))throw new Error('附件格式不受支持');
-        if(blob.type==='application/pdf'){downloadProtectedPdf(blob,`flock-evidence-${index+1}.pdf`);return;}
-        setPreviewUrl(URL.createObjectURL(blob));
-      },'操作成功')}>查看证据{index+1}</button>)}
-    </section>}
-    {previewUrl&&<section className={css.panel}><button onClick={()=>setPreviewUrl('')}>关闭附件预览</button><iframe title="业务证据预览" src={previewUrl} sandbox="allow-same-origin" referrerPolicy="no-referrer" style={{width:'100%',height:'70vh',border:0}}/></section>}
-
-  </main>;
+    </TaskContainer>
+    {breed && flockNo && <FlockBreedConfirmation flockNo={flockNo} onClose={() => setBreed(false)} onConfirmed={({ receiptId }) => {
+      setBreed(false);
+      setBreedReceipt(receiptId ? t("breeding.breed.confirmedReceipt").replace("{id}", receiptId) : t("breeding.breed.confirmed"));
+    }} />}
+    <ConfirmDialogV2 open={Boolean(confirm)} title={t("flockForm.discardTitle")}
+      message={t(pending ? "flockForm.discardPending" : "flockForm.discardInputs")} confirmLabel={t("flockForm.discard")}
+      onCancel={() => setConfirm(undefined)} onConfirm={() => { confirm?.(); setConfirm(undefined); }} danger />
+  </>;
 }

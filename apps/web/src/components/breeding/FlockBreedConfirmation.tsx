@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import RightDrawer from '@/components/RightDrawer';
+import { DrawerV2 } from '@/components/design-system';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { primaryActionButton } from '@/components/design-system/cockpit-styles';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -66,7 +66,7 @@ export default function FlockBreedConfirmation({ flockNo, onClose, onConfirmed }
     onConfirmed(result);
   };
 
-  return <RightDrawer isOpen onClose={onClose} closeDisabled={busy}
+  return <DrawerV2 open onClose={onClose} closeDisabled={busy}
     title={t('ui.确认遗传品种', '确认遗传品种')}>
     <p>{flockNo}{status && ` · ${status.houseCode}`}</p>
     {!status && !error && <p role="status">{t('ui.正在核对品种状态', '正在核对品种状态')}</p>}
@@ -100,5 +100,5 @@ export default function FlockBreedConfirmation({ flockNo, onClose, onConfirmed }
         </button>
       </form> : <p>{t('ui.联系鸡群基线审核人', '请将鸡群编号交给拥有鸡群审核和历史盘点接续审批权限的人员确认。')}</p>)}
     </>}
-  </RightDrawer>;
+  </DrawerV2>;
 }
