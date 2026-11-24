@@ -57,3 +57,14 @@ jobs:
             }
           }
           JS
+      - name: Check the original sealed OCI image and compiled migration list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: cd7d50c813a9ba34e636fd89b4de13a80ef3e947
+          VET_API_IMAGE: ghcr.io/ivanzhao299/phoenix-erp-v3/api@sha256:cf097138c60312fc0ebab0d6826bb42c2213403f248db0f20c9d2c1905dd626f
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$TARGET_SHA"
+          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$GH_TOKEN" >/dev/null
+          docker pull -q "$VET_API_IMAGE" >/dev/null
+          VET_IMAGE_ID="$(docker image inspect "$VET_API_IMAGE" --format '{{.Id}}')" node scripts/ops/vet-1124-ci.mjs inventory
