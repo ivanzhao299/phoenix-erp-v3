@@ -25,3 +25,10 @@ FROM brd_medications m JOIN inv_batches b ON b.product_code=m.medication_code
 JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
 WHERE b.material_code IS NULL AND b.sku_code IS NULL AND b.item_type IS NULL AND b.qty>0
 GROUP BY 2,w.company_code,w.site_code,b.warehouse_code,b.unit ORDER BY 2,3,4,5,6;
+
+SELECT 'VET_LEGACY_LOT' AS section,b.id,b.batch_no,m.medication_code,m.medication_name,
+       b.qty,b.qty_available,b.unit AS lot_unit,m.dosage AS catalog_dosage,b.status,b.warehouse_code
+FROM inv_batches b JOIN brd_medications m ON m.medication_code=b.product_code
+JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+WHERE b.material_code IS NULL AND b.sku_code IS NULL AND b.item_type IS NULL AND b.qty>0
+ORDER BY b.warehouse_code,m.medication_code,b.id;
