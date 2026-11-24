@@ -18,8 +18,8 @@ const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).for
 const kindNames:Record<string,string>={REPORT_CORRECTION:'历史日报更正与补录',TRANSFER_IN:'整群转入',TRANSFER_OUT:'整群转出',REVERSE_MORTALITY:'冲销死亡',REVERSE_CULL:'冲销淘汰',REVERSE_ADJUST:'冲销盘点',BASELINE:'历史实盘接续',ADMIT:'入栏',MORTALITY:'死亡处置',CULL:'淘汰移出待售',SELL_HELD:'待售鸡交付结算',TRANSFER:'整群转舍',ADJUST:'盘点调整',REVERSE:'冲销更正',CLOSE:'关闭鸡群',CLEAN_START:'开始清舍',CLEAN_ACCEPT:'清舍验收',HISTORY_AUTH:'历史期间更正授权'};
 const stateNames:Record<string,string>={DRAFT:'草稿',SUBMITTED:'待审核',APPROVED:'已审核',POSTED:'已过账',CANCELLED:'已取消',OCCUPIED:'在栏',DIRTY:'待清舍',CLEANING:'清舍中',READY:'可入栏'};
 const entryHints: Record<string,string> = {
-  FIRST_CLEAN:'firstClean', DIRTY:'dirty', CLEANING:'cleaning', OCCUPIED:'occupied',
-  HISTORY_REVIEW:'historyReview', INACTIVE:'inactive',
+  FIRST_CLEAN:'flockEntry.firstClean', DIRTY:'flockEntry.dirty', CLEANING:'flockEntry.cleaning', OCCUPIED:'flockEntry.occupied',
+  HISTORY_REVIEW:'flockEntry.historyReview', INACTIVE:'flockEntry.inactive',
 };
 const readyForEntry=(house: Row)=>house.entry_readiness==='READY'
   || (house.entry_readiness===undefined && house.status==='ACTIVE' && house.state==='READY' && !house.turnaround_history_review);
@@ -103,9 +103,14 @@ function ActorLifecycle(){
   };
   const entryHint=(target?:Row)=>{
     const key=entryHints[String(target?.entry_readiness)];
-    return key?t('flockEntry.'+key):'';
+    return key?t(key):'';
   };
   const prepareHouse=(target:Row)=>{
+    const initial=blank();
+    const hasUnsavedInput=evidence.length>0||Object.keys(reportGrades).length>0||
+      (Object.keys(form) as (keyof typeof form)[]).some(key=>!['kind','houseCode','flockNo'].includes(key)&&form[key]!==initial[key]);
+    if (hasUnsavedInput&&!window.confirm(t('flockEntry.replaceDraft'))) return;
+    setReportGrades({});
     const kind=target.entry_readiness==='CLEANING'?'CLEAN_ACCEPT':'CLEAN_START';
     setForm({...blank(),kind,houseCode:String(target.house_code)});
     setEvidence([]);

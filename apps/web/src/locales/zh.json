@@ -9,6 +9,7 @@
   "flockEntry.inactive": "鸡舍或所属农场未启用。",
   "flockEntry.cleanAction": "办理清洗消毒",
   "flockEntry.acceptAction": "办理清舍验收",
+  "flockEntry.replaceDraft": "切换到清舍单会清空当前未保存的表单。继续吗？",
   "flockEntry.cancelAccess": "如需取消已审核单，请联系同时具有制单与审核权限的人员。",
   "flockEntry.versionChanged": "原单记录的鸡舍版本已变化。请取消原单并按实际资料重新制单审核。",
   "flockEntry.preSubmit": "请在鸡舍可入栏后，按实际入栏资料制单并提交。",

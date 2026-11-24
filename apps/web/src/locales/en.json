@@ -9,6 +9,7 @@
   "flockEntry.inactive": "The house or its farm is inactive.",
   "flockEntry.cleanAction": "Record cleaning and disinfection",
   "flockEntry.acceptAction": "Record house inspection",
+  "flockEntry.replaceDraft": "Switching to a cleaning document will clear the unsaved form. Continue?",
   "flockEntry.cancelAccess": "To cancel an approved document, contact someone with both document editing and approval permission.",
   "flockEntry.versionChanged": "The house version has changed. Cancel this document and submit a new one with the verified facts.",
   "flockEntry.preSubmit": "Once the house is ready, create and submit a document using the actual placement details.",
