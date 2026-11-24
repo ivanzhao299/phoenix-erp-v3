@@ -39,7 +39,7 @@ jobs:
               const status=stderr.match(/HTTP [0-9]{3}/)?.[0]??'';
               const harmless=stderr.match(/resource not accessible by integration|not found|moved permanently|error following redirect|forbidden|rate limit exceeded|failed to run git|must be logged in|unsupported content.type|invalid character|unknown flag|unexpected HTTP status|redirect/i)?.[0]??'';
               const safeText=stderr.replace(/https?:\/\/[^\s)]+/gi,'[URL]').replace(/[^a-z0-9 ,.:_()\[\]-]/gi,' ').replace(/[A-Za-z0-9_=-]{18,}/g,'[ID]').slice(0,300);
-              console.error('public CLI reason',safeText);
+              console.error('public CLI reason',safeText,'CLI flags',stderr.match(/--[a-z][a-z-]+/g));
               console.error(probe.label,current,'category='+e.name,'exit='+String(e.status??''),status,harmless,e.message.startsWith('VET_')?e.message:'');
             }
           }
