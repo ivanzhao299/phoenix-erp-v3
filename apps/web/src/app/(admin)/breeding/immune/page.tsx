@@ -29,6 +29,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import { useVetChoices, useVetFlocks } from '@/hooks/useVetFlocks';
 import { farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
@@ -73,7 +75,8 @@ const businessToday = () => {
 };
 export default function ImmunePage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const houseNames = useMasterNames('house');
   // G24-A：can(role[]) → PBAC（MENU_FARM_VET：免疫记录归兽医防疫域）
   const { canCreate: canCreateImm, canEdit: canEditImm } = usePermission('MENU_FARM_VET');
   const [linkedPlan, setLinkedPlan] = useState('');
@@ -261,12 +264,15 @@ export default function ImmunePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
+    render: (houseCode: unknown) => masterDisplayLabel(houseNames, 'house', houseCode, lang),
     title: t('vet.eventHouse', '记录时鸡舍'),
   }, {
     key: 'currentHouse',
+    render: (houseCode: unknown) => masterDisplayLabel(houseNames, 'house', houseCode, lang),
     title: t('vet.careHouse', '当前照管舍'),
   }, {
-    key: 'executedHouse', title: t('vet.executedHouse', '实际执行舍'),
+    key: 'executedHouse',
+    render: (houseCode: unknown) => masterDisplayLabel(houseNames, 'house', houseCode, lang), title: t('vet.executedHouse', '实际执行舍'),
   }, {
     key: 'vaccine',
     title: t('ui.疫苗名称', '疫苗名称')

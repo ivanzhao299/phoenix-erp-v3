@@ -194,6 +194,24 @@ export const featureMigrations = Object.freeze([
     effective_name: 'CutoverStateReceipts1795400300000',
     timestamp: 1795400300000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795478400000-EggWithdrawalReview.js',
+    class_name: 'EggWithdrawalReview1795478400000',
+    effective_name: 'EggWithdrawalReview1795478400000',
+    timestamp: 1795478400000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795500000000-VetMaterialAllocation.js',
+    class_name: 'VetMaterialAllocation1795500000000',
+    effective_name: 'VetMaterialAllocation1795500000000',
+    timestamp: 1795500000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795500100000-VetMaterialIdentity.js',
+    class_name: 'VetMaterialIdentity1795500100000',
+    effective_name: 'VetMaterialIdentity1795500100000',
+    timestamp: 1795500100000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

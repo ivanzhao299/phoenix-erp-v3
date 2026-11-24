@@ -23,6 +23,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import { useVetChoices, useVetFlocks } from '@/hooks/useVetFlocks';
 import { farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
@@ -65,7 +67,8 @@ export default function MedicinePage() {
   const {
     canEdit
   } = usePermission('MENU_FARM_VET');
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const houseNames = useMasterNames('house');
   const STATUS_CONF: Record<string, {
     status: string;
     label: string;
@@ -205,9 +208,11 @@ export default function MedicinePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
+    render: (houseCode: unknown) => masterDisplayLabel(houseNames, 'house', houseCode, lang),
     title: t('vet.eventHouse', '记录时鸡舍'),
   }, {
     key: 'currentHouse',
+    render: (houseCode: unknown) => masterDisplayLabel(houseNames, 'house', houseCode, lang),
     title: t('vet.careHouse', '当前照管舍'),
   }, {
     key: 'courseNo', title: t('vet.courseNo', '疗程单号'),

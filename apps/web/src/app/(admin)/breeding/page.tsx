@@ -7,6 +7,8 @@ import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, 
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "@/components/ui/admin-ui.module.css";
 // g200f 模板 token(2026-06-20)
@@ -84,8 +86,9 @@ export default function BreedingPage() {
   const toast = useToast();
   const dialog = useDialog();
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
   const SUB_NAV = [{
     label: t('ui.养殖场总览', '养殖场总览'),
     path: "/breeding",
@@ -242,7 +245,7 @@ export default function BreedingPage() {
         id: "wd-" + m.id,
         type: daysLeft <= 2 ? "danger" : "warning",
         label: t('ui.停药期预警', '停药期预警'),
-        msg: `${m.current_house_code || m.house_code || m.flock_no} ${m.material_name || m.material_code || m.medication_code || t('ui.药物', '药物')} ${endDate ? t('ui.停药期还剩', '停药期还剩') + ' ' + daysLeft + ' ' + t('ui.天', '天') : t('vet.openCourse', '疗程未结束')}`,
+        msg: `${masterDisplayLabel(houseNames, 'house', m.current_house_code || m.houseCode || m.house_code, lang)} ${m.material_name || m.material_code || m.medication_code || t('ui.药物', '药物')} ${endDate ? t('ui.停药期还剩', '停药期还剩') + ' ' + daysLeft + ' ' + t('ui.天', '天') : t('vet.openCourse', '疗程未结束')}`,
         time: t('ui.系统', '系统')
       });
     });
@@ -348,7 +351,7 @@ export default function BreedingPage() {
       });
       setFarmEnvMap(final);
     });
-  }, [t]);
+  }, [t, lang, houseNames]);
   useEffect(() => {
     const cancelled = {
       v: false
