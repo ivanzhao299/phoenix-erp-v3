@@ -332,6 +332,13 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     const next=await post(await create({...admission,businessDate:'2026-11-14'}));
     expect((await ds.query('SELECT began_on::text FROM brd_flock_occupancies WHERE flock_no=$1',[next.flock_no]))[0].began_on).toBe('2026-11-14');
   });
+  it('routes an empty-looking house with old daily reports into historical review',async()=>{
+    await ds.query("INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift) VALUES('HISTORIC','HA2','2026-11-08','DAILY')");
+    expect((await s.overview(scope)).find((h:any)=>h.house_code==='HA2')).toMatchObject({entry_readiness:'HISTORY_REVIEW',turnaround_history_review:true});
+    await expect(post(await create({kind:'CLEAN_START',houseCode:'HA2',expectedHouseVersion:0})))
+      .rejects.toMatchObject({response:{code:'FLOCK_HOUSE_HISTORY_REVIEW'}});
+    expect(await count('brd_flock_house_states')).toBe(0);
+  });
   it('places a READY house with prior use but no signed vacancy in historical review',async()=>{
     await clean('HA2');
     await ds.query("INSERT INTO brd_flocks(flock_no,house_code,status,current_qty) VALUES('ARCHIVE','HA2','RETIRED',0)");
