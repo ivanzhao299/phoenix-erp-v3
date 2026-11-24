@@ -8,7 +8,7 @@ import {
   TrendingUp, History, Package,
   Sun, Moon,
 } from 'lucide-react';
-import { mobileApi, invalidateCache, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
+import { mobileApi, invalidateCache, MedicineWarehouse, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -46,6 +46,27 @@ export default function MedicinePage() {
   const [error, setError]     = useState('');
 
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
+
+  const [warehouses, setWarehouses] = useState<MedicineWarehouse[]>([]);
+  const [warehouseCode, setWarehouseCode] = useState('');
+  const warehouse = warehouses.find(row => row.warehouse_code === warehouseCode);
+  useEffect(() => {
+    if (!allowed || readonly || tab !== 'inbound') return;
+    let active = true;
+    mobileApi.getMedicineWarehouses().then(rows => {
+      if (!active) return;
+      setWarehouses(rows);
+      setWarehouseCode(previous => rows.some(row => row.warehouse_code === previous)
+        ? previous : rows.length === 1 ? rows[0].warehouse_code : '');
+    }).catch((err: Error) => {
+      if (active) {
+        setWarehouses([]);
+        setWarehouseCode('');
+        setError(err.message);
+      }
+    });
+    return () => { active = false; };
+  }, [allowed, readonly, tab]);
 
   const [houseMap, setHouseMap] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -102,14 +123,17 @@ export default function MedicinePage() {
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
 
   const handleSave = async () => {
-    if (readonly || saving || !hasChanges || tab !== 'inbound') return;
+    if (readonly || saving || !hasChanges || !warehouse || tab !== 'inbound') return;
     setSaving(true);
     setError('');
     try {
       const items = Object.entries(entries)
         .filter(([, e]) => e.qty > 0)
         .map(([code, e]) => ({
-          medication_code: code,
+          material_code: code,
+          company_code: warehouse.company_code,
+          site_code: warehouse.site_code,
+          warehouse_code: warehouse.warehouse_code,
           qty:             e.qty,
           note:            e.note || undefined,
         }));
@@ -155,7 +179,7 @@ export default function MedicinePage() {
         {(tab === 'inbound' && !readonly) && (
           <button
             onClick={handleSave}
-            disabled={saving || !hasChanges}
+            disabled={saving || !hasChanges || !warehouse}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '8px 14px', borderRadius: 10,
@@ -232,7 +256,7 @@ export default function MedicinePage() {
               </div>
             ) : (
               filteredStock.map(m => (
-                <div key={m.medication_code} style={{
+                <div key={m.material_code ? 'material-' + m.material_code : 'legacy-' + m.medication_code} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '11px 14px', borderRadius: 12, marginBottom: 6,
                   background: m.qty > 0 ? 'rgba(139,92,246,0.05)' : t.cardBg,
@@ -247,6 +271,7 @@ export default function MedicinePage() {
                       {m.qty}
                     </div>
                     <div style={{ fontSize: 10, color: t.textFaint }}>{m.unit}</div>
+                    {m.other_units?.map(balance => <div key={balance.unit}>{balance.qty} {balance.unit}</div>)}
                   </div>
                 </div>
               ))
@@ -263,8 +288,20 @@ export default function MedicinePage() {
               </div>
             )}
 
+            <label style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
+              {tr('common.warehouse', '仓库')}
+              <select value={warehouseCode} onChange={event => {
+                setWarehouseCode(event.target.value);
+                setEntries({});
+              }}>
+                <option value="">{tr('common.select', '请选择')}</option>
+                {warehouses.map(row => <option key={row.warehouse_code} value={row.warehouse_code}>{row.warehouse_code}</option>)}
+              </select>
+            </label>
             {stock.map(m => {
-              const e = getEntry(m.medication_code);
+              const code = m.material_code;
+              if (!code) return null;
+              const e = getEntry(code);
               return (
                 <div key={m.medication_code} style={{
                   borderRadius: 14, marginBottom: 8, overflow: 'hidden',
@@ -287,7 +324,7 @@ export default function MedicinePage() {
                       <input
                         type="number" inputMode="numeric" min="0"
                         value={e.qty || ''}
-                        onChange={ev => setEntry(m.medication_code, { qty: Math.max(0, Number(ev.target.value) || 0) })}
+                        onChange={ev => setEntry(code, { qty: Math.max(0, Number(ev.target.value) || 0) })}
                         placeholder="0"
                         style={{
                           width: 72, height: 34, textAlign: 'center',
@@ -304,7 +341,7 @@ export default function MedicinePage() {
                       <input
                         type="text"
                         value={e.note}
-                        onChange={ev => setEntry(m.medication_code, { note: ev.target.value })}
+                        onChange={ev => setEntry(code, { note: ev.target.value })}
                         placeholder={tr('mob.brd.supplier_batch', '供应商/批号…')}
                         style={{
                           height: 34, padding: '0 8px',

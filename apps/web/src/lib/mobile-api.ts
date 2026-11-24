@@ -228,7 +228,15 @@ export interface FarmSaleRecord {
   }>;
 }
 
+export interface MedicineWarehouse {
+  company_code: string;
+  site_code: string;
+  warehouse_code: string;
+}
+
 export interface MedStockRow {
+  material_code: string | null;
+  other_units?: Array<{ qty: number; unit: string }>;
   medication_code: string;
   medication_name: string;
   dosage:          string;
@@ -440,8 +448,10 @@ export const mobileApi = {
   getMedLedger: (start: string, end: string) =>
     get<MedLedgerEntry[]>(`/api/farm/medicine/ledger?start=${start}&end=${end}`),
 
+  getMedicineWarehouses: () => get<MedicineWarehouse[]>('/api/farm/medicine/inbound-warehouses'),
+
   /** 药品入库 */
-  medInbound: (date: string, items: Array<{ medication_code: string; qty: number; note?: string }>, operator?: string) =>
+  medInbound: (date: string, items: Array<MedicineWarehouse & { material_code: string; qty: number; note?: string }>, operator?: string) =>
     post('/api/farm/medicine/inbound', { date, items, operator }),
 
   /** 母鸡存栏日报（按日期） */
