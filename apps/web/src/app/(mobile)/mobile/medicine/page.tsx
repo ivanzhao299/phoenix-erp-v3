@@ -290,7 +290,7 @@ export default function MedicinePage() {
             )}
 
             <label style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-              {tr('common.warehouse', '仓库')}
+              {tr('ui.仓库', '仓库')}
               <select value={warehouseCode} onChange={event => {
                 setWarehouseCode(event.target.value);
                 setEntries({});

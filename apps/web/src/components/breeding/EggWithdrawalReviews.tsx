@@ -20,17 +20,19 @@ export default function EggWithdrawalReviews({quality = false}: {quality?: boole
   const access = usePermission(quality ? 'MENU_QA_OP' : 'MENU_FARM_VET');
   const [day,setDay] = useState(() => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()));
   const [revision,setRevision] = useState(0);
-  const [rows,setRows] = useState<Source[] | null>(null);
-  const [error,setError] = useState('');
+  const [result, setResult] = useState<{key: string; rows?: Source[]; error?: string}>();
+  const url = access.canView && day ? `${api}/${quality ? 'quality' : 'vet'}?day=${encodeURIComponent(day)}` : '';
+  const key = url + '#' + revision;
   useEffect(() => {
+    if (!url) return;
     let current = true;
-    setRows(null);
-    setError('');
-    if (access.canView && day) request<{data:Source[]}>(`${api}/${quality ? 'quality' : 'vet'}?day=${encodeURIComponent(day)}`)
-      .then(r => { if (current) setRows(r.data); })
-      .catch(e => { if (current) setError(e.message); });
+    request<{data: Source[]}>(url)
+      .then(response => { if (current) setResult({key, rows: response.data}); })
+      .catch((err: Error) => { if (current) setResult({key, error: err.message}); });
     return () => { current = false; };
-  },[access.canView,day,quality,revision]);
+  }, [url, key]);
+  const rows = result?.key === key ? result.rows : undefined;
+  const error = result?.key === key ? result.error : undefined;
   if (!access.canView) return null;
   return <section className={css.panel}>
     <h2>{t('vet.eggReviews','产蛋日隔离复核')}</h2>
