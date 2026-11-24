@@ -121,8 +121,9 @@ export class DashboardBffController {
     const withdrawRows=vetAllowed?await this.em.query(`SELECT r.id,COALESCE(NULLIF(r.material_name,''),r.material_code,r.medication_code) AS medicine,COALESCE(b.house_code,r.house_code) AS farm_house,r.withdraw_until::text AS end_date
       FROM brd_medication_records r LEFT JOIN brd_flock_balances b ON b.flock_no=r.flock_no
       JOIN LATERAL (SELECT COALESCE(b.farm_code,r.farm_code) AS farm_code,COALESCE(b.site_code,r.site_code) AS site_code,COALESCE(b.company_code,r.company_code) AS company_code) owner ON true
-      WHERE r.status<>'CANCELLED' AND r.withdraw_until::date>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date
-      AND r.withdraw_until::date<=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date+5 ${careScope?'AND '+careScope:''}`,careParams):[];
+      WHERE r.status<>'CANCELLED' AND r.start_date<=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date
+      AND (r.withdraw_until IS NULL OR r.withdraw_until::date BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date
+          AND (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date+5) ${careScope?'AND '+careScope:''}`,careParams):[];
 
     // 设备环境快报（全局；受限用户跳过——设备有独立监控页 /breeding/device，避免跨场泄漏）
     const [deviceAlertRow] = scopeStore ? [{ cnt: 0 }] : await safe(
@@ -158,7 +159,7 @@ export class DashboardBffController {
     }));
     withdrawRows.forEach((r: any) => alertList.push({
       id: `wd_${r.id}`,
-      text: `[${r.farm_house || '鸡舍'}] ${r.medicine || '药物'} 停药期即将结束 (${r.end_date})`,
+      text: `[${r.farm_house || '鸡舍'}] ${r.medicine || '药物'} ${r.end_date ? '停药期即将结束 (' + r.end_date + ')' : '疗程结束日待兽医核实'}`,
       type: 'warning',
     }));
     if (deviceStats.activeAlerts > 0) {
