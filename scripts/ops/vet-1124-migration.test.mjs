@@ -21,7 +21,7 @@ function fixture() {
   checkout: baseline, pending: units.join(' '), ledgerSha256: '8'.repeat(64), ciSha256: '9'.repeat(64), apiImage: image('api') };
 }
 
-test('a real git merge admits exactly the two reviewed blobs and the entire sealed tree', t => {
+test('a real git merge admits exactly the three reviewed blobs and the entire sealed tree', t => {
   const dir = fs.mkdtempSync(path.join(root, '.vet-source-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', ['-c','user.name=Fixture','-c','user.email=fixture@localhost',
@@ -95,7 +95,7 @@ test('run 45351436581 historical totals remain evidence and new stock or blockin
   assert.throws(() => inspect({overposted_grades:changed}));
 });
 
-test('after ledger has precisely the two new effective names and preserves historical rows', () => {
+test('after ledger has precisely the three new effective names and preserves historical rows', () => {
   const before = { legacy: [{ filename:'a' }], typeorm: [{timestamp:1,name:'Historic1'}] };
   const added = units.map(unit => { const [ts, name] = unit.split('-'); return {timestamp:Number(ts),name:name+ts}; });
   const after = {legacy:before.legacy,typeorm:[...before.typeorm,...added]};
@@ -180,7 +180,7 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
     workflow.slice(start,end), 'echo REACHED_BACKUP; fi'].join('\n');
   const env = { ...process.env, PHASE:'apply', AUDIT_SCOPE:'vet-1124', SNAPSHOT:'inspection', EXPECTED_VET_INSPECTION_SHA256:'inspection',
     TARGET_SHA:target, LEDGER_SHA256:'ledger', EXPECTED_BEFORE_LEDGER_SHA256:'ledger', GHCR_LOGIN_USER:'fixture', GHCR_LOGIN_TOKEN:'fixture',
-    VET_API_IMAGE:image('api'), MIGRATION_PATHS:'both', PENDING_CLASSES:units.join(' ') };
+    VET_API_IMAGE:image('api'), MIGRATION_PATHS:'reviewed', PENDING_CLASSES:units.join(' ') };
   const run = fields => spawnSync('bash',['-c',script],{env:{...env,...fields},encoding:'utf8'});
   const inspect = run({PHASE:'inspect'});
   assert.equal(inspect.status,0); assert.match(inspect.stdout,/INSPECT=COMPLETE/);

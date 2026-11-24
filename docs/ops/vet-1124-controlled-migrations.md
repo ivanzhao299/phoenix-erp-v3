@@ -4,8 +4,8 @@
 
 ## 整合与封存
 
-1. 在整合分支合入全部业务改动和本门禁，在 `scripts/ops/vet-1124-migration.mjs` 的 `units` 中核对完整迁移清单。默认清单为 `1795478400000-EggWithdrawalReview`、`1795500000000-VetMaterialAllocation`。如果最终名称或清单有变化，先审定改动，更新清单和对应测试，再继续。
-2. 确认整合工作树干净，审阅相对基线 `44b3e692c18952d7be755114368f15fbcd1d8fba` 的完整 diff，核对两个迁移的源码 blob，完成候选验收。此时 `scripts/ops/vet-1124-reviewed-head` 的内容须为 `PENDING`。
+1. 在整合分支合入全部业务改动和本门禁，在 `scripts/ops/vet-1124-migration.mjs` 的 `units` 中核对完整迁移清单。审定功能对应的清单为 `1795478400000-EggWithdrawalReview`、`1795500000000-VetMaterialAllocation`、`1795500100000-VetMaterialIdentity`。如果最终名称或清单有变化，先审定改动，更新清单和对应测试，再继续。
+2. 确认整合工作树干净，审阅相对基线 `44b3e692c18952d7be755114368f15fbcd1d8fba` 的完整 diff，核对三个迁移的源码 blob，完成候选验收。此时 `scripts/ops/vet-1124-reviewed-head` 的内容须为 `PENDING`。
 3. 在该整合分支记录审定的完整 HEAD。封存提交仅含这一个文件。
 
 ```bash
@@ -37,9 +37,9 @@ gh workflow run controlled-pending-migration-apply.yml --ref main \
   -f expected_vet_inspection_sha256="$VET_INSPECTION_SHA256"
 ```
 
-Apply 在已有生产互斥锁下核对运行中 API/Web、checkout、两项待迁移和 ledger，按 digest 拉取正式镜像。备份完整解析后，用新的只读快照再次比对审计和 inspect 摘要。迁移后要求 ledger 增量恰好为这两项，随后走既有迁移回执登记。保存本次运行号、备份位置与摘要、两份 `MIGRATION_RECEIPT` 和 `MIGRATION_APPLY=COMMITTED`。应用发布仍走正式发布工作流和对应回执。
+Apply 在已有生产互斥锁下核对运行中 API/Web、checkout、三项待迁移和 ledger，按 digest 拉取正式镜像。备份完整解析后，用新的只读快照再次比对审计和 inspect 摘要。迁移后要求 ledger 增量恰好为这三项，随后走既有迁移回执登记。保存本次运行号、备份位置与摘要、两份 `MIGRATION_RECEIPT` 和 `MIGRATION_APPLY=COMMITTED`。应用发布仍走正式发布工作流和对应回执。
 
-任一绑定漂移都会停止本次 apply。如果 DDL 已执行而回执未完成，应保留运行号、备份、schema-first 证据及前后 ledger 交给主会话核查。专项 apply 只接受两项均待执行的状态。
+任一绑定漂移都会停止本次 apply。如果 DDL 已执行而回执未完成，应保留运行号、备份、schema-first 证据及前后 ledger 交给主会话核查。专项 apply 只接受三项均待执行的状态。
 
 ## 本地核验
 

@@ -8,7 +8,7 @@ import { MIGRATION_PATHS } from './production-config-guard.mjs';
 
 export const baseline = '44b3e692c18952d7be755114368f15fbcd1d8fba';
 export const reviewedHeadFile = 'scripts/ops/vet-1124-reviewed-head';
-export const units = ['1795478400000-EggWithdrawalReview', '1795500000000-VetMaterialAllocation'];
+export const units = ['1795478400000-EggWithdrawalReview', '1795500000000-VetMaterialAllocation', '1795500100000-VetMaterialIdentity'];
 const paths = units.map(unit => 'apps/api/src/database/migrations/' + unit + '.ts');
 const sourceRuns = ['45352175233', '45351436581'];
 const sha = /^[a-f0-9]{40}$/;
@@ -64,7 +64,7 @@ export function reviewSnapshot({ originalAudit, dailyRowsRaw, source, runtime,
 }
 
 export function verifyAppliedLedger(before, after) {
-  // TypeORM appends the two effective class names in this single transaction.
+  // TypeORM appends the reviewed class names in this single transaction.
   // Keep all pre-existing TypeORM and legacy rows bound to the pre-DDL snapshot.
   const expected = units.map(unit => {
     const [stamp, name] = unit.split('-');
