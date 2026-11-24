@@ -89,6 +89,19 @@ async function observeEdge(before,held){
  throw Error('public origin or prior worker retirement unverified');
 }
 
+async function refence(store,attempt,held){
+ const before=workers();
+ assert.equal(before.master,attempt.workers.master,'unowned nginx master');
+ const observedHash=sha(readVhost());
+ assert([originalHash,heldHash].includes(observedHash),'unknown config during recovery');
+ const refencing={...attempt,phase:'REFENCING',refencingWorkers:before};
+ atomicState(store.file(attemptName),refencing);
+ if(observedHash===originalHash)install(held,originalHash);
+ reload();
+ const reheld=await observeEdge(before,true);
+ atomicState(store.file(attemptName),{...refencing,phase:'REHELD',reheld,rollbackAt:new Date().toISOString()});
+}
+
 async function publish(target,operation){
  const root=CONTRACT.repository;
  assert(/^[a-f0-9]{40}$/.test(target||'')&&target!==runtimeSha&&['inspect','apply'].includes(operation),'exact publication input required');
@@ -116,22 +129,33 @@ async function publish(target,operation){
  assert.equal(binding.cleanupBlob,reviewedCleanupBlob,'cleanup source is outside reviewed publication');
  if(prior)assert(same(prior.binding,binding),'existing intent belongs to another publication');
  const pending=prior&&store.exists(attemptName)?store.read(attemptName):null;
- if(pending)assert.equal(pending.intentSha256,canonicalDigest(prior),'opening attempt binding changed');
- if(pending&&currentHash===heldHash){
-  const verifiedHeld=pending.phase==='REHELD'?pending.reheld:pending.workers;
-  assert(same(verifiedHeld,workers()),'held nginx generation changed');
- }
- if(currentHash===originalHash)assert(pending?.phase==='APPLYING','no registered opening attempt');
- if(!store.exists(terminalName)){
+ const terminal=store.exists(terminalName)?store.read(terminalName):null;
+ let needsRefence=false;
+ if(terminal){
+  assert(prior&&pending&&same(terminal.binding,binding)&&terminal.intentSha256===canonicalDigest(prior)&&
+    terminal.attemptSha256===canonicalDigest(pending)&&currentHash===originalHash,'public terminal changed');
+  edgeProbe(false);
+ }else{
+  if(pending){
+   assert(head===target&&pending.intentSha256===canonicalDigest(prior)&&
+    ['APPLYING','REFENCING','REHELD'].includes(pending.phase),'opening attempt binding changed');
+   const live=workers();
+   assert.equal(live.master,pending.workers.master,'unowned nginx master');
+   const verifiedHeld=pending.phase==='REHELD'?pending.reheld:pending.workers;
+   needsRefence=currentHash!==heldHash||pending.phase==='REFENCING'||!same(verifiedHeld,live);
+  }
   const checked=verifyHeldFollowUp('admit',{
    DEPLOY_MODE:'web',DEPLOY_RUN_ID:Date.now()+'-1',TARGET_SHA:runtimeSha,HELD_FOLLOW_UP:`web-${apiOwner}-verify-${webOwner}`,
    APPROVE_PRODUCTION:'true',PRESERVE_ARTIFACTS:'true',BUILD_API:'false',BUILD_WEB:'true',RUN_MIG:'false',
    ROTATE_CHANJET_CREDENTIALS:'false',ONE_TIME_CONFIG_FLOOR_TRANSITION:'false',
-  },{latestMain:()=>assertLatestMain(target),...(pending?{edge:()=>edgeProbe(currentHash===heldHash)}:{})});
+  },{latestMain:()=>assertLatestMain(target),...(pending?{edge:()=>{
+   // An interrupted owned reload is reconciled behind FD9 before reopening.
+   if(!needsRefence)edgeProbe(true);
+  }}:{})});
   assert.equal(checked.receiptOnly,true,'prior Web seal unverified');
  }
  if(operation==='inspect'){
-  console.log(JSON.stringify({operation,target,runtimeSha,head,currentlyHeld:currentHash===heldHash,cleanupBlob:binding.cleanupBlob}));
+  console.log(JSON.stringify({operation,target,runtimeSha,head,currentlyHeld:currentHash===heldHash&&!needsRefence,needsRefence,cleanupBlob:binding.cleanupBlob}));
   return;
  }
  if(head!==target)git(root,['merge','--ff-only',target]);
@@ -140,44 +164,37 @@ async function publish(target,operation){
  const receiptName=`schema-release-1123-ops-published-${target}.json`;
  if(!store.exists(receiptName))store.immutable(receiptName,{binding,publishedAt:new Date().toISOString()});
  else assert(same(store.read(receiptName).binding,binding),'checkout publication receipt changed');
- if(store.exists(terminalName)){
-  const terminal=store.read(terminalName);
-  assert(prior&&same(terminal.binding,binding)&&terminal.intentSha256===canonicalDigest(prior)&&
-   terminal.attemptSha256===canonicalDigest(store.read(attemptName))&&currentHash===originalHash,'public terminal changed');
-  edgeProbe(false);
-  console.log(JSON.stringify(terminal));
-  return;
- }
+ if(terminal){console.log(JSON.stringify(terminal));return;}
  native('/usr/bin/systemctl',['is-active','--quiet','nginx']);
  native('/usr/sbin/nginx',['-t']);
  const intent=prior??{binding,registeredAt:new Date().toISOString()};
  if(!prior)store.immutable(intentName,intent);
  const intentHash=canonicalDigest(intent);
- if(currentHash===heldHash){
-  const before=workers();
-  assert(Object.keys(before.processes).length>0,'running nginx workers required');
-  atomicState(store.file(attemptName),{intentSha256:intentHash,phase:'APPLYING',workers:before,startedAt:new Date().toISOString()});
- }
+ if(needsRefence)await refence(store,pending,held);
+ assert.equal(sha(readVhost()),heldHash,'held config required before opening');
+ edgeProbe(true);
+ const before=workers();
+ assert(Object.keys(before.processes).length>0,'running nginx workers required');
+ atomicState(store.file(attemptName),{intentSha256:intentHash,phase:'APPLYING',workers:before,startedAt:new Date().toISOString()});
  const attempt=store.read(attemptName);
  assert.equal(attempt.intentSha256,intentHash,'opening attempt binding changed');
  assertLatestMain(target);
  try{
-  if(currentHash===heldHash){install(original,heldHash);reload();}
+  install(original,heldHash);
+  reload();
   const current=await observeEdge(attempt.workers,false);
   assert.equal(sha(readVhost()),originalHash,'restored origin changed');
   guardProduction(root,store.directory,captureRuntime());
   assertLatestMain(target);
   const terminal={binding,intentSha256:intentHash,attemptSha256:canonicalDigest(attempt),openedAt:new Date().toISOString(),workers:current,
    outcome:'OPEN',probe:{http:301,httpsHome:200,httpsLogin:200,httpsHealth:200}};
-  store.immutable(terminalName,terminal);
+  assert(!store.exists(terminalName),'another opening terminal exists');
+  atomicState(store.file(terminalName),terminal);
+  assert(same(store.read(terminalName),terminal),'opening terminal changed');
   console.log(JSON.stringify(terminal));
  }catch(error){
   if(!store.exists(terminalName)&&sha(readVhost())===originalHash){
-   const opening=workers();
-   install(held,originalHash);
-   reload();
-   const reheld=await observeEdge(opening,true);
-   atomicState(store.file(attemptName),{...attempt,phase:'REHELD',reheld,rollbackAt:new Date().toISOString()});
+   await refence(store,attempt,held);
   }
   throw error;
  }
