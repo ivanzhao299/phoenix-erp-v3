@@ -75,7 +75,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    CREATE TABLE IF NOT EXISTS inv_batches(batch_no text PRIMARY KEY,quality_grade text);
    CREATE TABLE IF NOT EXISTS file_metadata(id bigserial PRIMARY KEY,file_id text UNIQUE,original_name text,stored_name text,storage_path text,mime_type text,size_bytes bigint,checksum text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text,status text,visibility text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),deleted_at timestamptz);
    INSERT INTO brd_farms VALUES('A','farm A','CA','SA','ACTIVE'),('A2','farm A2','CA','SA2','ACTIVE'),('B','farm B','CB','SB','ACTIVE') ON CONFLICT DO NOTHING;
-   INSERT INTO brd_houses(house_code,house_name,farm_code,max_capacity,status) VALUES('HA','house A','A',200,'ACTIVE'),('HX','house same company other farm','A2',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE') ON CONFLICT DO NOTHING;
+   INSERT INTO brd_houses(house_code,house_name,farm_code,max_capacity,status) VALUES('HA','house A','A',200,'ACTIVE'),('HX','house same company other farm','A2',200,'ACTIVE'),('HNEW','new fixture house','A',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE') ON CONFLICT DO NOTHING;
    INSERT INTO sys_organizations(id,org_code,org_name,org_type,level,status,company_code,parent_id,sort_order) VALUES
     (1,'CA','Company A','COMPANY',2,'ACTIVE','CA',NULL,0),(2,'CB','Company B','COMPANY',2,'ACTIVE','CB',NULL,0),
     (3,'SA','Site A','SITE',3,'ACTIVE','CA',1,0),(4,'SA2','Site A2','SITE',3,'ACTIVE','CA',1,0),(5,'SB','Site B','SITE',3,'ACTIVE','CB',2,0) ON CONFLICT DO NOTHING;
@@ -85,7 +85,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    INSERT INTO sys_user_farm_scopes(user_id,farm_code) SELECT id,CASE WHEN id=4 THEN 'A2' ELSE 'B' END FROM fixture_users WHERE id IN(4,7) AND NOT EXISTS(SELECT 1 FROM sys_user_farm_scopes s WHERE s.user_id=fixture_users.id);
    INSERT INTO fixture_permissions VALUES('ROLE_KEEPER','MENU_FARM_DATA:V'),('ROLE_KEEPER','MENU_FLOCK_CREATE:E'),('ROLE_KEEPER','MENU_FLOCK_BASELINE:A'),
     ('ROLE_REVIEWER','MENU_FARM_DATA:V'),('ROLE_REVIEWER','MENU_FLOCK_APPROVE:A'),('ROLE_REVIEWER','MENU_FLOCK_BASELINE:A'),
-    ('ROLE_POSTER','MENU_FARM_DATA:V'),('ROLE_POSTER','MENU_FLOCK_POST:E'),('ROLE_POSTER','MENU_FLOCK_BASELINE:A'),('ROLE_ADMIN','*'),('ROLE_KEEPER','MENU_FLOCK_REPORT:A'),('ROLE_REVIEWER','MENU_FLOCK_REPORT:A'),('ROLE_POSTER','MENU_FLOCK_REPORT:A') ON CONFLICT DO NOTHING;
+    ('ROLE_POSTER','MENU_FARM_DATA:V'),('ROLE_POSTER','MENU_FLOCK_POST:E'),('ROLE_POSTER','MENU_FLOCK_BASELINE:A'),('ROLE_ADMIN','*'),('ROLE_KEEPER','MENU_FLOCK_REPORT:A'),('ROLE_REVIEWER','MENU_FLOCK_REPORT:A'),('ROLE_POSTER','MENU_FLOCK_REPORT:A'),('ROLE_KEEPER','MENU_FLOCK_CLEAN:A'),('ROLE_REVIEWER','MENU_FLOCK_CLEAN:A'),('ROLE_POSTER','MENU_FLOCK_CLEAN:A') ON CONFLICT DO NOTHING;
    INSERT INTO sys_dict(dict_type,dict_code,dict_label_zh,status) VALUES
     ('BRD_BREED','BREED','approved breed','ACTIVE'),('BRD_BREED','OTHER','another breed','ACTIVE'),('BRD_BREED','RETIRED_BREED','retired breed','INACTIVE') ON CONFLICT DO NOTHING;
    INSERT INTO sys_menu(menu_code,menu_name_zh,domain) VALUES('MENU_FARM_DATA','Flock data','FARM'),('MENU_PRC2_ORDER','Purchase order','PRC') ON CONFLICT DO NOTHING;`);
@@ -138,6 +138,51 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   const detail=(await api(2,'get',`/documents/${d.id}`).expect(200)).body.data;expect(detail.business_date).toBe('2026-11-10');expect(detail.events[0].business_date).toBe('2026-11-10');
   const balances=(await api(1,'get','/balances').expect(200)).body.data;expect(balances[0].baseline_on).toBe('2026-11-10');expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(100);
   await api(2,'get',`/documents/${d.id}/evidence/${file.body.fileId}`).expect(200);
+ });
+ it('guides first placement before submission and keeps a legacy approval intact until real inspection',async()=>{
+  const evidence=(await upload(1,'HNEW').expect(201)).body.fileId;
+  const house=async()=> (await api(1,'get','/houses').expect(200)).body.data.find((h:any)=>h.house_code==='HNEW');
+  const place=(version:number,sourceReceipt='NEW-HOUSE-DELIVERY')=>payload({kind:'ADMIT',houseCode:'HNEW',expectedHouseVersion:version,
+    sourceKind:'INTERNAL',sourceFarmCode:'A',sourceReceipt,breedCode:'BREED',placementAge:80,evidence:[evidence]});
+  const createDocument=async(body:Record<string,unknown>)=>(await api(1,'post','/documents').send(body).expect(201)).body.data;
+  const act=(d:any,id:number,action:string)=>api(id,'post',`/documents/${d.id}/${action}`).send({version:d.version});
+  const approve=async(d:any)=>{
+    const submitted=(await act(d,1,'submit').expect(201)).body.data;
+    return (await act(submitted,2,'approve').expect(201)).body.data;
+  };
+  const post=async(d:any)=>(await act(await approve(d),3,'post').expect(201)).body.data;
+
+  expect(await house()).toMatchObject({entry_readiness:'FIRST_CLEAN',state:null,legacy_flocks:0});
+  const legacy=await createDocument(place(0));
+  expect((await act(legacy,1,'submit').expect(400)).body.message).toContain('首次清洗');
+  // Recreate the statuses the previous application admitted before checking cleaning at posting.
+  await db.query("UPDATE brd_flock_documents SET status='SUBMITTED',version=1 WHERE id=$1",[legacy.id]);
+  expect((await act({...legacy,version:1},2,'approve').expect(400)).body.message).toContain('首次清洗');
+  await db.query("UPDATE brd_flock_documents SET status='APPROVED',version=2,approved_by='admin' WHERE id=$1",[legacy.id]);
+  const oldApproved={...legacy,version:2};
+  expect((await act(oldApproved,6,'post').expect(400)).body.message).toContain('首次清洗');
+  expect(await db.query('SELECT * FROM brd_flock_admission_receipts')).toEqual([]);
+  expect(await db.query('SELECT * FROM brd_flock_occupancies')).toEqual([]);
+
+  await post(await createDocument(payload({kind:'CLEAN_START',houseCode:'HNEW',expectedHouseVersion:0})));
+  expect(await house()).toMatchObject({entry_readiness:'CLEANING',house_version:0});
+  expect((await act(oldApproved,6,'post').expect(400)).body.message).toContain('完成清舍验收');
+  await post(await createDocument(payload({kind:'CLEAN_ACCEPT',houseCode:'HNEW',expectedHouseVersion:0,evidence:[evidence]})));
+  expect(await house()).toMatchObject({entry_readiness:'READY',house_version:1});
+  expect((await act(oldApproved,6,'post').expect(409)).body.message).toContain('重新制单审核');
+  expect((await api(6,'get',`/documents/${legacy.id}`).expect(200)).body.data).toMatchObject({status:'APPROVED',version:2,events:[]});
+  await act(oldApproved,6,'cancel').expect(201);
+
+  const ready=await approve(await createDocument(place(1)));
+  const competing=await approve(await createDocument(place(1,'SECOND-DELIVERY')));
+  const results=await Promise.all([act(ready,3,'post'),act(competing,3,'post')]);
+  expect(results.map(r=>r.status).sort()).toEqual([201,400]);
+  const winner=results.find(r=>r.status===201)!.body.data;
+  expect((await act(winner,3,'post').expect(201)).body.data.id).toBe(winner.id);
+  expect(await house()).toMatchObject({entry_readiness:'OCCUPIED',quantity:100});
+  expect(await db.query("SELECT kind FROM brd_flock_events WHERE kind='ADMIT'")).toEqual([{kind:'ADMIT'}]);
+  expect(await db.query('SELECT quantity FROM brd_flock_admission_receipts')).toEqual([{quantity:100}]);
+  expect(await db.query('SELECT house_code FROM brd_flock_occupancies')).toEqual([{house_code:'HNEW'}]);
  });
  const confirmBody={houseCode:'HA',breedCode:'BREED',basis:'Original supplier statement F-881'};
  const confirmRoute='/flocks/FA/breed-confirmation';

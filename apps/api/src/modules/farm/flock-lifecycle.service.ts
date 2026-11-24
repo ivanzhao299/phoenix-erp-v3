@@ -9,7 +9,7 @@ import { EntityManager } from 'typeorm';
 import { hasPerm } from '../../auth/permissions.util';
 import { birdCount } from './daily-stock-policy';
 import { flockHandoverBlockers } from './flock-handover-blockers';
-import { assertHouseTurnaround, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } from './flock-house-turnaround';
+import { assertHouseReadyForEntry, assertHouseTurnaround, houseEntryReadiness, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } from './flock-house-turnaround';
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 
@@ -377,20 +377,23 @@ export class FlockLifecycleService {
   async overview(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
     const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
-      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,e.steps,e.previously_used,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
+      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,e.steps,e.previously_used,e.open_occupancy,f.farm_status,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
       o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
       (SELECT COUNT(*)::integer FROM brd_flocks x WHERE x.house_code=h.house_code AND
         (x.status IS DISTINCT FROM 'RETIRED' OR COALESCE(x.current_qty,0)>0)) AS legacy_flocks
-      FROM brd_houses h JOIN (SELECT farm_code,company_code,mapped_site_code,mapped_site_code AS site_code FROM brd_farms) f ON f.farm_code=h.farm_code
+      FROM brd_houses h JOIN (SELECT farm_code,company_code,status AS farm_status,mapped_site_code,mapped_site_code AS site_code FROM brd_farms) f ON f.farm_code=h.farm_code
       LEFT JOIN brd_flock_house_states s ON s.house_code=h.house_code
       LEFT JOIN LATERAL (${HOUSE_TURNAROUND_EVIDENCE}) e ON s.state IS DISTINCT FROM 'OCCUPIED'
       LEFT JOIN brd_flock_occupancies o ON o.house_code=h.house_code AND o.ended_on IS NULL
       LEFT JOIN brd_flock_balances b ON b.flock_no=o.flock_no ${where?'WHERE '+where:''} ORDER BY h.house_code`,params);
-    return houses.map(({ capacity,max_capacity,document_id,steps,previously_used,...house }: any) => ({
-      ...house, turnaround_history_review: house.state!=='OCCUPIED' && turnaroundBoundary(
-        house.state?{state:house.state,document_id,last_occupied_on:house.last_occupied_on}:undefined,{steps,previously_used})===undefined,
-      max_capacity: resolveHouseCapacity({ capacity, max_capacity }),
-    }));
+    return houses.map(({capacity,max_capacity,document_id,steps,previously_used,open_occupancy,farm_status,...house}: any) => {
+      const state=house.state?{state:house.state,document_id,last_occupied_on:house.last_occupied_on}:undefined;
+      const evidence={steps,previously_used,open_occupancy};
+      const readiness=houseEntryReadiness(state,evidence,house.legacy_flocks>0);
+      return {...house,entry_readiness:house.status==='ACTIVE'&&farm_status==='ACTIVE'?readiness:'INACTIVE',
+        turnaround_history_review:house.state!=='OCCUPIED'&&turnaroundBoundary(state,evidence)===undefined,
+        max_capacity:resolveHouseCapacity({capacity,max_capacity})};
+    });
   }
   async closeBlockers(occupancyId: string, businessDate: string, scope: OrgScope) {
     const day=flockBusinessDate(businessDate);
@@ -475,11 +478,17 @@ export class FlockLifecycleService {
         const previous=await m.query('SELECT DISTINCT house_code FROM brd_flock_occupancies WHERE flock_no=$1',[identity.flock_no]);
         houseCodes.push(...previous.map((row:{house_code:string})=>row.house_code));
       }
-      for (const code of [...new Set(houseCodes)].sort()) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
+      const lockedHouses=[...new Set(houseCodes)].sort();
+      for (const code of lockedHouses) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
+      if (action!=='cancel'&&['ADMIT','TRANSFER','CLEAN_START','CLEAN_ACCEPT'].includes(identity.kind)) {
+        await m.query(`SELECT h.house_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
+          WHERE h.house_code=ANY($1) ORDER BY h.house_code FOR SHARE OF h,f`,[lockedHouses]);
+      }
       const h=await this.house(m,identity.house_code,scope);
       if (identity.company_code!==h.company_code || identity.farm_code!==h.farm_code || identity.site_code!==h.site_code) throw new ConflictException('鸡舍归属已变，请重新审查单据');
+      let target: Awaited<ReturnType<FlockLifecycleService['house']>> | undefined;
       if (identity.payload.targetHouseCode) {
-        const target=await this.house(m,identity.payload.targetHouseCode,scope);
+        target=await this.house(m,identity.payload.targetHouseCode,scope);
         if (target.company_code!==h.company_code) throw new ForbiddenException('不允许跨公司转舍');
       }
       const [doc]=await m.query('SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE id=$1 FOR UPDATE',[id]);
@@ -493,6 +502,16 @@ export class FlockLifecycleService {
       if (doc.kind==='BASELINE' && (action==='submit' || action==='approve')) {
         const [flock]=await m.query('SELECT breed_code FROM brd_flocks WHERE flock_no=$1 AND house_code=$2 AND farm_code=$3 FOR SHARE',[doc.flock_no,doc.house_code,h.farm_code]);
         if (!flock || !await this.activeBreed(m,flock.breed_code)) throw new BadRequestException(baselineBreedRequired);
+      }
+      if (action!=='cancel' && doc.kind==='ADMIT') {
+        if (h.status!=='ACTIVE' || h.farm_status!=='ACTIVE') throw new BadRequestException('鸡舍或农场未启用');
+        await assertHouseReadyForEntry(m,h.house_code,doc.business_date,doc.payload.expectedHouseVersion);
+        this.capacity(h,doc.payload.quantity);
+      }
+      if (action!=='cancel' && doc.kind==='TRANSFER') {
+        if (!target || target.status!=='ACTIVE' || target.farm_status!=='ACTIVE') throw new BadRequestException('目标舍必须为同公司有效鸡舍');
+        await assertHouseReadyForEntry(m,target.house_code,doc.business_date);
+        this.capacity(target,0);
       }
       if (action==='approve' || action==='post') await this.validateEvidence(m,doc.payload,h,doc.created_by);
       if (action==='post') await this.post(m,doc,h,scope,actor);
@@ -548,8 +567,8 @@ export class FlockLifecycleService {
     if (['BASELINE','ADMIT'].includes(doc.kind)) {
       if (balance || p.expectedVersion!==0) throw new ConflictException('鸡群已接续事件账或版本不为0');
       const capacity=this.capacity(h,p.quantity);
-      const active=await m.query("SELECT *,start_date::text AS start_date FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) ORDER BY flock_no FOR UPDATE",[h.house_code]);
       if (doc.kind==='BASELINE') {
+        const active=await m.query("SELECT *,start_date::text AS start_date FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) ORDER BY flock_no FOR UPDATE",[h.house_code]);
         if (active.length!==1 || active[0].flock_no!==doc.flock_no || active[0].farm_code!==h.farm_code) throw new BadRequestException('基线须对应唯一且归属一致的在栏群');
         if (!['ACTIVE','GROWING','LAYING','PEAK','DECLINING'].includes(active[0].status)
           || !active[0].start_date || active[0].start_date>day) throw new BadRequestException('历史鸡群状态/入栏日期须先核实');
@@ -568,10 +587,6 @@ export class FlockLifecycleService {
           if(!scope.isGlobal && !(scope.companyCodes?.includes(origin.company_code) || scope.farmCodes?.includes(origin.farm_code) || scope.siteCodes?.includes(origin.mapped_site_code)))throw new ForbiddenException('无权确认内部来源农场交接');
         }
         await m.query('INSERT INTO brd_flock_admission_receipts(company_code,source_kind,receipt_reference,document_id,quantity) VALUES($1,$2,$3,$4,$5)',[h.company_code,p.sourceKind,p.sourceReceipt,doc.id,p.quantity]);
-        if (active.length || state?.state!=='READY') throw new BadRequestException('请先关闭旧群并完成清舍验收');
-        await assertHouseTurnaround(m,h.house_code,state,day);
-        if (state.version!==p.expectedHouseVersion) throw new ConflictException('鸡舍版本冲突');
-        if (state.last_occupied_on && day<=String(state.last_occupied_on).slice(0,10)) throw new BadRequestException('一期禁止同舍同日换群');
         const [breed]=await m.query("SELECT dict_label_zh FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE' FOR SHARE",[p.breedCode]);
         if (!breed) throw new BadRequestException('遗传品种未启用');
         if (p.plannedEliminationDate && p.plannedEliminationDate<day) throw new BadRequestException('计划淘汰日期早于入栏');
@@ -630,10 +645,6 @@ export class FlockLifecycleService {
       const t=await this.house(m,p.targetHouseCode,scope);
       const capacity=this.capacity(t,balance.quantity);
       if (t.status!=='ACTIVE' || t.farm_status!=='ACTIVE' || t.company_code!==h.company_code) throw new BadRequestException('目标舍必须为同公司有效鸡舍');
-      const [ts]=await m.query('SELECT *,last_occupied_on::text AS last_occupied_on FROM brd_flock_house_states WHERE house_code=$1 FOR UPDATE',[t.house_code]);
-      const active=await m.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0)",[t.house_code]);
-      if (ts?.state!=='READY' || active.length || ts.last_occupied_on && day<=ts.last_occupied_on) throw new BadRequestException('目标舍须空舍且清舍验收完成');
-      await assertHouseTurnaround(m,t.house_code,ts,day);
       if (!balance.quantity) throw new BadRequestException('空群不能转舍');
       // Date-granularity source identity cannot split today's old-house production.
       const logs=await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=ANY($1) AND log_date>=$2 LIMIT 1',[[h.house_code,t.house_code],day]);
