@@ -1,4 +1,10 @@
 {
+  "flockTransfer.baseline": "历史实盘基线日",
+  "flockTransfer.admission": "正式入栏日",
+  "flockTransfer.lastTransfer": "上次转入日",
+  "flockTransfer.earliest": "{kind}为 {opened}。当前按日账本最早可办理转舍日期为 {earliest}。",
+  "flockTransfer.useActualDate": "请核对实际转舍日期。已保存的日期有误时，取消原单后按实际资料重新制单。",
+  "flockTransfer.sourceReview": "当前来源舍的有效占栏或原始单据待核，请刷新并核对鸡群档案。",
   "flockEntry.instructions": "存栏以审核过账的事件账为准。历史群先办理实盘接续。新空舍先清洗消毒并验收，再办首次入栏或转入。",
   "flockEntry.firstClean": "新空舍待首次清洗消毒和清舍验收。",
   "flockEntry.newEmpty": "新空舍",

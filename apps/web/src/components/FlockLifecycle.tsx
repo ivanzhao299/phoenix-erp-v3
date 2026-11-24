@@ -105,6 +105,20 @@ function ActorLifecycle(){
     const key=entryHints[String(target?.entry_readiness)];
     return key?t(key):'';
   };
+  const transferDateHint=(source?:Row)=>{
+    if (!source?.transfer_earliest_on) return '';
+    const kind=source.transfer_source_kind==='BASELINE'?t('flockTransfer.baseline'):
+      source.transfer_source_kind==='ADMIT'?t('flockTransfer.admission'):t('flockTransfer.lastTransfer');
+    return t('flockTransfer.earliest').replace('{kind}',kind)
+      .replace('{opened}',String(source.transfer_source_began_on)).replace('{earliest}',String(source.transfer_earliest_on));
+  };
+  const transferDateError=(source:Row|undefined,houseCode:string,day:string)=>{
+    if (!source || source.house_code!==houseCode) return t('flockTransfer.sourceReview');
+    if ('transfer_earliest_on' in source && !source.transfer_earliest_on) return t('flockTransfer.sourceReview');
+    return source.transfer_earliest_on && day<String(source.transfer_earliest_on)
+      ? transferDateHint(source)+' '+t('flockTransfer.useActualDate') : '';
+  };
+  const formTransferError=form.kind==='TRANSFER'&&form.flockNo?transferDateError(balance,form.houseCode,form.businessDate):'';
   const prepareHouse=(target:Row)=>{
     const initial=blank();
     const hasUnsavedInput=evidence.length>0||Object.keys(reportGrades).length>0||
@@ -130,6 +144,7 @@ function ActorLifecycle(){
   const run=async(fn:()=>Promise<unknown>,ok:string)=>{setBusy(true);setMessage('');try{await fn();await refresh();setMessage(ok);}catch(e){setMessage(e instanceof Error?e.message:'操作失败，请核对');}finally{setBusy(false);}};
   const submit=()=>run(async()=>{
     if(!house)throw new Error('请选择有效鸡舍');
+    if(formTransferError)throw new Error(formTransferError);
     if(['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','ADJUST'].includes(form.kind)&&form.quantity.trim()==='')throw new Error('请明确填写实际数量；真实零须显式输入0');
     if(form.kind==='ADMIT'&&form.placementAge.trim()==='')throw new Error('请填写真实入栏日龄');
     const body:Row={kind:form.kind,sourceKey,houseCode:form.houseCode,flockNo:form.flockNo,businessDate:form.businessDate,
@@ -188,7 +203,7 @@ function ActorLifecycle(){
         <label>业务类型<DictSelect ariaLabel="业务类型" dictType="BRD_LIFECYCLE_KIND" value={form.kind} onChange={v=>field('kind',v)} allowEmpty={false}/></label>
         <label>鸡舍<select aria-label="鸡舍" value={form.houseCode} onChange={e=>chooseHouse(e.target.value)}><option value="">请选择鸡舍</option>{houses.filter(h=>h.status==='ACTIVE').map(h=><option key={String(h.house_code)} value={String(h.house_code)}>{String(h.house_name)}（{String(h.house_code)}）</option>)}</select></label>
         {!['ADMIT','CLEAN_START','CLEAN_ACCEPT'].includes(form.kind)&&<label>鸡群<select aria-label="鸡群" value={form.flockNo} onChange={e=>field('flockNo',e.target.value)}><option value="">请选择已核实鸡群</option>{flockOptions.filter(f=>f.house_code===form.houseCode||f.flock_no===form.flockNo).map(f=><option key={String(f.flock_no)} value={String(f.flock_no)}>{String(f.flock_no)}</option>)}</select></label>}
-        <label>业务日期<input type="date" readOnly={form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'} value={form.businessDate} onChange={e=>field('businessDate',e.target.value)}/></label>
+        <label>业务日期<input type="date" min={form.kind==='TRANSFER'&&balance?.transfer_earliest_on?String(balance.transfer_earliest_on):undefined} readOnly={form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'} value={form.businessDate} onChange={e=>field('businessDate',e.target.value)}/></label>
         {['BASELINE','ADMIT','MORTALITY','CULL','SELL_HELD','ADJUST'].includes(form.kind)&&<label>{form.kind==='ADJUST'?'实盘差额（可正可负）':'实际数量（羽）'}<input type="number" step="1" value={form.quantity} onChange={e=>field('quantity',e.target.value)}/></label>}
         <label>当前存栏<input readOnly value={balance?String(balance.quantity):house&&(['FIRST_CLEAN','DIRTY','CLEANING'].includes(String(house.entry_readiness))||readyForEntry(house))?'0':'未接续，须实盘签认'}/></label>
         {form.kind==='ADMIT'&&<><label>来源类型<DictSelect ariaLabel="来源类型" dictType="BRD_FLOCK_SOURCE" value={form.sourceKind} onChange={v=>{setForm(p=>({...p,sourceKind:v,sourceCode:'',sourceFarmCode:'',sourceReceipt:''}));setSourceKey(crypto.randomUUID());}} allowEmpty={false}/></label>{form.sourceKind==='SUPPLIER'?<label>来源供应商<SupplierSelector ariaLabel="来源供应商" value={form.sourceCode} onChange={v=>field('sourceCode',v)}/></label>:<label>内部育成来源农场<FarmSelector ariaLabel="内部育成来源农场" value={form.sourceFarmCode} onChange={v=>field('sourceFarmCode',v)}/></label>}<label>实际来源交接单号<input value={form.sourceReceipt} onChange={e=>field('sourceReceipt',e.target.value)}/></label><label>遗传品种<DictSelect ariaLabel="遗传品种" dictType="BRD_BREED" value={form.breedCode} onChange={v=>field('breedCode',v)}/></label><label>入栏日龄<input type="number" min="0" value={form.placementAge} onChange={e=>field('placementAge',e.target.value)}/></label><label>计划淘汰日期<input type="date" value={form.plannedEliminationDate} onChange={e=>field('plannedEliminationDate',e.target.value)}/></label></>}
@@ -212,19 +227,24 @@ function ActorLifecycle(){
       </div>
       {form.kind==='ADMIT'&&house&&entryHint(house)&&<p role="status">{entryHint(house)} {t('flockEntry.preSubmit')}</p>}
       {form.kind==='ADMIT'&&house&&readyForEntry(house)&&house.max_capacity==null&&<p role="status">{t('flockEntry.capacity')}</p>}
-      {form.kind==='TRANSFER'&&<p>{t('flockEntry.transferHint')}</p>}
+      {form.kind==='TRANSFER'&&<>
+        <p>{t('flockEntry.transferHint')}</p>
+        {(formTransferError||transferDateHint(balance))&&<p role="status">{formTransferError||transferDateHint(balance)}</p>}
+      </>}
       {selectedBaselineBreedNeedsReview&&<p role="status">{t('breeding.breed.draftNeedsConfirmation', '该鸡群的遗传品种标准码待核对。可以先保存草稿，确认品种后再提交。')}
         <button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(form.flockNo)}>{t('ui.核对品种', '核对品种')}</button>
       </p>}
       {house&&<AttachmentUploader value={evidence} onChange={v=>{setEvidence(v);setSourceKey(crypto.randomUUID());}} ownership={{moduleCode:'FLOCK_LIFECYCLE',ownerType:'HOUSE',ownerId:form.houseCode,companyCode:String(house.company_code),storeCode:String(house.site_code??'')}}/>}
       <p>业务来源编号：{sourceKey}（自动生成，供历史授权绑定）</p>
-      <button disabled={busy||!form.houseCode} onClick={submit}>保存草稿</button>
+      <button disabled={busy||!form.houseCode||Boolean(formTransferError)} onClick={submit}>保存草稿</button>
     </section>}
     <section id="flock-documents" className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
       {review&&<p>{t('productionJobs.flockReview')} · {review.house} {review.date} <button onClick={()=>setReview(null)}>{t('productionInstallments.history')}</button></p>}
       {docs.filter(d=>!review||['REPORT_CORRECTION','CLOSE'].includes(d.kind)&&['SUBMITTED','APPROVED'].includes(d.status)&&(!review.house||d.house_code===review.house)&&(!review.date||String(d.business_date).slice(0,10)===review.date)).map(d=>{
         const target=houses.find(h=>h.house_code===(d.kind==='TRANSFER'?d.payload.targetHouseCode:d.house_code));
-        const hint=entryDocumentHint(d,target);
+        const dateHint=d.kind==='TRANSFER'&&['DRAFT','SUBMITTED','APPROVED'].includes(d.status)
+          ? transferDateError(balances.find(b=>b.flock_no===d.flock_no),d.house_code,String(d.business_date)) : '';
+        const hint=entryDocumentHint(d,target)||dateHint;
         const canHandleCleaning=!['CLEAN_START','CLEAN_ACCEPT'].includes(d.kind)||cleanAccess.canApprove;
         const canCancel=createAccess.canEdit&&canHandleCleaning&&(d.status!=='APPROVED'||approveAccess.canApprove);
         return <article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>

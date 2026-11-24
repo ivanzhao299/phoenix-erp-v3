@@ -1,4 +1,10 @@
 {
+  "flockTransfer.baseline": "Physical-count baseline date",
+  "flockTransfer.admission": "Formal placement date",
+  "flockTransfer.lastTransfer": "Last transfer-in date",
+  "flockTransfer.earliest": "{kind} is {opened}. The earliest transfer date under the daily ledger is {earliest}.",
+  "flockTransfer.useActualDate": "Verify the actual transfer date. If the saved date is wrong, cancel the original and create a new document with the verified details.",
+  "flockTransfer.sourceReview": "Verify the current source-house occupancy and its original document. Refresh and check the flock record.",
   "flockEntry.instructions": "Posted events determine flock counts. Reconcile legacy flocks by physical count. Clean, disinfect and inspect a new empty house before first placement or transfer.",
   "flockEntry.firstClean": "New empty house awaiting first cleaning, disinfection and inspection.",
   "flockEntry.newEmpty": "New empty house",
