@@ -28,7 +28,7 @@ test('the owned same-major PostgreSQL snapshot restores into a new isolated DB a
     '--mount',`type=bind,source=${control},target=/control`,'node:20-bookworm-slim','node','-e',script]);assert.match(id,/^[a-f0-9]{64}$/);docker(['start','-a','-i',id],input);
    assert.equal(docker(['inspect',id,'--format','{{.State.ExitCode}}']),'0');
   };
-  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{gatedCli:process.env.MODERN_SCHEMA_GATED_REHEARSAL_PG==='1',
+  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{explicitRehearsalNetwork:true,gatedCli:process.env.MODERN_SCHEMA_GATED_REHEARSAL_PG==='1',
    prepareMigrationGate:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755);for(const name of ['preload.cjs','launch.cjs']){fs.chownSync('/control/'+name,0,0);fs.chmodSync('/control/'+name,0o444)}"),
    publishMigrationPermit:(control,permit)=>helper(control,"const fs=require('fs');let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{const fd=fs.openSync('/control/permit.json','wx',0o444);fs.writeFileSync(fd,data);fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);fs.closeSync(fd)})",JSON.stringify(permit)+'\n'),
    preparePublicDirectory:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755)"),
