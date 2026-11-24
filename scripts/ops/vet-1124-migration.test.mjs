@@ -4,8 +4,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { baseline, reviewedHeadFile, units, reviewedSource, reviewSnapshot, readAuditSnapshot, verifyAppliedLedger } from './vet-1124-migration.mjs';
-import { candidateCi } from './vet-1124-ci.mjs';
+import { baseline, reviewedHeadFile, readerRepairPaths, units, reviewedSource, reviewSnapshot, readAuditSnapshot, verifyAppliedLedger } from './vet-1124-migration.mjs';
+import { candidateCi, evidenceArgs } from './vet-1124-ci.mjs';
 import { fixedScopeFixture } from '../ci/modern-schema-release.fixture.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -31,6 +31,7 @@ test('a real git merge admits exactly the three reviewed blobs and the entire se
   git('init','-q');
   write('base','runtime'); const base = commit('base');
   const files = units.map(u => 'apps/api/src/database/migrations/' + u + '.ts');
+  readerRepairPaths.forEach(p => write(p, 'original reader'));
   files.forEach(p => write(p, 'reviewed ' + p)); write(reviewedHeadFile, 'PENDING\n');
   const reviewed = commit('reviewed');
   write(reviewedHeadFile, reviewed + '\n'); const sealed = commit('seal');
@@ -50,6 +51,28 @@ test('a real git merge admits exactly the three reviewed blobs and the entire se
   write(reviewedHeadFile, 'PENDING\n'); write('apps/api/ddl/extra.sql','SELECT 1;'); const extra = commit('extra sql');
   write(reviewedHeadFile, extra + '\n'); const extraSeal = commit('seal extra');
   assert.throws(() => reviewedSource(merge(base, extraSeal, git('write-tree')), dir, base), /MIGRATION_SET/);
+  git('switch','-qc','reader-repair',merged);
+  for (const file of readerRepairPaths) write(file, file === reviewedHeadFile ? 'PENDING\n' : 'reviewed reader repair');
+  const repair = commit('repair');
+  write(reviewedHeadFile,repair+'\n'); const repairSeal = commit('seal reader');
+  const repairedTree = git('write-tree');
+  const repaired = merge(merged,repairSeal,repairedTree);
+  const evidence = reviewedSource(repaired,dir,base,merged);
+  assert.deepEqual(evidence.migrations,accepted.migrations);
+  assert.equal(evidence.reviewed,repair);
+  assert.throws(() => reviewedSource(repaired,dir,base),/EXACT_MAIN_MERGE/);
+  write(files[0],'different DDL');git('add','.');
+  assert.throws(() => reviewedSource(merge(merged,repairSeal,git('write-tree')),dir,base,merged),/READER_REPAIR_TREE/);
+
+});
+
+test('only hosted job logs opt in to reading control characters through a pipe', () => {
+  const flag = '--allow-escape-sequences';
+  assert.ok(evidenceArgs('actions/jobs/321/logs',true).includes(flag));
+  for (const path of ['actions/runs/321/jobs','actions/jobs/321/logs?extra','actions/jobs/0/logs']) {
+    assert.ok(!evidenceArgs(path,true).includes(flag));
+  }
+  assert.ok(!evidenceArgs('actions/jobs/321/logs',false).includes(flag));
 });
 
 test('only the fixed facts yield scoped GO; the raw audit and original directive stay independent', () => {

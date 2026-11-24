@@ -10,6 +10,14 @@ const repo = 'ivanzhao299/phoenix-erp-v3';
 const workflows = ['ci-build.yml', 'ci-security.yml', 'ci-web-tests.yml', 'production-remediation-acceptance.yml', 'deploy.yml'];
 const hold = reason => { throw Error('VET_1124_CI_HOLD=' + reason); };
 
+export function evidenceArgs(endpoint, hostedLogReader) {
+  // gh 2.104 declines colored job logs even when stdout is a pipe. Capture
+  // bytes only for the job-log endpoint; candidateCi strips controls before parsing.
+  const groups = hostedLogReader && /^actions\/jobs\/[1-9]\d*\/logs$/.test(endpoint)
+    ? ['--allow-escape-sequences'] : [];
+  return ['api', ...groups, 'repos/' + repo + '/' + endpoint];
+}
+
 export function candidateCi(target, read) {
   if (!/^[0-9a-f]{40}$/.test(target)) hold('TARGET');
   const runs = {};
@@ -66,7 +74,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (proof.revision !== process.env.TARGET_SHA) hold('OCI_REVISION');
       console.log('VET_COMPILED_INVENTORY_SHA256=' + canonicalDigest(bindCompiledSchemaInventory(source, records)));
     } else {
-      const result = candidateCi(process.env.TARGET_SHA, endpoint => execFileSync('gh', ['api', 'repos/' + repo + '/' + endpoint],
+      const result = candidateCi(process.env.TARGET_SHA, endpoint => execFileSync('gh', evidenceArgs(endpoint, process.argv[2] === 'hosted-log-reader'),
         { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] }));
       console.log(JSON.stringify(result));
       appendFileSync(process.env.GITHUB_ENV, 'VET_CI_SHA256=' + canonicalDigest(result) + '\nVET_API_IMAGE=' + result.images.api + '\n');
