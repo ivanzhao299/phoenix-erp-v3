@@ -264,6 +264,7 @@ export default function MedicinePage() {
                 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: m.qty > 0 ? t.text : t.textMuted }}>{m.medication_name}</div>
+                    {!m.material_code && <small>{tr('breeding.vet.legacyLot', '历史药品库存，领用前须核实实物、物料和单位')}</small>}
                     <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{m.dosage}</div>
                   </div>
                   <div className={u.tar}>

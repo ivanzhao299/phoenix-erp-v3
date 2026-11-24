@@ -274,7 +274,7 @@ export default function MedStockPage() {
               </thead>
               <tbody>
                 {loading ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : filteredStock.length === 0 ? <tr><td colSpan={5} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : filteredStock.map(m => <tr key={(m.material_code ? 'MATERIAL:' : 'LEGACY:') +m.medication_code}>
-                      <td>{m.medication_name}</td>
+                      <td>{m.medication_name}{!m.material_code && <small style={{display:'block'}}>{t('breeding.vet.legacyLot', '历史药品库存，领用前须核实实物、物料和单位')}</small>}</td>
                       <td className={u.muted}>{m.dosage}</td>
                       <td style={{
                 textAlign: 'right',
@@ -329,7 +329,7 @@ export default function MedStockPage() {
             return <tr key={m.medication_code} style={{
               background: e.qty > 0 ? 'rgba(139,92,246,0.04)' : undefined
             }}>
-                    <td>{m.medication_name}</td>
+                    <td>{m.medication_name}{!m.material_code && <small style={{display:'block'}}>{t('breeding.vet.legacyLot', '历史药品库存，领用前须核实实物、物料和单位')}</small>}</td>
                     <td className={u.muted}>{m.dosage}</td>
                     <td style={{
                 textAlign: 'right',

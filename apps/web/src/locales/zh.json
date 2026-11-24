@@ -1,4 +1,5 @@
 {
+  "breeding.vet.legacyLot": "历史药品库存，领用前须核实实物、物料和单位",
   "breeding.vet.erpLot": "ERP库存批次",
   "breeding.vet.planSaveFailed": "免疫计划保存失败",
   "breeding.vet.inboundWarehouse": "入库药品仓",

@@ -1,4 +1,5 @@
 {
+  "breeding.vet.legacyLot": "Legacy medicine stock. Verify the physical item, material record and unit before use.",
   "breeding.vet.erpLot": "ERP inventory lot",
   "breeding.vet.planSaveFailed": "Could not save the vaccination plan",
   "breeding.vet.inboundWarehouse": "Receiving medicine warehouse",
