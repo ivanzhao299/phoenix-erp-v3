@@ -84,7 +84,8 @@ if [ "$sql_path" = scripts/ops/readonly-audits/vet-1124-ledger-proof.sql ] && [ 
   /usr/bin/python3 -I -S - <<'METADATA'
 import errno, os, stat
 for path in ['/', '/opt', '/opt/phoenix-erp-backups', '/var', '/var/lib',
-             '/var/lib/phoenix-erp', '/var/lib/phoenix-erp/production-deployment-state']:
+             '/var/lib/phoenix-erp', '/var/lib/phoenix-erp/production-deployment-state',
+             '/data', '/data/backups', '/data/backups/opt', '/data/backups/opt/phoenix-erp-backups']:
     try:
         info = os.lstat(path)
     except OSError as exc:
@@ -113,6 +114,7 @@ with open('/proc/self/mountinfo', encoding='utf8') as mounts:
         if mount == '/' or target == mount or target.startswith(mount.rstrip('/') + '/'):
             print('BACKUP_MOUNT', mount, right.split()[0], 'dev', fields[2])
 METADATA
+  findmnt -n -o UUID --mountpoint /data | sed 's/^/BACKUP_FS_UUID /'
 fi
 
 audit_stage=READONLY_DATABASE_SETUP
