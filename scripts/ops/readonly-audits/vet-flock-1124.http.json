@@ -1,0 +1,67 @@
+[
+  {
+    "name": "egg-source-HOUSE_MS_04",
+    "path": "/api/lookup/egg-source-profile?houseCode=HOUSE_MS_04",
+    "expectedStatus": 200,
+    "requiredFields": [
+      "profileCode",
+      "productMode",
+      "varietyCode"
+    ]
+  },
+  {
+    "name": "egg-source-HOUSE_DP_02",
+    "path": "/api/lookup/egg-source-profile?houseCode=HOUSE_DP_02",
+    "expectedStatus": 200,
+    "requiredFields": [
+      "profileCode",
+      "productMode",
+      "varietyCode"
+    ]
+  },
+  {
+    "name": "egg-source-HOUSE_DP_01",
+    "path": "/api/lookup/egg-source-profile?houseCode=HOUSE_DP_01",
+    "expectedStatus": 200,
+    "requiredFields": [
+      "profileCode",
+      "productMode",
+      "varietyCode"
+    ]
+  },
+  {
+    "name": "immune-plans",
+    "path": "/api/farm/immune/plans",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 0
+  },
+  {
+    "name": "medication-records",
+    "path": "/api/farm/medication-records",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 0
+  },
+  {
+    "name": "vaccines",
+    "path": "/api/farm/immune/vaccines",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 0
+  },
+  {
+    "name": "vaccine-lots-dongpeng",
+    "path": "/api/farm/immune/lots?vaccine_code=MED-001&site_code=SITE-DONGPENG-LAYER&company_code=COMP-LAO-XINGCHI",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 0
+  },
+  {
+    "name": "medication-lots-mengsai",
+    "path": "/api/farm/medicine/lots?medication_code=MED-001&site_code=SITE-MENGSAI-LAYER&company_code=COMP-LAO-AGRI",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 0
+  }
+]
