@@ -22,7 +22,11 @@ test('pending apply backs up after audit/ledger guards and before any DDL; inspe
  assert.match(block,/pending-migration-backup-paths\.mjs" prepare/);assert.match(block,/chmod 600/);assert.match(block,/2097152/);
  assert.ok(block.indexOf('verify "$MIGRATION_RUN_ID"')<block.indexOf('docker exec -i phoenix-v3-db sh'));
  assert.ok(block.lastIndexOf('verify "$MIGRATION_RUN_ID"')>block.indexOf('> "$BACKUP_FILE"'));
- assert.match(source.slice(end),/# END pending-migration backup\.\n\s+node "\$STAGE\/pending-migration-backup-paths\.mjs" verify "\$MIGRATION_RUN_ID"\n\s+PRESERVE_ARTIFACTS/);
+ const recheck=source.indexOf('FINAL_VET_INSPECTION_SHA256="$(vet_inspection)"',end);
+ const verify=source.indexOf('node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"',end);
+ const ddl=source.indexOf('PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh',end);
+ assert.ok(end<recheck&&recheck<verify&&verify<ddl);
+ assert.match(source.slice(verify,ddl),/^node "\$STAGE\/pending-migration-backup-paths\.mjs" verify "\$MIGRATION_RUN_ID"\s+$/);
  assert.match(block,/pg_restore --exit-on-error --no-owner --no-privileges --file=\/dev\/null/);
  assert.match(block,/sha256sum --check --status/);
  assert.doesNotMatch(block,/\b(?:rm|find)\s/);

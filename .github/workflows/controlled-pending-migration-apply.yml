@@ -21,7 +21,18 @@ on:
         required: false
         type: string
 
+      audit_scope:
+        description: 'Use the ordinary gate or the sealed 2026-11-24 veterinary candidate'
+        type: choice
+        options: [ordinary, vet-1124]
+        default: ordinary
+      expected_vet_inspection_sha256:
+        description: 'vet-1124 apply only: VET_INSPECTION_SHA256 from the exact candidate inspect'
+        type: string
+        required: false
+
 permissions:
+  actions: read
   contents: read
   packages: read
 
@@ -46,6 +57,25 @@ jobs:
           test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+      - name: Verify sealed veterinary merge and official main CI
+        if: inputs.audit_scope == 'vet-1124'
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/ops/vet-1124-migration.mjs source
+          node scripts/ops/vet-1124-ci.mjs
+      - name: Match the official API digest to every reviewed migration
+        if: inputs.audit_scope == 'vet-1124'
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$GH_TOKEN"
+          docker pull -q "$VET_API_IMAGE" >/dev/null
+          VET_IMAGE_ID="$(docker image inspect "$VET_API_IMAGE" --format '{{.Id}}')" node scripts/ops/vet-1124-ci.mjs inventory
       - name: Prepare trusted helpers
         run: |
           set -euo pipefail
@@ -57,6 +87,10 @@ jobs:
         env:
           TARGET_SHA: ${{ github.sha }}
           PHASE: ${{ inputs.phase }}
+          AUDIT_SCOPE: ${{ inputs.audit_scope }}
+          EXPECTED_VET_INSPECTION_SHA256: ${{ inputs.expected_vet_inspection_sha256 }}
+          VET_API_IMAGE: ${{ env.VET_API_IMAGE }}
+          VET_CI_SHA256: ${{ env.VET_CI_SHA256 }}
           EXPECTED_BEFORE_LEDGER_SHA256: ${{ inputs.expected_before_ledger_sha256 }}
           MIGRATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
@@ -73,7 +107,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: TARGET_SHA,PHASE,EXPECTED_BEFORE_LEDGER_SHA256,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: TARGET_SHA,PHASE,AUDIT_SCOPE,EXPECTED_VET_INSPECTION_SHA256,VET_API_IMAGE,VET_CI_SHA256,EXPECTED_BEFORE_LEDGER_SHA256,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           command_timeout: 20m
           script: |
             set -Eeuo pipefail
@@ -120,6 +154,12 @@ jobs:
               chmod 600 "$STAGE/$helper"
             done
 
+            if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+              for helper in vet-1124-migration.mjs production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
+                git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
+              done
+            fi
+
             # Pending migrations are derived from the reviewed target tree
             # minus the production ledger; no candidate image is needed unless
             # migrations actually have to execute.
@@ -149,9 +189,29 @@ jobs:
               node -e 'const r=require(process.argv[1]);console.log(r.conclusion)' "$STAGE/out/daily-egg-inbound-audit-latest.json"
             }
 
+            vet_inspection() {
+              local checkout fresh_ledger
+              for service in phoenix-v3-api phoenix-v3-web; do
+                test "$(docker inspect "$service" --format '{{.State.Running}}')" = true || return 1
+              done
+              checkout="$(git_safe rev-parse HEAD)" || return 1
+              fresh_ledger="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")" || return 1
+              test "$fresh_ledger" = "$LEDGER_JSON_LINE" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED' >&2; return 1; }
+              RUNNING_CHECKOUT="$checkout" \
+                LEDGER_SHA256="$LEDGER_SHA256" PENDING_CLASSES="$PENDING_CLASSES" node "$STAGE/vet-1124-migration.mjs" inspect
+            }
+            if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+              VET_INSPECTION_SHA256="$(vet_inspection)"
+              echo "VET_INSPECTION_SHA256=$VET_INSPECTION_SHA256"
+              if [ "$PHASE" = apply ]; then
+                test "$VET_INSPECTION_SHA256" = "$EXPECTED_VET_INSPECTION_SHA256" || { echo 'MIGRATION_APPLY=HOLD_INSPECTION_MOVED'; exit 1; }
+              fi
+            fi
             if [ "$PHASE" = inspect ]; then
-              echo "AUDIT_CONCLUSION=$(run_audit)"
-              cat "$STAGE/out/REPORT.md"
+              if [ "$AUDIT_SCOPE" != vet-1124 ]; then
+                echo "AUDIT_CONCLUSION=$(run_audit)"
+                cat "$STAGE/out/REPORT.md"
+              fi
               echo "INSPECT=COMPLETE"
               exit 0
             fi
@@ -161,9 +221,13 @@ jobs:
               # Compare-and-swap: refuse to execute migrations if anything else
               # touched the ledger since the reviewed inspect phase.
               test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
-              AUDIT_CONCLUSION="$(run_audit)"
-              test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
-              API_IMAGE="ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-$TARGET_SHA"
+              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+                API_IMAGE="$VET_API_IMAGE"
+              else
+                AUDIT_CONCLUSION="$(run_audit)"
+                test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
+                API_IMAGE="ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-$TARGET_SHA"
+              fi
               docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<< "$GHCR_LOGIN_TOKEN"
               docker pull -q "$API_IMAGE" >/dev/null
               test "$(docker image inspect "$API_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
@@ -200,9 +264,19 @@ jobs:
               echo "MIGRATION_BACKUP_TOC_ENTRIES=$TOC_ENTRIES"
               echo 'MIGRATION_BACKUP=VERIFIED_CUSTOM_ARCHIVE_FULL_PARSE'
               # END pending-migration backup.
+              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+                # Backup can take time. Re-observe main, runtime, ledger and both complete audit rows.
+                git_safe fetch --no-tags origin main
+                test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+                FINAL_VET_INSPECTION_SHA256="$(vet_inspection)"
+                test "$FINAL_VET_INSPECTION_SHA256" = "$EXPECTED_VET_INSPECTION_SHA256" || { echo 'MIGRATION_APPLY=HOLD_INSPECTION_MOVED'; exit 1; }
+              fi
               node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
+              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+                BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" node "$STAGE/vet-1124-migration.mjs" after
+              fi
               # Re-derive pending from the fresh ledger.
               PENDING_AFTER=""
               for f in $(git_safe ls-tree --name-only "$TARGET_SHA" apps/api/src/database/migrations/ | grep -E '\.ts$' || true); do
