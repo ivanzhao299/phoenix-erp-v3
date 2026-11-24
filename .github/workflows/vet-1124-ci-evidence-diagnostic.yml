@@ -1,0 +1,44 @@
+name: Read veterinary CI evidence on hosted GitHub
+on:
+  push:
+    branches: [codex/vet-1124-release-evidence]
+permissions:
+  actions: read
+  contents: read
+  packages: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose this sealed candidate's evidence reader
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: cd7d50c813a9ba34e636fd89b4de13a80ef3e947
+        run: |
+          gh --version | head -1
+          node --version
+          node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
+          import { candidateCi } from './scripts/ops/vet-1124-ci.mjs';
+          const {TARGET_SHA, GITHUB_REPOSITORY} = process.env;
+          const probes = [{label:'host-default',args:[]},{label:'explicit-2022',args:['-H','X-GitHub-Api-Version: 2022-11-28']}];
+          for (const probe of probes) {
+            let current = '';
+            try {
+              const proof = candidateCi(TARGET_SHA, endpoint => {
+                current = endpoint.split('?')[0];
+                const result = execFileSync('gh',['api',...probe.args,'repos/'+GITHUB_REPOSITORY+'/'+endpoint],{encoding:'utf8',maxBuffer:64*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
+                console.log(probe.label,current,'bytes='+result.length);
+                return result;
+              });
+              console.log(probe.label,'confirmed',Object.keys(proof.images));
+            } catch (e) {
+              const stderr=String(e.stderr??'');
+              const status=stderr.match(/HTTP [0-9]{3}/)?.[0]??'';
+              const harmless=stderr.match(/resource not accessible by integration|not found|moved permanently|error following redirect|forbidden|rate limit exceeded|failed to run git|must be logged in|unsupported content.type|invalid character|unknown flag|unexpected HTTP status|redirect/i)?.[0]??'';
+              console.error(probe.label,current,'category='+e.name,'exit='+String(e.status??''),status,harmless,e.message.startsWith('VET_')?e.message:'');
+            }
+          }
+          JS
