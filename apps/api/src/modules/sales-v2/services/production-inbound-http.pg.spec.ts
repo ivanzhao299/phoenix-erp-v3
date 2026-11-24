@@ -245,8 +245,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
       ALTER TABLE production_inbound_reissues ENABLE TRIGGER trg_reissue_truncate;
       ALTER TABLE production_finance_review_files ENABLE TRIGGER USER;
-      INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
-        VALUES('HTTP-BASELINE','HTTP-SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
+      INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,status,created_by)
+        VALUES('HTTP-BASELINE','HTTP-SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','SITE-A','HOUSE-A','FLOCK-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
         VALUES('HTTP-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'HTTP-BASELINE');
       INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,house_code,business_date,kind,quantity_delta,actor,approved_by)
@@ -604,8 +604,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const scopeId=await processingDomain(product,'WH-A');
     await db.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
         VALUES('FLOCK-A2','HOUSE-A2','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A') ON CONFLICT DO NOTHING;
-      INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
-        VALUES('HTTP-BASELINE-A2','HTTP-SYNTHETIC-A2',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A2','2026-11-17','{}','POSTED','fixture');
+      INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,site_code,house_code,flock_no,business_date,payload,status,created_by)
+        VALUES('HTTP-BASELINE-A2','HTTP-SYNTHETIC-A2',repeat('b',64),'BASELINE','COMP-A','FARM-A','SITE-A','HOUSE-A2','FLOCK-A2','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
         VALUES('HTTP-OCC-A2','FLOCK-A2','HOUSE-A2','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'HTTP-BASELINE-A2');
       INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,house_code,business_date,kind,quantity_delta,actor,approved_by)
