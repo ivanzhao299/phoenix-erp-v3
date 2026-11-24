@@ -28,7 +28,7 @@ test('the owned same-major PostgreSQL snapshot restores into a new isolated DB a
     '--mount',`type=bind,source=${control},target=/control`,'node:20-bookworm-slim','node','-e',script]);assert.match(id,/^[a-f0-9]{64}$/);docker(['start','-a','-i',id],input);
    assert.equal(docker(['inspect',id,'--format','{{.State.ExitCode}}']),'0');
   };
-  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{gatedCli:process.env.MODERN_SCHEMA_GATED_REHEARSAL_PG==='1',
+  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{explicitRehearsalNetwork:true,gatedCli:process.env.MODERN_SCHEMA_GATED_REHEARSAL_PG==='1',
    prepareMigrationGate:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755);for(const name of ['preload.cjs','launch.cjs']){fs.chownSync('/control/'+name,0,0);fs.chmodSync('/control/'+name,0o444)}"),
    publishMigrationPermit:(control,permit)=>helper(control,"const fs=require('fs');let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{const fd=fs.openSync('/control/permit.json','wx',0o444);fs.writeFileSync(fd,data);fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);fs.closeSync(fd)})",JSON.stringify(permit)+'\n'),
    preparePublicDirectory:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755)"),
@@ -36,7 +36,11 @@ test('the owned same-major PostgreSQL snapshot restores into a new isolated DB a
   });
   assert.equal(result.evidence.outcome,'PASS');assert.equal(result.evidence.backgroundWrites,0);assert.equal(result.evidence.defaultOffEvidence.featureRollout,'OFF');
   assert.equal(result.evidence.cloneDatabaseMajor,Math.trunc(backup.source.database.serverVersionNum/10000));
-  assert.equal(result.resources.find(resource=>resource.role==='rehearsal-database')?.databaseMajor,result.evidence.cloneDatabaseMajor);
+  const clone=result.evidence.resources.find(resource=>resource.role==='rehearsal-database');
+  assert.equal(clone.databaseMajor,result.evidence.cloneDatabaseMajor);
+  assert.ok(result.resources.every(resource=>resource.containerId!==clone.containerId));
+  assert.equal(docker(['ps','-aq','--no-trunc','--filter',`id=${clone.containerId}`]),'');
+  assert.ok(!docker(['volume','ls','-q','--filter',`name=${clone.volume}`]).split('\n').includes(clone.volume));
   for(const resource of result.resources)assert.equal(docker(['inspect',resource.containerId,'--format','{{.State.Running}}\t{{.State.ExitCode}}\t{{.State.OOMKilled}}']),'false\t0\tfalse');
   privateRuntime.publishJson(path.join(directory,'native-proof.json'),{fixtureOnly:true,productionMutation:false,outcome:'PASS',directory,receipt:result.evidence});
  }finally{await client.close();process.umask(previousUmask);}

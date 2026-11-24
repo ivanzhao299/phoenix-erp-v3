@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {compareRestoredModernSchemaTables,rehearseModernSchemaRelease,modernSchemaRuntimeStatements,selectRehearsalSubnet,readDockerRehearsalPrefixes} from './production-modern-schema-rehearsal.mjs';
 import {classifySql} from '../ci/api-bootstrap-mutations.mjs';
 test('another connection cannot use the observer application name or a rolled-back SELECT INTO to hide a write attempt',()=>{
@@ -44,4 +45,42 @@ test('a missing IPv4 pool on any addressable Docker network makes selection fail
  assert.deepEqual(readDockerRehearsalPrefixes([bridge,{Driver:'host',IPAM:{}},{Driver:'null'}]),['172.17.0.0/16']);
  assert.throws(()=>readDockerRehearsalPrefixes([bridge,{Driver:'bridge',EnableIPv4:true}]),/COMPLETE_NETWORK_INVENTORY/);
  assert.throws(()=>readDockerRehearsalPrefixes([bridge,{Driver:'bridge',EnableIPv4:true,IPAM:{Config:[{Subnet:'fd00::/64'}]}}]),/COMPLETE_NETWORK_INVENTORY/);
+});
+
+test('a database creation failure releases the unused tagged volume, but a changed volume identity blocks removal',async t=>{
+ for(const changed of [false,true])await t.test(changed?'changed ownership':'verified ownership',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-volume-test-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const owner='1234-1',stage='prepare',volume='d'.repeat(64),network='e'.repeat(64);
+  const image='sha256:'+'a'.repeat(64),ledger='c'.repeat(64);
+  const database={serverVersionNum:160000,backupToolMajor:16,provider:'c',name:'clone',username:'postgres',collate:'C',ctype:'C'};
+  const events=[],receipts=[];
+  const runtime={createDirectory:()=>directory,guard(){},publishJson:(file,value)=>receipts.push([path.basename(file),value]),
+   async run({args}){
+    const [type,action]=args;
+    events.push([type,action]);
+    let output='';
+    if(type==='network'&&action==='create')output=network;
+    else if(type==='network'&&action==='inspect')output=JSON.stringify([{Id:network,Internal:true,EnableIPv6:false,Driver:'bridge'}]);
+    else if(type==='volume'&&action==='create'){
+     for(const label of [`phoenix.schema.owner=${owner}`,'phoenix.schema.role=rehearsal-data',`phoenix.schema.stage=${stage}`,'phoenix.schema.lifecycle=temporary'])assert.ok(args.includes(label));
+     output=volume;
+    }else if(type==='volume'&&action==='inspect'){
+     const previousInspections=events.filter(([resource,verb])=>resource==='volume'&&verb==='inspect').length;
+     output=JSON.stringify([{Name:volume,Driver:'local',Labels:{'phoenix.schema.owner':changed&&previousInspections>1?'9999-1':owner,
+      'phoenix.schema.role':'rehearsal-data','phoenix.schema.stage':stage,'phoenix.schema.lifecycle':'temporary'}}]);
+    }else if(type==='create')throw Error('MOCK_DATABASE_CREATE_FAILURE');
+    else if(type==='volume'&&action==='rm')assert.deepEqual(args,['volume','rm',volume]);
+    else assert.fail(`Unexpected Docker command: ${args.join(' ')}`);
+    const stdout=path.join(directory,`${events.length}.stdout`);
+    fs.writeFileSync(stdout,output);
+    return {stdout};
+   }};
+  await assert.rejects(rehearseModernSchemaRelease({owner,stage,
+   backup:{source:{database},receipt:{owner,stage,sourceDatabase:database,sourceLedgerSha256:ledger,databasePin:{id:'f'.repeat(64),image}}},
+   plan:{targetSha:'a'.repeat(40),runtimeSha:'b'.repeat(40),candidateImageId:image,beforeLedgerSha256:ledger},
+   runtimeImageId:image,privateRuntime:runtime}),changed?/NEW_LOCAL_VOLUME_REQUIRED/:/MOCK_DATABASE_CREATE_FAILURE/);
+  assert.equal(events.some(([type,action])=>type==='volume'&&action==='rm'),!changed);
+  assert.equal(receipts.some(([name,value])=>name==='rehearsal-volume-disposition.json'&&value.disposition==='REMOVED'),!changed);
+ });
 });
