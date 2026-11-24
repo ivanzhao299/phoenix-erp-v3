@@ -98,6 +98,20 @@ for path in ['/', '/opt', '/opt/phoenix-erp-backups', '/var', '/var/lib',
         except OSError as exc:
             acl.append(errno.errorcode.get(exc.errno, 'UNKNOWN'))
     print('BACKUP_METADATA', path, stat.filemode(info.st_mode), 'uid', info.st_uid, 'acl', ','.join(acl))
+backup = '/opt/phoenix-erp-backups'
+target = os.path.realpath(backup)
+print('BACKUP_RESOLVED_PATH', target)
+for path in [target, '/var/lib/phoenix-erp']:
+    info = os.statvfs(path)
+    s = os.stat(path)
+    print('BACKUP_VOLUME', path, 'dev', s.st_dev, 'free_MiB', info.f_bavail * info.f_frsize // 1048576)
+with open('/proc/self/mountinfo', encoding='utf8') as mounts:
+    for line in mounts:
+        left, right = line.split(' - ', 1)
+        fields = left.split()
+        mount = fields[4]
+        if mount == '/' or target == mount or target.startswith(mount.rstrip('/') + '/'):
+            print('BACKUP_MOUNT', mount, right.split()[0], 'dev', fields[2])
 METADATA
 fi
 
