@@ -251,3 +251,26 @@ test('remote main drift immediately before staging leaves no deployment owner', 
   assert.equal(f.database.has(privateName), false);
   assert.equal(f.mutations(), 0);
 });
+
+test('OPEN drift while checking final evidence prevents canonical SUCCESS', () => {
+  const f = fixture();
+  const checkEvidence = f.mocks.evidenceFiles;
+  f.mocks.evidenceFiles = (...args) => {
+    checkEvidence(...args);
+    if (args[3].runId === restoreOwner) f.manifest.generation++;
+  };
+  assert.throws(() => run(f, 'restore'), /OPEN_BINDING/);
+  assert.deepEqual(f.read('active.json').active, split);
+  assert.ok(f.database.has('transaction.json'));
+  assert.equal(f.database.has(`deploy-${restoreOwner}-startup-evidence.json`), false);
+});
+
+test('abort refuses to clear ownership if the API moves during its health probes', () => {
+  const f = fixture();
+  f.mocks.compose = () => { throw Error('SIMULATED_COMPOSE_REFUSAL'); };
+  assert.throws(() => run(f, 'restore'), /SIMULATED_COMPOSE_REFUSAL/);
+  f.mocks.http = f.moveApi;
+  assert.throws(() => run(f, 'abort', resumeOwner, restoreOwner), /Expected values/);
+  assert.ok(f.database.has('transaction.json'));
+  assert.deepEqual(f.read('active.json').active, split);
+});

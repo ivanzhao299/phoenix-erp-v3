@@ -229,6 +229,8 @@ export function restoreWebBaseline({ phase, target, workflowOwner, resumeOwner }
     if (direction === 'restore') {
       fullDeploymentBinding({ DEPLOY_MODE: 'full', BUILD_API: 'true', BUILD_WEB: 'true', RUN_MIG: 'false',
         TARGET_SHA: target, DEPLOY_RUN_ID: owner }, floor, finalized);
+      // The operator uses this fixed deadline to hand off to full release or
+      // return to the hotfix before full takes the background fence.
       result.continueBy = new Date(Date.parse(post.containers.web.startedAt) + WINDOW_MS).toISOString();
     }
     // The generic audit discovers only complete deploy-* triplets. Publish
@@ -257,6 +259,8 @@ export function restoreWebBaseline({ phase, target, workflowOwner, resumeOwner }
       if (staged && !same(staged, state) && !same(staged, untouchedState)) hold('ABORT_STATE_DRIFT');
       requireOriginal();
       http();
+      liveSnapshot(origin.post, origin.binding);
+      if (proof() !== backgroundProof) hold('OPEN_DRIFT');
       if (staged && !same(staged, untouchedState)) write(txFile, untouchedState);
       if (marker) unlink(markerFile);
       write(file(JOURNAL), { ...baseJournal, pending: null, aborted: owner });
@@ -264,7 +268,7 @@ export function restoreWebBaseline({ phase, target, workflowOwner, resumeOwner }
     }
     // After a replacement, an unhealthy candidate is not a valid Web PRE
     // receipt. Revert only our exact image, keep a separate rollback record,
-    // and leave the normal release admission held by the canonical outcome.
+    // and hold ordinary full-release admission via the canonical outcome.
     if (!same(staged, state) && !rollback) hold('ABORT_STATE_DRIFT');
     const samePeers = ['api', 'db'].every(service => same(pre.containers[service], observed.containers[service]));
     const onDestination = same(pin(observed.containers.web), destination);
