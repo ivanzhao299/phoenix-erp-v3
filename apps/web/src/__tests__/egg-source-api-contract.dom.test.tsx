@@ -4,8 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import EggSourceHistoryPage from '@/app/(admin)/breeding/egg-source-history/page';
 
-vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ canView: true, canEdit: true, canApprove: true }) }));
-vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (_key: string, fallback: string) => fallback }) }));
+vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ canView: true, canEdit: true, canApprove: true, user: {id:'reviewer'} }) }));
+vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (key: string, fallback?: string) => fallback??key }) }));
 vi.mock('@/hooks/useProductGrades', () => ({
   useProductGrades: () => ({ grades: [{ grade_code: 'GRADE_1', grade_name: '1号蛋' }] }),
 }));
@@ -38,6 +38,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  sessionStorage.removeItem('production:history-review:reviewer:actions');
   fetchMock.mockReset();
   vi.unstubAllGlobals();
 });
@@ -96,4 +97,39 @@ it('submits a mixed batch without old quantity and distinguishes a saved review 
   expect(host.querySelector('[role=status]')?.textContent).toContain('已记录操作与回执');
   expect(host.querySelector('[role=alert]')?.textContent).toContain('暂时无法查询历史凭据');
   expect(host.querySelector('select[required]')).toBeNull();
+});
+
+it.each([true,false])('restores an interrupted historical action with committed=%s', async committed => {
+  const storage='production:history-review:reviewer:actions';
+  const action={id:'REVIEW-1',kind:'review',state:'APPROVED',reason:'原操作依据',disposition:'ANNOTATION'};
+  sessionStorage.setItem(storage,JSON.stringify({'REVIEW-1:review':action}));
+  let writes=0;
+  fetchMock.mockImplementation(async(path,options)=>{
+    const url=new URL(path,location.origin);
+    if(url.pathname.endsWith('/options')) return respond({houses:[]});
+    if(url.pathname.endsWith('/action-receipt')) return committed
+      ? respond({id:action.id,state:action.state,reason:action.reason,disposition:action.disposition})
+      : Response.json({message:'待核回执不存在'},{status:404});
+    if(options.method==='POST'){
+      writes++;
+      expect(JSON.parse(String(options.body))).toEqual({decision:action.state,reason:action.reason,disposition:action.disposition});
+      return Response.json({message:'冻结证据已变化'},{status:409});
+    }
+    expect(url.pathname).toBe(endpoint+'/history');
+    return respond(evidence('',null));
+  });
+  await act(async()=>root.render(<EggSourceHistoryPage/>));
+  await click('eggSources.recoverActionReceipt');
+  expect(writes).toBe(0);
+  if(committed){
+    expect(JSON.parse(sessionStorage.getItem(storage)??'{}')).toEqual({});
+  }else{
+    await click('pilotState.retry');
+    expect(writes).toBe(1);
+    expect(host.querySelector('[role=alert]')?.textContent).toContain('冻结证据已变化');
+    await click('eggSources.parkHistoryAction');
+    const parked=Object.values(JSON.parse(sessionStorage.getItem(storage)??'{}'));
+    expect(parked).toEqual([expect.objectContaining({...action,parkedKey:expect.any(String)})]);
+    expect(JSON.parse(sessionStorage.getItem(storage)??'{}')['REVIEW-1:review']).toBeUndefined();
+  }
 });

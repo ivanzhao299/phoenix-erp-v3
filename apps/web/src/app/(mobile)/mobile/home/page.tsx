@@ -171,6 +171,10 @@ const NAV_CARDS: NavCard[] = [{
   titleKey: 'productionInstallments.title', descKey: 'productionInstallments.subtitle',
   color: 'var(--status-success)',href: '/mobile/production-inbound',soon: false,pageKey: 'production_inbound'
 }, {
+  icon: <Egg size={28} />,
+  titleKey: 'eggSources.history', descKey: 'eggSources.traceHistoryBatch',
+  color: 'var(--status-warning)',href: '/mobile/egg-source-history',soon: false,pageKey: 'production_inbound'
+}, {
   icon: <LineChart size={28} />,
   titleZh: '生产趋势',
   titleEn: 'Analytics',
@@ -501,7 +505,7 @@ export default function MobileHomePage() {
       gap: 12,
       alignContent: 'start'
     }}>
-        {visibleCards.map((card, idx) => <button key={card.pageKey || card.href || idx} onClick={() => handleCardClick(card)} disabled={card.soon} className="mobile-card-in" style={{
+        {visibleCards.map((card, idx) => <button key={card.href || card.pageKey || idx} onClick={() => handleCardClick(card)} disabled={card.soon} className="mobile-card-in" style={{
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',

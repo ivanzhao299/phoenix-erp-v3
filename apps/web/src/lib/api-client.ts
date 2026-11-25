@@ -5,7 +5,7 @@
 
 import type { CrudListResponse, PaginationParams } from "@/types";
 import { dispatchAuthExpired } from "@/lib/auth-dispatch";
-import { refreshAndPersistSession } from "@/lib/auth-session";
+import { BROWSER_LOGIN_KEY, isSameRefreshedSession, readBrowserLogin, refreshAndPersistSession, sharedLoginId } from "@/lib/auth-session";
 
 const API_BASE = "/api";
 
@@ -99,10 +99,34 @@ function makeError(message: string, status?: number, code?: ApiError['code'], su
   return e;
 }
 
-async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number, signal?: AbortSignal, boundToken?: string): Promise<Response> {
-  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
-  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+type BoundSession = { token: string; hadSharedToken: boolean; loginId: string | null };
+
+export function captureBoundSession(): BoundSession {
   const token = getToken();
+  return {
+    token: token ?? '',
+    loginId: readBrowserLogin(token),
+    hadSharedToken: typeof window !== 'undefined' && localStorage.getItem('phoenix_token') !== null,
+  };
+}
+
+export function assertBoundSession(boundSession?: BoundSession): string | null {
+  const current = getToken();
+  if (!boundSession) return current;
+  const shared = typeof window === 'undefined' ? null : localStorage.getItem('phoenix_token');
+  if (boundSession.loginId) {
+    if (shared && sharedLoginId(shared) === boundSession.loginId &&
+      current && sessionStorage.getItem(BROWSER_LOGIN_KEY) === boundSession.loginId) return shared;
+  } else if (isSameRefreshedSession(boundSession.token, current ?? '') &&
+    (!(boundSession.hadSharedToken || shared !== null) || shared === current)) {
+    return current;
+  }
+  throw new DOMException('Session changed', 'AbortError');
+}
+
+async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number, signal?: AbortSignal, boundSession?: BoundSession): Promise<Response> {
+  const token = assertBoundSession(boundSession);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -115,7 +139,7 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
     // 网络层失败按 5xx 处理
     if (attempt < max5xxRetries) {
       await sleep(RETRY_DELAYS_MS[attempt] ?? 2000);
-      return rawFetch(path, options, attempt + 1, max5xxRetries, signal, boundToken);
+      return rawFetch(path, options, attempt + 1, max5xxRetries, signal, boundSession);
     }
     throw makeError(netErr instanceof Error && netErr.message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
   }
@@ -123,18 +147,19 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
 
 async function request<T = unknown>(
   path: string,
-  options: RequestInit & { signal?: AbortSignal; silent?: boolean; bindSession?: boolean; retry?: boolean } = {}
+  options: RequestInit & { signal?: AbortSignal; silent?: boolean; bindSession?: boolean | BoundSession; retry?: boolean } = {}
 ): Promise<T> {
   const { signal, silent, bindSession, retry = true, ...fetchOptions } = options;
   const transportRetries=retry?2:0;
-  const boundToken = bindSession ? getToken() ?? '' : undefined;
+  const boundSession = bindSession === true ? captureBoundSession() : bindSession || undefined;
   // 主动静默 refresh：若 token 即将到期就先续期再发请求（用户全程无感）
   // 跳过 refresh 端点自身避免递归
   if (!bindSession && !path.startsWith('/auth/refresh')) {
     await ensureFreshToken();
   }
 
-  let res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundToken);
+  const dispatchedToken = boundSession ? assertBoundSession(boundSession) : null;
+  let res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundSession);
 
   // 收到 TOKEN_EXPIRED → 兜底再 refresh 一次重试（处理"刚好卡在边界过期"的场景）
   if (!bindSession && res.status === 401 && !path.startsWith('/auth/refresh')) {
@@ -145,7 +170,7 @@ async function request<T = unknown>(
         const newTok = await tryRefresh(current);
         if (newTok) {
           // 用新 token 重发原请求
-          res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundToken);
+          res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundSession);
         }
       }
     }
@@ -154,22 +179,26 @@ async function request<T = unknown>(
   // 401 一次"伪 401"重试（网络抖动 / 后端 502 透传出 401 等）
   if (retry && res.status === 401) {
     await sleep(800);
-    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundSession);
   }
 
   // 5xx 指数退避
   let attempt = 0;
   while (retry && res.status >= 500 && attempt < RETRY_DELAYS_MS.length) {
     await sleep(RETRY_DELAYS_MS[attempt]);
-    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundSession);
     attempt++;
   }
 
-  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
+  assertBoundSession(boundSession);
   if (res.status === 401) {
     // 读取后端标准化 subcode
     const errBody = await res.json().catch(() => ({})) as { subcode?: AuthSubcode; message?: string };
-    if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
+    const activeToken = assertBoundSession(boundSession);
+    // A late 401 for a credential already renewed must not log the user out.
+    if (boundSession && dispatchedToken !== activeToken && !retry) {
+      throw makeError(errBody.message || '登录已续期，请重试', 401, 'AUTH_EXPIRED', errBody.subcode, true);
+    }
     const subcode: AuthSubcode = errBody.subcode || 'INVALID_TOKEN';
     const message = errBody.message || '登录已过期，请重新登录';
 
@@ -190,7 +219,7 @@ async function request<T = unknown>(
       code?: unknown;
       [key: string]: unknown;
     };
-    if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
+    assertBoundSession(boundSession);
     const validationErrors = Array.isArray(err?.errors)
       ? err.errors.map(item => String(item).trim()).filter(Boolean)
       : [];
@@ -211,7 +240,7 @@ async function request<T = unknown>(
   }
 
   const data = await res.json();
-  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
+  assertBoundSession(boundSession);
   // 审批提交后，后端经 ApprovalHintInterceptor 注入 __approvalHint（下一审批人）→ 派发全局事件，
   // 由 ToastContext 统一弹"已提交给 X 审批"。所有走审批的业务接口自动生效。
   if (data && typeof data === 'object' && (data as { __approvalHint?: unknown }).__approvalHint && typeof window !== 'undefined') {

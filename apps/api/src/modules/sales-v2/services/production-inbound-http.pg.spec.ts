@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { requireReviewFile } from '../../wms/production-finance-review';
 import { ChanjetCallbackController } from '../../chanjet/chanjet-callback.controller';
 import { MenuAdminController } from '../../product-master/controllers/menu-admin.controller';
@@ -1123,7 +1124,14 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await review(18,path).expect(403);await review(19,path).expect(403);
     await cutoverApi(17,'/'+d.id,'get').expect(403);
     const proof=(await reviewUpload(17,'cutover',d.id).expect(201)).body.fileId;
-    await cutoverApi(17,'/'+d.id+'/sign').send({...signature,role:'FINANCE',evidenceFileId:proof}).expect(201);
+    const financeSignature=(await cutoverApi(17,'/'+d.id+'/sign').send({...signature,role:'FINANCE',evidenceFileId:proof}).expect(201)).body;
+    const receiptParams=new URLSearchParams({contentHash:frozen.content_hash,snapshotHash:frozen.snapshot_sha256,fileId:proof,
+      reasonHash:createHash('sha256').update(signature.reason).digest('hex')});
+    expect((await review(17,path+'/receipt?'+receiptParams).expect(200)).body).toMatchObject({id:financeSignature.id,state:'APPROVED'});
+    await review(20,path+'/receipt?'+receiptParams).expect(404);
+    await review(18,path+'/receipt?'+receiptParams).expect(403);
+    receiptParams.set('reasonHash','a'.repeat(64));
+    await review(17,path+'/receipt?'+receiptParams).expect(404);
     const approved=(await cutoverApi(4,`/${d.id}`,'get').expect(200)).body;
     expect(approved.state).toBe('APPROVED');expect(approved.signatures).toHaveLength(2);
     expect(approved.activationAuthorized).toBe(false);expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_states'))[0].n).toBe(0);

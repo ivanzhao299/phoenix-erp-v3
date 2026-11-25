@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BROWSER_LOGIN_KEY, markBrowserLogin, refreshAndPersistSession } from './auth-session';
 import request, { authApi, crudApi } from './api-client';
 const response = (body: unknown, ok=true, status=200) => ({ ok, status, json:vi.fn().mockResolvedValue(body), text:vi.fn().mockResolvedValue(JSON.stringify(body)), headers:{ get:()=> 'application/json' } });
 describe('api client',()=>{
@@ -10,6 +11,62 @@ describe('api client',()=>{
     const fetch=vi.fn().mockRejectedValue(new Error('connection closed'));
     vi.stubGlobal('fetch',fetch);
     await expect(request('/production',{method:'POST',bindSession:true,retry:false})).rejects.toMatchObject({code:'NETWORK'});
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('accepts a bound result after a verified token renewal in the same tab',async()=>{
+    const session = new Map([['phoenix_token','access-before']]);
+    const local = new Map(session);
+    for (const [name,storage] of [['sessionStorage',session],['localStorage',local]] as const) {
+      vi.stubGlobal(name,{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)});
+    }
+    vi.stubGlobal('window',{});
+    vi.stubGlobal('document',{cookie:''});
+    const fetch=vi.fn(async(path:string)=>{
+      if (path.endsWith('/auth/refresh')) return response({code:200,token:'access-after'});
+      expect(await refreshAndPersistSession('access-before')).toBe('access-after');
+      return response({id:'receipt'});
+    });
+    vi.stubGlobal('fetch',fetch);
+    await expect(request('/production',{method:'POST',bindSession:true,retry:false})).resolves.toEqual({id:'receipt'});
+    expect(fetch.mock.calls.filter(([path])=>path.endsWith('/production'))).toHaveLength(1);
+  });
+  it('uses the refreshed token for the same login in a second tab',async()=>{
+    const before='header.payload.before', after='header.payload.after';
+    const local = new Map([['phoenix_token',before]]);
+    const browserTab = () => new Map([['phoenix_token',before]]);
+    const first = browserTab(), second = browserTab();
+    let active=first;
+    vi.stubGlobal('window',{});
+    vi.stubGlobal('document',{cookie:''});
+    vi.stubGlobal('sessionStorage',{getItem:(key:string)=>active.get(key)??null,setItem:(key:string,value:string)=>active.set(key,value)});
+    vi.stubGlobal('localStorage',{getItem:(key:string)=>local.get(key)??null,setItem:(key:string,value:string)=>local.set(key,value)});
+    const marker=markBrowserLogin(before);
+    second.set(BROWSER_LOGIN_KEY,marker);
+    const fetch=vi.fn(async(path:string,options:RequestInit)=>{
+      if (path.endsWith('/auth/refresh')) return response({code:200,token:after});
+      if (path.endsWith('/first')) {
+        active=second;
+        expect(await refreshAndPersistSession(before)).toBe(after);
+        active=first;
+      } else {
+        expect(new Headers(options.headers).get('Authorization')).toBe('Bearer '+after);
+      }
+      return response({id:'receipt'});
+    });
+    vi.stubGlobal('fetch',fetch);
+    await expect(request('/first',{bindSession:true})).resolves.toEqual({id:'receipt'});
+    await expect(request('/next',{bindSession:true})).resolves.toEqual({id:'receipt'});
+    expect(first.get('phoenix_token')).toBe(before);
+  });
+  it.each(['access-other',null])('discards a bound result when another tab replaces the shared login with %s',async(next)=>{
+    const storage=(getter:()=>string|null)=>({getItem:(key:string)=>key==='phoenix_token'?getter():null});
+    let shared:string|null='access-tab';
+    vi.stubGlobal('window',{});
+    vi.stubGlobal('sessionStorage',storage(()=> 'access-tab'));
+    vi.stubGlobal('localStorage',storage(()=>shared));
+    const fetch=vi.fn(async()=>{shared=next;return response({id:'other-result'});});
+    vi.stubGlobal('fetch',fetch);
+    await expect(request('/production',{method:'POST',bindSession:true,retry:false})).rejects.toMatchObject({name:'AbortError'});
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it('does not retry ordinary 404',async()=>{const fetch=vi.fn().mockResolvedValue(response({message:'missing'},false,404));vi.stubGlobal('fetch',fetch);await expect(request('/missing')).rejects.toThrow('missing');expect(fetch).toHaveBeenCalledTimes(1);});

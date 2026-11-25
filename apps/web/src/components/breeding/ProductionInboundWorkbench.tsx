@@ -85,13 +85,17 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const {codeMap:shifts}=useDictOptions('PRODUCTION_REPORT_SHIFT');
   const [form,setForm]=useState<Form>(emptyForm);const [restoredKey,setRestoredKey]=useState('');const [snapshotKey,setSnapshotKey]=useState('');const [scope,setScope]=useState('');const [rangeStatus,setRangeStatus]=useState<'idle'|'loading'|'verified'|'refreshing'|'failed'>('idle');
   const [rawSources,setRawSources]=useState<RawSource[]>([]);
-  const [balance,setBalance]=useState<Balance|null>(null);const [handovers,setHandovers]=useState<Handover[]>([]);const [documents,setDocuments]=useState<Document[]>([]);
+  const [balance,setBalance]=useState<Balance|null>(null);
+  const [balanceOutsideScope,setBalanceOutsideScope]=useState(false);const [handovers,setHandovers]=useState<Handover[]>([]);const [documents,setDocuments]=useState<Document[]>([]);
   const [selected,setSelected]=useState<Document|null>(null);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
   const [savedIntents,setSavedIntents]=useState<Form[]>([]);
   const [reason,setReason]=useState('');const [proof,setProof]=useState<string[]>([]);const [reverseQty,setReverseQty]=useState<Record<string,string>>({});
   const [periodMonth,setPeriodMonth]=useState(businessDay().slice(0,7));const [period,setPeriod]=useState<Period|null>(null);
   const [periodState,setPeriodState]=useState('');const storageKey=`production-installments:v1:${String(p.user.userId??p.user.id??p.user.username??'')}`;
   const restored=restoredKey===storageKey;
+  const [restoreError,setRestoreError]=useState('');
+  const [restoreVersion,setRestoreVersion]=useState(0);
+  const [draftConflict,setDraftConflict]=useState<Form|null>(null);
   const generation=useRef(0);const submitKeys=useRef<Record<string,string>>({});
   const rangeKey=JSON.stringify([actor,form.companyCode,form.houseCode,form.eggDate,form.warehouseCode]);
   const verified=restored&&rangeKey===snapshotKey&&(rangeStatus==='verified'||rangeStatus==='refreshing');
@@ -105,6 +109,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const [taskView,setTaskView]=useState<'overview'|'delivery'|'handover'|'history'>('overview');
   const [historyCompany,setHistoryCompany]=useState('');
   const [historyNumber,setHistoryNumber]=useState('');
+  const [historyField,setHistoryField]=useState<'documentNo'|'handoverRef'>('documentNo');
   const [trace,setTrace]=useState<TraceFilter|null>(null);
   const flockAccess=usePermission('MENU_FARM_DATA'),flockApprove=usePermission('MENU_FLOCK_APPROVE');
   const pending=handovers.filter(h=>h.state==='DRAFT'&&h.created_by!==actor);
@@ -156,23 +161,64 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
 
 
   const displayDocument=useCallback((d:Document)=>{setTrace(null);setSelected(d);setReverseQty({});setForm(documentForm(d));setProof([]);},[]);
-  useEffect(()=>{let alive=true;Promise.resolve().then(()=>{
-    if(!alive)return;try{const saved=sessionStorage.getItem(storageKey);const value=saved?JSON.parse(saved):null;
-      setForm(value?.form??{...emptyForm(),intentKey:key()});submitKeys.current=value?.submitKeys??{};
-      const prefix=`${storageKey}:draft:`;const savedForms=Object.keys(sessionStorage).filter(k=>k.startsWith(prefix)).map(k=>JSON.parse(sessionStorage.getItem(k)??'null')).filter(Boolean) as Form[];
-      if(value?.form?.items?.length){sessionStorage.setItem(`${prefix}${value.form.intentKey}`,JSON.stringify(value.form));savedForms.unshift(value.form);}
-      setSavedIntents(savedForms.filter((f,i,all)=>all.findIndex(a=>a.intentKey===f.intentKey)===i));
-      const params=new URLSearchParams(location.search);
-      if(params.has('houseCode')&&params.has('companyCode')&&!params.has('documentId')){
-        setForm({...emptyForm(),intentKey:key(),companyCode:params.get('companyCode')!,houseCode:params.get('houseCode')!,
-          warehouseCode:params.get('warehouseCode')??'',eggDate:params.get('eggDate')??businessDay()});
+  useEffect(()=>{
+    const gate=new AbortController();
+    void Promise.resolve().then(async()=>{
+      let cached:{form?:Form;documentId?:string;version?:number;submitKeys?:Record<string,string>}|null=null;
+      try { cached=JSON.parse(sessionStorage.getItem(storageKey)??'null'); } catch { /* start with a new form */ }
+      if(gate.signal.aborted)return;
+      try {
+        submitKeys.current=cached?.submitKeys??{};
+        const prefix=`${storageKey}:draft:`;
+        const saved=Object.keys(sessionStorage).filter(name=>name.startsWith(prefix))
+          .map(name=>JSON.parse(sessionStorage.getItem(name)??'null')).filter(Boolean) as Form[];
+        const params=new URLSearchParams(location.search);
+        const id=params.get('documentId');
+        const last=sessionStorage.getItem('production-installments:last-open');
+        const belongsToOtherActor=id&&last&&last.split(':')[0]!==actor&&last.endsWith(':'+id);
+        if(belongsToOtherActor){
+          params.delete('documentId');history.replaceState(null,'',location.pathname+(params.size?'?'+params:''));
+        }
+        if(id&&!belongsToOtherActor){
+          const prior=cached?.form;
+          const hasLocalInput=prior?.intentKey&&(prior.items.length>0||prior.handoverRef||prior.remark||prior.evidenceFileIds.length>0);
+          if(hasLocalInput&&cached?.documentId!==id){
+            sessionStorage.setItem(prefix+prior.intentKey,JSON.stringify(prior));
+            if(!saved.some(form=>form.intentKey===prior.intentKey)) saved.push(prior);
+          }
+          const d=await request<Document>(`${endpoint}/${encodeURIComponent(id)}`,{signal:gate.signal});
+          if(gate.signal.aborted)return;
+          const original=documentForm(d);
+          const conflictKey=storageKey+':older:'+d.id;
+          setDraftConflict(JSON.parse(sessionStorage.getItem(conflictKey)??'null'));
+          const sameDocument=d.kind==='INBOUND'&&prior&&prior.intentKey===d.intent_key&&prior.houseCode===d.house_code&&
+            prior.companyCode===d.company_code&&prior.warehouseCode===d.payload.warehouseCode&&prior.eggDate===d.production_date;
+          const sameVersion=d.state==='DRAFT'&&cached?.documentId===d.id&&cached.version===d.version;
+          displayDocument(d);
+          if(sameDocument&&sameVersion){
+            setForm(prior);
+          }else if(sameDocument&&draftContent(prior)!==draftContent(original)){
+            sessionStorage.setItem(conflictKey,JSON.stringify(prior));
+            setDraftConflict(prior);
+          }
+        } else if(params.has('houseCode')&&params.has('companyCode')){
+          setForm({...emptyForm(),intentKey:key(),companyCode:params.get('companyCode')!,houseCode:params.get('houseCode')!,
+            warehouseCode:params.get('warehouseCode')??'',eggDate:params.get('eggDate')??businessDay()});
+        } else {
+          setForm(cached?.form??{...emptyForm(),intentKey:key()});
+        }
+        setSavedIntents(saved.filter((row,index)=>saved.findIndex(item=>item.intentKey===row.intentKey)===index));
+        setRestoreError('');
+        setRestoredKey(storageKey);
+      }catch(error){
+        if(!gate.signal.aborted)setRestoreError(error instanceof Error?error.message:String(error));
       }
-      const id=params.get('documentId'),last=sessionStorage.getItem('production-installments:last-open');
-      if(id&&last&&last.split(':')[0]!==actor&&last.endsWith(':'+id)){params.delete('documentId');history.replaceState(null,'',location.pathname+(params.size?'?'+params:''));}
-      else if(id)request<Document>(`${endpoint}/${encodeURIComponent(id)}`).then(d=>{if(alive)displayDocument(d);}).catch(e=>{if(alive)setError(String(e.message));});
-    }catch{setForm({...emptyForm(),intentKey:key()});}setRestoredKey(storageKey);
-  });return()=>{alive=false;};},[storageKey,displayDocument,actor]);
-  useEffect(()=>{if(restored)sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current}));},[restored,form,storageKey]);
+    });
+    return()=>gate.abort();
+  },[storageKey,displayDocument,actor,restoreVersion]);
+  useEffect(()=>{
+    if(restored)sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current,documentId:selected?.id,version:selected?.version}));
+  },[restored,form,storageKey,selected]);
   useEffect(()=>{if(!restored||!selected)return;const url=new URL(location.href);url.searchParams.set('documentId',selected.id);sessionStorage.setItem('production-installments:last-open',actor+':'+selected.id);history.replaceState(null,'',url);},[restored,selected,actor]);
   const refresh=useCallback(async()=>{
     const turn=++generation.current;
@@ -184,15 +230,16 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       const state=context.firstProductionDate&&form.eggDate<context.firstProductionDate?'ARCHIVED':context.state;
       const withStock=!!form.warehouseCode&&['ACTIVE','SUSPENDED'].includes(state);
       const rawQs=new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,productionDate:form.eggDate,warehouseCode:form.warehouseCode});
-      const [docs,receipts,stock,raw]=await Promise.all([
+      const [docs,receipts,stockResult,raw]=await Promise.all([
         request<Document[]>(`${endpoint}?${qs}`),request<Handover[]>(`${endpoint}/handovers?${qs}`),
-        withStock?request<Balance>(`${endpoint}/balance?${qs}&warehouseCode=${encodeURIComponent(form.warehouseCode)}&diagnostics=1`,{silent:true}).catch(()=>null):null,
+        withStock?request<Balance>(`${endpoint}/balance?${qs}&warehouseCode=${encodeURIComponent(form.warehouseCode)}&diagnostics=1`,{silent:true})
+          .then(stock=>({stock,outside:false})).catch((failure:ApiError)=>({stock:null,outside:failure.businessCode==='PRODUCTION_SCOPE_CLOSED'})):null,
         withStock?request<RawSource[]>(`/v2/inventory/raw-collection-receipts/sources?${rawQs}`):[],
       ]);
       if(turn!==generation.current)return;
       setDocuments(docs.filter(d=>!form.warehouseCode||d.payload.warehouseCode===form.warehouseCode));
       setHandovers(receipts.filter(h=>!form.warehouseCode||h.payload.warehouseCode===form.warehouseCode));
-      setBalance(stock);setRawSources(raw);setScope(state);setSnapshotKey(rangeKey);setRangeStatus('verified');
+      setBalance(stockResult?.stock??null);setBalanceOutsideScope(!!stockResult?.outside);setRawSources(raw);setScope(state);setSnapshotKey(rangeKey);setRangeStatus('verified');
     } catch (e) {
       if(turn!==generation.current)return;
       setRangeStatus('failed');setError(e instanceof Error?e.message:String(e));
@@ -228,7 +275,9 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     if(lifetime.current?.signal.aborted)throw new DOMException('Aborted','AbortError');
     if(restored&&form.intentKey&&form.items.length){sessionStorage.setItem(`${storageKey}:draft:${form.intentKey}`,JSON.stringify(form));
       setSavedIntents(old=>[form,...old.filter(f=>f.intentKey!==form.intentKey)]);}
-    const d=await request<Document>(`${endpoint}/${id}`);displayDocument(d);return d;
+    const d=await request<Document>(`${endpoint}/${id}`);displayDocument(d);
+    setRecovered(previous=>previous?.map(row=>row.id===d.id?d:row)??null);
+    return d;
   }
   async function saveExistingDraft(d:Document) {
     const submitted=payload();
@@ -289,7 +338,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     });
     if (!confirmed) return;
     const submit=submitKeys.current[d.id]??key();submitKeys.current[d.id]=submit;
-    sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current}));await send(`/${d.id}/ready`,{version:d.version,submitKey:submit});await load(d.id);};
+    sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current,documentId:d.id,version:d.version}));await send(`/${d.id}/ready`,{version:d.version,submitKey:submit});await load(d.id);};
   const updateItem=(id:string,next:Partial<Item>)=>patch({items:form.items.map(i=>i.id===id?{...i,...next}:i)});
   const preview=async(kind:'handovers'|'documents',id:string,fileId:string)=>{
     const path=kind==='handovers'?`${endpoint}/handovers/${id}`:`${endpoint}/${id}`;
@@ -304,7 +353,12 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const rows=recovered ?? documents.filter(d=>!reviewOnly||d.kind==='REVERSAL'&&d.state==='READY');
   const drafts=savedIntents.filter(d=>d.companyCode===form.companyCode&&d.houseCode===form.houseCode&&d.eggDate===form.eggDate&&d.warehouseCode===form.warehouseCode);
   if(!p.canView)return <p>{t('productionInstallments.noPermission','无权查看生产交库。')}</p>;
-  if(!restored)return <p>{t('common.loading','加载中…')}</p>;
+  if(!restored)return restoreError?<div role="alert">{restoreError} <button onClick={()=>setRestoreVersion(n=>n+1)}>{t('common.retry')}</button>
+    <button onClick={()=>{
+      const url=new URL(location.href);url.searchParams.delete('documentId');history.replaceState(null,'',url);
+      setTaskView('history');setRestoreVersion(n=>n+1);
+    }}>{t('productionInstallments.history')}</button>
+  </div>:<p role="status">{t('common.loading','加载中…')}</p>;
   const flockReviewPage = `/breeding/flock-lifecycle?${new URLSearchParams({review:'pending',houseCode:form.houseCode,date:form.eggDate})}#flock-documents`;
   return <main className={s.page}>
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
@@ -320,6 +374,10 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       {!mobile&&flockAccess.canView&&flockApprove.canApprove&&<Link href={flockReviewPage}>{t('productionJobs.flockReview')}</Link>}
       {!mobile&&(linkedFinance.canView||linkedFinance.canEdit||finance.canEdit)&&<Link href="/breeding/production-finance-review">{t('productionJobs.finance')}</Link>}
     </nav>
+    {draftConflict&&<details className={s.notice}><summary>{t('productionJobs.draftVersionChanged')}</summary>
+      <p>{draftConflict.handoverRef} · {draftConflict.remark}</p>
+      <ul>{draftConflict.items.map(row=><li key={row.id}>{row.gradeCode} · {row.specCode} · {row.quantity}</li>)}</ul>
+    </details>}
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}><span>{notice}</span> {form.handoverRef&&<code>{form.handoverRef}</code>}</p>}
     {p.canCreate&&!!drafts.length&&<div className={s.actions}>{drafts.map(d=><button key={d.intentKey} disabled={busy} onClick={()=>{changeRange(d);setForm(d);}}>{t('productionInstallments.resumeDraft','返回暂存交接')} · {d.handoverRef||d.houseCode}</button>)}</div>}
     <section className={s.card} aria-label={t('productionInstallments.context','交库范围')}><div className={s.grid}>
@@ -335,7 +393,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     {verified&&scope==='FENCED'&&<p role="status">{t('productionJobs.fenced')}</p>}
     {verified&&scope==='OFF'&&<p role="status" className={s.notice}>{t('productionInstallments.off','该鸡舍尚未启用正式入库。现场盘点及切换确认后才能办理。')}</p>}
     {verified&&scope==='SUSPENDED'&&<p className={s.notice}>{t('productionInstallments.suspended','该范围暂停新写入，历史回执仍可查看。')}</p>}</section>
-    {verified&&form.warehouseCode&&['ACTIVE','SUSPENDED'].includes(scope)&&!balance&&<p role="alert">{t('productionJobs.balanceUnavailable')}</p>}
+    {verified&&form.warehouseCode&&['ACTIVE','SUSPENDED'].includes(scope)&&!balance&&<p role="alert">{t(balanceOutsideScope?'productionJobs.warehouseOutsideScope':'productionJobs.balanceUnavailable')}</p>}
     {verified&&balance?.sourceStatus==='NO_REPORT'&&<p role="status">{t('productionJobs.notReported')}</p>}
     {verified&&balance?.sourceStatus==='ZERO_PRODUCTION'&&<p role="status">{t('productionJobs.zeroProduction')}</p>}
     {verified&&balance?.sourceStatus==='REVIEW_REQUIRED'&&<p role="status">{t('productionJobs.sourceEvidenceReview')}</p>}
@@ -346,8 +404,8 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       {balance.stockBasisVersion===2&&<button onClick={()=>inspect({view:'warehouse'})}>{t('productionJobs.trace')}</button>}</section>}
     {verified&&!!form.warehouseCode&&['ACTIVE','SUSPENDED'].includes(scope)&&<section className={s.card} aria-label={t('productionJobs.sourceBalances')}>
       <h2>{t('productionJobs.sourceBalances')}</h2>
-      {(!hasSourceBalances||balance?.sourceReviewRequired)&&<p role="status" className={s.notice}>{t('productionJobs.sourceUnverified')}</p>}
-      {hasSourceBalances&&!sources.length&&<p>{t('productionJobs.notReported')}</p>}
+      {(!balance?.sourceStatus&&(!hasSourceBalances||balance?.sourceReviewRequired))&&<p role="status" className={s.notice}>{t('productionJobs.sourceUnverified')}</p>}
+      {!balance?.sourceStatus&&hasSourceBalances&&!sources.length&&<p>{t('productionJobs.notReported')}</p>}
       {sources.length>0&&<div className={s.scroll}><table className={s.table}><thead><tr>
         <th>{t('productionInstallments.productionDate')}</th><th>{t('productionInstallments.shift')}</th><th>{t('productionJobs.dailyLogId')}</th><th>{t('ui.鸡群','鸡群')}</th>
         <th>{t('productionInstallments.grade')}</th><th>{t('productionInstallments.reported')}</th><th>{t('productionJobs.sourceRawUsed')}</th>
@@ -414,12 +472,15 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     <section id="history" className={s.card} hidden={taskView!=='overview'&&taskView!=='history'}><h2>{t('productionInstallments.history','分次入库及冲销历史')}</h2>
       <form className={s.grid} onSubmit={event=>{
         event.preventDefault();
-        const companyCode=historyCompany||form.companyCode,documentNo=historyNumber.trim();
-        if(!companyCode||!documentNo)return;
-        void run(async()=>setRecovered(await request<Document[]>(`${endpoint}/recover?`+new URLSearchParams({companyCode,documentNo}))),false);
+        const companyCode=historyCompany||form.companyCode,code=historyNumber.trim();
+        if(!companyCode||!code)return;
+        void run(async()=>setRecovered(await request<Document[]>(`${endpoint}/recover?`+new URLSearchParams({companyCode,[historyField]:code}))),false);
       }}>
         <CompanySelector ariaLabel={t('productionCutover.queryCompany')} value={historyCompany||form.companyCode} disabled={busy} onChange={setHistoryCompany}/>
-        <label className={s.field}>{t('productionCutover.documentNo')}<input value={historyNumber} maxLength={128} onChange={event=>setHistoryNumber(event.target.value)}/></label>
+        <label className={s.field}>{t('financeReview.type')}<select value={historyField} onChange={event=>{
+          setHistoryField(event.target.value==='handoverRef'?'handoverRef':'documentNo');setHistoryNumber('');setRecovered(null);
+        }}><option value="documentNo">{t('productionCutover.documentNo')}</option><option value="handoverRef">{t('productionInstallments.handoverRef')}</option></select></label>
+        <label className={s.field}>{t(historyField==='documentNo'?'productionCutover.documentNo':'productionInstallments.handoverRef')}<input value={historyNumber} maxLength={128} onChange={event=>setHistoryNumber(event.target.value)}/></label>
         <button type="submit" disabled={busy||!(historyCompany||form.companyCode)||!historyNumber.trim()}>{t('common.search')}</button>
       </form>
       <div className={s.actions}>
