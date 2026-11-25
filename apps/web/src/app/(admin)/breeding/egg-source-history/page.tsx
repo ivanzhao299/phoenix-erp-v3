@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 import { usePermission } from '@/hooks/usePermission';
@@ -277,6 +277,11 @@ function HistoryWorkbench({ actor }: { actor: string }) {
     else await refreshAfterAction();
   }
 
+  function recoverActionClick(event:MouseEvent<HTMLButtonElement>) {
+    const action=actions[event.currentTarget.dataset.actionKey??''];
+    if(action) void perform(()=>recoverAction(action));
+  }
+
   function submit(event:FormEvent) {
     event.preventDefault();
     if(!result || pending || busy || uploading || !permission.canEdit || qty&&quantityLimit!==undefined&&Number(qty)>quantityLimit) return;
@@ -328,7 +333,7 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       <button disabled={busy} onClick={()=>void perform(()=>recoverSubmission(item,false))}>{t('eggSources.recoverReviewReceipt')}</button></p>)}
     {permission.canView&&Object.values(actions).map(action=><p role="status" key={action.id+action.kind}>
       {t('eggSources.actionPending')} · {action.id}
-      <button disabled={busy} onClick={()=>void perform(()=>recoverAction(action))}>{t('eggSources.recoverActionReceipt')}</button></p>)}
+      <button disabled={busy} data-action-key={action.id+':'+action.kind} onClick={recoverActionClick}>{t('eggSources.recoverActionReceipt')}</button></p>)}
     {permission.canView&&view==='batch'&&<section className={s.card}>
       <div className={s.grid}>
         <label className={s.field}>{t('eggSources.house','鸡舍')}

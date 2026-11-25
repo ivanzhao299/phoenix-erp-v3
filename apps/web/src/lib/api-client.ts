@@ -110,14 +110,14 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
   };
   try {
     return await fetch(`${API_BASE}${path}`, { ...options, headers, signal });
-  } catch (netErr: any) {
-    if (netErr?.name === 'AbortError') throw netErr; // propagate immediately — no retry
+  } catch (netErr) {
+    if (netErr instanceof Error && netErr.name === 'AbortError') throw netErr; // propagate immediately — no retry
     // 网络层失败按 5xx 处理
     if (attempt < max5xxRetries) {
       await sleep(RETRY_DELAYS_MS[attempt] ?? 2000);
       return rawFetch(path, options, attempt + 1, max5xxRetries, signal, boundToken);
     }
-    throw makeError((netErr as Error).message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
+    throw makeError(netErr instanceof Error && netErr.message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
   }
 }
 
