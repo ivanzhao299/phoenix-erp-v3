@@ -1,0 +1,5 @@
+.master { padding: 24px 32px; min-width: 0; }
+.detail { padding: 24px 32px; max-width: 1500px; min-width: 0; }
+.columns { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .columns { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 680px) { .master, .detail { padding: 16px 12px; } }

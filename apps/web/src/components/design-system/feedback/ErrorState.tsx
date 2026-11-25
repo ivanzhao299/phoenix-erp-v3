@@ -37,6 +37,7 @@ export function ErrorState({ title, message, onRetry, compact }: ErrorStateProps
       {message && <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360 }}>{message}</div>}
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           style={{
             marginTop: 6, padding: '7px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',

@@ -72,6 +72,18 @@ type SourceProfileRow = {
  * read FOR SHARE. For writes, pass the caller's transaction manager so locks live
  * through the inventory/sales write (a DataSource-only call cannot do that).
  */
+export type SourceSkuIssue = {
+  layer: 'CATALOG'|'COMPANY'|'FARM'|'SITE'|'INVENTORY';
+  code: string;
+  effectiveDate?: string;
+  expireDate?: string;
+  group?: number;
+};
+
+export class SourceSkuBlocked extends BadRequestException {
+  constructor(message: string, readonly issues: SourceSkuIssue[]) { super(message); }
+}
+
 @Injectable()
 export class SkuAvailabilityService {
   constructor(private readonly ds: DataSource) {}
@@ -286,7 +298,7 @@ export class SkuAvailabilityService {
   }
 
   /** Internal planning uses a proposed policy derived by the source approval service. */
-  async resolveForProfile(input: SkuResolveInput, profile: EggSourceProfile, db: Db, eligibilityDate?: string): Promise<SkuResolveResult> {
+  async resolveForProfile(input: SkuResolveInput, profile: EggSourceProfile, db: Db, eligibilityDate?: string, diagnose = false): Promise<SkuResolveResult> {
     if (eligibilityDate !== undefined) this.date(eligibilityDate, '库存授权日期');
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
     const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
@@ -304,21 +316,38 @@ export class SkuAvailabilityService {
         ORDER BY s.sku_code FOR SHARE OF s, p`, [input.gradeCode, spec, varieties, profile.productMode === 'STANDARD'],
     );
     if (!candidates.length) {
-      throw new BadRequestException(`等级 ${input.gradeCode}/${spec} 在品种 ${profile.varietyCode ?? 'STANDARD'} 下没有可用 SKU`);
+      throw new SourceSkuBlocked(`等级 ${input.gradeCode}/${spec} 在品种 ${profile.varietyCode ?? 'STANDARD'} 下没有可用 SKU`,
+        [{ layer:'CATALOG',code:'CATALOG_OR_AUTH_UNVERIFIED' }]);
     }
     const resolved: SkuResolveResult[] = [];
+    const paths = new Map<string,SourceSkuIssue[]>();
     for (const sku of candidates) {
-      this.validateSourceVariety(sku, profile);
-      const scope = await this.matchScope(db, sku.sku_code, context, usage,eligibilityDate);
+      try {
+        this.validateSourceVariety(sku, profile);
+      } catch (error) {
+        if (!(error instanceof BadRequestException)) throw error;
+        throw new SourceSkuBlocked(error.message,[{ layer:'CATALOG',code:'CATALOG_INTEGRITY' }]);
+      }
+      const issues:SourceSkuIssue[] = [];
+      const scope = await this.matchScope(db, sku.sku_code, context, usage,eligibilityDate,diagnose ? issues : undefined);
+      if (issues.length) paths.set(JSON.stringify(issues),issues);
       // Another company's same-color SKU is not a grant (or an error) for this
       // company. Only run the transition gate after exact scope authorization.
       if (scope) {
-        await this.validateSku(sku, profile, usage, db,eligibilityDate);
+        try {
+          await this.validateSku(sku, profile, usage, db,eligibilityDate);
+        } catch (error) {
+          if (!diagnose || !(error instanceof BadRequestException)) throw error;
+          throw new SourceSkuBlocked('SKU 或其产品、等级、规格未通过主数据校验', [{ layer:'CATALOG',code:'CATALOG_UNUSABLE' }]);
+        }
         resolved.push(this.result(sku, scope));
       }
     }
-    if (!resolved.length) throw new BadRequestException(`候选 SKU 均不适用于公司 ${input.companyCode}（无组织适用范围或用途被禁用）`);
-    if (resolved.length > 1) throw new BadRequestException(`等级 ${input.gradeCode}/${spec} 匹配多个可用 SKU：${resolved.map(r => r.skuCode).join('、')}`);
+    if (!resolved.length) throw new SourceSkuBlocked(`候选 SKU 均不适用于公司 ${input.companyCode}（无组织适用范围或用途被禁用）`,
+      paths.size ? [...paths.values()].flatMap((issues,index)=>issues.map(issue=>({ ...issue,group:index+1 })))
+        : [{ layer:'CATALOG',code:'CATALOG_OR_AUTH_UNVERIFIED' }]);
+    if (resolved.length > 1) throw new SourceSkuBlocked(`等级 ${input.gradeCode}/${spec} 匹配多个可用 SKU：${resolved.map(r => r.skuCode).join('、')}`,
+      [{ layer:'CATALOG',code:'MULTIPLE_SKUS' }]);
     return resolved[0];
   }
 
@@ -364,7 +393,7 @@ export class SkuAvailabilityService {
     };
   }
 
-  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage, eligibilityDate?:string): Promise<Scope | null> {
+  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage, eligibilityDate?:string, issues?: SourceSkuIssue[]): Promise<Scope | null> {
     // Read inactive/expired rows too: a more specific veto must not disappear.
     const rows: ScopeRow[] = await db.query(
       `SELECT scope_type, scope_code, sale_enabled, stock_enabled, status,
@@ -380,11 +409,24 @@ export class SkuAvailabilityService {
     const applicable = rows.filter(r => (r.scope_type === 'COMPANY' && r.scope_code === input.companyCode)
       || (r.scope_type === 'FARM' && !!input.farmCode && r.scope_code === input.farmCode)
       || (r.scope_type === 'SITE' && !!input.siteCode && r.scope_code === input.siteCode));
-    if (!applicable.some(r => r.scope_type === 'COMPANY')) return null;
-    if (applicable.some(r => r.status !== 'ACTIVE' || !r.today
-        || (r.effective_date && r.effective_date > r.today) || (r.expire_date && r.expire_date < r.today)
-        || ((usage === 'sale' || usage === 'sale-stock') && r.sale_enabled !== true)
-        || ((usage === 'stock' || usage === 'sale-stock') && r.stock_enabled !== true))) return null;
+    if (!applicable.some(r => r.scope_type === 'COMPANY')) {
+      // A matching farm is verified as belonging to the requested company. A
+      // foreign-only catalogue candidate has no independently visible evidence.
+      if (applicable.some(r => r.scope_type==='FARM')) issues?.push({ layer:'COMPANY',code:'AUTH_MISSING' });
+      return null;
+    }
+    const blocked = applicable.flatMap(row => {
+      const code = row.status!=='ACTIVE' ? 'AUTH_INACTIVE' : !row.today ? 'AUTH_DATE_UNVERIFIED'
+        : row.effective_date && row.effective_date>row.today ? 'AUTH_NOT_YET_EFFECTIVE'
+        : row.expire_date && row.expire_date<row.today ? 'AUTH_EXPIRED'
+        : (usage==='stock' || usage==='sale-stock') && row.stock_enabled!==true ? 'STOCK_DISABLED'
+        : (usage==='sale' || usage==='sale-stock') && row.sale_enabled!==true ? 'SALE_DISABLED' : null;
+      return code ? [{ layer:row.scope_type,code,effectiveDate:row.effective_date??undefined,expireDate:row.expire_date??undefined }] : [];
+    });
+    if (blocked.length) {
+      issues?.push(...blocked);
+      return null;
+    }
     const selected = applicable.find(r => r.scope_type === 'SITE')
       ?? applicable.find(r => r.scope_type === 'FARM')
       ?? applicable.find(r => r.scope_type === 'COMPANY');

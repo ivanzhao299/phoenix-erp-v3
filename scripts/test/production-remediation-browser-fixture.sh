@@ -44,3 +44,9 @@ for scenario in range installments reports cutover; do
   wait "$api_pid"
   api_pid=
 done
+
+(
+  cd apps/web
+  PLAYWRIGHT_BASE_URL="$INSTALLMENT_WEB_URL" ./node_modules/.bin/playwright test e2e/egg-source-workspace.spec.ts \
+    --workers=1 --reporter=line --output="$report_dir/egg-source-browser-artifacts"
+) | tee "$report_dir/egg-source-browser.log"

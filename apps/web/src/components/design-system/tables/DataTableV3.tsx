@@ -39,20 +39,21 @@ export interface DataTableV3Props<T = any> {
   rowKey?: (row: T, i: number) => string | number;
   pageSize?: number;
   emptyText?: string;
+  serverManaged?: boolean;
   exportName?: string;        // 传则显示导出按钮
 }
 
 const money = (v: any) => v == null || v === '' ? '—' : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (v: any) => v == null || v === '' ? '—' : String(v).slice(0, 10);
 
-export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize = 20, emptyText = '暂无数据', exportName }: DataTableV3Props<T>) {
+export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize = 20, emptyText = '暂无数据', exportName, serverManaged = false }: DataTableV3Props<T>) {
   const { t } = useLanguage();
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(0);
 
   const sorted = useMemo(() => {
-    if (!sortKey) return rows;
+    if (serverManaged || !sortKey) return rows;
     const col = columns.find((c) => c.key === sortKey);
     const arr = [...rows];
     arr.sort((a: any, b: any) => {
@@ -62,11 +63,11 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     });
     return arr;
-  }, [rows, sortKey, sortDir, columns]);
+  }, [rows, sortKey, sortDir, columns, serverManaged]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const cur = Math.min(page, totalPages - 1);
-  const pageRows = sorted.slice(cur * pageSize, cur * pageSize + pageSize);
+  const pageRows = serverManaged ? sorted : sorted.slice(cur * pageSize, cur * pageSize + pageSize);
 
   const toggleSort = (k: string) => {
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -101,7 +102,7 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-      {exportName && (
+      {exportName && !serverManaged && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
           <button onClick={exportCsv} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12.5 }}>
             <Download size={13} />{t('ui.导出 CSV','导出 CSV')}
@@ -119,11 +120,11 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
               <thead>
                 <tr>
                   {columns.map((c) => (
-                    <th key={c.key} style={{ ...th, width: c.width, textAlign: c.align || 'left', cursor: c.sortable ? 'pointer' : 'default' }}
-                      onClick={() => c.sortable && toggleSort(c.key)}>
+                    <th key={c.key} style={{ ...th, width: c.width, textAlign: c.align || 'left', cursor: !serverManaged && c.sortable ? 'pointer' : 'default' }}
+                      onClick={() => !serverManaged && c.sortable && toggleSort(c.key)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                         {c.title}
-                        {c.sortable && sortKey === c.key && (sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
+                        {!serverManaged && c.sortable && sortKey === c.key && (sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
                       </span>
                     </th>
                   ))}
@@ -144,7 +145,7 @@ export function DataTableV3<T = any>({ rows, columns, loading, rowKey, pageSize 
               </tbody>
             </table>
           </div>
-          {totalPages > 1 && (
+          {!serverManaged && totalPages > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, padding: '10px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)' }}>
               <span>{t('ui.共','共')} {sorted.length} {t('ui.条','条')} · {t('ui.第','第')} {cur + 1}/{totalPages} {t('ui.页','页')}</span>
               <button onClick={() => setPage(Math.max(0, cur - 1))} disabled={cur === 0} style={pgBtn(cur === 0)}><ChevronLeft size={14} /></button>

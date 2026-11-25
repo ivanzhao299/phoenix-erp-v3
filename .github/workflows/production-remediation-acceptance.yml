@@ -91,6 +91,7 @@ jobs:
             src/modules/sales-v2/services/official-raw-collection.pg.spec.ts \
             src/modules/sales-v2/services/production-inbound-documents.pg.spec.ts \
             src/modules/sales-v2/services/production-inbound-migrations.pg.spec.ts \
+            src/modules/product-master/services/egg-source-change.pg.spec.ts \
             src/modules/wms/official-inventory.pg.spec.ts src/modules/wms/production-cutover-admission.pg.spec.ts
           OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" ./node_modules/.bin/jest --runInBand --testTimeout=60000 \
             --json --outputFile="$evidence/http.json" --runTestsByPath src/modules/sales-v2/services/production-inbound-http.pg.spec.ts

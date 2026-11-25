@@ -85,7 +85,7 @@ export async function lockEggSourcePolicy(m: EntityManager, owner: EggSourceOwne
 }
 
 // Initial rollout covers the two audited Lao production sites.
-const sourceCalendars: Readonly<Record<string, string>> = {
+export const sourceCalendars: Readonly<Record<string, string>> = {
   'SITE-MENGSAI-LAYER': 'Asia/Vientiane',
   'SITE-DONGPENG-LAYER': 'Asia/Vientiane',
 };
