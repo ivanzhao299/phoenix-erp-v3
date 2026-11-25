@@ -5,14 +5,12 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState, MasterDataTemplate, PresentationalTable, type ColumnV3 } from '@/components/design-system';
 import { inputField, primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
-import { useEggIdentity, useEggRead, isArray } from './client';
-import { query, root, states, type Change, type Changes, type House, type Workspace as Model } from './contracts';
+import { useEggIdentity, useEggRead } from './client';
+import { isChange, isHouseList, isWorkspace, listOf, query, root, states, type Change, type Changes, type House, type Workspace as Model } from './contracts';
 import { Badge, Busy, Field, Meta, OwnerMeta, ReadFailure, Schedule, useSourceText } from './parts';
 import s from './EggSources.module.css';
 
-const isWorkspace = (data:Model) => typeof data.owner?.houseCode==='string' && Array.isArray(data.profiles)
-  && !!data.pending && typeof data.pending.submitted==='number';
-const isPage = (data:Changes) => isArray(data.items) && (data.nextCursor===null || typeof data.nextCursor==='string');
+const isPage = (data:Changes) => listOf(data.items,isChange) && (data.nextCursor===null || typeof data.nextCursor==='string');
 
 export default function Workspace() {
   const account=useEggIdentity();
@@ -24,7 +22,7 @@ export default function Workspace() {
   const tab=params.get('tab')==='changes' ? 'changes' : 'schedule';
   const filter={ state:params.get('state'),dateFrom:params.get('dateFrom'),dateTo:params.get('dateTo'),changeId:params.get('changeId') };
   const cursor=params.get('cursor');
-  const houses=useEggRead<House[]>(account,'/candidates/houses',isArray);
+  const houses=useEggRead<House[]>(account,'/candidates/houses',isHouseList);
   const workspace=useEggRead<Model>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
   const changes=useEggRead<Changes>(account,house&&tab==='changes' ? '/changes'+query({ houseCode:house,...filter,cursor }) : null,isPage);
   const result=workspace.data;

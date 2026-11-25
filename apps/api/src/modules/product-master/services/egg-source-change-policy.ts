@@ -63,12 +63,12 @@ export function assertEggSourceScope(scope: OrgScope, owner: EggSourceOwner): vo
 }
 
 /** Authoritative ownership. Include inactive houses for evidence reads, not fresh approvals. */
-export async function readEggSourceOwner(m: EntityManager, house: string, write = false): Promise<EggSourceOwner> {
+export async function readEggSourceOwner(m: EntityManager, house: string, write = false, lock = write): Promise<EggSourceOwner> {
   const houseCode = sourceText(house, '鸡舍', 64);
   const rows = await m.query(`SELECT h.house_code AS "houseCode", h.farm_code AS "farmCode",
       f.company_code AS "companyCode", ${OrgOwnershipService.FARM_SITE_SQL} AS "siteCode"
     FROM brd_houses h JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=h.farm_code
-    WHERE h.house_code=$1 ${write ? "AND h.status='ACTIVE' AND f.status='ACTIVE' AND h.house_type='LAYER' FOR SHARE OF h,f" : ''}`, [houseCode]);
+    WHERE h.house_code=$1 ${write ? "AND h.status='ACTIVE' AND f.status='ACTIVE' AND h.house_type='LAYER'" : ''} ${lock ? 'FOR SHARE OF h,f' : ''}`, [houseCode]);
   if (rows.length !== 1 || !rows[0].companyCode || !rows[0].siteCode) throw new ConflictException('鸡舍缺少明确的公司、农场或场站归属');
   return rows[0];
 }

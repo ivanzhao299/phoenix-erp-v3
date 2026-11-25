@@ -119,8 +119,7 @@ export class EggSourceChangeService {
   async precheckDraft(id:string, scope: ChangeScope, actor:string) {
     return this.db.transaction(async m => {
       const initial = await findChange(m,id,scope);
-      await m.query(`SELECT h.house_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
-        WHERE h.house_code=$1 FOR SHARE OF h,f`,[initial.house_code]);
+      await readEggSourceOwner(m,initial.house_code,false,true);
       const row = await findChange(m,id,scope,true);
       if (row.created_by!==actor || row.state!=='DRAFT') throw new NotFoundException('来源草稿不存在');
       return this.runPrecheck(m,row.house_code,row.effective_date,row.target_class,row.payload,scope,row);
@@ -131,10 +130,7 @@ export class EggSourceChangeService {
     draft?:ChangeRow) {
     let owner: EggSourceOwner;
     try {
-      const [locked] = await m.query(`SELECT h.house_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
-        WHERE h.house_code=$1 FOR SHARE OF h,f`,[house]);
-      if (!locked) throw new ForbiddenException();
-      owner = await readEggSourceOwner(m,house);
+      owner = await readEggSourceOwner(m,house,false,true);
       assertEggSourceScope(scope,owner);
       if (draft) this.authorizeRow(draft,owner,scope);
       this.authorizeWarehouse(scope,payload.warehouseCode);

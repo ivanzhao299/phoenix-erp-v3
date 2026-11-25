@@ -4,14 +4,13 @@ import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState, MasterDataTemplate } from '@/components/design-system';
 import { inputField, primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
-import { colors, query, root, type Input, type Option, type Options, type PlanOption, type Requirement, type Shell, type Workspace } from './contracts';
-import { isArray, useEggIdentity, useEggRead, useEggWrite } from './client';
+import { colors, isOptionList, isPlanList, isWorkspace, query, root, type Input, type Option, type Options, type PlanOption, type Requirement, type Shell, type Workspace } from './contracts';
+import { useEggIdentity, useEggRead, useEggWrite } from './client';
 import { Back, Busy, Field, OwnerMeta, ReadFailure, SelectOption, WriteFeedback, useSourceText } from './parts';
 import { PrecheckPanel } from './PrecheckPanel';
 import s from './EggSources.module.css';
 
-const validWorkspace = (value:Workspace) => !!value.owner && typeof value.owner.houseCode==='string';
-const validOptions = (value:Options) => isArray(value.grades) && isArray(value.specs);
+const validOptions = (value:Options) => isOptionList(value.grades) && isOptionList(value.specs);
 
 function nextDay(day:string) {
   const d = new Date(day+'T00:00:00Z');
@@ -23,8 +22,8 @@ export default function NewChange() {
   const account=useEggIdentity();
   const house=useSearchParams().get('houseCode')||'';
   const {label,crumb}=useSourceText();
-  const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,validWorkspace);
-  const warehouses=useEggRead<Option[]>(account,house ? '/candidates/warehouses'+query({houseCode:house}) : null,isArray);
+  const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
+  const warehouses=useEggRead<Option[]>(account,house ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
   const options=useEggRead<Options>(account,house ? '/candidates/options' : null,validOptions);
   return <MasterDataTemplate responsive title={label('newChange')} breadcrumb={crumb} content={<div className={s.stack}>
     <div className={s.actions}><Back href={root+query({houseCode:house,tab:'changes'})}/></div>
@@ -52,7 +51,7 @@ function NewForm({account,house,earliest,warehouses,options}:{account:string;hou
   const [items,setItems]=useState<Array<Requirement&{id:number}>>([{id:1,gradeCode:'',specCode:''}]);
   const [nextId,setNextId]=useState(2);
   const [attempted,setAttempted]=useState(false);
-  const plans=useEggRead<PlanOption[]>(account,date>=earliest ? '/flock-plans'+query({houseCode:house,effectiveDate:date}) : null,isArray);
+  const plans=useEggRead<PlanOption[]>(account,date>=earliest ? '/flock-plans'+query({houseCode:house,effectiveDate:date}) : null,isPlanList);
   const write=useEggWrite(account,house,key=>'/change-requests/'+key+query({houseCode:house}),receipt=>{
     router.push(root+'/changes/'+receipt.id+'?saved=1');
   });

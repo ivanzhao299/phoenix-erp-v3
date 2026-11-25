@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ConfirmDialogV2, DetailTemplate, MasterDataTemplate, ModalV2, PageSection } from '@/components/design-system';
 import { inputField, primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { useEggIdentity, useEggRead, useEggWrite } from './client';
-import { query, root, type Action, type Detail } from './contracts';
+import { isDetail, query, root, type Action, type Detail } from './contracts';
 import { Back, Badge, Busy, CopyId, Field, Meta, ReadFailure, Schedule, WriteFeedback, useSourceText } from './parts';
 import { PrecheckPanel } from './PrecheckPanel';
 import s from './EggSources.module.css';
@@ -15,9 +15,6 @@ const actionKeys:Record<Action,string> = {
   submit:'submit',approve:'approve',cancel:'cancel',reject:'reject','request-revoke':'requestRevoke',
   revoke:'revoke','decline-revoke':'declineRevoke',
 };
-const isDetail=(value:Detail)=>typeof value.id==='string' && Number.isInteger(value.version) && !!value.owner
-  && Array.isArray(value.events) && Array.isArray(value.allowedActions) && Array.isArray(value.requirements)
-  && Array.isArray(value.currentProfiles) && Array.isArray(value.frozenItems);
 const requiresReason=(action:Action)=>['reject','request-revoke','revoke','decline-revoke'].includes(action);
 const isReview=(action:Action)=>['approve','reject','revoke','decline-revoke'].includes(action);
 

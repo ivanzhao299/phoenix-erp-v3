@@ -53,6 +53,22 @@ test('keeps a visible pending request, opens independent details and restores ro
   await expect(page).toHaveURL(/state=SUBMITTED/);
 });
 
+test('recovers a malformed schedule response without losing the selected house',async({page})=>{
+  await fixture(page);
+  let healthy=false;
+  await page.route(url=>url.pathname===api+'/workspace',route=>route.fulfill({
+    json:{code:200,data:healthy ? workspace : {...workspace,profiles:[null]}},
+  }));
+  await page.goto(base+'?houseCode=H1');
+  const retry=page.getByRole('button',{name:'重试',exact:true});
+  await expect(retry).toBeVisible();
+  await expect(page.getByLabel('鸡舍',{exact:true})).toHaveValue('H1');
+  healthy=true;
+  await retry.click();
+  await expect(page.getByRole('heading',{name:'当前无有效档案'})).toBeVisible();
+  await expect(retry).toHaveCount(0);
+});
+
 test('does not carry a late precheck into another color or save on lookup retry',async({page})=>{
   await fixture(page);
   let checks=0;

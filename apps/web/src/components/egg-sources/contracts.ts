@@ -33,3 +33,25 @@ export function query(values: Record<string,string|undefined|null>) {
   const encoded = result.toString();
   return encoded ? '?'+encoded : '';
 }
+
+export const listOf = <T,>(value:unknown,check:(row:T)=>boolean):value is T[] =>
+  Array.isArray(value) && value.every(row=>row && typeof row==='object' && check(row));
+
+const dateValue = (value:unknown):value is string => typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+  && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10)===value;
+const hasOwner = (value:Owner|undefined) => !!value && typeof value.houseCode==='string' && typeof value.companyCode==='string'
+  && typeof value.farmCode==='string' && typeof value.siteCode==='string';
+export const isProfile = (row:Profile) => typeof row.profileCode==='string' && dateValue(row.effectiveDate)
+  && typeof row.status==='string' && (row.expireDate===null || dateValue(row.expireDate));
+export const isRequirement = (row:Requirement) => typeof row.gradeCode==='string' && typeof row.specCode==='string';
+export const isHouseList = (value:House[]) => listOf<House>(value,hasOwner);
+export const isOptionList = (value:Option[]) => listOf<Option>(value,row=>typeof row.code==='string' && typeof row.name==='string');
+export const isPlanList = (value:PlanOption[]) => listOf<PlanOption>(value,row=>typeof row.id==='string' && ['ADMIT','TRANSFER'].includes(row.kind));
+export const isWorkspace = (value:Workspace) => hasOwner(value.owner) && (value.businessDay===null || dateValue(value.businessDay))
+  && listOf(value.profiles,isProfile) && Number.isInteger(value.pending?.submitted) && Number.isInteger(value.pending?.revokeRequested);
+export const isChange = (value:Change) => typeof value.id==='string' && dateValue(value.effectiveDate)
+  && typeof value.createdBy==='string' && typeof value.warehouseCode==='string' && typeof value.state==='string';
+export const isDetail = (value:Detail) => isChange(value) && Number.isInteger(value.version) && hasOwner(value.owner)
+  && listOf(value.currentProfiles,isProfile) && listOf(value.requirements,isRequirement)
+  && listOf(value.frozenItems,isRequirement) && Array.isArray(value.allowedActions)
+  && listOf<Detail['events'][number]>(value.events,row=>typeof row.actor==='string' && typeof row.action==='string');

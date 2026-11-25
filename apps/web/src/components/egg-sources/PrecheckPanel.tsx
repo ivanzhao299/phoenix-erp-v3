@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { eggRequest, EggError } from './client';
-import type { Input, Option, Precheck } from './contracts';
+import { isRequirement, listOf, type Input, type Option, type Precheck } from './contracts';
 import { PrecheckResult, useSourceText } from './parts';
 import s from './EggSources.module.css';
 
 function valid(result:Precheck) {
   return ['READY','BLOCKED'].includes(result.status) && Array.isArray(result.problems) &&
-    Array.isArray(result.rows) && result.rows.every(row=>row && Array.isArray(row.issues));
+    listOf<Precheck['rows'][number]>(result.rows,row=>isRequirement(row) && ['PASSED','BLOCKED','NOT_CHECKED'].includes(row.status)
+      && listOf<Precheck['rows'][number]['issues'][number]>(row.issues,issue=>typeof issue.layer==='string' && typeof issue.code==='string'));
 }
 
 export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate,disabled,placement}:{

@@ -62,8 +62,6 @@ export function useEggRead<T>(account:string,path:string|null,validate:(data:T)=
   return { data:current?.data,error:current?.error,loading:!!account&&!!path&&!current,reload };
 }
 
-export const isArray = <T,>(data:T):boolean => Array.isArray(data) && data.every(row => row && typeof row==='object');
-
 type Receipt = {id:string;state:string;version:number};
 type Pending = {key:string};
 
