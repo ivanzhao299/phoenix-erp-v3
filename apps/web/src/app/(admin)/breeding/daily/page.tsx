@@ -524,7 +524,7 @@ function DailyEntry(){
           {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示（整行） */}
           {verifiedOccupancy?.reviewRequired&&<span role="status">{t('breeding.daily.flockReview','该舍日缺少唯一有效鸡群，请核对鸡群和占栏记录。')}</span>}
           {verifiedOccupancy?.flockNo&&<span>{t('productionReports.flock','有效占栏鸡群')} · {verifiedOccupancy.flockNo}</span>}
-          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} error={profileError} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
+          <SourceProfileBanner context="report" profile={sourceProfile} loading={sourceProfileLoading} error={profileError} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
           {deviceHint && <div style={{
           display: 'flex',
           alignItems: 'center',

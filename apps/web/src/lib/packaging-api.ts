@@ -202,15 +202,17 @@ export const packagingApi = {
     request<{ code: string; totalOutput: number; idempotentReplay: boolean }>('POST', '/api/packaging/terminal/grading/submit', body),
 
   /** 按等级汇总当日所有分级批次产出及已包装量，返回各等级实时剩余（多终端并发安全） */
-  getActiveGrading: (shiftId: number) =>
+  getActiveGrading: (shiftId: number, eggDate?: string) =>
     request<{
       shiftId: number;
       productionDate: string;
+      eggDate: string;
+      eggDates: string[];
       gradingCodes: string[];
       outputs:      Record<string, number>;
       packed:       Record<string, number>;
       remaining:    Record<string, number>;
-    }>('GET', `/api/packaging/terminal/grading/active?shiftId=${requireShiftId(shiftId)}`),
+    }>('GET', `/api/packaging/terminal/grading/active?shiftId=${requireShiftId(shiftId)}${eggDate ? `&eggDate=${encodeURIComponent(eggDate)}` : ''}`),
 
   // ── 包装 ─────────────────────────────────────────────────────────────────────
   submitPacking: (body: Record<string, unknown>) =>

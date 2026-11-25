@@ -67,6 +67,7 @@ export default function EggCollectionPage() {
     ctx
   } = useTerminalContext();
   const [houses, setHouses] = useState<House[]>([]);
+  const [layDate, setLayDate] = useState('');
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
   const [totalQty, setTotalQty] = useState('');
   const [dirtyQty, setDirtyQty] = useState('');
@@ -185,7 +186,7 @@ export default function EggCollectionPage() {
   const defectExceedsTotal = total > 0 && dirty + cracked > total;
   const hasPendingEntry = !!selectedHouse && total > 0 && !defectExceedsTotal;
   const openShiftId = getOpenShiftId(ctx.currentShift);
-  const canSubmit = hasPendingEntry && openShiftId !== null;
+  const canSubmit = hasPendingEntry && !!layDate && openShiftId !== null;
   const fieldValues: Record<NumField, string> = {
     total: totalQty,
     dirty: dirtyQty,
@@ -204,7 +205,7 @@ export default function EggCollectionPage() {
     if (numPadField === 'cracked') setCrackedQty(val);
   };
   const handleSubmit = async () => {
-    if (!selectedHouse || !hasPendingEntry) return;
+    if (!selectedHouse || !hasPendingEntry || !layDate) return;
     if (openShiftId === null) {
       setSubmitError(t('ui.请先开班再提交集蛋记录', '请先开班再提交集蛋记录'));
       return;
@@ -212,11 +213,10 @@ export default function EggCollectionPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const today = new Date().toISOString().slice(0, 10);
       await packagingApi.receiveBatch({
         houseCode: selectedHouse.house_code,
         houseName: selectedHouse.house_name,
-        layDate: today,
+        layDate,
         totalQty: total,
         dirtyQty: dirty,
         crackedQty: cracked,
@@ -225,6 +225,7 @@ export default function EggCollectionPage() {
       });
       void fetchRecords();
       setSelectedHouse(null);
+      setLayDate('');
       setTotalQty('');
       setDirtyQty('');
       setCrackedQty('');
@@ -492,6 +493,9 @@ export default function EggCollectionPage() {
             }}>
                   {t('ui.录入数量', 'Input Quantity')} — {selectedHouse.house_name}
                 </div>
+                <label>{t('eggSources.productionDate','产蛋日期')}{' '}
+                  <input type="date" required value={layDate} onChange={event=>setLayDate(event.target.value)}/>
+                </label>
                 <div style={{
               flex: 1,
               minHeight: 0,

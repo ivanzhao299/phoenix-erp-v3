@@ -32,7 +32,7 @@ export async function lockRawCollectionReference(m:EntityManager,id:string,d:{co
     JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=house.farm_code WHERE s.id=$1::bigint FOR SHARE OF s,shift,house,f`,[id]);
   if(!source||source.company_code!==d.companyCode||source.house_code!==d.houseCode||source.production_date!==d.productionDate
     ||source.lay_date&&source.lay_date!==d.productionDate||source.batch_status!=='RECEIVED'||source.is_test!==false
-    ||source.shift_site_id!==source.farm_code||source.shift_date!==d.productionDate||source.shift_is_test!==false)
+    ||source.shift_site_id!==source.farm_code||!source.shift_date||source.shift_date<d.productionDate||source.shift_is_test!==false)
     throw new ConflictException('原始采集记录与实际公司、舍日或包装班次不一致');
   return source;
 }

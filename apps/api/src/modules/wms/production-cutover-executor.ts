@@ -1,3 +1,5 @@
+import { verifyCutoverExtension } from './production-cutover-extension';
+import { sourceDigest } from '../product-master/services/egg-source-change-policy';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { QueryRunner } from 'typeorm';
@@ -31,6 +33,11 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
     const eligibilityDate=document.payload.postingDate as string;
     const [permit]=await q.query('SELECT mode FROM production_cutover_apply_admissions WHERE id=$1',[request.admissionId]);
     const mode=permit.mode as 'INIT'|'ATTACH';
+    const extension=document.payload.extension;
+    if (extension && (mode!==(extension.kind==='ATTACH_EXISTING_SCOPE'?'ATTACH':'INIT') ||
+        document.payload.openingLines.length || document.payload.decisions.some((decision:{disposition:string})=>decision.disposition!=='CARRY_FORWARD'))) {
+      throw new ConflictException('CUTOVER_EXTENSION_ADMISSION_HOLD');
+    }
     const products=document.boundary.productCodes as string[];
     const houses=document.boundary.houses as Array<{houseCode:string;firstProductionDate:string}>;
     if(mode==='ATTACH'&&document.payload.openingLines.length)throw new ConflictException('CUTOVER_ATTACH_CANNOT_REOPEN');
@@ -58,7 +65,7 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
     await q.query('SELECT sku_code FROM md_sku_org_scope WHERE sku_code=ANY($1::text[]) ORDER BY sku_code,scope_type,scope_code FOR SHARE NOWAIT',[candidates.map((sku:{sku_code:string})=>sku.sku_code)]);
     const ownership=new OrgOwnershipService(q.manager),skus=new SkuAvailabilityService(q.connection);
     const sources:Array<{houseCode:string;date:string;flockNo:string;profileCode:string}>=[];
-    for(const house of [...houses].sort((a,b)=>a.houseCode.localeCompare(b.houseCode))){
+    for(const house of extension ? [] : [...houses].sort((a,b)=>a.houseCode.localeCompare(b.houseCode))){
       const [profileLock]=await q.query("SELECT pg_try_advisory_xact_lock_shared(hashtext('phoenix:egg-source-profile'),hashtext($1)) AS locked",[`${document.company_code}:${house.houseCode}`]);
       const [reportLock]=await q.query('SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked',[`${document.company_code}|TEMP_PRODUCTION_DAILY|${house.firstProductionDate}|HOUSE-${house.houseCode}`]);
       if(!profileLock.locked||!reportLock.locked)throw new ConflictException('CUTOVER_EXECUTOR_SOURCE_BUSY');
@@ -87,9 +94,13 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
     }
     // The first check acquires boundary barriers. Recheck after the actual flock/profile locks before any business insert.
     document=await service.verifyForControlledApply(q.manager,manifestId,request.admissionId);
-    if((await q.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1 AND house_code=ANY($2::text[]) AND state<>'DRAFT' LIMIT 1`,
-      [document.company_code,houses.map(house=>house.houseCode)])).length)throw new ConflictException('CUTOVER_EXECUTOR_EXISTING_HOUSE_HOLD');
     const scopes:string[]=[];
+    if (extension) {
+      const actual=await verifyCutoverExtension(q.manager,document.boundary,extension,true);
+      if (sourceDigest(actual)!==sourceDigest(document.payload.extensionProof)) throw new ConflictException('CUTOVER_EXTENSION_PROOF_MOVED');
+      scopes.push(actual.scope.id);
+    } else if((await q.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1 AND house_code=ANY($2::text[]) AND state<>'DRAFT' LIMIT 1`,
+      [document.company_code,houses.map(house=>house.houseCode)])).length)throw new ConflictException('CUTOVER_EXECUTOR_EXISTING_HOUSE_HOLD');
     for(const source of sources){
       const [{version}]=await q.query('SELECT COALESCE(max(version),0)+1 AS version FROM production_cutover_scopes WHERE company_code=$1 AND house_code=$2',[document.company_code,source.houseCode]);
       if(!Number.isSafeInteger(Number(version))||Number(version)>2147483647)throw new ConflictException('CUTOVER_EXECUTOR_SCOPE_VERSION_HOLD');
@@ -118,7 +129,7 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
         [batch.batch_no,scopes[0],document.company_code,sku?.product_code??batch.product_code??'',batch.sku_code??'',
           `${document.document_no}:${batch.batch_no}`,batch.source_type??'',batch.source_no??'',document.content_hash,operatorId]);
     }
-    for(const scope of scopes)await q.query("UPDATE production_cutover_scopes SET state='FENCED' WHERE id=$1",[scope]);
+    if(!extension)for(const scope of scopes)await q.query("UPDATE production_cutover_scopes SET state='FENCED' WHERE id=$1",[scope]);
     const openingId=mode==='INIT'?randomUUID():null;
     if(mode==='INIT')for(const domain of domains){
       for(const state of ['FENCED','ACTIVE']){
@@ -131,7 +142,7 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
           VALUES($1,$2,$3,$4,$5,$6)`,[domain.id,document.id,openingId,scopes[0],document.content_hash,operatorId]);
       }
     }
-    for(const scope of scopes)await q.query("UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=clock_timestamp() WHERE id=$1",[scope]);
+    if(!extension)for(const scope of scopes)await q.query("UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=clock_timestamp() WHERE id=$1",[scope]);
     let receipt:Record<string,unknown>;
     if(mode==='INIT'){
       const lines=document.payload.openingLines as Array<{gradeCode:string;specCode:string;skuCode:string;locationCode:string}>;

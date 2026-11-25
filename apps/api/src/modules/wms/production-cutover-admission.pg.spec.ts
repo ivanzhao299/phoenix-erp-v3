@@ -9,6 +9,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ProductionCutoverController } from './production-cutover.controller';
+import { ApprovedEggProductDomainExtension1795565000000 } from '../../database/migrations/1795565000000-ApprovedEggProductDomainExtension';
+import type { CutoverExtension } from './production-cutover-extension';
 import { CutoverStateReceipts1795400300000 } from '../../database/migrations/1795400300000-CutoverStateReceipts';
 import { ProductionCutoverExecutionAdmissions1795029621917 } from '../../database/migrations/1795029621917-ProductionCutoverExecutionAdmissions';
 import { ProductionCutoverEvidenceBarriers1795025712607 } from '../../database/migrations/1795025712607-ProductionCutoverEvidenceBarriers';
@@ -33,6 +35,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   const schema=`cutover_admission_${process.pid}`,prefix=`cutover_${process.pid}_`;
   const roles={owner:prefix+'owner',api:prefix+'api',issuer:prefix+'issuer',executor:prefix+'executor'};
   const migration=new ProductionCutoverExecutionAdmissions1795029621917();
+  const extensionMigration=new ApprovedEggProductDomainExtension1795565000000();
   const identifier=(name:string)=>{if(!/^[a-z_][a-z_0-9]*$/.test(name))throw Error('Owned role/schema identifier required');return '"'+name+'"';};
   const run=async(action:'up'|'down')=>{const q=db.createQueryRunner();await q.connect();try{await migration[action](q);}finally{await q.release();}};
   beforeAll(async()=>{
@@ -75,7 +78,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     // Match the frozen baseline: ledger.batch_no has no FK; the namespace guard must close that real race itself.
     for(const row of await db.query("SELECT conname FROM pg_constraint WHERE conrelid='inv_ledger'::regclass AND confrelid='inv_batches'::regclass AND contype='f'"))
       await db.query(`ALTER TABLE inv_ledger DROP CONSTRAINT ${identifier(row.conname)}`);
-    const q=db.createQueryRunner();await q.connect();try{await new ProductionCutoverEvidenceBarriers1795025712607().up(q);await migration.up(q);await new CutoverStateReceipts1795400300000().up(q);}finally{await q.release();}
+    const q=db.createQueryRunner();await q.connect();try{await new ProductionCutoverEvidenceBarriers1795025712607().up(q);await migration.up(q);await new CutoverStateReceipts1795400300000().up(q);await extensionMigration.up(q);}finally{await q.release();}
   });
   afterAll(async()=>{
     for(const connection of connections)if(connection.isInitialized)await connection.destroy();
@@ -94,7 +97,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       WHERE f.pronamespace=current_schema()::regnamespace AND f.proname IN('consume_production_cutover_admission','record_production_cutover_apply_result')
         AND permission.grantee=0 AND permission.privilege_type='EXECUTE'`))[0].n).toBe(0);
     const ddl=new CutoverStateReceipts1795400300000(),q=db.createQueryRunner();await q.connect();
-    try{await q.startTransaction();await ddl.down(q);await q.commitTransaction();await run('down');await run('up');await ddl.up(q);}
+    try{await q.startTransaction();await extensionMigration.down(q);await ddl.down(q);await q.commitTransaction();await run('down');await run('up');await ddl.up(q);await extensionMigration.up(q);}
     finally{if(q.isTransactionActive)await q.rollbackTransaction();await q.release();}
   });
   it('rejects a direct non-DRAFT scope insert and a first FENCE without an actual consumed admission',async()=>{
@@ -143,6 +146,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     for(const row of await db.query('SELECT oid::regprocedure::text AS signature FROM pg_proc WHERE pronamespace=current_schema()::regnamespace AND proname=ANY($1::text[])',[names]))
       await db.query(`ALTER FUNCTION ${row.signature} OWNER TO ${identifier(roles.owner)}`);
     await db.query(`GRANT INSERT ON production_cutover_apply_admissions TO ${identifier(roles.issuer)};
+      GRANT EXECUTE ON FUNCTION approved_egg_domain_extension(uuid,uuid,text,text,text) TO ${identifier(roles.owner)};
       GRANT EXECUTE ON FUNCTION consume_production_cutover_admission(uuid,text),record_production_cutover_apply_result(uuid),lock_production_cutover_authority(uuid) TO ${identifier(roles.executor)}`);
     const roleOids=new Map((await db.query('SELECT rolname,oid FROM pg_roles WHERE rolname=ANY($1::text[])',[Object.values(roles)])).map((r:{rolname:string;oid:number})=>[r.rolname,r.oid]));
     const register=`INSERT INTO production_cutover_control_environments(environment_id,generation,control_owner,control_owner_oid,issuer_role,issuer_role_oid,executor_role,executor_role_oid,
@@ -187,7 +191,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   });
   let actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,C,E,A','MENU_FIN2_AR_LEDGER:E']};
   const scope={isGlobal:true},cls={get:(key:string)=>key==='dataScope'?scope:actor};
-  async function approvedCount(house='HOUSE-A',options:{company?:string;warehouse?:string;openingLines?:CutoverCountLine[];carry?:boolean;products?:string[];houses?:string[]}={}){
+  async function approvedCount(house='HOUSE-A',options:{company?:string;warehouse?:string;openingLines?:CutoverCountLine[];carry?:boolean;products?:string[];houses?:string[];extension?:CutoverExtension;firstProductionDate?:string}={}){
     const company=options.company??'COMP-A',warehouse=options.warehouse??'WH-A',lines=options.openingLines??[];
     const proof={count:'ADMIT-COUNT-'+warehouse,business:'ADMIT-BUSINESS-'+warehouse,finance:'ADMIT-FINANCE-'+warehouse};
     for(const [file,name] of [[proof.count,'receiver'],[proof.business,'maker'],[proof.finance,'reviewer']])await apiDb.query(`
@@ -196,9 +200,9 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     actor={...actor,userId:3,username:'receiver'};
     const cutovers=new ProductionCutoverService(apiDb,cls as never,undefined,{resolve:async()=>scope} as unknown as DataScopeService);
     const tomorrow=new Date(singaporeBusinessDate()+'T00:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
-    const boundary={companyCode:company,warehouseCode:warehouse,productCodes:options.products??['PRD-EGG-RAW'],houses:(options.houses??[house]).map(houseCode=>({houseCode,firstProductionDate:tomorrow.toISOString().slice(0,10)}))};
-    const inspected=await cutovers.inspect(boundary);expect(inspected.snapshot.missingTables).toEqual([]);expect(inspected.snapshot.warnings).toEqual([]);
-    const draft=await cutovers.create({boundary,intentKey:randomUUID(),postingDate:singaporeBusinessDate(),evidenceFileIds:[proof.count],
+    const boundary={companyCode:company,warehouseCode:warehouse,productCodes:options.products??['PRD-EGG-RAW'],houses:(options.houses??[house]).map(houseCode=>({houseCode,firstProductionDate:options.firstProductionDate??tomorrow.toISOString().slice(0,10)}))};
+    const inspected=await cutovers.inspect(boundary,!!options.extension);expect(inspected.snapshot.missingTables).toEqual([]);expect(inspected.snapshot.warnings).toEqual([]);
+    const draft=await cutovers.create({boundary,extension:options.extension,intentKey:randomUUID(),postingDate:singaporeBusinessDate(),evidenceFileIds:[proof.count],
       physicalTotals:boundary.productCodes.map(productCode=>({productCode,quantity:lines.filter(line=>line.productCode===productCode).reduce((sum,line)=>sum+line.quantity,0)+(options.carry?inspected.snapshot.batches.filter(batch=>batch.warehouse_code===warehouse&&batch.product_code===productCode).reduce((sum,batch)=>sum+Number(batch.qty),0):0)})),openingLines:lines,rawCounts:[],decisions:inspected.snapshot.batches.map(batch=>({
         batchNo:String(batch.batch_no),disposition:options.carry?'CARRY_FORWARD' as const:'ARCHIVED_TEST' as const,evidenceFileId:proof.count,reason:options.carry?'Owned actual qualified purchase/opening stock':'Owned synthetic historical test row, no real counted stock'})),referenceDecisions:[]});
     const frozen=await cutovers.freeze(draft.id,0);
@@ -888,6 +892,51 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       expect((await SkuPolicy.requireUsable(q.manager,'SKU-GRADE_1','stock','COMP-A','2026-11-19')).sku_code).toBe('SKU-GRADE_1');
     }finally{await q.rollbackTransaction();await q.release();}
   });
+  it('zero-opens then attaches a pink domain for red houses while preserving old scope, stock and commit recovery',async()=>{
+    await db.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS house_type text DEFAULT 'LAYER';
+      UPDATE brd_houses SET house_type='LAYER',status='ACTIVE' WHERE house_code IN ('HOUSE-A3','HOUSE-A4');
+      UPDATE brd_farms SET mapped_site_code='SITE-A',status='ACTIVE' WHERE farm_code='FARM-A'`);
+    await apiDb.query(`INSERT INTO md_product_varieties(variety_code,variety_name,status) VALUES('EGG_PINK','Fixture pink','ACTIVE') ON CONFLICT DO NOTHING;
+      INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code,category_code)
+        VALUES('PRD-PINK-EXT','ACTIVE','枚','枚','EGG_PINK','EGG');
+      INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code)
+        VALUES('SKU-PINK-EXT','PRD-PINK-EXT','GRADE_1','LOOSE','ACTIVE','EGG_PINK');
+      INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,sale_enabled,stock_enabled,status)
+        VALUES('SKU-PINK-EXT','COMPANY','COMP-A',false,true,'ACTIVE')`);
+    const snapshots=await apiDb.query(`SELECT *,first_production_date::text FROM production_cutover_scopes
+      WHERE house_code=ANY($1::text[]) ORDER BY house_code`,[['HOUSE-A3','HOUSE-A4']]);
+    expect(snapshots).toHaveLength(2);
+    const oldStock=await apiDb.query("SELECT batch_no,qty FROM inv_batches WHERE warehouse_code='WH-A2' ORDER BY batch_no");
+    expect(oldStock).toHaveLength(1);
+    let targetDomain:Record<string,any>|null=null;
+    for(const original of snapshots){
+      const mode=targetDomain?'ATTACH':'INIT';
+      const configured:CutoverExtension={kind:targetDomain?'ATTACH_EXISTING_SCOPE':'INIT_EXISTING_SCOPE_ZERO',
+        scopeId:original.id,scopeVersion:original.version,scopeManifestSha256:original.manifest_sha256,
+        effectiveDate:original.first_production_date,targetClass:'PINK',requirements:[{gradeCode:'GRADE_1',specCode:'LOOSE'}],
+        ...(targetDomain?{domainId:targetDomain.id,domainVersion:targetDomain.version,openingReceiptId:targetDomain.opening_receipt_id}:{})};
+      const {document}=await approvedCount(original.house_code,{warehouse:'WH-A2',products:['PRD-PINK-EXT'],extension:configured,
+        firstProductionDate:original.first_production_date});
+      const q=await holdExecutor();
+      try{
+        const admission=await issue(q,document,mode,'3');
+        const permit=binding(document,admission,mode);
+        const committed=await executeBoundCutover(q,permit,async()=>{});
+        expect(committed.status).toBe('COMMITTED');
+        expect(await recoverFresh(permit)).toEqual(committed);
+      }finally{await releaseExecutor(q);}
+      [targetDomain]=await apiDb.query(`SELECT d.id,d.version,c.opening_receipt_id FROM production_inventory_domain_states d
+        JOIN production_opening_domain_claims c ON c.domain_id=d.id WHERE d.product_code='PRD-PINK-EXT' AND d.warehouse_code='WH-A2'`);
+      expect(targetDomain).toBeDefined();
+    }
+    expect(await apiDb.query(`SELECT *,first_production_date::text FROM production_cutover_scopes
+      WHERE house_code=ANY($1::text[]) ORDER BY house_code`,[['HOUSE-A3','HOUSE-A4']])).toEqual(snapshots);
+    expect(await apiDb.query("SELECT batch_no,qty FROM inv_batches WHERE warehouse_code='WH-A2' ORDER BY batch_no")).toEqual(oldStock);
+    expect(await apiDb.query("SELECT scope_id FROM production_inventory_domains WHERE product_code='PRD-PINK-EXT'")).toHaveLength(2);
+    expect(await apiDb.query(`SELECT id FROM production_opening_receipts WHERE warehouse_code='WH-A2'
+      AND manifest->'extension'->>'kind'='INIT_EXISTING_SCOPE_ZERO'`)).toHaveLength(1);
+  });
+
   it('keeps a retired executor from falling through to ordinary writes after a new environment generation',async()=>{
     const replacement=prefix+'replacement';await db.query(`CREATE ROLE ${identifier(replacement)} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);createdRoles.push(replacement);
     await db.query(`GRANT USAGE ON SCHEMA ${identifier(schema)} TO ${identifier(replacement)}`);

@@ -8,7 +8,7 @@ type Manifest = { id:string; state:string; company_code:string; warehouse_code:s
 export interface CutoverStateMember {
   scope_id:string; house_code:string; scope_state:string; manifest_id:string; manifest_hash:string;
   domain_id:string; product_code:string; domain_state:string; version:number; opening_receipt_id:string;
-  scope_intent:string|null; prior_intent:string; prior_evidence:string; original:boolean;
+  edge_manifest_ids:string[]; scope_intent:string|null; prior_intent:string; prior_evidence:string; original:boolean;
 }
 
 // Every edge in the connected component participates, including houses attached by a later manifest.
@@ -17,6 +17,8 @@ export async function previewCutoverState(m:EntityManager, d:Manifest,houseCode?
   const rows:CutoverStateMember[]=await m.query(`WITH RECURSIVE edges AS (
     SELECT scope_id,inventory_domain_id AS domain_id FROM production_inventory_domains
   ), connected(id,kind) AS (
+    SELECT origin.scope_id AS id,'scope'::text FROM production_cutover_state_origins origin WHERE origin.manifest_id::text=$1
+    UNION
     SELECT id,'scope'::text FROM production_cutover_scopes WHERE evidence->>'manifestId'=$1
     UNION
     SELECT CASE WHEN c.kind='scope' THEN e.domain_id ELSE e.scope_id END,
@@ -25,11 +27,16 @@ export async function previewCutoverState(m:EntityManager, d:Manifest,houseCode?
   )
   SELECT s.id AS scope_id,s.house_code,s.state AS scope_state,doc.id AS manifest_id,s.manifest_sha256 AS manifest_hash,
     dom.id AS domain_id,dom.product_code,dom.state AS domain_state,dom.version,claim.opening_receipt_id,
+    ARRAY(SELECT o.manifest_id::text FROM production_cutover_state_origins o WHERE o.scope_id=s.id AND o.domain_id=dom.id
+      AND o.opening_receipt_id=claim.opening_receipt_id ORDER BY o.manifest_id) AS edge_manifest_ids,
     previous.intent_key AS scope_intent,event.intent_key AS prior_intent,event.evidence_file_id AS prior_evidence,
     (doc.state='APPLIED' AND doc.content_hash=s.manifest_sha256 AND doc.receipt IS NOT NULL
       AND s.company_code=$2 AND s.warehouse_code=$3 AND dom.company_code=$2 AND dom.warehouse_code=$3
-      AND EXISTS(SELECT 1 FROM production_cutover_state_origins o WHERE o.manifest_id=doc.id AND o.scope_id=s.id
-        AND o.domain_id=dom.id AND o.opening_receipt_id=claim.opening_receipt_id)
+      AND EXISTS(SELECT 1 FROM production_cutover_state_origins o
+        JOIN production_cutover_manifests edge_manifest ON edge_manifest.id=o.manifest_id
+        WHERE o.scope_id=s.id AND o.domain_id=dom.id AND o.opening_receipt_id=claim.opening_receipt_id
+          AND (o.manifest_id=doc.id OR edge_manifest.payload->'extension'->>'scopeId'=s.id::text
+            AND edge_manifest.payload->'extension'->>'scopeManifestSha256'=s.manifest_sha256))
       AND original.state='APPLIED' AND original.content_hash=claim.content_hash AND opening.cutover_manifest_id=original.id) AS original
   FROM connected c JOIN production_cutover_scopes s ON c.kind='scope' AND s.id=c.id
   JOIN edges e ON e.scope_id=s.id JOIN production_inventory_domain_states dom ON dom.id=e.domain_id
@@ -40,7 +47,8 @@ export async function previewCutoverState(m:EntityManager, d:Manifest,houseCode?
   LEFT JOIN production_inventory_domain_events event ON event.domain_id=dom.id AND event.version=dom.version
   LEFT JOIN LATERAL (SELECT intent_key,receipt FROM production_cutover_state_receipts
     WHERE receipt->'scopes' ? s.id::text ORDER BY created_at DESC LIMIT 1) previous ON true
-  WHERE ($4::text IS NULL OR (s.house_code=$4 AND doc.id=$1::uuid))
+  WHERE ($4::text IS NULL OR (s.house_code=$4 AND (doc.id=$1::uuid OR EXISTS(SELECT 1 FROM production_cutover_state_origins edge
+    WHERE edge.manifest_id=$1::uuid AND edge.scope_id=s.id AND edge.domain_id=dom.id))))
   ORDER BY s.id,dom.id`,[d.id,d.company_code,d.warehouse_code,houseCode??null]);
   if(!rows.length||rows.some(r=>!r.original||!r.prior_intent))throw new ConflictException('CUTOVER_ORIGINAL_APPLY_REQUIRED');
   return {boundaryHash:cutoverEvidenceHash(rows),members:rows};

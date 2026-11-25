@@ -1,3 +1,4 @@
+import { checkApprovedEggSource, requireEggProductDomain } from '../../product-master/services/egg-source-change-facts';
 import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -99,8 +100,24 @@ export class OfficialRawCollectionService {
     const [route]=await m.query('SELECT entry_mode FROM brd_egg_day_routes WHERE company_code=$1 AND house_code=$2 AND production_date=$3',
       [d.company_code,d.house_code,d.production_date]);
     if(route&&route.entry_mode!=='PACKAGING')throw new ConflictException('同一舍日已经采用临时生产入库，不能重复认领原始集蛋');
+    const approval = await checkApprovedEggSource(m,profile);
+    const outputs = [];
+    if (approval) {
+      if (approval.warehouse !== d.warehouse_code) throw new ConflictException('当前仓库与来源档案审批不一致');
+      for (const gradeCode of [...new Set(sources.map((row: Fact) => row.gradeCode as string))].sort()) {
+        const items = approval.snapshot.items.filter(item => item.gradeCode === gradeCode);
+        if (!items.length) throw new ConflictException(`来源档案审批未覆盖实际收蛋等级 ${gradeCode}`);
+        for (const item of items) {
+          const sku = await this.skus.assertUsable(item.skuCode,{ ...profile, sourceProfileCode:profile.profileCode,usage:'stock' },m);
+          const domainId = await requireEggProductDomain(m,profile,d.scope_id,d.warehouse_code,sku.productCode);
+          outputs.push({ gradeCode, productCode:sku.productCode, skuCode:sku.skuCode, domainId });
+        }
+      }
+    }
     return {quantity:total,source,profile:{profileCode:profile.profileCode,productMode:profile.productMode,varietyCode:profile.varietyCode,
-      houseCode:profile.houseCode,farmCode:profile.farmCode,siteCode:profile.siteCode??null},handoverHash:handover.content_hash,sources};
+      houseCode:profile.houseCode,farmCode:profile.farmCode,siteCode:profile.siteCode??null,
+      ...(approval ? { effectiveDate:profile.effectiveDate, approvalId:approval.approvalId, outputs, approvedSkus:approval.snapshot.items } : {})},
+      handoverHash:handover.content_hash,sources};
   }
   async create(input:RawCollectionInput){
     for(const value of Object.values(input))text(value);assertEggDate(input.productionDate);

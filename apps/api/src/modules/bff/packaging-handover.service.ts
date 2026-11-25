@@ -36,7 +36,7 @@ export class PackagingHandoverService {
       d.boxes=boxes.map((b:any)=>({...b,printBlockedReason:packingPrintBlocked(events,b.boxId)?'打印结果未知，请先查询并核实原打印请求':null}));d.events=events;d.identityStatus=boxes.length===d.record.totalBoxes?'REGISTERED':'UNREGISTERED';
       d.policy=await this.policy.get(d.ownership.companyCode,d.ownership.siteCode);
       d.revision=packingHash({originalRevision:d.revision,policyVersion:d.policy.version,sources:d.sources});
-      const reasons=d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放').length?d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放'):d.record.recordStatus!=='ACTIVE'?['原单已作废']:d.record.productionDate!==d.shift.productionDate?['原单日期不一致']:
+      const reasons=d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放').length?d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放'):d.record.recordStatus!=='ACTIVE'?['原单已作废']:d.record.productionDate>d.shift.productionDate?['原单日期不一致']:
         d.handover.quality!=='VERIFIED'?d.handover.issues:[];
       for(const [key,action] of [['registerBoxes','REGISTER'],['print','PRINT'],['confirm','CONFIRM']]){
         let actionReasons=[...reasons];try{await this.history.scope(req,true);this.policy.assert(d.policy,action);}catch{actionReasons.push('无操作权限或工作流未开放');}
@@ -53,6 +53,9 @@ export class PackagingHandoverService {
     const code=String(body.packingCode||'').trim(),d=await this.detail(code,req),key=req.headers?.['idempotency-key'];
     if(!key||!Array.isArray(body.boxes)||body.boxes.length!==d.expectedBoxCount||new Set(body.boxes).size!==body.boxes.length)throw new ConflictException('CLIENT_UPGRADE_REQUIRED');
     uuid(key);if(Object.keys(body).some(k=>!['packingCode','boxes','productionDate','shiftId','location','receiver','palletCode','companyCode'].includes(k))||(body.companyCode&&body.companyCode!==d.ownership.companyCode))throw new BadRequestException('INVALID_COMMAND');
+    if(body.productionDate && ![d.record.productionDate,d.shift.productionDate].includes(body.productionDate)) {
+      throw new ConflictException('ORIGINAL_DATE_REQUIRED');
+    }
     const [prior]=await this.history.em.query(`SELECT e.payload FROM pkg_packing_operations o JOIN pkg_packing_events e ON e.id=o.result_event_id WHERE o.actor_id=$1 AND o.action='CONFIRM' AND o.idempotency_key=$2 AND o.packing_id=$3`,[this.actor(req),key,d.record.id]);
     const boxes=await Promise.all(body.boxes.map((label:string)=>this.boxes.resolve(this.history.em,d.record.id,label)));
     if(new Set(boxes.map(b=>b.id)).size!==d.expectedBoxCount)throw new ConflictException('BOX_IDENTITY_UNRESOLVED');
@@ -61,7 +64,7 @@ export class PackagingHandoverService {
     const places=await this.history.em.query('SELECT warehouse_code FROM wms_locations WHERE location_code=$1',[body.location]);
     const users=await this.history.em.query('SELECT user_id::text id FROM sys_user WHERE status=1 AND (username=$1 OR real_name=$1)',[body.receiver]);
     if(places.length!==1||users.length!==1)throw new ConflictException('CLIENT_UPGRADE_REQUIRED');
-    return this.command('CONFIRM',code,key,{contractVersion:2,packingCode:code,expectedRevision:prior?.payload.expectedRevision||d.revision,productionDate:body.productionDate||d.record.productionDate,
+    return this.command('CONFIRM',code,key,{contractVersion:2,packingCode:code,expectedRevision:prior?.payload.expectedRevision||d.revision,productionDate:d.record.productionDate,
       shiftId:String(body.shiftId||d.shift.id),boxIds:boxes.map(b=>b.id).sort(),verificationIds:verifications.map(v=>v.id).sort(),warehouseCode:places[0].warehouse_code,
       locationCode:body.location,receiverUserId:users[0].id,palletCode:body.palletCode||''},req);
   }
@@ -80,7 +83,7 @@ export class PackagingHandoverService {
       if(action!=='PRINT_RESULT'){
         this.policy.assert(policy,action);
         validatePackingCommand(action,body);
-        if(r.status!=='ACTIVE'||r.production_date!==r.shift_date)throw new ConflictException('RECORD_NOT_READY');
+        if(r.status!=='ACTIVE'||!r.production_date || !r.shift_date || r.production_date>r.shift_date)throw new ConflictException('RECORD_NOT_READY');
         if(body.expectedRevision!==d.revision)throw new ConflictException('REVISION_CHANGED');
         if(!completePackingSources(r))throw new ConflictException('SOURCE_NOT_READY');
         if(d.handover.quality!=='VERIFIED')throw new ConflictException('EVIDENCE_PARTIAL');

@@ -22,7 +22,7 @@ export function completePackingSources(record:any):boolean {
   if(!codes.length||codes.some((c:any)=>typeof c!=='string'||!c.trim())||new Set(codes).size!==codes.length||!Array.isArray(sources)||!sources.length)return false;
   const actual=[...new Set(sources.map(s=>s.gradingCode))].sort();
   return JSON.stringify([...codes].sort())===JSON.stringify(actual)&&sources.every(s=>s.sourceBatchId&&s.companyCode&&s.siteCode
-    &&s.gradingShiftId===record.shift_id&&s.sourceShiftId===record.shift_id&&s.gradingDate===record.production_date&&s.sourceDate===record.production_date&&s.siteCode===record.site_id&&s.companyCode===record.company_code
+    &&s.gradingShiftId===s.sourceShiftId&&(s.gradingShiftId===record.shift_id||record.cross_shift_authorized===true)&&s.gradingDate===record.production_date&&s.sourceDate===record.production_date&&s.siteCode===record.site_id&&s.companyCode===record.company_code
     &&s.gradingStatus==='ACTIVE'&&!s.isTest&&s.sourceStatus&&s.sourceStatus!=='VOID');
 }
 /** Original posting and current availability are independent. This never repairs evidence. */

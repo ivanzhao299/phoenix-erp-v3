@@ -79,6 +79,7 @@ export class PackagingInventoryIntegrationService {
       companyCode?: string;
       siteCode?: string | null;
       eggDate?: string;
+      postingDate?: string;
       collectionRef?: string | null;
       packSpec?: string | null;
       /** 作业台成品交接必须真实入账，不能把“模式跳过”当成功。 */
@@ -106,7 +107,7 @@ export class PackagingInventoryIntegrationService {
     if (terminalRows.length || refNo.startsWith('PKG-')) await assertPackingCanEnterInventory(opts.manager, refNo);
     const db = opts.manager;
     const batchSql=`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`;
-    const ledgerSql=`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
+    const ledgerSql=`SELECT l.*,l.log_date::text AS ledger_date_text FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
       AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`;
     let existing=await db.query(batchSql,[refNo]);
     let ledger=await db.query(ledgerSql,[refNo,existing.map((b:any)=>b.batch_no)]);
@@ -163,11 +164,11 @@ export class PackagingInventoryIntegrationService {
         const warehouseCode = opts.warehouseCode ?? b.warehouse_code;
         const locationCode = opts.locationCode ?? b.location_code;
         if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
-          || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
+          || (b.egg_date_text !== opts.eggDate || b.inbound_date_text < opts.eggDate)
           || (b.variety_code ?? null) !== item.varietyCode || b.product_code !== item.productCode || b.grade_code_std !== item.grade
           || (item.stockStatus && b.status !== item.stockStatus)
           || b.company_code !== companyCode || b.warehouse_code !== warehouseCode || b.location_code !== locationCode
-          || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
+          || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty || l.ledger_date_text !== b.inbound_date_text
             || l.sku_code !== item.skuCode || l.company_code !== companyCode
             || l.warehouse_code !== warehouseCode || l.location_code !== locationCode)) {
           throw new ConflictException('既有库存或流水与预期逐SKU数量/归属不一致，禁止补余或重建');
@@ -363,10 +364,15 @@ export class PackagingInventoryIntegrationService {
     const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
     const companyCode = await this.resolveTerminalCompanyCode(rec.site_id ?? null, opts.companyCode, opts.manager);
 
+    const [clock]=await opts.manager.query(`SELECT (clock_timestamp() AT TIME ZONE
+      CASE WHEN farm.mapped_site_code IN ('SITE-MENGSAI-LAYER','SITE-DONGPENG-LAYER') THEN 'Asia/Vientiane' ELSE 'Asia/Singapore' END)::date::text AS day
+      FROM ${OrgOwnershipService.FARM_TABLE} farm WHERE farm.farm_code=$1`,[rec.site_id]);
+    if (!clock?.day || clock.day < eggDate) throw new ConflictException('实际包装过账日早于产蛋日或所属场站缺失');
     const r = await this.generateSaleableFromOutputs(packingCode, items, {
       companyCode,
       siteCode: rec.site_id ?? null,
       eggDate,
+      postingDate:clock.day,
       collectionRef,
       warehouseCode: opts?.warehouseCode,
       locationCode: opts?.locationCode,
@@ -477,13 +483,14 @@ export class PackagingInventoryIntegrationService {
     varietyCode: string | null,
     sourceProfileRefs: Array<{ profileCode: string; houseCode: string }>,
     stockStatus: PackagingIdentity['stockStatus'],
-    opts?: { warehouseCode?: string; locationCode?: string; manager?: EntityManager },
+    opts?: { warehouseCode?: string; locationCode?: string; postingDate?:string; manager?: EntityManager },
   ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }> {
     const batch = await this.eggInv.createProductionBatch({
       companyCode,
       warehouseCode: opts?.warehouseCode,
       locationCode: opts?.locationCode,
       eggDate,
+      postingDate:opts?.postingDate,
       qualityGrade:       gradeCode,
       gradeCodeStd:       gradeCode,
       specCode:           specCode ?? undefined,

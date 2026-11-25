@@ -1,3 +1,7 @@
+import { checkApprovedEggSource } from '../product-master/services/egg-source-change-facts';
+import { readEggSourceOwner, sourceClock, sourceDate } from '../product-master/services/egg-source-change-policy';
+import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
+import { lockDailyFlock } from '../farm/daily-stock-policy';
 import {FarmService,deriveOrgScope,scopeWhere} from '../farm/farm.service';
 import {DataScopeGuard} from '../org/guards/data-scope.guard';
 import {ProductionAnalyticsService} from '../analytics/services/production-analytics.service';
@@ -1644,12 +1648,10 @@ export class PackagingTerminalBffController {
 
     return this.em.transaction(async manager => {
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
-    const [shift] = await manager.query(`SELECT * FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [body.shiftId || null]);
+    const [shift] = await manager.query(`SELECT *,production_date::text AS work_date FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [body.shiftId || null]);
     assertPackagingMode(shift, isTest);
     if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭');
     if (isTest && (body.sourceInboundNo || body.source_inbound_no)) throw new BadRequestException('测试来源不能引用真实入库单');
-    if (!isTest) await guardPackagingSourceReferences(manager, [{ batch_code: batchCode,
-      source_inbound_no: body.sourceInboundNo || body.source_inbound_no, house_code: houseCode }]);
     // 检查是否已接收（仅检查 status != PENDING_RECEIVE 的记录，避免误判种子数据）
     const [existing] = await manager.query(
         `SELECT id, is_test FROM pkg_source_batches WHERE batch_code = $1 AND batch_status != 'PENDING_RECEIVE'`,
@@ -1659,18 +1661,70 @@ export class PackagingTerminalBffController {
 
     // 如果已有 PENDING_RECEIVE 记录（种子/手工），直接 UPDATE；否则 INSERT
     const [pendingRow] = await manager.query(
-        `SELECT id, is_test, batch_code, source_inbound_no, house_code FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE' FOR UPDATE`,
+        `SELECT id, is_test, batch_code, source_inbound_no, house_code,flock_code, production_date::text,lay_date::text FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE' FOR UPDATE`,
         [batchCode],
     );
 
+    let eggDate = today;
+    let sourceInboundNo = body.sourceInboundNo || body.source_inbound_no || null;
+    let flockNo = String(body.flockCode || body.flock_code || '');
+    if (!isTest) {
+      if (pendingRow?.source_inbound_no && sourceInboundNo && sourceInboundNo !== pendingRow.source_inbound_no) {
+        throw new ConflictException('所选仓库原单与已排入待收的原单不一致');
+      }
+      const sourceRef = pendingRow?.source_inbound_no || sourceInboundNo;
+      sourceInboundNo = sourceRef;
+      if (sourceRef && (await manager.query(`SELECT 1 FROM pkg_source_batches WHERE source_inbound_no=$1
+        AND (id::text IS DISTINCT FROM $2) AND NOT is_test AND batch_status NOT IN ('VOID','CANCELLED') LIMIT 1`,
+      [sourceRef,pendingRow ? String(pendingRow.id) : null])).length) throw new ConflictException('该仓库原单已有收蛋来源');
+      const candidates = sourceRef ? await manager.query(`SELECT to_jsonb(w)->>'house_code' AS house_code,
+        to_jsonb(w)->>'collect_date' AS lay_date, w.status FROM wms_inbound w
+        WHERE to_jsonb(w)->>'inbound_no'=$1 FOR SHARE`,[sourceRef]) : [];
+      if (candidates.length > 1) throw new ConflictException('原仓库收货来源不唯一');
+      const wms = candidates[0];
+      if (sourceRef && !wms && !pendingRow?.source_inbound_no) throw new ConflictException('未找到所选仓库的实际入库原单');
+      const actualHouse = pendingRow?.house_code ?? wms?.house_code ?? houseCode;
+      if (actualHouse !== houseCode || (wms && (wms.house_code !== actualHouse || wms.status !== 'COMPLETED'))) {
+        throw new ConflictException('所选鸡舍与实际待收来源不一致');
+      }
+      await manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[actualHouse]);
+      const [governance] = await manager.query(`SELECT
+        EXISTS(SELECT 1 FROM brd_flock_house_states WHERE house_code=$1) AS managed,
+        EXISTS(SELECT 1 FROM md_egg_source_changes WHERE house_code=$1
+          AND state IN ('APPROVED','REVOKE_REQUESTED')) AS scheduled`,[actualHouse]);
+      const entered = body.layDate || body.lay_date || null;
+      const evidenceDate = wms?.lay_date ?? pendingRow?.lay_date ?? pendingRow?.production_date ?? entered;
+      eggDate = sourceDate(evidenceDate ?? (governance.managed || governance.scheduled ? null : today));
+      if ((entered && sourceDate(entered) !== eggDate) || (pendingRow?.lay_date && pendingRow.lay_date !== eggDate)
+          || (pendingRow?.production_date && pendingRow.production_date !== eggDate)) {
+        throw new ConflictException('产蛋日期证据冲突，请先核对采集原行');
+      }
+      if (eggDate > shift.work_date) throw new ConflictException('产蛋日期晚于包装班次');
+      if (governance.managed || governance.scheduled) {
+        const owner = await readEggSourceOwner(manager,actualHouse,true);
+        if (shift.site_id !== owner.farmCode && shift.site_id !== owner.siteCode) {
+          throw new ConflictException('包装班次与采集来源农场不一致');
+        }
+        if (eggDate > (await sourceClock(manager,owner)).day) throw new ConflictException('产蛋日期晚于当前场站日期');
+        const flock = await lockDailyFlock(manager,{ house_code:actualHouse,log_date:eggDate,farm_code:owner.farmCode,
+          company_code:owner.companyCode,flock_no:flockNo });
+        if (pendingRow?.flock_code && pendingRow.flock_code !== flock.flock_no) {
+          throw new ConflictException('采集原行与产蛋日实际鸡群占栏不一致');
+        }
+        flockNo = flock.flock_no;
+        const profile = await new SkuAvailabilityService(manager.connection).resolveSourceProfile({ ...owner,eggDate },manager);
+        await checkApprovedEggSource(manager,profile);
+      }
+      await guardPackagingSourceReferences(manager,[{ batch_code:batchCode,source_inbound_no:sourceRef,house_code:actualHouse }]);
+    }
     if (pendingRow) {
       assertPackagingMode(pendingRow, isTest);
-      if (!isTest) await guardPackagingSourceReferences(manager, [pendingRow]);
       await manager.query(
         `UPDATE pkg_source_batches
          SET batch_status='RECEIVED', total_qty=$1, dirty_qty=$2, cracked_qty=$3,
              expected_qty=$1, received_qty=$4, received_weight=$5,
              container_count=$6, variance_reason=$7, received_by=$8, shift_id=$9, updated_at=NOW()
+             ${isTest ? '' : ',production_date=$11,lay_date=$11,flock_code=$12,source_inbound_no=$13'}
          WHERE id=$10`,
         [
           totalQty,
@@ -1683,6 +1737,7 @@ export class PackagingTerminalBffController {
           operatorId,
           body.shiftId || null,
           pendingRow.id,
+          ...(isTest ? [] : [eggDate,flockNo,sourceInboundNo]),
         ],
       );
     } else {
@@ -1695,11 +1750,11 @@ export class PackagingTerminalBffController {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW(),${isTest})`,
         [
           batchCode,
-          body.sourceInboundNo || body.source_inbound_no || batchCode,
-          today,
+          sourceInboundNo ?? batchCode,
+          eggDate,
           houseCode,
-          body.flockCode || body.flock_code || '',
-          body.layDate || body.lay_date || today,
+          flockNo,
+          isTest ? body.layDate || body.lay_date || today : eggDate,
           totalQty,
           dirtyQty,
           crackedQty,
@@ -2147,6 +2202,7 @@ export class PackagingTerminalBffController {
       }
       const sourceRows = await manager.query<any[]>(
         `SELECT id, batch_code, source_inbound_no, shift_id, house_code,
+                COALESCE(lay_date,production_date)::text AS egg_date,
                 GREATEST(COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
                   - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0)::int AS net_qty
            FROM pkg_source_batches
@@ -2178,16 +2234,11 @@ export class PackagingTerminalBffController {
         throw new ConflictException(`分级数量 ${totalOutput} 超过所选来源剩余量 ${available}`);
       }
 
-      const productionDate = typeof shift.production_date === 'string'
-        ? shift.production_date.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
-        : shift.production_date instanceof Date && !Number.isNaN(shift.production_date.getTime())
-          ? [shift.production_date.getFullYear(),
-             String(shift.production_date.getMonth() + 1).padStart(2, '0'),
-             String(shift.production_date.getDate()).padStart(2, '0')].join('-')
-          : undefined;
-      if (!productionDate) {
-        throw new InternalServerErrorException('班次生产日期格式异常，无法提交分级');
+      const sourceDays = [...new Set(sourceRows.map(row => row.egg_date))];
+      if (!isTest && (sourceDays.length !== 1 || !sourceDays[0] || sourceDays[0] > shift.production_date)) {
+        throw new ConflictException('同一分级单须选同一产蛋日的来源，且产蛋日不得晚于班次');
       }
+      const productionDate = sourceDate(isTest ? shift.production_date : sourceDays[0]);
       const code = `GRD-${productionDate.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
       const [grading] = await manager.query<any[]>(
         `INSERT INTO pkg_grading_records
@@ -2220,7 +2271,7 @@ export class PackagingTerminalBffController {
    * 返回各等级实时剩余（key = dict_code，多终端并发安全）。
    */
   @Get('grading/active')
-  async getActiveGrading(@Query('shiftId') shiftId: string, @Req() req?: any) {
+  async getActiveGrading(@Query('shiftId') shiftId: string, @Req() req?: any, @Query('eggDate') requestedDate?: string) {
     const isTest = packagingTestMode(req);
     const currentShift = await this.exactShift(shiftId, req);
     if (currentShift.status !== 'OPEN') throw new ConflictException('班次已关闭，不能加载作业余量');
@@ -2248,12 +2299,18 @@ export class PackagingTerminalBffController {
     // ── 合并当日所有分级批次产出（按等级累加） ──────────────────────────────────
     const gradingRows = await read(
       this.em.query<any[]>(
-        `SELECT DISTINCT gr.code, gr.outputs_json
+        `SELECT DISTINCT gr.code, gr.outputs_json, gr.production_date::text AS egg_date
            FROM pkg_grading_records gr
            JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
            JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-          WHERE gr.shift_id = $1 AND psb.shift_id = $1 AND gr.production_date=psb.production_date
-            AND gr.production_date=(SELECT production_date FROM pkg_work_shifts WHERE id=$1) AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest} AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
+          WHERE gr.shift_id = $1 AND psb.shift_id = $1
+            AND gr.production_date <= (SELECT production_date FROM pkg_work_shifts WHERE id=$1)
+            AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest} AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
+            AND NOT EXISTS (SELECT 1 FROM pkg_grading_source_links links JOIN pkg_source_batches source ON source.id=links.source_batch_id
+              WHERE links.grading_id=gr.id AND (
+                source.shift_id IS DISTINCT FROM gr.shift_id OR source.is_test IS DISTINCT FROM gr.is_test
+                OR source.batch_status='VOID' OR (CASE WHEN gr.is_test THEN source.production_date
+                  ELSE COALESCE(source.lay_date,source.production_date) END) IS DISTINCT FROM gr.production_date))
           ORDER BY gr.code`,
         [shiftIdNum],
       ),
@@ -2262,7 +2319,9 @@ export class PackagingTerminalBffController {
 
     const outputs: Record<string, number> = {};
     const gradingCodes: string[] = [];
-    for (const row of (gradingRows || [])) {
+    const eggDates = [...new Set<string>(gradingRows.map(row => row.egg_date))].sort();
+    const eggDate = requestedDate ? sourceDate(requestedDate) : eggDates[0] ?? currentShift.date_text;
+    for (const row of gradingRows.filter(row => row.egg_date === eggDate)) {
       gradingCodes.push(row.code as string);
       const raw = (typeof row.outputs_json === 'string'
         ? JSON.parse(row.outputs_json) : row.outputs_json) as Record<string, number>;
@@ -2298,7 +2357,7 @@ export class PackagingTerminalBffController {
 
     return {
       code: 200,
-      data: { shiftId: shiftIdNum, productionDate: currentShift.date_text, gradingCodes, outputs, packed, remaining },
+      data: { shiftId: shiftIdNum, productionDate: currentShift.date_text, eggDate, eggDates, gradingCodes, outputs, packed, remaining },
     };
   }
 
@@ -2397,7 +2456,7 @@ export class PackagingTerminalBffController {
       await manager.query(`INSERT INTO pkg_packing_records
         (code,grading_code,grading_codes_json,production_date,batches_json,total_boxes,total_eggs,shift_id,is_test,idempotency_key,payload_hash)
         VALUES ($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
-        [code, gradingCodes[0], JSON.stringify(gradingCodes), shift.date_text, JSON.stringify(readyBatches), totalBoxes, totalEggs, shiftId, isTest, key, hash]);
+        [code, gradingCodes[0], JSON.stringify(gradingCodes), sourceContext.eggDate, JSON.stringify(readyBatches), totalBoxes, totalEggs, shiftId, isTest, key, hash]);
       await manager.query(`INSERT INTO pkg_audit_logs (entity_type,entity_id,action,after_data,reason,operator_id)
         VALUES ('PACKING_RECORD',$1,$2,$3,$4,$5)`,
         [code, cross.length ? 'CROSS_SHIFT_GRADING_CONSUME' : 'PACK', JSON.stringify({ shiftId, gradingCodes, isTest, totalEggs }), reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
@@ -2651,9 +2710,8 @@ export class PackagingTerminalBffController {
         const packing = await assertPackingCanEnterInventory(manager, packingCode);
         await guardPackingSourceReferences(manager, packingCode, 'INVENTORY');
         const shift = await this.exactShift(packing.shift_id, req, undefined, manager);
-        const productionDate = shift.date_text;
-        const packingDate = packing.production_date_text ?? String(packing.production_date).slice(0,10);
-        if (packingDate !== productionDate || (body.productionDate && body.productionDate !== productionDate)
+        const productionDate = packing.production_date_text ?? String(packing.production_date).slice(0,10);
+        if (productionDate > shift.date_text || (body.productionDate && body.productionDate !== productionDate && body.productionDate !== shift.date_text)
           || (body.shiftId !== undefined && Number(body.shiftId) !== Number(packing.shift_id))) throw new ConflictException('包装、班次与交接日期或班次不匹配');
         if (boxes.length !== Number(packing.total_boxes)) throw new ConflictException('交接箱数与原包装不一致');
         const [place] = await manager.query(`SELECT l.location_code, l.warehouse_code, w.company_code

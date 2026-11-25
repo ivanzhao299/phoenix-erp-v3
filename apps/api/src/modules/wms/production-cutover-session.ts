@@ -35,8 +35,13 @@ export async function recoverCutoverOutcome(q:QueryRunner,p:HostPermit){
         AND d.version=$4::int+1 AND d.content_hash=$5 AND d.snapshot_sha256=$6 AND d.receipt=r.result
         AND cardinality(r.scope_ids)>0 AND cardinality(r.domain_ids)>0
         AND NOT EXISTS(SELECT 1 FROM unnest(r.scope_ids) scope(id) WHERE NOT EXISTS(
-          SELECT 1 FROM production_cutover_scopes s WHERE s.id=scope.id AND s.manifest_sha256=d.content_hash
-            AND s.evidence->>'manifestId'=d.id::text AND s.state IN ('ACTIVE','SUSPENDED')))
+          SELECT 1 FROM production_cutover_scopes s WHERE s.id=scope.id AND s.state IN ('ACTIVE','SUSPENDED') AND (
+            NOT (d.payload ? 'extension') AND s.manifest_sha256=d.content_hash AND s.evidence->>'manifestId'=d.id::text
+            OR s.id::text=d.payload->'extension'->>'scopeId' AND s.manifest_sha256=d.payload->'extension'->>'scopeManifestSha256'
+              AND EXISTS (SELECT 1 FROM production_inventory_domains membership
+                WHERE membership.scope_id=s.id AND membership.inventory_domain_id=ANY(r.domain_ids)
+                  AND membership.company_code=s.company_code AND membership.warehouse_code=s.warehouse_code
+                  AND membership.product_code=d.boundary->'productCodes'->>0))))
         AND NOT EXISTS(SELECT 1 FROM unnest(r.domain_ids) domain(id) WHERE NOT EXISTS(
           SELECT 1 FROM production_opening_domain_claims c JOIN production_opening_receipts o ON o.id=c.opening_receipt_id
           JOIN production_cutover_manifests initial ON initial.id=c.manifest_id AND initial.state='APPLIED'

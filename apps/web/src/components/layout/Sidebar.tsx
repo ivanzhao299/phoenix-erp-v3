@@ -102,6 +102,7 @@ export const MENU: MenuItem[] = [
     { id: "production-finance-review", path: "/breeding/production-finance-review", Icon: ClipboardList, label: "生产财务核签", perm: "MENU_PROD_FIN_REVIEW", altPermissions: [{ menu: "MENU_PROD_FIN_REVIEW", perm: "E" }, { menu: "MENU_FIN2_AR_LEDGER", perm: "E" }] },
     { id: "production-cutovers", path: "/breeding/production-cutovers", Icon: PackagePlus, label: "正式库存切换盘点", perm: "MENU_PROD_INBOUND", altPermissions: [{ menu: "MENU_PROD_INBOUND", perm: "A" }, { menu: "MENU_FIN2_AR_LEDGER", perm: "E" }] },
     { id: "production-installments", path: "/breeding/production-inbound", Icon: PackagePlus, label: "正式分次生产入库", perm: "MENU_PROD_INBOUND" },
+    { id: "prod-source-history", path: "/breeding/egg-source-history", Icon: ScrollText, label: "历史蛋品来源核认", perm: "MENU_PROD_INBOUND" },
     { id: "prod-inbound-ledger", path: "/breeding/daily-inbound-ledger", Icon: ScrollText, label: "日产蛋入库台账", perm: "MENU_PROD_INBOUND" },
     // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
@@ -245,6 +246,7 @@ export const MENU: MenuItem[] = [
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },
     { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL" },
+    { id: "mdc-egg-sources", path: "/master-data/egg-sources", Icon: Egg, label: "蛋品来源档案", perm: "MENU_MD_PRODUCT" },
     { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT" },
     { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE" },
     { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING" },

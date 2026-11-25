@@ -1,25 +1,22 @@
 'use client';
+import Link from 'next/link';
+import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { CSSProperties } from 'react';
 import { type EggSourceProfile, varietyShortLabel } from '@/hooks/useEggSourceProfile';
 
-/**
- * SourceProfileBanner — 鸡舍蛋品来源档案横幅（日产蛋入库 / 日生产日报共用）
- *
- * 选舍后展示该舍的商业产品模式：
- *   · VARIANT  → 🟣 品种名（红壳蛋/粉壳蛋）+ 品种码，提示按对应壳色产品线入库
- *   · STANDARD → 普通分级
- *   · 无档案   → 警示"提交将被服务端拒绝"（resolveSourceProfile fail-closed）
- * 品种由 md_egg_source_profiles 决定，横幅只读展示，不提供选择。
- */
-export function SourceProfileBanner({ profile, loading, error, houseCode, style }: {
+export function SourceProfileBanner({ profile, loading, error, houseCode, style, context = 'inbound' }: {
   profile: EggSourceProfile | null;
   loading: boolean;
   error?: string | null;
   houseCode: string;
   style?: CSSProperties;
+  context?: 'report'|'inbound';
 }) {
   const { t } = useLanguage();
+  const {canView}=usePermission('MENU_MD_PRODUCT');
+  const link=canView?<Link href={'/master-data/egg-sources?'+new URLSearchParams({houseCode})}>
+    {t('eggSources.title','蛋品来源档案')}</Link>:null;
   if (!houseCode) return null;
   const base: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8,
@@ -33,7 +30,8 @@ export function SourceProfileBanner({ profile, loading, error, houseCode, style 
   }
   if (!profile) {
     return <div style={{ ...base, border: '1px solid var(--status-warning)', background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>
-      ⚠️ {error || t('breeding.sourceProfile.missing', '该鸡舍无蛋品来源档案，提交将被服务端拒绝。请先在主数据为该鸡舍配置 md_egg_source_profiles。')}
+      ⚠️ {context==='report' ? t('eggSources.reportNotice','当日来源档案待核实。请照常如实填日报，主管须在入库前核对。')
+        : error || t('breeding.sourceProfile.missing','该舍产蛋日缺少有效来源档案，暂不能入库。')} {link}
     </div>;
   }
   if (profile.productMode === 'VARIANT') {
@@ -43,10 +41,10 @@ export function SourceProfileBanner({ profile, loading, error, houseCode, style 
       🟣 {t('breeding.sourceProfile.variant', '来源档案')}: {t(`ui.${variety}`, variety)}
       {shell && !variety.includes(shell) && <span>{t(`ui.${shell}`, shell)}</span>}
       {profile.varietyCode ? <span style={{ fontWeight: 400, fontFamily: 'monospace', fontSize: 11 }}>({profile.varietyCode})</span> : null}
-      <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>{t('breeding.sourceProfile.variantHint', '本舍鸡蛋按该壳色产品线分级入库')}</span>
+      <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>{t('breeding.sourceProfile.variantHint', '本舍鸡蛋按该壳色产品线分级入库')}</span>{link}
     </div>;
   }
   return <div style={{ ...base, border: '1px solid var(--status-success-bg-strong)', background: 'var(--status-success-bg-medium)', color: 'var(--status-success)' }}>
-    ✅ {t('breeding.sourceProfile.standard', '来源档案:普通分级(STANDARD)')}
+    ✅ {t('breeding.sourceProfile.standard', '来源档案：普通蛋')}{link}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { assertApprovedEggSku, checkApprovedEggSource } from '../../product-master/services/egg-source-change-facts';
 import { officialInventoryPredicate, officialInventoryWritablePredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
 import { qualifyFormalProductionBatch, recordFormalProductionSources } from '../../wms/formal-production-context';
 import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
@@ -553,10 +554,12 @@ export class EggInventoryService {
       for(const code of [...refs].map(x=>x.houseCode).sort()) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
       // Stable lock ordering for multi-house packaging, with no first-source shortcut.
       for (const ref of [...refs].sort((a, b) => a.houseCode.localeCompare(b.houseCode))) {
-        profiles.push(await this.skuAvailability.resolveSourceProfile({
+        const profile = await this.skuAvailability.resolveSourceProfile({
           companyCode: params.companyCode, houseCode: ref.houseCode, eggDate: params.eggDate,
           sourceProfileCode: ref.profileCode, farmCode: params.farmCode, siteCode: params.siteCode,
-        }, mgr));
+        }, mgr);
+
+        profiles.push(profile);
       }
       if (profiles.some(profile => profile.productMode !== profiles[0].productMode || profile.varietyCode !== profiles[0].varietyCode)) {
         throw new BadRequestException('多个来源档案 productMode/variety 不一致，禁止合并库存');
@@ -629,6 +632,9 @@ export class EggInventoryService {
           houseCode: source.houseCode, sourceProfileCode: source.profileCode,
           farmCode: source.farmCode, siteCode: source.siteCode, usage: 'stock',
         }, mgr);
+        const approval=await checkApprovedEggSource(mgr,source);
+        if (approval && !params.warehouseCode) throw new ConflictException('来源档案须使用已批准的实际仓');
+        assertApprovedEggSku(approval,available,params.warehouseCode);
         if (available.productCode !== productCode || available.varietyCode !== source.varietyCode) {
           throw new BadRequestException('已验证 SKU/产品品种发生不一致，禁止创建库存');
         }

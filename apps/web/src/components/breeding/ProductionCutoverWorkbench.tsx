@@ -25,16 +25,19 @@ interface RawBalance {rawSegmentId:string;documentNo:string;warehouseCode:string
 interface ReferenceDecision {table:string;rowSha256:string;classification:string;evidenceFileId:string;reason:string}
 interface Line {skuCode:string;productCode:string;gradeCode:string;specCode:string;locationCode:string;quantity:string;stockStatus:string;productionDate:string;expireDate:string;costStatus:string;unitCost:string;qualityConfirmed:boolean}
 interface Form {companyCode:string;warehouseCode:string;intentKey:string;postingDate:string;houses:Array<{houseCode:string;firstProductionDate:string}>;
-  products:Array<{productCode:string;quantity:string}>;openingLines:Line[];decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]}
+  extension?:Extension; products:Array<{productCode:string;quantity:string}>;openingLines:Line[];decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]}
+type ExtensionSetup={targetClass:'STANDARD'|'RED'|'PINK';effectiveDate:string;requirements:Array<{gradeCode:string;specCode:string}>};
+type Extension=ExtensionSetup&{kind:'ATTACH_EXISTING_SCOPE'|'INIT_EXISTING_SCOPE_ZERO';scopeId:string;scopeVersion:number;
+ scopeManifestSha256:string;domainId?:string;domainVersion?:number;openingReceiptId?:string};
 interface TransferProof {direction:'RECEIVED'|'DISPATCHED';batchNo:string;transferNo:string;transferLineId:string;skuCode:string;unit:string;quantity:number}
 interface Evidence {snapshotSha256:string;references:Array<{table:string;rowSha256:string;fact:Fact}>;snapshot:{batches:Fact[];missingTables:string[];warnings:string[];crossCompanyProofs?:TransferProof[];processing?:{rawBalances:RawBalance[]}}}
 interface Document {id:string;document_no:string;company_code:string;warehouse_code:string;intent_key:string;state:string;version:number;created_by:string;content_hash:string;snapshot_sha256:string;
-  boundary:{houses:Form['houses'];productCodes:string[]};payload:{postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|string|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]};
+  boundary:{houses:Form['houses'];productCodes:string[]};payload:{extension?:Extension;postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|string|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]};
   references?:Evidence['references'];signatures:Array<{signature_role:string;signed_by:string;evidence_file_id:string;signed_at:string}>;snapshot:Evidence['snapshot']|null}
 const blank=():Form=>({companyCode:'',warehouseCode:'',intentKey:'',postingDate:today(),houses:[],products:[],openingLines:[],decisions:[],referenceDecisions:[],rawCounts:[],evidenceFileIds:[]});
 const emptyLine=():Line=>({skuCode:'',productCode:'',gradeCode:'',specCode:'',locationCode:'',quantity:'',stockStatus:'',productionDate:'',expireDate:'',costStatus:'',unitCost:'',qualityConfirmed:false});
 function fromDocument(d:Document):Form{return {companyCode:d.company_code,warehouseCode:d.warehouse_code,intentKey:d.intent_key,postingDate:d.payload.postingDate,
-  houses:d.boundary.houses,products:d.payload.physicalTotals.map(t=>({...t,quantity:String(t.quantity)})),
+  houses:d.boundary.houses,extension:d.payload.extension,products:d.payload.physicalTotals.map(t=>({...t,quantity:String(t.quantity)})),
   openingLines:d.payload.openingLines.map(l=>({...l,quantity:String(l.quantity),unitCost:l.unitCost===null?'':String(l.unitCost),productionDate:l.productionDate??'',expireDate:l.expireDate??''})),
   rawCounts:(d.payload.rawCounts??[]).map(r=>({...r,quantity:String(r.quantity)})),decisions:d.payload.decisions,referenceDecisions:d.payload.referenceDecisions,evidenceFileIds:d.payload.evidenceFileIds};}
 
@@ -47,6 +50,9 @@ function ActorCutoverWorkbench(){
   const gradeName=(code:string)=>localizedMasterName(grades.find(g=>g.grade_code===code) as unknown as Fact|undefined,'grade_name',lang)||code;
   const [form,setForm]=useState<Form>(blank),[selected,setSelected]=useState<Document|null>(null),[evidenceState,setEvidence]=useState<(Evidence&{boundaryKey:string})|null>(null);
   const [documents,setDocuments]=useState<Document[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[restored,setRestored]=useState('');
+  const [extend,setExtend]=useState(false);
+  const [extensionSetup,setExtensionSetup]=useState<ExtensionSetup>({targetClass:'STANDARD',effectiveDate:'',requirements:[]});
+  const [selectedExtensionSku,setSelectedExtensionSku]=useState('');
   const [role,setRole]=useState(''),[signatureFiles,setSignatureFiles]=useState<string[]>([]),[reason,setReason]=useState('');
   const evidenceRequest=useRef(0),evidenceBoundary=JSON.stringify({companyCode:form.companyCode,warehouseCode:form.warehouseCode,houses:form.houses,productCodes:form.products.map(product=>product.productCode)});
   const evidence=evidenceState?.boundaryKey===evidenceBoundary?evidenceState:null;
@@ -65,7 +71,11 @@ function ActorCutoverWorkbench(){
     if(selected?.state!=='DRAFT')return;
     // A draft has no frozen snapshot. Refresh its actual rows without replacing the measured input.
     const boundary=JSON.parse(evidenceBoundary);if(!boundary.houses.length||!boundary.productCodes.length)return;
-    request<Evidence>(`${endpoint}/inspect`,{method:'POST',body:evidenceBoundary})
+    const extension=selected.payload.extension;
+    const route=extension?'inspect-extension':'inspect';
+    const body=extension?JSON.stringify({companyCode:boundary.companyCode,warehouseCode:boundary.warehouseCode,
+      houseCode:boundary.houses[0]?.houseCode,productCode:boundary.productCodes[0],...extension}):evidenceBoundary;
+    request<Evidence>(endpoint+'/'+route,{method:'POST',body})
       .then(current=>{if(alive&&generation===evidenceRequest.current)setEvidence({...current,boundaryKey:evidenceBoundary});}).catch(e=>{if(alive&&generation===evidenceRequest.current)setError(String(e.message));});
     return()=>{alive=false;};
   },[selected,evidenceBoundary]);
@@ -74,11 +84,22 @@ function ActorCutoverWorkbench(){
   async function run(action:()=>Promise<void>){setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
   function boundary(){if(!form.companyCode||!form.warehouseCode||!form.houses.length||!form.products.length)throw Error(t('productionCutover.boundaryRequired','请先选择公司、仓库、全部相关鸡舍和产品。'));
     return {companyCode:form.companyCode,warehouseCode:form.warehouseCode,houses:form.houses,productCodes:form.products.map(p=>p.productCode)};}
-  function payload(){const number=(value:string,zero=false)=>{if(!/^\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<(zero?0:1))throw Error(t('productionCutover.quantityRequired','请逐项输入实际整数数量；零盘点须明确输入 0。'));return Number(value);};
-    return {boundary:boundary(),intentKey:form.intentKey,postingDate:form.postingDate,evidenceFileIds:form.evidenceFileIds,
+  function payload(){if(extend&&!form.extension)throw Error(t('eggSources.extendRequired','请先预检正式扩域范围'));const number=(value:string,zero=false)=>{if(!/^\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<(zero?0:1))throw Error(t('productionCutover.quantityRequired','请逐项输入实际整数数量；零盘点须明确输入 0。'));return Number(value);};
+    return {boundary:boundary(),...(form.extension?{extension:form.extension}:{}),intentKey:form.intentKey,postingDate:form.postingDate,evidenceFileIds:form.evidenceFileIds,
       physicalTotals:form.products.map(p=>({productCode:p.productCode,quantity:number(p.quantity,true)})),decisions:form.decisions,referenceDecisions:form.referenceDecisions,rawCounts:(form.rawCounts??[]).map(r=>({...r,quantity:number(r.quantity,true)})),
       openingLines:form.openingLines.map(l=>({...l,quantity:number(l.quantity),productionDate:l.productionDate||null,expireDate:l.expireDate||null,
         unitCost:l.costStatus==='UNKNOWN'?null:l.unitCost.trim()||null}))};}
+  async function inspectExtension() {
+    const generation=++evidenceRequest.current;
+    const result=await request<Evidence&{boundary:{houses:Form['houses']};extension:Extension}>(endpoint+'/inspect-extension',
+      {method:'POST',body:JSON.stringify({companyCode:form.companyCode,warehouseCode:form.warehouseCode,houseCode:form.houses[0].houseCode,
+        productCode:form.products[0].productCode,...extensionSetup})});
+    if(generation!==evidenceRequest.current)return;
+    const key=JSON.stringify({companyCode:form.companyCode,warehouseCode:form.warehouseCode,houses:result.boundary.houses,
+      productCodes:form.products.map(product=>product.productCode)});
+    patch({houses:result.boundary.houses,extension:result.extension,openingLines:[],decisions:[],referenceDecisions:[],rawCounts:[]});
+    setEvidence({...result,boundaryKey:key});
+  }
   const updateLine=(index:number,next:Partial<Line>)=>patch({openingLines:form.openingLines.map((l,i)=>i===index?{...l,...next}:l)});
   const changeDecision=(batchNo:string,next:Partial<Decision>)=>patch({decisions:[...form.decisions.filter(d=>d.batchNo!==batchNo),
     {...form.decisions.find(d=>d.batchNo===batchNo)??{batchNo,disposition:'',evidenceFileId:'',reason:''},...next}]});
@@ -119,23 +140,48 @@ function ActorCutoverWorkbench(){
         <label className={s.field}>{t('productionCutover.warehouse','实盘仓库')}<WarehouseSelector ariaLabel={t('productionCutover.warehouse','实盘仓库')} value={form.warehouseCode} companyCode={form.companyCode} disabled={!queryBoundary} onChange={warehouseCode=>{setEvidence(null);patch({warehouseCode,intentKey:crypto.randomUUID(),products:form.products.map(product=>({...product,quantity:''})),openingLines:[],decisions:[],referenceDecisions:[],evidenceFileIds:[],rawCounts:[]});}}/></label>
         <label className={s.field}>{t('productionCutover.postingDate','预计记账日')}<input type="date" value={form.postingDate} disabled={!editable} onChange={e=>patch({postingDate:e.target.value})}/></label>
       </div>
+      {queryBoundary&&<label><input type="checkbox" checked={extend} onChange={e=>{
+        setExtend(e.target.checked);patch({extension:undefined});setEvidence(null);
+      }}/>{t('eggSources.extend','为既有鸡舍扩展正式产品域')}</label>}
+      {extend&&!selected&&<div className={s.grid}>
+        <label className={s.field}>{t('eggSources.shell','商品壳色')}<select value={extensionSetup.targetClass} onChange={e=>{
+          patch({extension:undefined});setExtensionSetup({...extensionSetup,targetClass:e.target.value as ExtensionSetup['targetClass']});
+        }}><option value="STANDARD">{t('eggSources.standard','普通蛋')}</option>
+          <option value="RED">{t('eggSources.red','红壳蛋')}</option><option value="PINK">{t('eggSources.pink','粉壳蛋')}</option></select></label>
+        <label className={s.field}>{t('eggSources.effectiveDate','生效日期')}<input type="date" value={extensionSetup.effectiveDate} onChange={e=>{
+          patch({extension:undefined});setExtensionSetup({...extensionSetup,effectiveDate:e.target.value});
+        }}/></label>
+        <SkuSelector value={selectedExtensionSku} onChange={setSelectedExtensionSku} companyCode={form.companyCode} usage="stock"
+          onPick={option=>{const raw=option?.raw;if(!raw)return;
+            const gradeCode=String(raw.grade_code??''),specCode=String(raw.spec_code??'');
+            if(String(raw.product_code)!==form.products[0]?.productCode||!gradeCode||!specCode||
+              extensionSetup.requirements.some(item=>item.gradeCode===gradeCode&&item.specCode===specCode))return;
+            patch({extension:undefined});setExtensionSetup({...extensionSetup,requirements:[...extensionSetup.requirements,{gradeCode,specCode}]});
+          }}/>
+        <ul>{extensionSetup.requirements.map(item=><li key={item.gradeCode+item.specCode}>{item.gradeCode} · {item.specCode}{' '}
+          <button onClick={()=>{patch({extension:undefined});setExtensionSetup({...extensionSetup,requirements:
+            extensionSetup.requirements.filter(current=>current!==item)});}}>{t('productionCutover.remove','移除')}</button>
+        </li>)}</ul>
+      </div>}
+      {form.extension&&<p>{form.extension.kind==='ATTACH_EXISTING_SCOPE'?t('eggSources.attachDomain','关联已开账产品域'):
+        t('eggSources.zeroDomain','经零实盘新开产品域')} · {form.extension.effectiveDate}</p>}
       <h2>{t('productionCutover.houses','全部相关鸡舍及首个正式产蛋日')}</h2>
       {form.houses.map((h,i)=><div className={s.grid} key={h.houseCode}>
         <label className={s.field}>{t('productionCutover.house','鸡舍')}<input readOnly value={h.houseCode} style={{background:'var(--bg-muted)',cursor:'not-allowed'}}/></label>
-        <label className={s.field}>{t('productionCutover.firstDay','首个正式产蛋日')}<input type="date" value={h.firstProductionDate} disabled={!editable} onChange={e=>patch({houses:form.houses.map((v,index)=>index===i?{...v,firstProductionDate:e.target.value}:v)})}/></label>
+        <label className={s.field}>{t('productionCutover.firstDay','首个正式产蛋日')}<input type="date" value={h.firstProductionDate} disabled={!editable||extend||!!form.extension} onChange={e=>patch({houses:form.houses.map((v,index)=>index===i?{...v,firstProductionDate:e.target.value}:v)})}/></label>
         {editable&&<button type="button" onClick={()=>patch({houses:form.houses.filter((_,index)=>i!==index)})}>{t('productionCutover.remove','移除')}</button>}
       </div>)}
       {editable&&<HouseSelector value="" onChange={()=>{}} ariaLabel={t('productionCutover.addHouse','添加相关鸡舍')} onPick={option=>{const raw=option?.raw as Fact|undefined;if(!raw)return;const houseCode=String(raw.houseCode??raw.house_code??'');
         if(raw.companyCode!==form.companyCode&&raw.company_code!==form.companyCode){setError(t('productionCutover.houseCompany','鸡舍与所选公司不匹配。'));return;}
-        if(houseCode&&!form.houses.some(h=>h.houseCode===houseCode))patch({houses:[...form.houses,{houseCode,firstProductionDate:''}]});}}/>}
+        if(houseCode&&!form.houses.some(h=>h.houseCode===houseCode))patch({extension:undefined,houses:[...form.houses,{houseCode,firstProductionDate:''}]});}}/>}
       <h2>{t('productionCutover.totals','实盘产品总数（枚）')}</h2>
       {form.products.map((product,i)=><div className={s.grid} key={product.productCode}>
         <label className={s.field}>{t('productionCutover.product','产品')}<input value={product.productCode} readOnly style={{background:'var(--bg-muted)',cursor:'not-allowed'}}/></label>
         <label className={s.field}>{t('productionCutover.counted','现场库存实盘（不含原始收蛋）')}<input inputMode="numeric" value={product.quantity} disabled={!editable} onChange={e=>patch({products:form.products.map((v,index)=>i===index?{...v,quantity:e.target.value}:v)})}/></label>
         {editable&&<button type="button" onClick={()=>patch({products:form.products.filter((_,index)=>i!==index)})}>{t('productionCutover.remove','移除')}</button>}
       </div>)}
-      {editable&&<ProductSelector value="" ariaLabel={t('productionCutover.addProduct','添加实盘产品')} onChange={productCode=>{if(productCode&&!form.products.some(p=>p.productCode===productCode))patch({products:[...form.products,{productCode,quantity:''}]});}}/>}
-      <div className={s.actions}><button disabled={busy||!form.companyCode||!form.warehouseCode||!!selected&&selected.state!=='DRAFT'} onClick={()=>run(async()=>{const generation=++evidenceRequest.current,e=await request<Evidence>(`${endpoint}/inspect`,{method:'POST',body:JSON.stringify(boundary())});if(generation!==evidenceRequest.current)return;setEvidence({...e,boundaryKey:evidenceBoundary});patch({rawCounts:(form.rawCounts??[]).filter(r=>(e.snapshot.processing?.rawBalances??[]).some(balance=>balance.rawSegmentId===r.rawSegmentId&&balance.warehouseCode===form.warehouseCode&&Number(balance.remainingQuantity)>0)),decisions:form.decisions.filter(d=>e.snapshot.batches.some(b=>b.batch_no===d.batchNo)),referenceDecisions:form.referenceDecisions.filter(d=>e.references.some(r=>r.table===d.table&&r.rowSha256===d.rowSha256))});})}>{t('productionCutover.inspect','读取实际库存及关联清单')}</button>
+      {editable&&<ProductSelector value="" ariaLabel={t('productionCutover.addProduct','添加实盘产品')} onChange={productCode=>{if(productCode&&!form.products.some(p=>p.productCode===productCode))patch({extension:undefined,products:[...form.products,{productCode,quantity:''}]});}}/>}
+      <div className={s.actions}><button disabled={busy||!form.companyCode||!form.warehouseCode||!!selected&&selected.state!=='DRAFT'||extend&&(form.houses.length!==1||form.products.length!==1||!extensionSetup.effectiveDate||!extensionSetup.requirements.length)} onClick={()=>run(async()=>{if(extend&&!selected){await inspectExtension();return;}const generation=++evidenceRequest.current,e=await request<Evidence>(`${endpoint}/inspect`,{method:'POST',body:JSON.stringify(boundary())});if(generation!==evidenceRequest.current)return;setEvidence({...e,boundaryKey:evidenceBoundary});patch({rawCounts:(form.rawCounts??[]).filter(r=>(e.snapshot.processing?.rawBalances??[]).some(balance=>balance.rawSegmentId===r.rawSegmentId&&balance.warehouseCode===form.warehouseCode&&Number(balance.remainingQuantity)>0)),decisions:form.decisions.filter(d=>e.snapshot.batches.some(b=>b.batch_no===d.batchNo)),referenceDecisions:form.referenceDecisions.filter(d=>e.references.some(r=>r.table===d.table&&r.rowSha256===d.rowSha256))});})}>{t('productionCutover.inspect','读取实际库存及关联清单')}</button>
         <button disabled={busy||!form.companyCode||!form.warehouseCode} onClick={()=>run(async()=>setDocuments(await request<Document[]>(`${endpoint}?${new URLSearchParams({companyCode:form.companyCode,warehouseCode:form.warehouseCode})}`)))}>{t('productionCutover.recover','查找已有盘点')}</button></div>
       {evidence&&<p className={s.notice}>{t('productionCutover.evidenceOnly','清单仅供核验，不构成启用批准。')}{evidence.snapshot.missingTables.length>0&&t('productionCutover.missing',' 部分检查数据尚未齐备，启用前须补齐核验。')}{evidence.snapshot.warnings.length>0&&t('productionCutover.held',' 范围中存在待确认项，请处理后重新读取。')}</p>}
     </section>
