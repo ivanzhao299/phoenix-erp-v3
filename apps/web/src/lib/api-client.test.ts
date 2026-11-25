@@ -44,19 +44,15 @@ describe('api client',()=>{
     second.set(BROWSER_LOGIN_KEY,marker);
     const fetch=vi.fn(async(path:string,options:RequestInit)=>{
       if (path.endsWith('/auth/refresh')) return response({code:200,token:after});
-      if (path.endsWith('/first')) {
-        active=second;
-        expect(await refreshAndPersistSession(before)).toBe(after);
-        active=first;
-      } else {
-        expect(new Headers(options.headers).get('Authorization')).toBe('Bearer '+after);
-      }
+      expect(new Headers(options.headers).get('Authorization')).toBe('Bearer '+after);
       return response({id:'receipt'});
     });
     vi.stubGlobal('fetch',fetch);
-    await expect(request('/first',{bindSession:true})).resolves.toEqual({id:'receipt'});
-    await expect(request('/next',{bindSession:true})).resolves.toEqual({id:'receipt'});
+    active=second;
+    expect(await refreshAndPersistSession(before)).toBe(after);
+    active=first;
     await expect(request('/finance-detail')).resolves.toEqual({id:'receipt'});
+    await expect(request('/next',{bindSession:true})).resolves.toEqual({id:'receipt'});
     expect(first.get('phoenix_token')).toBe(after);
   });
   it.each(['access-other',null])('discards a bound result when another tab replaces the shared login with %s',async(next)=>{

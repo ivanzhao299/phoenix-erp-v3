@@ -44,7 +44,7 @@ export function readBrowserLogin(token: string | null): string | null {
   return sessionStorage.getItem(BROWSER_LOGIN_KEY);
 }
 
-export function useSharedAccessToken(tabToken: string): string {
+export function adoptSharedAccessToken(tabToken: string): string {
   const loginId = sessionStorage.getItem(BROWSER_LOGIN_KEY);
   const sharedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
   if (!loginId || !sharedToken || sharedToken === tabToken || sharedLoginId(sharedToken) !== loginId) return tabToken;

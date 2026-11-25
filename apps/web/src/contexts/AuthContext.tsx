@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { BROWSER_LOGIN_KEY, SHARED_LOGIN_KEY, buildAccessTokenCookie, markBrowserLogin, readBrowserLogin, refreshAndPersistSession, useSharedAccessToken } from '@/lib/auth-session';
+import { BROWSER_LOGIN_KEY, SHARED_LOGIN_KEY, buildAccessTokenCookie, markBrowserLogin, readBrowserLogin, refreshAndPersistSession, adoptSharedAccessToken } from '@/lib/auth-session';
 import { invalidateCache } from '@/lib/request-cache';
 
 type AuthUser = {
@@ -54,7 +54,7 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
     }
     // 优先 sessionStorage，fallback localStorage（路由切换/刷新/新标签页时 sessionStorage 可能为空）
     const tabToken = sessionStorage.getItem('phoenix_token');
-    const storedToken = tabToken ? useSharedAccessToken(tabToken) : localStorage.getItem('phoenix_token');
+    const storedToken = tabToken ? adoptSharedAccessToken(tabToken) : localStorage.getItem('phoenix_token');
     const storedUser  = sessionStorage.getItem('phoenix_user')  || localStorage.getItem('phoenix_user');
     if (!storedToken || !storedUser) return { user: null, token: null };
     // fallback 成功时同步回 sessionStorage，保证后续读取一致
