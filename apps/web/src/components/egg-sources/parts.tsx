@@ -12,7 +12,7 @@ import s from './EggSources.module.css';
 
 export function useSourceText() {
   const { t, lang:locale } = useLanguage();
-  const label = (key:string) => t('eggSources.'+key,key);
+  const label = (key:string) => t(`eggSources.${key}`,key);
   const shell = (value: Shell|null) => label(value==='STANDARD' ? 'standard' : value==='RED' ? 'red' : value==='PINK' ? 'pink' : 'unknown');
   const status = (value:string) => label('status.'+value);
   const option = (value:Option) => (locale==='lo' ? value.nameLo : locale==='en' ? value.nameEn : '') || value.name || value.code;
