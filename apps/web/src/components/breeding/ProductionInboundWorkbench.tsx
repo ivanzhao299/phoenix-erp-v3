@@ -237,7 +237,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
         method:'PATCH',body:JSON.stringify({...submitted,version:d.version}),bindSession:true,retry:false,
         signal:lifetime.current?.signal,
       });
-      displayDocument({...saved,siteCode:d.siteCode});
+      displayDocument({...saved,production_date:d.production_date,siteCode:d.siteCode});
     } catch (failure) {
       const status=(failure as ApiError).status;
       if ((failure as Error).name==='AbortError'||status&&status!==409&&status<500) throw failure;

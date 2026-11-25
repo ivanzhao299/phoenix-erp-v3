@@ -143,7 +143,7 @@ export default function ProductionFinanceReview() {
       {key:'review_state',title:t('financeReview.sign'),render:row=>row.review_state
         ?t(statusLabels[row.review_state]??row.review_state):row.finance_signed?t('financeReview.signed'):'—'},
     ]}/><div className={s.actions}>{offset>0&&<button onClick={()=>changePage(offset-50)}>{t('financeReview.previous')}</button>}{page.hasMore&&<button onClick={()=>changePage(offset+50)}>{t('financeReview.next')}</button>}</div></>:<p>{t('common.loading')}</p>}
-    {task&&<DrawerV2 open title={task.document_no} width={800} onClose={()=>setTask(undefined)}>
+    {task&&<DrawerV2 open title={task.document_no} width={800} zIndex={10010} onClose={()=>setTask(undefined)}>
       <TaskDetail key={task.id} task={task} canEdit={canEdit} onSigned={()=>setVersion(n=>n+1)}/>
     </DrawerV2>}</>:<p>{t('productionInstallments.noPermission')}</p>}
   </main>;
