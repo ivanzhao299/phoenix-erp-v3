@@ -27,6 +27,11 @@ export function useProductionArchive(kind: 'houses' | 'flocks', filter = '', far
       const data = await request<ArchiveResult>('/v3/farm/archive/' + kind + '?' + params);
       if (id !== generation.current) return false;
       if (!Array.isArray(data?.items) || !Number.isSafeInteger(data.total)) throw new Error('档案响应格式无效');
+      const lastPage = Math.max(1, Math.ceil(data.total / 25));
+      if (page > lastPage) {
+        setPage(lastPage);
+        return true;
+      }
       setResult(data);
       return true;
     } catch (error) {

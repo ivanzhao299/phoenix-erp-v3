@@ -222,24 +222,41 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
   });
 
   it('production archives count and find records beyond the old 100-row cutoff within the role scope', async () => {
-    await db.query(`ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text;
+    await db.query(`CREATE TABLE IF NOT EXISTS sys_dict (
+        dict_type text,dict_code text,status text,dict_label_zh text,dict_label_en text,dict_label_lo text);
+      INSERT INTO sys_dict(dict_type,dict_code,status,dict_label_zh,dict_label_en,dict_label_lo)
+        VALUES('BRD_BREED','ARCHIVE-BREED','ACTIVE','复核品种','Archive breed English','ສາຍພັນເອກະສານ');
+      ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text, ADD COLUMN IF NOT EXISTS farm_name_en text;
+      UPDATE brd_farms SET farm_name_en='Archive farm English' WHERE farm_code='LPH_FARM_A';
       ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int, ADD COLUMN IF NOT EXISTS max_capacity int;
-      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS placement_date date;
-      INSERT INTO brd_flocks(flock_no,house_code,current_qty,initial_qty,farm_code,status,start_date)
-      SELECT 'ARCHIVE-' || lpad(n::text,3,'0'),'HOUSE-A',0,10,'LPH_FARM_A','RETIRED','2026-01-01'
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS placement_date date, ADD COLUMN IF NOT EXISTS breed_code text;
+      INSERT INTO brd_flocks(flock_no,house_code,current_qty,initial_qty,farm_code,status,start_date,breed_code)
+      SELECT 'ARCHIVE-' || lpad(n::text,3,'0'),'HOUSE-A',0,10,'LPH_FARM_A','RETIRED','2026-01-01','ARCHIVE-BREED'
         FROM generate_series(1,101) n`);
     try {
       const get = (id: number, name: string, query = {}) => request(app.getHttpServer())
         .get('/api/v3/farm/archive/' + name).query(query).auth(token(id), { type: 'bearer' });
       const page = await get(40101, 'flocks', { search: 'ARCHIVE', page: 5 }).expect(200);
       expect(page.body.total).toBe(101);
-      expect(page.body.items.map((row: { flock_no: string }) => row.flock_no)).toEqual(['ARCHIVE-101']);
+      expect(page.body.items).toEqual([expect.objectContaining({
+        flock_no: 'ARCHIVE-101', company_code: 'COMP-A', site_code: 'SITE-A',
+      })]);
+      const byFarm = await get(40101, 'flocks', { search: 'Archive farm English', status: 'RETIRED', page: 5 }).expect(200);
+      expect(byFarm.body.total).toBe(101);
+      const byBreed = await get(40101, 'flocks', { search: 'ສາຍພັນເອກະສານ', page: 5 }).expect(200);
+      expect(byBreed.body.total).toBe(101);
+      expect(byBreed.body.items).toEqual([expect.objectContaining({ flock_no: 'ARCHIVE-101' })]);
       const other = await get(40103, 'flocks', { search: 'ARCHIVE' }).expect(200);
       expect(other.body.items).toEqual([]);
       const houses = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
       expect(houses.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: 100 })]);
+      await db.query("UPDATE brd_flocks SET current_qty=1 WHERE flock_no='ARCHIVE-101'");
+      const conflict = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
+      expect(conflict.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: null, archive_normal: false })]);
     } finally {
-      await db.query("DELETE FROM brd_flocks WHERE flock_no LIKE 'ARCHIVE-%'");
+      await db.query(`DELETE FROM brd_flocks WHERE flock_no LIKE 'ARCHIVE-%';
+        DELETE FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code='ARCHIVE-BREED';
+        UPDATE brd_farms SET farm_name_en=NULL WHERE farm_code='LPH_FARM_A'`);
     }
   });
 

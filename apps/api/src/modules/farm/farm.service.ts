@@ -717,31 +717,42 @@ export class FarmService {
     if ([farm, status, text].some(value => value.length > 100)) throw new BadRequestException('查询条件过长');
     const params: unknown[] = [farm, status, '%' + text.replace(/[\\%_]/g, value => String.fromCharCode(92) + value) + '%', (page - 1) * 25];
     const predicate = scopeWhere(scope, params, 'owner.') || 'TRUE';
-    const owners = '(SELECT farm_code, farm_name, company_code, mapped_site_code AS site_code FROM brd_farms)';
+    const owners = `(SELECT farm_code, farm_name, company_code, mapped_site_code AS site_code,
+      to_jsonb(farm)->>'farm_name_zh' AS name_zh, to_jsonb(farm)->>'farm_name_en' AS name_en,
+      to_jsonb(farm)->>'farm_name_lo' AS name_lo FROM brd_farms farm)`;
+    const houseSearch = `h.house_code,h.house_name,to_jsonb(h)->>'house_name_zh',
+      to_jsonb(h)->>'house_name_en',to_jsonb(h)->>'house_name_lo',
+      owner.farm_code,owner.farm_name,owner.name_zh,owner.name_en,owner.name_lo`;
     const house = kind === 'houses';
     const source = house
       ? `SELECT h.*, owner.farm_name AS scoped_farm_name, h.house_code AS archive_key,
-          CASE WHEN flock.count=0 THEN 0 WHEN flock.count=1 THEN flock.qty END AS archive_birds,
-          CASE WHEN flock.count=1 THEN flock.started END AS archive_start,
-          CASE WHEN flock.count=1 THEN flock.rate END AS archive_rate,
-          COALESCE(h.status='ACTIVE' AND flock.count<2
-            AND (limit_qty.value IS NULL OR COALESCE(flock.qty,0) <= limit_qty.value * 1.2),false) AS archive_normal
+          CASE WHEN flock.count=0 THEN 0 WHEN flock.count=1 AND flock.conflicts=0 THEN flock.qty END AS archive_birds,
+          CASE WHEN flock.count=1 AND flock.conflicts=0 THEN flock.started END AS archive_start,
+          CASE WHEN flock.count=1 AND flock.conflicts=0 THEN flock.rate END AS archive_rate,
+          COALESCE(h.status='ACTIVE' AND flock.conflicts=0
+            AND (flock.count=0 OR (flock.count=1 AND flock.qty IS NOT NULL
+              AND (limit_qty.value IS NULL OR flock.qty <= limit_qty.value * 1.2))),false) AS archive_normal
         FROM brd_houses h JOIN ${owners} owner ON owner.farm_code=h.farm_code
         LEFT JOIN LATERAL (SELECT count(*) AS count,max(f.current_qty) AS qty,
+          count(*) FILTER (WHERE f.status IS NULL OR f.status NOT IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')) AS conflicts,
           max(COALESCE(f.placement_date,f.start_date))::text AS started,max(f.current_lay_rate) AS rate
           FROM brd_flocks f WHERE f.house_code=h.house_code AND f.farm_code=owner.farm_code
-          AND f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')) flock ON true
+          AND (f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING') OR COALESCE(f.current_qty,0)>0)) flock ON true
         CROSS JOIN LATERAL (SELECT min(candidate) AS value FROM (VALUES (h.capacity),(h.max_capacity)) sizes(candidate)
           WHERE candidate>0) limit_qty
         WHERE ${predicate} AND ($1='' OR h.farm_code=$1) AND ($2='' OR h.status=$2)
-          AND concat_ws(' ',h.house_code,h.house_name,owner.farm_name,owner.farm_code) ILIKE $3`
-      : `SELECT f.*, f.flock_no AS archive_key, f.current_qty AS archive_birds, false AS archive_normal
+          AND concat_ws(' ',${houseSearch}) ILIKE $3`
+      : `SELECT f.*, f.flock_no AS archive_key, f.current_qty AS archive_birds, false AS archive_normal,
+          owner.company_code AS archive_company_code, owner.site_code AS archive_site_code
         FROM brd_flocks f JOIN ${owners} owner ON owner.farm_code=f.farm_code
         LEFT JOIN brd_houses h ON h.house_code=f.house_code AND h.farm_code=owner.farm_code
         WHERE ${predicate} AND ($1='' OR f.farm_code=$1)
           AND ($2='' OR f.status=$2 OR ($2='LAYING' AND f.status='ACTIVE'))
-          AND concat_ws(' ',f.flock_no,f.house_code,h.house_name,owner.farm_name,owner.farm_code,
-            to_jsonb(f)->>'breed_code',to_jsonb(f)->>'breed_type',to_jsonb(f)->>'strain') ILIKE $3`;
+          AND (concat_ws(' ',f.flock_no,f.house_code,to_jsonb(f)->>'farm_name',to_jsonb(f)->>'house_name',${houseSearch},
+            to_jsonb(f)->>'breed_code',to_jsonb(f)->>'breed_type',to_jsonb(f)->>'strain') ILIKE $3
+            OR EXISTS (SELECT 1 FROM sys_dict breed WHERE breed.dict_type='BRD_BREED' AND breed.status='ACTIVE'
+              AND breed.dict_code=to_jsonb(f)->>'breed_code'
+              AND concat_ws(' ',breed.dict_label_zh,breed.dict_label_en,breed.dict_label_lo) ILIKE $3))`;
     const [result] = await this.entityManager.query(`WITH matches AS MATERIALIZED (${source}),
       page_rows AS (SELECT * FROM matches ORDER BY archive_key LIMIT 25 OFFSET $4)
       SELECT (SELECT COALESCE(jsonb_agg(to_jsonb(page_rows) ORDER BY archive_key),'[]'::jsonb) FROM page_rows) AS items,
@@ -749,7 +760,11 @@ export class FarmService {
         count(*) FILTER (WHERE archive_birds IS NULL)::int AS unknown,
         count(*) FILTER (WHERE archive_normal)::int AS normal
       FROM matches`, params);
-    return { ...result, birds: Number(result.birds), pageSize: 25 };
+    const items = house ? result.items : (result.items as Array<Record<string, unknown>>).map(row => {
+      const { archive_company_code, archive_site_code, ...item } = row;
+      return { ...item, company_code: archive_company_code, site_code: archive_site_code };
+    });
+    return { ...result, items, birds: Number(result.birds), pageSize: 25 };
   }
 
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {

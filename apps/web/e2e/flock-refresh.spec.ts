@@ -62,7 +62,7 @@ test('flock edit preserves read-only stock and refreshes the saved record', asyn
   const refreshed = page.waitForResponse(response =>
     mutationCompleted &&
     response.request().method() === 'GET' &&
-    new URL(response.url()).pathname === '/api/crud/brd_flocks',
+    new URL(response.url()).pathname === '/api/v3/farm/archive/flocks',
   );
   const saved = page.waitForResponse(response =>
     response.request().method() === 'PUT' && new URL(response.url()).pathname.includes('/api/crud/brd_flocks/'),
@@ -80,9 +80,7 @@ test('flock edit preserves read-only stock and refreshes the saved record', asyn
   const refreshedBody: unknown = await refreshResponse.json();
   await expect(page.getByText('更新成功', { exact: true })).toBeVisible();
 
-  const records = Array.isArray(refreshedBody)
-    ? refreshedBody
-    : ((refreshedBody as { data?: unknown[] } | undefined)?.data || []);
+  const records = (refreshedBody as { items?: unknown[] }).items ?? [];
   expect(records).toEqual(expect.arrayContaining([
     expect.objectContaining({
       flock_no: FLOCK_NO, current_qty: newQuantity, breed_code: BREED_CODE, start_date: startDate,
