@@ -209,11 +209,13 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
   const allReports = reports.data?.items ?? [];
   const reportRows = allReports.filter(row => row.occupancy_id === occupancy?.occupancy_id && row.flock_no === flockNo);
   const eligibleReports = reportRows.filter(row => !selection.shift || row.shift === selection.shift);
-  const missingShifts = useResource<string[]>(kind === "REPORT_CORRECTION" && validHouseDay && occupancy && !selection.shift
+  const missingShifts = useResource<string[]>(kind === "REPORT_CORRECTION" && validHouseDay && occupancy && !selection.reportId?.match(/^\d+$/)
     && reports.data?.hasHouseDayReports && day < flockBusinessToday().slice(0,7) + "-01"
     ? endpoint + "/reports/missing-shifts?" + flockFormParams({ houseCode,flockNo,businessDate:day,occupancyId:str(occupancy.occupancy_id) }) : "");
-  const selectedShift = selection.reportId?.startsWith("shift:") ? selection.reportId.slice(6) : "";
-  const supplementShift = selectedShift && missingShifts.data?.includes(selectedShift) ? selectedShift : "";
+  const selectableShifts = (missingShifts.data ?? []).filter(shift => !selection.shift || selection.shift === shift);
+  const selectedShift = selection.reportId?.startsWith("shift:") ? selection.reportId.slice(6)
+    : selection.shift && selectableShifts.includes(selection.shift) ? selection.shift : "";
+  const supplementShift = selectedShift && selectableShifts.includes(selectedShift) ? selectedShift : "";
   const canSupplement = reports.data?.hasHouseDayReports === false && !allReports.length
     && (!selection.shift || selection.shift === "DAILY");
   const chosenReport = selection.reportId && selection.reportId !== "0" ? eligibleReports.find(row => str(row.id) === selection.reportId)
@@ -564,14 +566,14 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
                   {occupancies.data?.items.map(row => <option key={str(row.occupancy_id)} value={str(row.flock_no)}>{str(row.flock_no)}</option>)}
                 </select>
               </label>}
-              {kind === "REPORT_CORRECTION" && occupancy && reports.data && (reportRows.length > 0 || canSupplement || Boolean(missingShifts.data?.length)) && <label>
+              {kind === "REPORT_CORRECTION" && occupancy && reports.data && (reportRows.length > 0 || canSupplement || selectableShifts.length > 0) && <label>
                 {t("flockForm.report")}
                 <select value={selectedShift ? "shift:" + selectedShift : str(chosenReport?.id ?? (supplement ? "0" : ""))} required disabled={Boolean(context.dailyLogId || context.shift)}
                   onChange={event => changeSelection({ ...selection, reportId: event.target.value })}>
                   <option value="">{t("flockForm.chooseReport")}</option>
                   {eligibleReports.map(row => <option key={str(row.id)} value={str(row.id)}>{str(row.id)} · {shiftName(row.shift)} · {dayLabel(row.log_date)}</option>)}
                   {canSupplement && <option value="0">{t("flockForm.supplement")}</option>}
-                  {missingShifts.data?.map(shift => <option key={shift} value={"shift:" + shift}>
+                  {selectableShifts.map(shift => <option key={shift} value={"shift:" + shift}>
                     {t("flockForm.missingShiftOption").replace("{shift}",shiftName(shift))}
                   </option>)}
                 </select>

@@ -74,7 +74,7 @@ async function scan(db: EntityManager, scope: RepairScope): Promise<CacheDiffere
           CASE WHEN EXISTS (
             SELECT 1 FROM brd_flock_events e LEFT JOIN brd_flock_documents doc ON doc.id=e.document_id
             WHERE e.business_date=d.log_date AND e.kind IN ('MORTALITY','REVERSE_MORTALITY','CULL','REVERSE_CULL')
-              AND (e.occupancy_id=d.occupancy_id OR e.occupancy_id IS NULL AND e.flock_no=d.flock_no AND e.house_code=d.house_code)
+              AND (e.occupancy_id=d.occupancy_id OR (e.flock_no=d.flock_no AND e.house_code=d.house_code))
               AND (e.occupancy_id IS DISTINCT FROM d.occupancy_id OR e.flock_no IS DISTINCT FROM o.flock_no
                 OR e.company_code IS DISTINCT FROM o.company_code OR e.house_code IS DISTINCT FROM o.house_code
                 OR e.farm_code IS DISTINCT FROM o.farm_code OR COALESCE(e.site_code,'') IS DISTINCT FROM COALESCE(o.site_code,'')
@@ -121,7 +121,7 @@ export async function planFlockLossCache(ds: DataSource, input: RepairScope) {
   const scope = validateScope(input);
   return ds.transaction('REPEATABLE READ',async db=>{
     await db.query('SET TRANSACTION READ ONLY');
-    await db.query("SET LOCAL statement_timeout='30s'");
+    await db.query("SET LOCAL TIME ZONE 'UTC'; SET LOCAL statement_timeout='30s'");
     return batch(db,scope,await scan(db,scope));
   });
 }
@@ -130,7 +130,7 @@ export async function applyFlockLossCache(ds: DataSource, input: RepairScope, ap
   const scope = validateScope(input);
   if (!/^[0-9a-f]{64}$/.test(approvedDigest ?? '')) throw Error('EXACT_APPROVED_PLAN_REQUIRED');
   return ds.transaction('READ COMMITTED',async db=>{
-    await db.query("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s'");
+    await db.query("SET LOCAL lock_timeout='5s'; SET LOCAL TIME ZONE 'UTC'; SET LOCAL statement_timeout='30s'");
     // All writers of occupant facts and signed cutover evidence take these locks.
     const lockedHouses = await db.query(`SELECT DISTINCT related.house_code
       FROM brd_flock_occupancies selected JOIN brd_flock_occupancies related ON related.flock_no=selected.flock_no

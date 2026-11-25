@@ -15682,6 +15682,7 @@
   "flockForm.missingShiftAuthorization": "ບັນທຶກຮ່າງແລ້ວຂໍອະນຸຍາດງວດ. ຕ້ອງມີຜູ້ກວດອິດສະຫຼະກ່ອນລົງບັນຊີ.",
   "flockForm.missingShiftUnavailable": "ກວດສອບກະທີ່ຂາດບໍ່ໄດ້ຊົ່ວຄາວ.",
   "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_UNAVAILABLE": "ກະນີ້ມີລາຍງານແລ້ວ ຫຼື ວັນ, ໂຮງລ້ຽງ ແລະຂອບເຂດກະມີການປ່ຽນແປງ.",
+  "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_AUTH_REQUIRED": "ກະລຸນາລົງບັນຊີໃບອະນຸຍາດຍ້ອນຫຼັງຂອງກະນີ້ກ່ອນ.",
   "flockCash.title": "ໃບຮັບເງິນ",
   "flockCash.loadError": "ອ່ານໜີ້ຮັບຂອງການສົ່ງມອບບໍ່ໄດ້",
   "flockCash.received": "ຮັບແລ້ວ",

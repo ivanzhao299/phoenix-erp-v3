@@ -1,4 +1,4 @@
-import { availableFormalReportShifts } from './formal-report-supplement';
+import { availableFormalReportShifts, hasFormalReportAuthorization } from './formal-report-supplement';
 import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { EntityManager } from 'typeorm';
@@ -497,6 +497,7 @@ async function detailedBlockers(db: EntityManager, row: ActionFacts, action: Pen
       const shifts=await availableFormalReportShifts(db,{houseCode:house,flockNo:flock,businessDate:day,
         occupancyId:payload.supplementOccupancyId,companyCode:row.company_code,farmCode:row.farm_code,siteCode:row.site_code});
       if (!shifts.includes(payload.supplementShift)) blockers.push('FLOCK_FORMAL_SHIFT_UNAVAILABLE');
+      else if (!await hasFormalReportAuthorization(db,row.id)) blockers.push('FLOCK_FORMAL_SHIFT_AUTH_REQUIRED');
     } else {
       const [existing] = await db.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 LIMIT 1', [house,day]);
       if (existing) blockers.push('FLOCK_REPORT_DAY_ALREADY_RECORDED');

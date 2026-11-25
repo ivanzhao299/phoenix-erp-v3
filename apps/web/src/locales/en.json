@@ -15682,6 +15682,7 @@
   "flockForm.missingShiftAuthorization": "Save the draft and request its period authorization. It then requires independent review and posting.",
   "flockForm.missingShiftUnavailable": "Missing shifts are temporarily unavailable.",
   "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_UNAVAILABLE": "The shift is already reported, or the report day, occupancy, or official shift scope changed.",
+  "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_AUTH_REQUIRED": "Post the historical authorization for this shift supplement before posting the supplement.",
   "flockCash.title": "Finance receipts",
   "flockCash.loadError": "Could not read delivery receivables",
   "flockCash.received": "Received",

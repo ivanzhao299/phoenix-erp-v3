@@ -14,7 +14,7 @@ import { assertFlockTransferSource, FLOCK_TRANSFER_DATES, FLOCK_TRANSFER_SOURCE 
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 import { occupancyLossesSql, reportOccupancyLosses } from './production-report-facts';
-import { availableFormalReportShifts, formalReportShiftInput, requireFormalReportShift } from './formal-report-supplement';
+import { availableFormalReportShifts, formalReportShiftInput, hasFormalReportAuthorization, requireFormalReportShift } from './formal-report-supplement';
 
 export type { FlockActor } from './flock-lifecycle-access';
 export { FLOCK_ACTION_MENUS } from './flock-lifecycle-access';
@@ -737,16 +737,14 @@ export class FlockLifecycleService {
       const [original]=await m.query('SELECT business_date::text AS day FROM brd_flock_documents WHERE id=$1',[p.originalDocumentId]);
       if(original?.day) impactedDay=original.day;
     }
-    if (day<monthStart || impactedDay<monthStart) {
-      const [authorization]=await m.query(`SELECT *,business_date::text AS business_date FROM brd_flock_documents WHERE kind='HISTORY_AUTH' AND status='POSTED'
+    if (p.supplementShift) {
+      if (!await hasFormalReportAuthorization(m,doc.id)) throw new BadRequestException('跨月历史更正需真实已过账且绑定本单及影响期间的授权');
+    } else if (day<monthStart || impactedDay<monthStart) {
+      const [authorization]=await m.query(`SELECT id FROM brd_flock_documents WHERE kind='HISTORY_AUTH' AND status='POSTED'
         AND company_code=$1 AND flock_no=$2 AND house_code=$3 AND payload->>'authorizedSourceKey'=$4
-        AND payload->>'periodFrom'<=$5 AND payload->>'periodTo'>=$5
-        AND ($6::text='' OR id=$6) AND ($7::text IS NULL OR payload->>'authorizedShiftDocumentId'=$7)
-        ORDER BY posted_at DESC LIMIT 1`,[doc.company_code,doc.flock_no,doc.house_code,doc.source_key,impactedDay,p.periodApprovalRef??'',p.supplementShift?doc.id:null]);
-      if(!authorization || authorization.company_code!==doc.company_code || authorization.flock_no!==doc.flock_no
-        || authorization.house_code!==doc.house_code || authorization.payload.authorizedSourceKey!==doc.source_key
-        || authorization.payload.periodFrom>impactedDay || authorization.payload.periodTo<impactedDay)
-        throw new BadRequestException('跨月历史更正需真实已过账且绑定本单及影响期间的授权');
+        AND payload->>'periodFrom'<=$5 AND payload->>'periodTo'>=$5 AND ($6::text='' OR id=$6)
+        ORDER BY posted_at DESC LIMIT 1`,[doc.company_code,doc.flock_no,doc.house_code,doc.source_key,impactedDay,p.periodApprovalRef??'']);
+      if (!authorization) throw new BadRequestException('跨月历史更正需真实已过账且绑定本单及影响期间的授权');
     }
     const [state]=await m.query('SELECT *,last_occupied_on::text AS last_occupied_on FROM brd_flock_house_states WHERE house_code=$1 FOR UPDATE',[h.house_code]);
     const balance=await this.lockBalance(m,doc.flock_no);

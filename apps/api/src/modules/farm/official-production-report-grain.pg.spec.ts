@@ -9,6 +9,7 @@ import { GenericCrudService } from '../generic-crud/generic-crud.service';
 import { assertNewHandoverGrades } from './daily-report-grades';
 import { lockProductionSourceReports } from '../sales-v2/services/production-source-facts';
 import { FarmService, OrgScope } from './farm.service';
+import { readFlockActionEligibility } from './flock-lifecycle-queries';
 import { FlockLifecycleService } from './flock-lifecycle.service';
 import { applyFlockLossCache, planFlockLossCache } from '../../tools/flock-loss-cache-repair';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
@@ -109,9 +110,11 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     await expect(lifecycle.create({...payload,sourceKey:'other-pm'},scope,maker)).rejects.toThrow('在途补录');
     doc=await lifecycle.transition(doc.id,'submit',doc.version,scope,maker);
     doc=await lifecycle.transition(doc.id,'approve',doc.version,scope,reviewer);
+    expect((await readFlockActionEligibility(db.manager,doc.id,scope,maker)).blockers).toContain('FLOCK_FORMAL_SHIFT_AUTH_REQUIRED');
     await expect(lifecycle.transition(doc.id,'post',doc.version,scope,maker)).rejects.toThrow('影响期间');
     const authorized=await post(auth);
     expect(authorized.payload.authorizedShiftDocumentId).toBe(doc.id);
+    expect((await readFlockActionEligibility(db.manager,doc.id,scope,maker)).blockers).not.toContain('FLOCK_FORMAL_SHIFT_AUTH_REQUIRED');
     await lifecycle.transition(doc.id,'post',doc.version,scope,maker);
     expect((await db.query("SELECT to_jsonb(d) AS fact FROM brd_daily_logs d WHERE shift='AM'"))[0]).toEqual(am);
     const [pm]=await db.query("SELECT occupancy_id,eggs_produced,mortality_qty,elimination_qty FROM brd_daily_logs WHERE shift='PM'");
@@ -143,6 +146,27 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     ]);
     await expect(applyFlockLossCache(db,repairScope,next.digest)).rejects.toThrow('REPAIR_PLAN_CHANGED');
     expect((await farm.getDailyHenReport('2026-11-18',scope)).totals).toMatchObject({eggs:300,mortality:0,elimination:0});
+  });
+
+  it('holds a stale cache whose same-house event points to a different historical occupancy',async()=>{
+    await run('up');await managed();
+    await farm.submitBreedingDailyLog(report('DAILY',100),scope);
+    const older=randomUUID();
+    await db.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,
+      ended_on,capacity_snapshot,opened_document_id) SELECT $1,flock_no,house_code,company_code,farm_code,site_code,
+      began_on-1,began_on,capacity_snapshot,opened_document_id FROM brd_flock_occupancies WHERE flock_no='FLOCK-A'`,[older]);
+    await db.query(`INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,
+      house_code,business_date,kind,quantity_delta,actor,approved_by)
+      SELECT $1,opened_document_id,99,flock_no,id,company_code,farm_code,site_code,house_code,'2026-11-18','MORTALITY',-5,'fixture','fixture'
+      FROM brd_flock_occupancies WHERE id=$2`,[randomUUID(),older]);
+    await db.query("UPDATE brd_daily_logs SET mortality_qty=5");
+    const repairScope={company:'COMP-A',houses:['HOUSE-A'],from:'2026-11-18',through:'2026-11-18'};
+    const plan=await planFlockLossCache(db,repairScope);
+    expect(plan.rows).toHaveLength(1);
+    expect(plan.rows[0].holds).toContain('LOSS_SOURCE_IDENTITY');
+    expect(plan.eligible).toBe(0);
+    expect((await applyFlockLossCache(db,repairScope,plan.digest)).updatedIds).toEqual([]);
+    expect(await db.query('SELECT mortality_qty FROM brd_daily_logs')).toEqual([{mortality_qty:5}]);
   });
 
   it('normalizes at entry and replays a signed report without updating its tuple or hash after catalog changes', async () => {

@@ -8,6 +8,17 @@ export function finiteCashNumber(value: unknown, field: string): number {
   return parsed;
 }
 
+export function cashBalanceCents(value: unknown, field: string): bigint {
+  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(String(value ?? ''));
+  if (!match) throw new BadRequestException(`${field} 必须为有限的两位小数金额`);
+  return BigInt(match[1] + match[2] + (match[3] ?? '').padEnd(2, '0'));
+}
+
+export function cashBalanceDecimal(cents: bigint): string {
+  const digits = (cents < 0n ? -cents : cents).toString().padStart(3, '0');
+  return (cents < 0n ? '-' : '') + digits.slice(0, -2) + '.' + digits.slice(-2);
+}
+
 /**
  * TypeORM/Postgres raw DML RETURNING can be either rows[] or [rows[], rowCount].
  * Normalize both shapes and fail closed when no row was returned.

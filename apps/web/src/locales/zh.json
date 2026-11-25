@@ -15682,6 +15682,7 @@
   "flockForm.missingShiftAuthorization": "保存后为本单申请历史授权，再由独立审核人审核并过账。",
   "flockForm.missingShiftUnavailable": "当前无法核对缺失班次。",
   "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_UNAVAILABLE": "该班次已存在，或原舍日、占栏与正式分班范围已变化。",
+  "breeding.lifecycleWorkspace.FLOCK_FORMAL_SHIFT_AUTH_REQUIRED": "先为这张补班单取得已过账的历史授权。",
   "flockCash.title": "财务收款",
   "flockCash.loadError": "无法读取交付应收",
   "flockCash.received": "已实收",

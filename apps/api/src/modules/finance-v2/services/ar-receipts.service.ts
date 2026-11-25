@@ -228,7 +228,7 @@ export class ArReceiptsService {
     }
     const receiptNo = dedicated ?? await this.genReceiptNo();
     const exRate    = dto.exchangeRate ?? 1;
-    const amtBase   = dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
+    const amtBase   = dedicated ? dto.amountOriginal : dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
 
     await this.ds.query(
       `INSERT INTO fin_ar_receipts (
@@ -378,7 +378,8 @@ export class ArReceiptsService {
       // c. 写分摊记录 + 更新 AR 余额/状态
       for (const alloc of allocations) {
         const exRate = Number(rec.exchange_rate ?? 1);
-        const allocBase = Math.round(Number(alloc.allocatedAmountOriginal) * exRate * 100) / 100;
+        const allocOriginal = flockReceipt ? rec.amount_original : alloc.allocatedAmountOriginal;
+        const allocBase = flockReceipt ? rec.amount_original : Math.round(Number(allocOriginal) * exRate * 100) / 100;
 
         // 插入分摊记录
         await qr.query(
@@ -388,7 +389,7 @@ export class ArReceiptsService {
            SELECT $1, $2, $3, ar_no, $4, $5, currency_code
            FROM fin_ar_invoices WHERE id = $3`,
           [receiptId, rec.receipt_no, alloc.arInvoiceId,
-           alloc.allocatedAmountOriginal, allocBase],
+           allocOriginal, allocBase],
         );
 
         // 更新 AR received + balance
@@ -400,12 +401,12 @@ export class ArReceiptsService {
                balance_amount_base      = GREATEST(0, balance_amount_base     - $2),
                updated_at = now()
            WHERE id = $3`,
-          [alloc.allocatedAmountOriginal, allocBase, alloc.arInvoiceId],
+          [allocOriginal, allocBase, alloc.arInvoiceId],
         );
 
         // 重算 AR 状态（在同一事务内）
         const updatedAr = await qr.query(
-          `SELECT amount_original, received_amount_original, status FROM fin_ar_invoices WHERE id = $1`,
+          `SELECT amount_original, received_amount_original, balance_amount_original, status FROM fin_ar_invoices WHERE id = $1`,
           [alloc.arInvoiceId],
         );
         if (updatedAr.length) {
@@ -418,7 +419,7 @@ export class ArReceiptsService {
           if (!['CANCELLED','DISPUTED','WRITTEN_OFF'].includes(ar.status)) {
             if (received <= 0) {
               newStatus = 'OPEN'; newColStatus = 'UNRECEIVED';
-            } else if (balance <= 0.005) {
+            } else if (flockReceipt ? flockMoneyCents(ar.balance_amount_original) === 0n : balance <= 0.005) {
               newStatus = 'RECEIVED'; newColStatus = 'RECEIVED';
             } else {
               newStatus = 'PARTIALLY_RECEIVED'; newColStatus = 'PARTIAL';

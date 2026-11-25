@@ -68,3 +68,15 @@ export function formalReportShiftInput(value: unknown, occupancyId: unknown) {
     throw new BadRequestException('须指定正式班次与完整历史占栏编号');
   }
 }
+
+export async function hasFormalReportAuthorization(db: EntityManager, documentId: string) {
+  const [authorization] = await db.query(`
+    SELECT a.id FROM brd_flock_documents d JOIN brd_flock_documents a
+      ON a.company_code=d.company_code AND a.flock_no=d.flock_no AND a.house_code=d.house_code
+      AND a.payload->>'authorizedSourceKey'=d.source_key AND a.payload->>'authorizedShiftDocumentId'=d.id
+    WHERE d.id=$1 AND a.kind='HISTORY_AUTH' AND a.status='POSTED'
+      AND a.payload->>'periodFrom'<=d.business_date::text AND a.payload->>'periodTo'>=d.business_date::text
+      AND (COALESCE(d.payload->>'periodApprovalRef','')='' OR a.id=d.payload->>'periodApprovalRef')
+    LIMIT 1`, [documentId]);
+  return Boolean(authorization);
+}

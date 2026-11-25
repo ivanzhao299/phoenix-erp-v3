@@ -126,7 +126,7 @@ export class CashTransactionsService {
 
   // ── 分页查询 ──────────────────────────────────────────────────────────────
 
-  async list(dto: QueryCashTransactionDto, companyCodes: string[] | null) {
+  async list(dto: QueryCashTransactionDto, companyCodes: string[] | null, includeFlockReceipts = true) {
     const page = dto.page ?? 1;
     const pageSize = dto.pageSize ?? 30;
     const offset = (page - 1) * pageSize;
@@ -146,6 +146,9 @@ export class CashTransactionsService {
     if (companyCodes) {
       sql += ` AND company_code = ANY($${idx++})`;
       params.push(companyCodes);
+    }
+    if (!includeFlockReceipts) {
+      sql += " AND NOT (source_type='AR_RECEIPT' AND COALESCE(source_no,'') LIKE 'FR-%')";
     }
     if (dto.accountId) {
       sql += ` AND account_id = $${idx++}`;

@@ -201,6 +201,9 @@ test('distinguishes a missing prior-month shift from a report amendment', async 
   await choice.selectOption('shift:PM');
   await expect(page.getByText('保存后为本单申请历史授权，再由独立审核人审核并过账。',{exact:true})).toBeVisible();
   await expect(choice.locator('option[value="0"]')).toHaveCount(0);
+  await page.goto('/breeding/flock-lifecycle/corrections?kind=REPORT_CORRECTION&formHouseCode=H0&date=' + day + '&shift=PM');
+  await expect(choice).toHaveValue('shift:PM');
+  await expect(choice).toBeDisabled();
 });
 
 test('recovers the same partial receipt after a lost confirmation response and refresh', async ({ page }) => {

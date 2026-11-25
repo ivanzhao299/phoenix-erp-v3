@@ -23,6 +23,7 @@ suite('flock delivery finance on isolated PostgreSQL',()=>{
   let companies=['CA'];
   let scopeLevel='COMPANY';
   let accounts:CashAccountsService;
+  let transactions:CashTransactionsService;
   beforeAll(async()=>{
     const parsed=new URL(url!);
     if (parsed.hostname!=='127.0.0.1' || parsed.pathname!=='/phoenix_flock_followup_finance') throw Error('Owned loopback finance fixture required');
@@ -41,9 +42,13 @@ suite('flock delivery finance on isolated PostgreSQL',()=>{
         ('CA-LAK','Local fixture','CA','LAK'),('CA-CNY','Wrong currency','CA','CNY'),('OTHER-LAK','Fixture other','CA','LAK')`);
     const cls={get:(key:string)=>key==='user'?{userId:'1'}:{allowedCompanyCodes:companies,scopeLevel,isGlobal:false}} as unknown as ClsService;
     invoices=new ArInvoicesService(db,cls);
-    accounts=new CashAccountsService({findOne:async()=>({id:'3',accountCode:'OTHER-LAK',accountName:'Fixture other',
-      companyCode:'CA',currencyCode:'LAK',status:'ACTIVE'})} as never,db,cls);
-    receipts=new ArReceiptsService(db,cls,invoices,accounts,new CashTransactionsService({} as never,db));
+    accounts=new CashAccountsService({findOne:async({where}:{where:{id:string}})=>{
+      const [account]=await db.query(`SELECT id,account_code AS "accountCode",account_name AS "accountName",
+        company_code AS "companyCode",currency_code AS "currencyCode",status FROM fin_cash_accounts WHERE id=$1`,[where.id]);
+      return account;
+    }} as never,db,cls);
+    transactions=new CashTransactionsService({} as never,db);
+    receipts=new ArReceiptsService(db,cls,invoices,accounts,transactions);
   });
   afterAll(async()=>{ if (db?.isInitialized) { await db.query('DROP SCHEMA ' + schema + ' CASCADE'); await db.destroy(); } });
 
@@ -88,6 +93,8 @@ suite('flock delivery finance on isolated PostgreSQL',()=>{
     scopeLevel='PROJECT';
     expect((await invoices.list({})).items).toEqual([]);
     expect((await receipts.list({})).items).toEqual([]);
+    expect((await transactions.list({},['CA'],false)).items).toEqual([]);
+    expect((await transactions.list({},['CA'],true)).items).toHaveLength(3);
     await expect(invoices.findById(invoice.invoice_id)).rejects.toThrow('公司级');
     await expect(receipts.findById(String(final.id))).rejects.toThrow('公司级');
     scopeLevel='COMPANY';
@@ -95,4 +102,32 @@ suite('flock delivery finance on isolated PostgreSQL',()=>{
     await expect(invoices.flockSettlement(delivery,true)).rejects.toThrow('不可见');
     await expect(receipts.reverseFlockReceipt(String(final.id),'Other scope')).rejects.toThrow('无权');
   });
+  it('keeps exact original and base amounts through large receipts, account rebuild and reversal',async()=>{
+    companies=['CA'];scopeLevel='COMPANY';
+    const id=randomUUID();
+    await db.query("INSERT INTO brd_flock_documents VALUES($1,'CA','SELL_HELD','POSTED','2026-11-16')",[id]);
+    await db.query("INSERT INTO brd_flock_sales_settlements VALUES($1,'CA','K','LAK',35184372088832.23,'SIGNED-FLOCK-PRECISION')",[id]);
+    const invoice=await invoices.flockSettlement(id,true);
+    const receipt=await receipts.create({companyCode:'CA',customerCode:'K',customerName:'Fixture customer',
+      amountOriginal:35184372088832.02,receiptDate:'2026-11-18',currencyCode:'LAK',baseCurrency:'LAK',
+      receivedAccountCode:'OTHER-LAK',flockInvoiceId:invoice.invoice_id,paymentKey:randomUUID()});
+    expect(receipt.amount_base).toBe('35184372088832.02');
+    await receipts.confirm(String(receipt.id),{allocations:[{arInvoiceId:invoice.invoice_id,allocatedAmountOriginal:35184372088832.02}]});
+    expect(await db.query('SELECT allocated_amount_original,allocated_amount_base FROM fin_ar_receipt_allocations WHERE receipt_id=$1',[receipt.id]))
+      .toEqual([{allocated_amount_original:'35184372088832.02',allocated_amount_base:'35184372088832.02'}]);
+    expect((await invoices.flockSettlement(id)).outstanding_amount).toBe('0.21');
+    await receipts.reverseFlockReceipt(String(receipt.id),'Precision fixture reversal');
+    expect((await invoices.flockSettlement(id)).outstanding_amount).toBe('35184372088832.23');
+
+    const [account]=await db.query(`WITH inserted AS (INSERT INTO fin_cash_accounts(account_code,account_name,company_code,currency_code,opening_balance,current_balance)
+      VALUES('LARGE-LAK','Precision fixture','CA','LAK',70368744177664.02,70368744177664.02) RETURNING id) SELECT id FROM inserted`);
+    const small=await receipts.create({companyCode:'CA',customerCode:'K',customerName:'Fixture customer',
+      amountOriginal:0.21,receiptDate:'2026-11-19',currencyCode:'LAK',baseCurrency:'LAK',
+      receivedAccountCode:'LARGE-LAK',flockInvoiceId:invoice.invoice_id,paymentKey:randomUUID()});
+    await receipts.confirm(String(small.id),{allocations:[{arInvoiceId:invoice.invoice_id,allocatedAmountOriginal:0.21}]});
+    await accounts.recalcBalance(account.id,{dataScope:{scopeAll:true}});
+    expect(await db.query('SELECT current_balance FROM fin_cash_accounts WHERE id=$1',[account.id])).toEqual([{current_balance:'70368744177664.23'}]);
+    expect(await db.query('SELECT balance_after FROM fin_cash_transactions WHERE account_id=$1',[account.id])).toEqual([{balance_after:'70368744177664.23'}]);
+  });
+
 });

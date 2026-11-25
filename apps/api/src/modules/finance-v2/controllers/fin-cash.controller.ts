@@ -160,7 +160,7 @@ export class FinCashController {
     const companyCodes: string[] | null = (!scope || scope.isGlobal)
       ? null
       : scope.allowedCompanyCodes;
-    return this.txnSvc.list(dto, companyCodes);
+    return this.txnSvc.list(dto, companyCodes, Boolean(scope?.isGlobal) || scope?.scopeLevel !== 'PROJECT');
   }
 
   /**
