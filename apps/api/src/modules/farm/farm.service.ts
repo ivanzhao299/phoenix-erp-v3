@@ -487,7 +487,8 @@ export class FarmService {
         body.dirty_eggs = birdCount(input.dirty_eggs, 'dirty_eggs');
         body.broken_eggs = birdCount(input.broken_eggs, 'broken_eggs');
         body.eggs_by_grade = JSON.stringify({});
-        if (prior && matchingLegacySummary(body, prior)) {
+        const submittedSummary = { ...body, temp: body.temp ?? null, humidity: body.humidity ?? null };
+        if (prior && matchingLegacySummary(submittedSummary, prior)) {
           return { code: 200, msg: '已核对保存的原日报', ledgerSkipped: false };
         }
         if ((prior && !matchingLegacySummary(input.expectedSummary, prior))

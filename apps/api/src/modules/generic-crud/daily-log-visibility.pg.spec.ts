@@ -89,6 +89,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
         shift text, eggs_produced int, eggs_by_grade jsonb, dirty_eggs int, broken_eggs int, mortality_qty int, elimination_qty int, feed_consumed numeric,
         opening_qty int, closing_qty int, lay_rate numeric, operator text, note text,
         created_at timestamptz DEFAULT now(), UNIQUE(log_date, house_code, shift));
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS temp numeric(5,2), ADD COLUMN IF NOT EXISTS humidity numeric(5,2);
       CREATE TABLE IF NOT EXISTS fixture_users (id int PRIMARY KEY, username text, role text, store_code text);
       CREATE TABLE IF NOT EXISTS fixture_role_permissions (role text, permission text, PRIMARY KEY(role, permission));
       CREATE TABLE IF NOT EXISTS inv_batches (batch_no text UNIQUE, product_code text, company_code text, warehouse_code text, location_code text,
@@ -245,7 +246,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
   it('rejects a stale legacy mobile retry after another operator changes the quantities', async () => {
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
     await db.query('ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text');
-    const quantities = { eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, temp: null, humidity: null };
+    const quantities = { eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, temp: 26.5, humidity: null };
     const original = { house_code: 'HOUSE-A', log_date: date, shift: '早班', ...quantities,
       eggs_by_grade: { DIRTY: 2, BROKEN: 1 }, expectedSummary: null };
     const submit = (body: Record<string, unknown>, id = 40101) => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
@@ -318,15 +319,16 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
   });
 
   it('shows a saved report to its reporter immediately, on refresh, and after a new login token', async () => {
+    const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
     await request(app.getHttpServer()).post('/api/v3/farm/daily-logs').auth(token(40101), { type: 'bearer' })
-      .send({ house_code: 'HOUSE-A', log_date: '2026-10-17', shift: '早班', eggs_produced: 0, feed_consumed: 7, operator: 'fixture_reporter' })
+      .send({ house_code: 'HOUSE-A', log_date: businessDate, shift: '早班', eggs_produced: 0, feed_consumed: 7, operator: 'fixture_reporter' })
       .expect(response => { expect(response.status).toBe(201); expect(response.body.code).toBe(200); });
     // The reported asymmetry is explicit: admin reads the persisted row first.
     expect((await read(40105).expect(200)).body.data).toHaveLength(1);
     for (let i = 0; i < 3; i++) {
       scopes.invalidate('40101'); // Fresh resolution simulates session/login renewal.
       const response = await read(40101).expect(200);
-      expect(response.body.data).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', farm_code: 'LPH_FARM_A', company_code: 'COMP-A', feed_consumed: '7', log_date: '2026-10-17' })]);
+      expect(response.body.data).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', farm_code: 'LPH_FARM_A', company_code: 'COMP-A', feed_consumed: '7', log_date: businessDate })]);
     }
     expect((await read(40102).expect(200)).body.data).toHaveLength(1);
     expect((await read(40105).expect(200)).body.data).toHaveLength(1);
@@ -334,13 +336,14 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
   });
 
   it('combines a saved report, scoped query, inventory inbound and idempotent retry over real HTTP/PG', async () => {
+    const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
     await request(app.getHttpServer()).post('/api/v3/farm/daily-logs').auth(token(40101),{type:'bearer'})
-      .send({house_code:'HOUSE-A',log_date:'2026-10-17',shift:'早班',eggs_produced:33,eggs_by_grade:{GRADE_1:33}})
+      .send({house_code:'HOUSE-A',log_date:businessDate,shift:'早班',eggs_produced:33,eggs_by_grade:{GRADE_1:33}})
       .expect(201).expect(response=>expect(response.body.code).toBe(200));
-    const query = {house_code:'HOUSE-A',log_date:'2026-10-17'};
+    const query = {house_code:'HOUSE-A',log_date:businessDate};
     const saved = (await read(40101,query).expect(200)).body.data;
-    expect(saved).toEqual([expect.objectContaining({log_date:'2026-10-17',eggs_by_grade:{GRADE_1:33},eggs_produced:33})]);
-    const payload = {houseCode:'HOUSE-A',eggDate:'2026-10-17',items:[{grade:'GRADE_1',qty:11},{grade:'GRADE_1',qty:22}]};
+    expect(saved).toEqual([expect.objectContaining({log_date:businessDate,eggs_by_grade:{GRADE_1:33},eggs_produced:33})]);
+    const payload = {houseCode:'HOUSE-A',eggDate:businessDate,items:[{grade:'GRADE_1',qty:11},{grade:'GRADE_1',qty:22}]};
     const inbound = () => request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(40101),{type:'bearer'}).send(payload);
     const first = (await inbound().expect(201)).body;
     const retry = (await inbound().expect(201)).body;
