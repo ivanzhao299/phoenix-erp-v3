@@ -44,8 +44,8 @@ jobs:
   execute:
     if: >-
       inputs.phase == 'inspect' ||
-      (inputs.audit_scope == 'egg-source-1125' && inputs.approve_production == 'APPLY-EGG-SOURCE-20261125') ||
-      (inputs.audit_scope != 'egg-source-1125' && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
+      (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-1125' && inputs.approve_production == 'APPLY-EGG-SOURCE-20261125') ||
+      (inputs.phase == 'apply' && inputs.audit_scope != 'egg-source-1125' && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
@@ -73,7 +73,7 @@ jobs:
           else
             node scripts/ops/vet-1124-migration.mjs source
           fi
-          node --test scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
+          node --test scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
           node scripts/ops/vet-1124-ci.mjs hosted-log-reader
       - name: Match the official API digest to every reviewed migration
         if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125'
@@ -121,6 +121,8 @@ jobs:
           script: |
             set -Eeuo pipefail
             umask 077
+            case "$PHASE" in inspect|apply) ;; *) exit 22 ;; esac
+            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125) ;; *) exit 22 ;; esac
             cd /data/phoenix-erp
             export DEPLOY_REPO_ROOT=/data/phoenix-erp
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
@@ -169,7 +171,7 @@ jobs:
                 vet-1124) SCOPED_REVIEW_HELPER=vet-1124-migration.mjs ;;
                 egg-source-1125) SCOPED_REVIEW_HELPER=egg-source-release.mjs ;;
               esac
-              for helper in "$SCOPED_REVIEW_HELPER" vet-1124-migration.mjs production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
+              for helper in "$SCOPED_REVIEW_HELPER" production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
                 git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               done
             fi

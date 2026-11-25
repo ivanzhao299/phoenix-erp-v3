@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { readAuditSnapshot } from './vet-1124-migration.mjs';
-import { reviewConfirmedLegacyFacts } from './production-modern-schema-confirmed-scope.mjs';
+import { auditSql } from './audit-daily-egg-inbound.mjs';
+import { LEDGER_SQL } from './chanjet-admission-schema-receipt.mjs';
+import { confirmedDailyRowsSql, reviewConfirmedLegacyFacts } from './production-modern-schema-confirmed-scope.mjs';
 import { canonicalDigest } from './production-maintenance-receipts.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { MIGRATION_PATHS } from './production-config-guard.mjs';
@@ -44,7 +46,8 @@ WITH anchors(name,needle) AS (VALUES
   ('check_cutover_apply_completion','expected_scopes:=jsonb_array_length(d.boundary->''houses'');'),
   ('guard_official_raw_posted','shift.production_date IS DISTINCT FROM NEW.production_date')
 ), definitions AS (
-  SELECT name,needle,pg_get_functiondef(to_regprocedure('public.'||name||'()')) AS body FROM anchors
+  SELECT anchors.name,needle,pg_get_functiondef(proc.oid) AS body,proc.proowner,proc.prosecdef,proc.proconfig
+  FROM anchors LEFT JOIN pg_proc proc ON proc.oid=to_regprocedure('public.'||anchors.name||'()')
 )
 SELECT jsonb_build_object(
   'databaseMajor',current_setting('server_version_num')::int/10000,
@@ -58,17 +61,39 @@ SELECT jsonb_build_object(
     ON a.profile_code<b.profile_code AND a.company_code=b.company_code AND a.house_code=b.house_code
     WHERE a.status='ACTIVE' AND b.status='ACTIVE' AND a.effective_date<=COALESCE(b.expire_date,'infinity'::date)
       AND b.effective_date<=COALESCE(a.expire_date,'infinity'::date)),
-  'anchors',(SELECT count(*) FROM definitions WHERE (length(body)-length(replace(body,needle,'')))=length(needle))
+  'anchors',(SELECT count(*) FROM definitions WHERE (length(body)-length(replace(body,needle,'')))=length(needle)),
+  'functionShapes',(SELECT jsonb_agg(jsonb_build_array(name,encode(sha256(convert_to(body,'UTF8')),'hex'),proowner,prosecdef,proconfig) ORDER BY name) FROM definitions),
+  'migrationRoleReady',EXISTS(SELECT 1 FROM pg_roles migration_role WHERE migration_role.rolname=:'migration_role'
+    AND migration_role.rolcanlogin AND (
+      migration_role.rolsuper OR (
+        has_database_privilege(migration_role.oid,current_database(),'CREATE') AND
+        has_schema_privilege(migration_role.oid,'public','CREATE') AND
+        NOT EXISTS(SELECT 1 FROM definitions WHERE proowner IS NULL OR NOT pg_has_role(migration_role.oid,proowner,'USAGE')) AND
+        EXISTS(SELECT 1 FROM pg_class tbl WHERE tbl.oid='public.md_egg_source_profiles'::regclass
+          AND pg_has_role(migration_role.oid,tbl.relowner,'USAGE')))))
 )::text;
 `;
-function productionCatalog() {
-  const sql="BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL search_path=public; SET LOCAL statement_timeout='20s'; "+catalogSql+'ROLLBACK;';
-  const result=JSON.parse(execFileSync('docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on',
-    'phoenix-v3-db','sh','-c','exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
-  {input:sql,encoding:'utf8',timeout:40000,maxBuffer:1024*1024}));
-  if(result.databaseMajor<16||!result.extensionAvailable||!result.existingConstraint||!result.pendingObjectsClear||
-      result.activeOverlaps!==0||result.anchors!==5) hold('SOURCE_CATALOG');
-  return result;
+function productionSnapshot(expectedLedger) {
+  let migrationRole='phoenix_v3';
+  try{
+    const value=execFileSync('grep',['-m1','-E','^DB_USER=','/data/phoenix-erp/.env'],{encoding:'utf8',
+      stdio:['ignore','pipe','pipe'],timeout:3000}).trimEnd().slice('DB_USER='.length);
+    migrationRole=value.replace(/^"/,'').replace(/"$/,'')||migrationRole;
+  }catch(error){if(error.status!==1)hold('MIGRATION_ROLE');}
+  if(!/^[A-Za-z_][A-Za-z_0-9]{0,62}$/.test(migrationRole))hold('MIGRATION_ROLE');
+  const sql=['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;','SET LOCAL search_path=public;',
+    "SET LOCAL statement_timeout='30s';","SET LOCAL lock_timeout='3s';",'SET LOCAL row_security=off;',
+    auditSql,confirmedDailyRowsSql+';',LEDGER_SQL,catalogSql,'ROLLBACK;'].join('\n');
+  const output=execFileSync('docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on','phoenix-v3-db',
+    'sh','-c','exec psql -X -qAt -v ON_ERROR_STOP=1 -v migration_role="$1" -U "$POSTGRES_USER" -d "$POSTGRES_DB"','snapshot',migrationRole],
+    {input:sql,encoding:'utf8',timeout:75000,maxBuffer:20*1024*1024});
+  const [originalAudit,dailyRowsRaw,ledgerLine,catalogLine,...extra]=output.trimEnd().split('\n');
+  if(!catalogLine||extra.length)hold('SOURCE_AUDIT_SNAPSHOT');
+  if(createHash('sha256').update(JSON.stringify(JSON.parse(ledgerLine))).digest('hex')!==expectedLedger)hold('SOURCE_SNAPSHOT_LEDGER_MOVED');
+  const catalog=JSON.parse(catalogLine);
+  if(catalog.databaseMajor<16||!catalog.extensionAvailable||!catalog.existingConstraint||!catalog.pendingObjectsClear||
+      !catalog.migrationRoleReady||catalog.activeOverlaps!==0||catalog.anchors!==5)hold('SOURCE_CATALOG');
+  return {originalAudit,dailyRowsRaw,catalog};
 }
 
 export function verifyAppliedLedger(before,after) {
@@ -96,11 +121,11 @@ if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){
       if(env.PENDING_CLASSES.trim().split(/\s+/).join('\n')!==units.join('\n')) hold('PENDING_SET');
       if(!hash.test(env.LEDGER_SHA256)||!hash.test(env.VET_CI_SHA256)
         ||!/^ghcr\.io\/ivanzhao299\/phoenix-erp-v3\/api@sha256:[0-9a-f]{64}$/.test(env.VET_API_IMAGE)) hold('CANDIDATE_IMAGE');
-      const snapshot=readAuditSnapshot();
+      const snapshot=productionSnapshot(env.LEDGER_SHA256);
       const audit=JSON.parse(snapshot.originalAudit);
       console.error('AUDIT_CONCLUSION='+audit.conclusion);
       if(audit.retired_duplicate_qty!==0) hold('RETIRED_BATCH_STOCK');
-      const facts=reviewConfirmedLegacyFacts(snapshot),catalog=productionCatalog();
+      const facts=reviewConfirmedLegacyFacts(snapshot),catalog=snapshot.catalog;
       const evidence={reviewed,runtime,catalog,apiImage:env.VET_API_IMAGE,ciSha256:env.VET_CI_SHA256,
         ledgerSha256:env.LEDGER_SHA256,originalConclusion:audit.conclusion,scopedConclusion:'GO_EGG_SOURCE_413_415_EXACT',
         stableExactAuditSha256:facts.stableExactAuditSha256,dailyRowsSha256:facts.dailyRowsSha256};

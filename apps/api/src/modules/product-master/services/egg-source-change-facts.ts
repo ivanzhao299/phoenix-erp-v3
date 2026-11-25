@@ -5,7 +5,7 @@ import { EggSourceProfile, SkuAvailabilityService } from './sku-availability.ser
 
 export type SourceSkuRequirement = { gradeCode: string; specCode: string };
 
-/** Existing formal scopes may use legacy (domain row only) or explicit active product domains. */
+/** New commercial approvals on a formal route require an active product with its original opening proof. */
 export async function requireEggProductDomain(m: EntityManager, owner: Pick<EggSourceOwner, 'companyCode'|'houseCode'>,
   scopeId: string, warehouseCode: string, productCode: string): Promise<string | null> {
   const rows = await m.query(`SELECT d.inventory_domain_id, s.state AS scope_state, d.product_code
@@ -17,10 +17,14 @@ export async function requireEggProductDomain(m: EntityManager, owner: Pick<EggS
     throw new ConflictException({ code:'EGG_SOURCE_PRODUCT_DOMAIN_REQUIRED', productCode, warehouseCode,
       message:'目标产品未纳入本舍正式库存范围，请先办理受控扩域' });
   }
-  const [domain] = await m.query(`SELECT id,state FROM production_inventory_domain_states
-    WHERE company_code=$1 AND warehouse_code=$2 AND product_code=$3 FOR SHARE`, [owner.companyCode, warehouseCode, productCode]);
-  const id = rows[0].inventory_domain_id ?? null;
-  if ((domain && (domain.state !== 'ACTIVE' || domain.id !== id)) || (id && !domain)) {
+  const [domain] = await m.query(`SELECT d.id,d.state FROM production_inventory_domain_states d
+    JOIN production_opening_domain_claims claim ON claim.domain_id=d.id
+    JOIN production_opening_receipts receipt ON receipt.id=claim.opening_receipt_id AND receipt.cutover_manifest_id=claim.manifest_id
+    JOIN production_cutover_manifests original ON original.id=claim.manifest_id AND original.state='APPLIED'
+      AND original.content_hash=claim.content_hash AND receipt.evidence_sha256=claim.content_hash
+    WHERE d.company_code=$1 AND d.warehouse_code=$2 AND d.product_code=$3 FOR SHARE OF d`, [owner.companyCode, warehouseCode, productCode]);
+  const id = rows[0].inventory_domain_id;
+  if (!id || !domain || domain.state !== 'ACTIVE' || domain.id !== id) {
     throw new ConflictException({ code:'EGG_SOURCE_PRODUCT_DOMAIN_UNAVAILABLE', productCode, warehouseCode,
       message:'目标产品库存域尚未启用、已暂停或成员身份不一致' });
   }
