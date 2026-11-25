@@ -540,7 +540,8 @@ export class GenericCrudService {
         LEFT JOIN sys_user op ON op.username = base.operator
         LEFT JOIN mst_stores store ON store.store_code = base.store_code) AS "inv_ledger"`,
     };
-    let sql = `SELECT * FROM ${localizedReadSource[table] ?? `"${table}"`}`;
+    const projection = table === 'brd_daily_logs' ? "*, concat(id, ':', xmin::text) AS report_version" : '*';
+    let sql = `SELECT ${projection} FROM ${localizedReadSource[table] ?? `"${table}"`}`;
     if (whereClauses.length > 0) {
       sql += ` WHERE ${whereClauses.join(' AND ')}`;
     }

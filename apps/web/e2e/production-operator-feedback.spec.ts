@@ -81,8 +81,10 @@ test('legacy mobile report accepts explicit zero and retries only the unresolved
   await page.route('**/api/crud/brd_flocks?**', route => route.fulfill({ json: { data: [
     { house_code: 'H1', flock_no: 'F1' }, { house_code: 'H2', flock_no: 'F2' },
   ] } }));
-  await page.route('**/api/crud/brd_daily_logs?**', route => route.fulfill({ json: { data: [] } }));
-  const posted: Array<{ house_code: string; eggs_produced: number; dirty_eggs: number; broken_eggs: number }> = [];
+  await page.route('**/api/crud/brd_daily_logs?**', route => route.fulfill({ json: { data: [
+    { house_code: 'H2', flock_no: 'F2', shift: '早班', eggs_produced: 0, report_version: '2:10' },
+  ] } }));
+  const posted: Array<{ house_code: string; eggs_produced: number; dirty_eggs: number; broken_eggs: number; expectedReportVersion: string | null }> = [];
   let failSecond = true;
   await page.route('**/api/v3/farm/daily-logs', route => {
     const entry = route.request().postDataJSON() as (typeof posted)[number];
@@ -105,5 +107,6 @@ test('legacy mobile report accepts explicit zero and retries only the unresolved
   await send.click();
   await expect(send).toBeDisabled();
   expect(posted.map(row => row.house_code)).toEqual(['H1', 'H2', 'H2']);
+  expect(posted.map(row => row.expectedReportVersion)).toEqual([null, '2:10', '2:10']);
   for (const row of posted) expect(row).toMatchObject({ eggs_produced: 0, dirty_eggs: 0, broken_eggs: 0 });
 });

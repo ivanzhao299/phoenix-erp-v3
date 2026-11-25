@@ -14,7 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadEgglogFlocks, registerEgglogVisibilityRefresh } from '@/lib/egglog-refresh';
-import { buildEgglogPayload, egglogSummarySnapshot, type EgglogSummarySnapshot } from '@/lib/egglog-payload';
+import { buildEgglogPayload } from '@/lib/egglog-payload';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ interface HouseEntry {
 type HouseDraft = {
   entry: HouseEntry;
   reportZero: boolean;
-  expectedSummary: EgglogSummarySnapshot | null;
+  expectedReportVersion: string | null;
   status?: 'unverified' | 'conflict';
 };
 const emptyEntry = (): HouseEntry => ({
@@ -331,6 +331,7 @@ export default function EggLogPage() {
   const [shift, setShift] = useState('早班');
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
   const [entries, setEntries] = useState<Record<string, HouseEntry>>({});
+  const [reportVersions, setReportVersions] = useState<Record<string, string>>({});
   const [existing, setExisting] = useState<Record<string, number>>({});
   const [drafts, setDrafts] = useState<Record<string, Record<string, HouseDraft>>>({});
   const scope = JSON.stringify([user?.userId ?? user?.username, date, shift]);
@@ -377,12 +378,14 @@ export default function EggLogPage() {
       const res = await mobileApi.getFarmLogs(d);
       if (id !== generation.current) return;
       const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
-      const filtered = arr.filter((r: any) => !s || r.shift === s || !r.shift);
+      const filtered = arr.filter(r => !s || r.shift === s || !r.shift);
       const existMap: Record<string, number> = {};
       const entryMap: Record<string, HouseEntry> = {};
+      const versions: Record<string, string> = {};
       for (const r of filtered) {
         const key = r.house_code || r.flock_no || '';
         if (!key) continue;
+        if (r.shift === s && r.report_version) versions[key] = r.report_version;
         existMap[key] = (existMap[key] || 0) + Number(r.eggs_produced || 0);
         entryMap[key] = {
           eggs: (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
@@ -395,10 +398,12 @@ export default function EggLogPage() {
       }
       setExisting(existMap);
       setEntries(entryMap);
+      setReportVersions(versions);
       setLoadedScope(keyScope);
     } catch {
       if (id !== generation.current) return;
       setEntries({});
+      setReportVersions({});
       setExisting({});
       setLoadFailed(true);
     } finally {
@@ -437,8 +442,8 @@ export default function EggLogPage() {
     setDrafts(all => {
       const draft = all[scope]?.[house];
       if (draft?.status) return all;
-      const expectedSummary = draft ? draft.expectedSummary : entries[house] ? egglogSummarySnapshot(entries[house]) : null;
-      return { ...all, [scope]: { ...all[scope], [house]: { entry, reportZero, expectedSummary } } };
+      const expectedReportVersion = draft ? draft.expectedReportVersion : reportVersions[house] ?? null;
+      return { ...all, [scope]: { ...all[scope], [house]: { entry, reportZero, expectedReportVersion } } };
     });
   }
 
@@ -457,10 +462,12 @@ export default function EggLogPage() {
       const entry = draft.entry;
       try {
         if (sessionStorage.getItem('phoenix_token') !== token) throw new Error(tr('common.loginRequired', '请重新登录'));
-        await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
-          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift, expectedSummary: draft.expectedSummary,
+        const receipt = await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
+          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift, expectedReportVersion: draft.expectedReportVersion,
         }));
         confirmed.push(key);
+        const reportVersion = receipt.reportVersion;
+        if (reportVersion) setReportVersions(old => ({ ...old, [key]: reportVersion }));
         setExisting(old => ({ ...old, [key]: entry.eggs }));
         setEntries(old => ({ ...old, [key]: entry }));
       } catch (error) {

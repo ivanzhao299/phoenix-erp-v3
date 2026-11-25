@@ -243,21 +243,32 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect(await db.query('SELECT shift FROM brd_daily_logs')).toEqual([{ shift }]);
   });
 
-  it('rejects a stale legacy mobile retry after another operator changes the quantities', async () => {
+  it('rejects stale mobile retries even after another operator restores the original quantities', async () => {
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
     await db.query('ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text');
-    const quantities = { eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, temp: 26.5, humidity: null };
-    const original = { house_code: 'HOUSE-A', log_date: date, shift: '早班', ...quantities,
-      eggs_by_grade: { DIRTY: 2, BROKEN: 1 }, expectedSummary: null };
+    const query = { house_code: 'HOUSE-A', log_date: date };
+    const original = { ...query, shift: '早班', eggs_produced: 85, dirty_eggs: 2, broken_eggs: 1,
+      temp: 26.5, humidity: null, eggs_by_grade: { DIRTY: 2, BROKEN: 1 } };
     const submit = (body: Record<string, unknown>, id = 40101) => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
       .auth(token(id), { type: 'bearer' }).send(body);
-    const fix = { ...original, eggs_produced: 120, expectedSummary: quantities };
-    await submit(original).expect(201);
-    await submit(fix, 40105).expect(201);
-    await submit(original).expect(409);
-    await submit(fix, 40105).expect(201);
-    expect(await db.query('SELECT eggs_produced,dirty_eggs,broken_eggs FROM brd_daily_logs'))
-      .toEqual([{ eggs_produced: 120, dirty_eggs: 2, broken_eggs: 1 }]);
+    const first = await submit(original).expect(201);
+    const [saved] = (await read(40101, query).expect(200)).body.data;
+    expect(saved.report_version).toEqual(expect.any(String));
+    expect(first.body.reportVersion).toBe(saved.report_version);
+    const operatorA = { ...original, eggs_produced: 100, expectedReportVersion: saved.report_version };
+    const aWritten = await submit(operatorA).expect(201);
+    expect(aWritten.body.reportVersion).not.toBe(first.body.reportVersion);
+    const newer = await submit({ ...original, eggs_produced: 120, expectedReportVersion: aWritten.body.reportVersion }, 40105).expect(201);
+    await submit(operatorA).expect(409);
+    const restored = await submit({ ...original, expectedReportVersion: newer.body.reportVersion }, 40105).expect(201);
+    expect(restored.body.reportVersion).not.toBe(first.body.reportVersion);
+    await submit(operatorA).expect(409);
+    await submit({ ...original, eggs_produced: 90 }).expect(409);
+    const sameValueRetry = await submit(original).expect(201);
+    expect(sameValueRetry.body.reportVersion).toBe(restored.body.reportVersion);
+    expect((await read(40101, query).expect(200)).body.data).toEqual([expect.objectContaining({
+      report_version: restored.body.reportVersion, eggs_produced: 85, dirty_eggs: 2, broken_eggs: 1,
+    })]);
     expect(await db.query('SELECT * FROM inv_ledger')).toEqual([]);
   });
 

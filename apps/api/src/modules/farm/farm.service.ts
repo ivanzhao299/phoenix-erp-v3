@@ -163,6 +163,9 @@ const ALLOWED_DAILY_COLS = new Set([
 
 // Old handhelds send a saleable total and exactly the two observed defect counts.
 const LEGACY_SUMMARY_FIELDS = ['eggs_produced', 'dirty_eggs', 'broken_eggs', 'temp', 'humidity'] as const;
+const LEGACY_SUMMARY_INPUT_COLUMNS = new Set<string>([
+  ...LEGACY_SUMMARY_FIELDS, 'house_code', 'flock_no', 'log_date', 'shift', 'operator', 'eggs_by_grade',
+]);
 function matchingLegacySummary(expected: unknown, saved: Record<string, unknown>) {
   if (!expected || typeof expected !== 'object' || Array.isArray(expected)) return false;
   const snapshot = expected as Record<string, unknown>;
@@ -426,7 +429,7 @@ export class FarmService {
       const flock = await lockDailyFlock(manager, { house_code: houseCode, log_date: logDate, farm_code: house.farmCode, company_code: house.companyCode,
         flock_no: input.flock_no });
       const prior = (await manager.query(
-        `SELECT *, log_date::text AS log_date FROM brd_daily_logs WHERE ${id === undefined
+        `SELECT *, log_date::text AS log_date, concat(id, ':', xmin::text) AS report_version FROM brd_daily_logs WHERE ${id === undefined
           ? 'log_date=$1 AND house_code=$2 AND shift=$3' : 'id=$1'} FOR UPDATE`,
         id === undefined ? [logDate, houseCode, input.shift || 'DAILY'] : [id],
       ))[0];
@@ -488,11 +491,14 @@ export class FarmService {
         body.broken_eggs = birdCount(input.broken_eggs, 'broken_eggs');
         body.eggs_by_grade = JSON.stringify({});
         const submittedSummary = { ...body, temp: body.temp ?? null, humidity: body.humidity ?? null };
-        if (prior && matchingLegacySummary(submittedSummary, prior)) {
-          return { code: 200, msg: '已核对保存的原日报', ledgerSkipped: false };
+        const summaryOnly = Object.keys(input).every(key => !ALLOWED_DAILY_COLS.has(key) || LEGACY_SUMMARY_INPUT_COLUMNS.has(key));
+        if (prior && summaryOnly && matchingLegacySummary(submittedSummary, prior)) {
+          return { code: 200, msg: '已核对保存的原日报', ledgerSkipped: false, reportVersion: prior.report_version as string };
         }
-        if ((prior && !matchingLegacySummary(input.expectedSummary, prior))
-          || (!prior && input.expectedSummary != null)) {
+        // The locked database row must still be the version the operator edited.
+        // Equal quantities can reappear after a different operator has saved.
+        if ((prior && (typeof input.expectedReportVersion !== 'string' || input.expectedReportVersion !== prior.report_version))
+          || (!prior && input.expectedReportVersion != null)) {
           throw new ConflictException('该班日报已有较新记录，请重新核对后录入');
         }
       } else if (input.eggs_by_grade !== undefined) {
@@ -553,9 +559,10 @@ export class FarmService {
       }
       const updates = fields.filter(f => !['flock_no','log_date','house_code','shift'].includes(f))
         .map(f => `"${f}"=EXCLUDED."${f}"`).join(',');
-      await manager.query(`INSERT INTO "brd_daily_logs" (${fields.map(f => `"${f}"`).join(',')})
+      const [stored] = await manager.query(`INSERT INTO "brd_daily_logs" (${fields.map(f => `"${f}"`).join(',')})
         VALUES (${values.map((_, i) => `$${i+1}`).join(',')})
-        ON CONFLICT (log_date,house_code,shift) DO UPDATE SET ${updates}`, values);
+        ON CONFLICT (log_date,house_code,shift) DO UPDATE SET ${updates}
+        RETURNING concat(id, ':', xmin::text) AS report_version`, values);
       if (!managedBalance) await persistDailyBalance(manager, flock.flock_no, balance.quantity, balance.following);
       else await refreshDailyFlockLayRate(manager,flock.flock_no);
 
@@ -586,6 +593,7 @@ export class FarmService {
       }
       const msg = id === undefined ? '日报提交成功' : '日报更新成功';
       return { code: 200, msg: ledgerSkipped ? `${msg}（警告：无可用 PRD-EGG 批次，本次未记账，待补账通知已发给库存管理员）` : msg,
+        ...(legacySummary ? { reportVersion: stored.report_version as string } : {}),
         ...(id === undefined || ledgerSkipped ? { ledgerSkipped } : {}) };
     });
   }

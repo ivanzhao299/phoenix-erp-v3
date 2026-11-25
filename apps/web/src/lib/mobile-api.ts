@@ -1,4 +1,3 @@
-import type { EgglogSummarySnapshot } from './egglog-payload';
 /**
  * mobile-api.ts — 手机端管理日报 API 客户端
  */
@@ -107,6 +106,7 @@ export interface QcInspection {
 }
 
 export interface FarmLog {
+  report_version?: string;
   id:              number;
   flock_no:        string;
   house_code?:     string;
@@ -477,8 +477,8 @@ export const mobileApi = {
     temp?:         number | null;
     humidity?:     number | null;
     operator?:     string;
-    expectedSummary?: EgglogSummarySnapshot | null;
-  }) => post<{ code: number; msg: string }>('/api/v3/farm/daily-logs', payload),
+    expectedReportVersion?: string | null;
+  }) => post<{ code: number; msg: string; reportVersion?: string }>('/api/v3/farm/daily-logs', payload),
 };
 
 // ── Workflow / Approval / Notification API ────────────────────────────────────
