@@ -15730,6 +15730,7 @@
   "eggSources.shell": "Commercial shell color",
   "eggSources.standard": "Ordinary eggs",
   "eggSources.submit": "Submit for review",
+  "eggSources.invalidResponse": "The egg source service returned unexpected data. Try again.",
   "eggSources.title": "Egg source profiles",
   "eggSources.unknown": "Source unverified",
   "eggSources.warehouse": "Destination warehouse",

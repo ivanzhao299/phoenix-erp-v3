@@ -8,6 +8,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { previewProtectedAttachment } from '@/lib/attachments';
 import request from '@/lib/api-client';
+import { eggSourceEndpoint, requestEggSourceData } from '@/lib/egg-source-api';
 import s from '@/components/breeding/ProductionInboundWorkbench.module.css';
 
 type Evidence = { batchNo:string; productCode:string; skuCode:string|null; originalShell:string|null; exactQuantity:number|null;
@@ -15,7 +16,7 @@ type Evidence = { batchNo:string; productCode:string; skuCode:string|null; origi
 type Review = { id:string; state:string; source_line:string; quantity:number|null; target_class:string; reason:string; decision:string|null; disposition:string|null; attachments:Array<{file_id:string;checksum:string}>;
   dispositions:Array<{id?:string;ref_no?:string;log_date?:string;restricted?:boolean}> };
 type History = { evidence:Evidence; reviews:Review[] };
-const endpoint='/product-master/egg-sources/history';
+const endpoint=eggSourceEndpoint+'/history';
 
 export default function EggSourceHistoryPage() {
   const { t }=useLanguage();
@@ -37,18 +38,30 @@ export default function EggSourceHistoryPage() {
   const [uploading,setUploading]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
   const requestKey=useRef<{input:string;key:string}|null>(null);
   const query={houseCode:house,warehouseCode:warehouse,productionDate:date,batchNo:batch.trim()};
   const canLoad=house&&warehouse&&date&&batch.trim();
   const label=(value:string|null) => value==='STANDARD' ? t('eggSources.standard','普通蛋')
     : value==='RED' ? t('eggSources.red','红壳蛋') : value==='PINK' ? t('eggSources.pink','粉壳蛋')
     : t('eggSources.unknown','来源待核实');
-  function clear() { setResult(null);setLedger('');setAttachments([]);setError(''); }
+  function clear() { setResult(null);setLedger('');setQty('');setAttachments([]);setError('');setNotice(''); }
   async function load() {
-    setResult(await request<History>(endpoint+'?'+new URLSearchParams(query)));
+    setResult(null);
+    const data=await requestEggSourceData<History>(endpoint+'?'+new URLSearchParams(query),
+      value=>value.evidence?.batchNo===query.batchNo && Array.isArray(value.evidence.ledger) &&
+        value.evidence.ledger.every(Boolean) && Array.isArray(value.reviews) &&
+        value.reviews.every(review=>Array.isArray(review?.attachments) && review.attachments.every(Boolean) &&
+          Array.isArray(review.dispositions) && review.dispositions.every(Boolean)),
+      t('eggSources.invalidResponse', '蛋品来源数据返回格式异常，请重试。'));
+    setResult(data);
+  }
+  async function refreshAfterAction() {
+    setNotice(t('eggSources.actionSaved','已记录操作与回执'));
+    await load();
   }
   async function perform(work:()=>Promise<void>) {
-    setBusy(true);setError('');
+    setBusy(true);setError('');setNotice('');
     try { await work(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -66,17 +79,18 @@ export default function EggSourceHistoryPage() {
     event.preventDefault();
     if (!result||busy||uploading||!permission.canEdit) return;
     void perform(async()=>{
-      const payload={...query,ledgerId:ledger,targetClass:target,quantity:qty?Number(qty):null,
+      const payload={...query,ledgerId:ledger,targetClass:target,quantity:result.evidence.exactQuantity!==null&&qty?Number(qty):null,
         reason:reason.trim(),evidenceIds:attachments};
       const signature=JSON.stringify(payload);
       if (requestKey.current?.input!==signature) requestKey.current={input:signature,key:crypto.randomUUID()};
       await request(endpoint,{method:'POST',body:JSON.stringify({...payload,actionKey:requestKey.current.key})});
-      requestKey.current=null;setAttachments([]);setReason('');setQty('');await load();
+      requestKey.current=null;setAttachments([]);setReason('');setQty('');await refreshAfterAction();
     });
   }
   return <div className={s.page}>
     <PageHeader title={t('eggSources.history','历史蛋品来源核认')}/>
     {error&&<p className={s.notice} role="alert">{error}</p>}
+    {notice&&<p className={s.notice} role="status">{notice}</p>}
     {permission.canView&&<section className={s.card}>
       <div className={s.grid}>
         <label className={s.field}>{t('eggSources.house','鸡舍')}<HouseSelector value={house} disabled={busy||uploading}
@@ -129,7 +143,7 @@ export default function EggSourceHistoryPage() {
                 value={dispositionLedger[row.id]??''} onChange={e=>setDispositionLedger(old=>({...old,[row.id]:e.target.value}))}/>
               <button type="button" disabled={busy||!/^\d+$/.test(dispositionLedger[row.id]??'')} onClick={()=>void perform(async()=>{
                 await request(endpoint+'/'+row.id+'/dispositions',{method:'POST',body:JSON.stringify({ledgerId:dispositionLedger[row.id]})});
-                await load();
+                await refreshAfterAction();
               })}>{t('eggSources.bindReversal','关联已过账冲销')}</button>
             </div>}
           </div>}
@@ -141,7 +155,7 @@ export default function EggSourceHistoryPage() {
             {['APPROVED','REJECTED'].map(decision=><button type="button" key={decision} disabled={busy||!decisionReason[row.id]?.trim()}
               onClick={()=>void perform(async()=>{
                 await request(endpoint+'/'+row.id+'/review',{method:'POST',body:JSON.stringify({decision,reason:decisionReason[row.id].trim(),disposition:referral[row.id]?'REFER_TO_ORIGINAL':'ANNOTATION'})});
-                await load();
+                await refreshAfterAction();
               })}>{decision==='APPROVED'?t('eggSources.approve','批准'):t('eggSources.reject','驳回')}</button>)}
           </div>}
         </td>

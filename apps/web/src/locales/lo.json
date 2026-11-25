@@ -15704,6 +15704,7 @@
   "flockCash.paymentCancelled": "ໃບຮັບເງິນຮ່າງເດີມຖືກຍົກເລີກແລ້ວ. ສາມາດບັນທຶກໃບຮັບເງິນໃໝ່ໄດ້.",
   "flockCash.retryPayment": "ກູ້ຄືນຄຳຂໍຮັບເງິນເດີມ",
   "flockCash.pendingExplanation": "ລະບົບເກັບຄຳຂໍເດີມ. ກູ້ຄືນເພື່ອລົງບັນຊີຕໍ່ ຫຼືເບິ່ງຜົນຢືນຢັນ.",
+  "eggSources.invalidResponse": "ບໍລິການແຫຼ່ງໄຂ່ສົ່ງຂໍ້ມູນໃນຮູບແບບທີ່ບໍ່ຄາດໄວ້. ກະລຸນາລອງໃໝ່.",
   "eggSources.title": "ໂປຣໄຟລ໌ແຫຼ່ງໄຂ່",
   "eggSources.history": "ກວດສອບແຫຼ່ງໄຂ່ຍ້ອນຫຼັງ",
   "eggSources.standard": "ໄຂ່ທຳມະດາ",

@@ -15710,6 +15710,7 @@
   "eggSources.unknown": "来源待核实",
   "eggSources.saved": "申请草稿已保存",
   "eggSources.actionSaved": "已记录操作与回执",
+  "eggSources.invalidResponse": "蛋品来源数据返回格式异常，请重试。",
   "eggSources.title": "蛋品来源档案",
   "eggSources.house": "鸡舍",
   "eggSources.shell": "商品壳色",
