@@ -1,5 +1,5 @@
 {
-  "auth.sessionRenewedRetry": "ໄດ້ຕໍ່ອາຍຸການເຂົ້າລະບົບແລ້ວ. ລອງດໍາເນີນການອີກຄັ້ງ.",
+  "common.sessionRenewedRetry": "ໄດ້ຕໍ່ອາຍຸການເຂົ້າລະບົບແລ້ວ. ລອງດໍາເນີນການອີກຄັ້ງ.",
   "mob.brd.reportChanged": "ລາຍງານຖືກອັບເດດແລ້ວ. ກວດສອບກ່ອນປ້ອນຮ່າງໃໝ່.",
   "mob.brd.discardStaleReportDraft": "ຍົກເລີກຮ່າງຂອງເລົ້ານີ້ ແລະ ໂຫຼດໃໝ່",
   "mob.brd.reportZero": "ຢືນຢັນວ່າກະນີ້ບໍ່ມີໄຂ່",
