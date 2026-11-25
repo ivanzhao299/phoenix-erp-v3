@@ -9,6 +9,8 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import * as evidence from '../ops/production-deployment-evidence.mjs';
 import {readFormalDeploymentEvidence} from '../ops/chanjet-readonly-production-audit.mjs';
+import {classifyWebTransition} from '../ops/production-web-baseline-restoration.mjs';
+import {fullDeploymentBinding} from '../ops/background-deployment-session.mjs';
 import {ownedFixtureDeadline,assertSuccessfulFixtureRecord} from './owned-fixture-deadline.mjs';
 import {selectOwnedComposeSubnet} from './owned-compose-ipam.mjs';
 const beforeImage=process.env.WEB_COMPOSE_BEFORE_IMAGE,targetImage=process.env.WEB_COMPOSE_TARGET_IMAGE;
@@ -58,8 +60,8 @@ test('actual Compose Web-only replacement, evidence refusal and owner cleanup',{
     record.fixedEndpoint='http://web:3000';record.hostPortsPublished=false;
     const app=(image,peer=false)=>({image,command:['node','/fixture/web-evidence-runtime.fixture.mjs',...(peer?['--peer-only']:[])],environment:{PHOENIX_FIXTURE_OWNER:owner},labels:{'phoenix.fixture.owner':owner},restart:'on-failure:1',
       healthcheck:{test:['CMD','node','-e',`fetch('http://127.0.0.1:${peer?3100:3000}/${peer?'api/readiness':''}').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))`],interval:'1s',timeout:'3s',retries:30,start_period:'1s'}});
-    // API is already at the candidate revision; only Web is switched here.
-    composition={services:{api:app(targetImage,true),web:app(beforeImage),db:{image:'postgres:18-alpine',environment:{POSTGRES_HOST_AUTH_METHOD:'trust',POSTGRES_USER:'fixture_owner',POSTGRES_DB:'web_evidence_fixture',PGDATA:'/var/lib/postgresql/data'},tmpfs:['/var/lib/postgresql:rw,nosuid,noexec,size=256m'],labels:{'phoenix.fixture.owner':owner},healthcheck:{test:['CMD','pg_isready','-U','fixture_owner','-d','web_evidence_fixture'],interval:'1s',timeout:'3s',retries:60}}},networks:{default:{internal:true,ipam:{config:[{subnet}]},labels:{'phoenix.fixture.owner':owner}}}};
+    // The API remains on the paired baseline while Web alone moves forward and back.
+    composition={services:{api:app(beforeImage,true),web:app(beforeImage),db:{image:'postgres:18-alpine',environment:{POSTGRES_HOST_AUTH_METHOD:'trust',POSTGRES_USER:'fixture_owner',POSTGRES_DB:'web_evidence_fixture',PGDATA:'/var/lib/postgresql/data'},tmpfs:['/var/lib/postgresql:rw,nosuid,noexec,size=256m'],labels:{'phoenix.fixture.owner':owner},healthcheck:{test:['CMD','pg_isready','-U','fixture_owner','-d','web_evidence_fixture'],interval:'1s',timeout:'3s',retries:60}}},networks:{default:{internal:true,ipam:{config:[{subnet}]},labels:{'phoenix.fixture.owner':owner}}}};
     persist('resources.json',{owner,project,composeFile:file,creationIntent:true,imagesBorrowed:true});persist('compose.json',composition);creationAttempted=true;
     compose(['up','-d','--no-build','--pull','never']);for(const service of ['api','db','web'])await waitHealthy(service);
     const binding={runId:Date.now()+'-1',runAttempt:1,targetSha:revisions[1],configFloorSha:revisions[1],deployMode:'web',evidenceSchema:evidence.MODE_EVIDENCE_SCHEMA};
@@ -94,7 +96,37 @@ test('actual Compose Web-only replacement, evidence refusal and owner cleanup',{
     const beforeRestart=snapshot('POST_SNAPSHOT'),restart=httpProbe('/api/__fixture/restart','POST');assert.equal(restart.status,200);
     let restarted=false;for(let n=0;n<180;n++){const state=evidence.metadataFor('web',run);if(state.health==='healthy'&&state.restartCount>0&&state.startedAt!==beforeRestart.containers.web.startedAt){restarted=true;break;}await delay(250);}assert.equal(restarted,true);
     assert.throws(()=>evidence.verifyLiveSnapshot(beforeRestart,binding,run),/WEB_TOCTOU/);cases.push('ACTUAL_WEB_PROCESS_RESTART_REJECTED');
-    deadline.assertActive();assert.equal(cases.length,8);record.result='PASS';record.rawLogsPersisted=false;record.startupEvidence='ACTUAL_NEXT_STDOUT_STDERR';
+    const restoreBinding={...binding,runId:(Number(binding.runId.split('-')[0])+1)+'-1',targetSha:revisions[0]};
+    const restoreSnapshot=phase=>evidence.captureSnapshot({phase,...restoreBinding,floorSha:restoreBinding.configFloorSha},run);
+    const restorePre=restoreSnapshot('PRE_SNAPSHOT');
+    const immutableOldWeb={imageId:beforeImage,revision:revisions[0]};
+    assert.equal(classifyWebTransition(restorePre,restoreSnapshot('POST_SNAPSHOT'),immutableOldWeb),'SOURCE');
+    composition.services.web.image=immutableOldWeb.imageId;persist('compose.json',composition);
+    compose(['up','-d','--no-deps','--no-build','--pull','never','web']);await waitHealthy('web');
+    assert.equal(httpProbe('/').status,200);
+    const restorePost=restoreSnapshot('POST_SNAPSHOT'),oldNext=restorePost.containers.web;
+    assert.equal(classifyWebTransition(restorePre,restorePost,immutableOldWeb),'DESTINATION');
+    assert.equal(evidence.compareSnapshots(restorePre,restorePost,'web').api,'UNCHANGED');
+    const restoredAt=new Date().toISOString();
+    const restoreLogs=evidence.captureDockerLogStreams({containerId:oldNext.id,startedAt:oldNext.startedAt,capturedAt:restoredAt},args=>spawnSync('/usr/bin/docker',args,{env,encoding:'utf8',timeout:10000,maxBuffer:evidence.MAX_LOG_BYTES,stdio:['ignore','pipe','pipe']}));
+    const restoredSummary=evidence.summarizeStartupLogs({...restoreBinding,...restoreLogs,floorSha:restoreBinding.configFloorSha,
+      service:'web',containerId:oldNext.id,startedAt:oldNext.startedAt,capturedAt:restoredAt,readinessVerified:true,webHttpVerified:true});
+    const restoreFiles={pre:'restore-pre.json',post:'restore-post.json',log:'restore-startup.json'};
+    persist(restoreFiles.pre,restorePre);persist(restoreFiles.post,restorePost);
+    persist(restoreFiles.log,evidence.startupBundle(restorePost,{web:restoredSummary}));
+    evidence.verifyEvidenceFiles(...Object.values(restoreFiles).map(name=>path.join(dir,name)),restoreBinding);
+    evidence.verifyLiveSnapshot(restorePost,restoreBinding,run);
+    const activePins=snap=>Object.fromEntries(['api','web'].map(service=>[service,{
+      revision:snap.containers[service].ociRevision,imageId:snap.containers[service].image,
+    }]));
+    const floor={version:3,phase:'READY',floorSha:restoreBinding.configFloorSha,chanjetPolicy:'HOLD',readonlyApproval:null};
+    const fullEnv={DEPLOY_MODE:'full',BUILD_API:'true',BUILD_WEB:'true',RUN_MIG:'false',TARGET_SHA:revisions[1],DEPLOY_RUN_ID:restoreBinding.runId};
+    const activeEnvelope=snap=>({version:3,floorSha:floor.floorSha,outcome:'SUCCESS',active:activePins(snap)});
+    assert.throws(()=>fullDeploymentBinding(fullEnv,floor,activeEnvelope(restorePre)),/FULL_FLOOR_RUNTIME_BINDING/);
+    const full=fullDeploymentBinding(fullEnv,floor,activeEnvelope(restorePost));
+    assert.equal(full.previousFloorSha,revisions[0]);
+    cases.push('ACTUAL_WEB_BASELINE_RESTORED_FULL_ADMISSION');
+    deadline.assertActive();assert.equal(cases.length,9);record.result='PASS';record.rawLogsPersisted=false;record.startupEvidence='ACTUAL_NEXT_STDOUT_STDERR';
   }catch(error){record.result='FAIL';record.failure='OWNED_WEB_COMPOSE_TEST_FAILED';throw error;}
   finally{
     cleaning=true;
