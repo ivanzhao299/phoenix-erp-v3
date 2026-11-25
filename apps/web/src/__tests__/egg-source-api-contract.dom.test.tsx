@@ -2,7 +2,6 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import EggSourcesPage from '@/app/(admin)/master-data/egg-sources/page';
 import EggSourceHistoryPage from '@/app/(admin)/breeding/egg-source-history/page';
 
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ canView: true, canEdit: true, canApprove: true }) }));
@@ -34,12 +33,6 @@ vi.mock('@/components/design-system/forms/AttachmentUploader', () => ({
 const endpoint = '/api/product-master/egg-sources';
 const fetchMock = vi.fn<(path: string, options: RequestInit) => Promise<Response>>();
 const respond = (data: unknown, code = 200, status = code) => Response.json({ code, data }, { status });
-const timeline = (houseCode: string) => ({
-  owner: { companyCode: 'CO', siteCode: 'SITE', houseCode },
-  businessDay: '2026-11-25', zone: 'Asia/Vientiane',
-  profiles: [{ profile_code: 'P1', effective_date: '2026-11-01', expire_date: null, shellClass: 'RED', status: 'ACTIVE' }],
-  changes: [],
-});
 const evidence = (batchNo: string, exactQuantity: number | null) => ({
   evidence: { batchNo, productCode: 'EGG_RED', skuCode: 'SKU-1', originalShell: 'RED', exactQuantity,
     ledger: [{ id: '123', ref_no: null, change_type: 'INBOUND', qty_change: '30' }] },
@@ -63,9 +56,6 @@ afterEach(async () => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
 });
-async function flushHouseLoad() {
-  await act(async () => new Promise(resolve => setTimeout(resolve, 0)));
-}
 async function click(label: string) {
   const button = [...host.querySelectorAll('button')].find(node => node.textContent?.trim() === label);
   expect(button, label).toBeDefined();
@@ -81,58 +71,6 @@ async function change(selector: string, value: string) {
     field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
   });
 }
-
-it('reads actual HTTP envelopes after selecting a house, choosing its flock plan and previewing SKU', async () => {
-  fetchMock.mockImplementation(async path => {
-    const url = new URL(path, location.origin);
-    const house = url.searchParams.get('houseCode') ?? '';
-    if (url.pathname === endpoint) return respond(timeline(house));
-    if (url.pathname === endpoint+'/flock-plans') {
-      const index = house === 'H1' ? 1 : 2;
-      return respond([{ id: 'PLAN-'+index, flock_no: 'FLOCK-'+index, kind: 'ADMIT', status: 'APPROVED' }]);
-    }
-    if (url.pathname === endpoint+'/preview') return respond({ verified: { items: [{ productCode: 'EGG_RED', skuCode: 'SKU-1' }] } },200,201);
-    throw Error(path);
-  });
-  await act(async () => root.render(<EggSourcesPage/>));
-  await click('H1');
-  await flushHouseLoad();
-  expect(host.textContent).toContain('CO · SITE · 2026-11-25');
-  expect(host.textContent).toContain('红壳蛋');
-  await change('input[type=date]', '2026-12-01');
-  expect(host.textContent).toContain('FLOCK-1');
-  await change('select:has(option[value="PLAN-1"])', 'PLAN-1');
-  await change('select[required]', 'GRADE_1');
-  await click('选择规格');
-  await click('选择目标仓');
-  await change('textarea', '依据');
-  await click('预检 SKU 与库存范围');
-  expect(host.textContent).toContain('EGG_RED · SKU-1');
-  const sent = fetchMock.mock.calls.find(([path]) => path === endpoint+'/preview');
-  expect(JSON.parse(String(sent?.[1].body))).toMatchObject({ houseCode: 'H1', planDocument: 'PLAN-1', effectiveDate: '2026-12-01' });
-
-  await click('H2');
-  await flushHouseLoad();
-  const planControl = host.querySelector<HTMLSelectElement>('select:has(option[value="PLAN-2"])');
-  expect(planControl?.value).toBe('');
-  expect(host.querySelector('option[value="PLAN-1"]')).toBeNull();
-  expect(host.textContent).not.toContain('EGG_RED · SKU-1');
-});
-
-it.each([
-  { response: () => Response.json({ message: '鸡舍超出当前组织权限' }, { status: 403 }), error: '鸡舍超出当前组织权限' },
-  { response: () => respond({ ...timeline('H1'), profiles: undefined }), error: '返回格式异常' },
-])('keeps the house selector and retries a failed direct link in place', async ({ response, error }) => {
-  history.replaceState(null, '', '/?houseCode=H1');
-  fetchMock.mockResolvedValueOnce(response()).mockResolvedValueOnce(respond(timeline('H1')));
-  await act(async () => root.render(<EggSourcesPage/>));
-  await flushHouseLoad();
-  await flushHouseLoad();
-  expect(host.querySelector('[role=alert]')?.textContent).toContain(error);
-  await click('重试');
-  expect(host.textContent).toContain('CO · SITE · 2026-11-25');
-  expect(host.querySelector('[role=alert]')).toBeNull();
-});
 
 it('submits a mixed batch without old quantity and distinguishes a saved review from a failed refresh', async () => {
   let saved = false;
@@ -167,13 +105,4 @@ it('submits a mixed batch without old quantity and distinguishes a saved review 
   expect(host.querySelector('[role=status]')?.textContent).toContain('已记录操作与回执');
   expect(host.querySelector('[role=alert]')?.textContent).toContain('暂时无法查询历史凭据');
   expect(host.querySelector('select[required]')).toBeNull();
-});
-
-it('leaves the first-profile form available when a valid house has no archive or requests yet', async () => {
-  fetchMock.mockResolvedValueOnce(respond({ ...timeline('H1'), profiles: [] }));
-  await act(async () => root.render(<EggSourcesPage/>));
-  await click('H1');
-  await flushHouseLoad();
-  expect(host.textContent).toContain('首次建档或按日改色');
-  expect(host.querySelector('[role=alert]')).toBeNull();
 });

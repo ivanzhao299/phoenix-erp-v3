@@ -4,9 +4,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import type { OrgScope } from '../../farm/farm.service';
 import {
   assertEggSourceScope, commercialShellClass, EggShellClass, EggSourceOwner, lockEggSourceHouse, lockEggSourcePolicy,
-  readEggSourceOwner, requireShellClass, SHELL_TYPES, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid,
+  readEggSourceOwner, requireShellClass, SHELL_TYPES, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid, sourceCalendars,
 } from './egg-source-change-policy';
-import { sourceUseBlockers, SourceSkuRequirement, verifySourceChangePlan } from './egg-source-change-facts';
+import { sourceUseBlockers, SourceSkuRequirement, SourcePlanBlocked, SourcePrecheckRow, verifySourceChangePlan } from './egg-source-change-facts';
+import { type ChangeListQuery, type ChangeReader, changeList, changeDetail, draftReceipt, actionReceipt, candidateHouses, candidateWarehouses, candidateOptions, workspace, authorizedPlans, planOptions, findChange, redactChange } from './egg-source-change-read';
 import { SkuAvailabilityService } from './sku-availability.service';
 
 type ChangeInput = {
@@ -14,17 +15,17 @@ type ChangeInput = {
   reason?: unknown; warehouseCode?: unknown; requirements?: unknown; planDocument?: unknown;
 };
 type Payload = { reason:string; warehouseCode:string; requirements:SourceSkuRequirement[]; planDocument:string|null };
-type Action = 'submit'|'approve'|'reject'|'cancel'|'request-revoke'|'revoke'|'decline-revoke';
-type ChangeScope = OrgScope & { allowedWarehouses?: string[] };
+export type Action = 'submit'|'approve'|'reject'|'cancel'|'request-revoke'|'revoke'|'decline-revoke';
+export type ChangeScope = OrgScope & { allowedWarehouses?: string[] };
 type ActionInput = { actionKey?:unknown; version?:unknown; planDigest?:unknown; reason?:unknown };
 type ProfileRow = { profile_code:string; product_mode:string; variety_code:string|null; effective_date:string;
   expire_date:string|null; status:string };
-type ChangeRow = { id:string; created_by:string; last_editor:string; approved_by:string|null; version:number;
+export type ChangeRow = { id:string; created_at:string; updated_at:string; created_by:string; last_editor:string; approved_by:string|null; version:number;
   state:string; effective_date:string; target_class:EggShellClass; company_code:string; farm_code:string; site_code:string;
   house_code:string; payload:Payload; previous_profile_code:string|null; new_profile_code:string|null;
   approval: { priorEndsOn:string|null; planDigest:string; snapshot?:Awaited<ReturnType<typeof verifySourceChangePlan>>; previousClass?:EggShellClass|null; retractionRequestedBy?:string } | null };
 
-const changeFields = 'c.*,c.effective_date::text AS effective_date,c.created_at::text AS created_at,c.updated_at::text AS updated_at';
+export const changeFields = 'c.*,c.effective_date::text AS effective_date,c.created_at::text AS created_at,c.updated_at::text AS updated_at';
 const profileFields = 'profile_code, product_mode, variety_code, effective_date::text, expire_date::text, status';
 
 function normalize(input: ChangeInput): Payload {
@@ -48,32 +49,49 @@ function normalize(input: ChangeInput): Payload {
 export class EggSourceChangeService {
   constructor(private readonly db: DataSource, private readonly skus: SkuAvailabilityService) {}
 
-  async timeline(house: string, scope: ChangeScope) {
-    return this.db.transaction(async m => {
+  workspace(house: string, reader: ChangeReader) { return workspace(this.db,house,reader); }
+  candidateHouses(scope: ChangeScope) { return candidateHouses(this.db.manager,scope); }
+  candidateWarehouses(house: string, scope: ChangeScope) { return this.db.transaction('REPEATABLE READ',m=>candidateWarehouses(m,house,scope)); }
+  candidateOptions() { return candidateOptions(this.db.manager); }
+  changeList(query: ChangeListQuery, scope: ChangeScope) { return this.db.transaction('REPEATABLE READ',m=>changeList(m,query,scope)); }
+  changeDetail(id: string, reader: ChangeReader) { return changeDetail(this.db,id,reader); }
+  draftReceipt(key: string, house: string, scope: ChangeScope, actor: string) {
+    return draftReceipt(this.db.manager,key,house,scope,actor);
+  }
+  actionReceipt(id: string, key: string, scope: ChangeScope, actor: string) {
+    return actionReceipt(this.db.manager,id,key,scope,actor);
+  }
+
+  async timeline(house: string, scope: ChangeScope, flock?:ChangeScope) {
+    return this.db.transaction('REPEATABLE READ',async m => {
       const owner = await readEggSourceOwner(m, house);
       assertEggSourceScope(scope, owner);
       const clock = await sourceClock(m, owner);
       const profiles: ProfileRow[] = await this.profiles(m, owner, false);
       const changes: ChangeRow[] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c
         WHERE company_code=$1 AND house_code=$2 AND farm_code=$3 AND site_code=$4
-        ORDER BY c.created_at DESC LIMIT 100`, [owner.companyCode,owner.houseCode,owner.farmCode,owner.siteCode]);
+        AND ($5::boolean OR c.payload->>'warehouseCode'=ANY($6::text[]))
+        ORDER BY c.created_at DESC,c.id DESC LIMIT 100`, [owner.companyCode,owner.houseCode,owner.farmCode,owner.siteCode,scope.isGlobal,scope.allowedWarehouses??[]]);
+      const ids=changes.flatMap(change=>change.payload.planDocument ? [change.payload.planDocument] : []);
+      const allowed=new Set((await authorizedPlans(m,flock,owner,ids)).map((plan:{id:string})=>plan.id));
       return { owner, businessDay:clock.day, zone:clock.zone,
         profiles:profiles.map(row => ({ ...row, shellClass:commercialShellClass(row.product_mode,row.variety_code) })),
-        changes:changes.filter(change => scope.isGlobal || scope.allowedWarehouses?.includes(change.payload.warehouseCode)) };
+        changes:changes.map(change=>redactChange(change,!!change.payload.planDocument&&allowed.has(change.payload.planDocument))) };
     });
   }
 
-  async planOptions(house:string,dateInput:string,scope:ChangeScope) {
-    const owner=await readEggSourceOwner(this.db.manager,house);
-    assertEggSourceScope(scope,owner);
-    const date=sourceDate(dateInput);
-    return this.db.query(`SELECT id,flock_no,kind,status,business_date::text FROM brd_flock_documents
-      WHERE company_code=$1 AND business_date=$3 AND status IN ('DRAFT','SUBMITTED','APPROVED','POSTED')
-        AND (kind='ADMIT' AND house_code=$2 OR kind='TRANSFER' AND payload->>'targetHouseCode'=$2)
-      ORDER BY created_at DESC LIMIT 100`,[owner.companyCode,owner.houseCode,date]);
+  planOptions(house:string,date:string,scope:ChangeScope,flockScope?:ChangeScope) {
+    return this.db.transaction('REPEATABLE READ',m=>planOptions(m,house,date,scope,flockScope));
   }
 
-  async preview(input: ChangeInput, scope: ChangeScope) {
+  async safeLegacyChange<T extends ChangeRow>(row:T, flock?:ChangeScope) {
+    const owner={ companyCode:row.company_code,farmCode:row.farm_code,siteCode:row.site_code,houseCode:row.house_code };
+    const linked=row.payload.planDocument;
+    const visible=linked && (await authorizedPlans(this.db.manager,flock,owner,[linked])).length>0;
+    return redactChange(row,!!visible);
+  }
+
+  async preview(input: ChangeInput, scope: ChangeScope, flock?:ChangeScope) {
     const house = sourceText(input.houseCode,'鸡舍',64);
     const date = sourceDate(input.effectiveDate);
     const kind = requireShellClass(input.targetClass);
@@ -82,8 +100,61 @@ export class EggSourceChangeService {
       const owner = await readEggSourceOwner(m,house,true);
       assertEggSourceScope(scope,owner);
       this.authorizeWarehouse(scope,payload.warehouseCode);
-      return this.plan(m,owner,date,kind,payload);
+      const plan=await this.plan(m,owner,date,kind,payload);
+      if (!payload.planDocument || (await authorizedPlans(m,flock,owner,[payload.planDocument])).length) return plan;
+      return { ...plan,payload:{ ...plan.payload,planDocument:null },verified:{ ...plan.verified,planned:null } };
     });
+  }
+
+  async precheck(input: ChangeInput, scope: ChangeScope) {
+    if (!input || typeof input!=='object' || Array.isArray(input) ||
+        (input.planDocument != null && typeof input.planDocument!=='string')) throw new BadRequestException('预检内容无效');
+    const house = sourceText(input.houseCode,'鸡舍',64);
+    const date = sourceDate(input.effectiveDate);
+    const targetClass = requireShellClass(input.targetClass);
+    const payload = normalize(input);
+    return this.db.transaction(m => this.runPrecheck(m,house,date,targetClass,payload,scope));
+  }
+
+  async precheckDraft(id:string, scope: ChangeScope, actor:string) {
+    return this.db.transaction(async m => {
+      const initial = await findChange(m,id,scope);
+      await readEggSourceOwner(m,initial.house_code,false,true);
+      const row = await findChange(m,id,scope,true);
+      if (row.created_by!==actor || row.state!=='DRAFT') throw new NotFoundException('来源草稿不存在');
+      return this.runPrecheck(m,row.house_code,row.effective_date,row.target_class,row.payload,scope,row);
+    });
+  }
+
+  private async runPrecheck(m:EntityManager, house:string, date:string, targetClass:EggShellClass, payload:Payload, scope:ChangeScope,
+    draft?:ChangeRow) {
+    let owner: EggSourceOwner;
+    try {
+      owner = await readEggSourceOwner(m,house,false,true);
+      assertEggSourceScope(scope,owner);
+      if (draft) this.authorizeRow(draft,owner,scope);
+      this.authorizeWarehouse(scope,payload.warehouseCode);
+    } catch (error) {
+      if (error instanceof ForbiddenException || error instanceof ConflictException) throw new ForbiddenException('鸡舍或目标仓不可访问');
+      throw error;
+    }
+    const rows: SourcePrecheckRow[] = [];
+    let problems: string[] = [];
+    try {
+      try { await readEggSourceOwner(m,house,true); }
+      catch (error) {
+        if (error instanceof ConflictException) throw new SourcePlanBlocked('INACTIVE_HOUSE','当前鸡舍不可制单');
+        throw error;
+      }
+      if (!sourceCalendars[owner.siteCode]) throw new SourcePlanBlocked('NO_CALENDAR','场站尚未核准产蛋业务日时区');
+      await this.plan(m,owner,date,targetClass,payload,rows);
+    } catch (error) {
+      if (!(error instanceof SourcePlanBlocked)) throw error;
+      problems = [error.reasonCode];
+      rows.push(...payload.requirements.map(requirement => ({ ...requirement,status:'NOT_CHECKED' as const,issues:[] })));
+    }
+    return { status:problems.length || rows.some(row => row.status==='BLOCKED') ? 'BLOCKED' : 'READY',
+      houseCode:owner.houseCode,warehouseCode:payload.warehouseCode,targetClass,effectiveDate:date,problems,rows };
   }
 
   async create(input: ChangeInput, scope: ChangeScope, actor: string) {
@@ -168,29 +239,29 @@ export class EggSourceChangeService {
 
   private async ensureFuture(m: EntityManager, owner: EggSourceOwner, date: string) {
     const clock = await sourceClock(m,owner);
-    if (date <= clock.day) throw new ConflictException('只能在生效日前批准未来整日的来源配置，请重新排期');
+    if (date <= clock.day) throw new SourcePlanBlocked('DATE_NOT_FUTURE','只能在生效日前批准未来整日的来源配置，请重新排期');
     return clock;
   }
 
-  private async plan(m: EntityManager, owner: EggSourceOwner, date: string, targetClass: EggShellClass, payload: Payload) {
+  private async plan(m: EntityManager, owner: EggSourceOwner, date: string, targetClass: EggShellClass, payload: Payload, diagnostics?: SourcePrecheckRow[]) {
     const clock = await this.ensureFuture(m,owner,date);
     const [enrolled] = await m.query(`SELECT 1 FROM md_egg_source_profiles WHERE company_code=$1
       AND effective_date <= $2 LIMIT 1`,[owner.companyCode,clock.day]);
-    if (!enrolled) throw new ConflictException('公司尚未完成来源档案切入，请先办理公司级受控切入');
+    if (!enrolled) throw new SourcePlanBlocked('NOT_ENROLLED','公司尚未完成来源档案切入，请先办理公司级受控切入');
     const profiles = await this.profiles(m,owner,true);
     if (profiles.some(row => row.status === 'ACTIVE' && row.effective_date > clock.day)) {
-      throw new ConflictException('该舍已有未来排期，须先核对现有安排');
+      throw new SourcePlanBlocked('FUTURE_SCHEDULE_EXISTS','该舍已有未来排期，须先核对现有安排');
     }
     const previous = profiles.find(row => row.status === 'ACTIVE' && row.effective_date <= date
       && (row.expire_date === null || row.expire_date >= date));
     if (previous && commercialShellClass(previous.product_mode,previous.variety_code) === targetClass) {
-      throw new ConflictException('目标壳色与生效日原档相同');
+      throw new SourcePlanBlocked('SAME_COLOR','目标壳色与生效日原档相同');
     }
     const blockers = await sourceUseBlockers(m,owner,date);
-    if (blockers.length) throw new ConflictException({ code:'EGG_SOURCE_REFERENCED', blockers:[...new Set(blockers.map((row:{kind:string})=>row.kind))],
+    if (blockers.length) throw new SourcePlanBlocked('SOURCE_REFERENCED',{ code:'EGG_SOURCE_REFERENCED', blockers:[...new Set(blockers.map((row:{kind:string})=>row.kind))],
       message:'目标日期已有交接、冻结或实际来源事实，请按原单处置' });
     const verified = await verifySourceChangePlan(m,this.skus,owner,date,targetClass,payload.warehouseCode,
-      payload.requirements,payload.planDocument ?? undefined);
+      payload.requirements,payload.planDocument ?? undefined,diagnostics);
     const frozen = { owner, date, targetClass, payload, timeline:sourceDigest(profiles), previous:previous ?? null, verified };
     return { ...frozen, planDigest:sourceDigest(frozen), businessDay:clock.day, zone:clock.zone };
   }

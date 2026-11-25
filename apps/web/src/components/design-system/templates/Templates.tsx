@@ -11,6 +11,7 @@ import { StatusBadge } from '../status/StatusBadge';
 import { MobilePageShell } from '../mobile/MobileKit';
 import { WorkbenchShell } from '../workbench/WorkbenchKit';
 import { KPI_GRID } from '@/lib/design-tokens';
+import layout from './ResponsiveTemplates.module.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
@@ -24,16 +25,17 @@ export interface MasterDataTemplateProps<T = any> {
   title: string; subtitle?: string; breadcrumb?: Crumb[];
   filters?: React.ReactNode;        // FilterBar 槽
   actions?: React.ReactNode;        // ActionBar 槽（新增等）
-  rows: T[]; columns: ColumnV3<T>[]; loading?: boolean; pageSize?: number;
+  rows?: T[]; columns?: ColumnV3<T>[]; loading?: boolean; pageSize?: number;
+  content?: React.ReactNode; responsive?: boolean;
   rowKey?: (row: T, i: number) => string | number;
   drawer?: { open: boolean; title?: string; onClose: () => void; content: React.ReactNode; footer?: React.ReactNode };
 }
 export function MasterDataTemplate<T = any>(p: MasterDataTemplateProps<T>) {
   return (
-    <div style={{ padding: 24 }}>
+    <div className={p.responsive ? layout.master : undefined} style={p.responsive ? undefined : { padding:24 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb} actions={p.actions} />
       {p.filters && <PageToolbar left={p.filters} />}
-      <DataTableV3 rows={p.rows} columns={p.columns} loading={p.loading} pageSize={p.pageSize} rowKey={p.rowKey} />
+      {p.content ?? <DataTableV3 rows={p.rows??[]} columns={p.columns??[]} loading={p.loading} pageSize={p.pageSize} rowKey={p.rowKey} />}
       {p.drawer && (
         <DrawerV2 open={p.drawer.open} title={p.drawer.title} onClose={p.drawer.onClose} footer={p.drawer.footer}>
           {p.drawer.content}
@@ -146,6 +148,7 @@ export function ConfigTemplate(p: ConfigTemplateProps) {
 // ── 8. DetailTemplate（详情页：订单/客户/资本流/审批详情）────────────────
 export interface DetailTemplateProps {
   title: string; subtitle?: string; breadcrumb?: Crumb[]; status?: string; actions?: React.ReactNode;
+  responsive?: boolean; statusLabel?: string; sidebar?: React.ReactNode;
   coreFields: DetailItem[];
   sections?: { title: string; content: React.ReactNode }[];
   attachments?: { urls?: string[] | null; count?: number };
@@ -155,16 +158,17 @@ export interface DetailTemplateProps {
 export function DetailTemplate(p: DetailTemplateProps) {
   const { t } = useLanguage();
   return (
-    <div style={{ padding: 24, maxWidth: 1080 }}>
+    <div className={p.responsive ? layout.detail : undefined} style={p.responsive ? undefined : { padding:24,maxWidth:1080 }}>
       <PageHeaderV2 title={p.title} subtitle={p.subtitle} breadcrumb={p.breadcrumb}
-        actions={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{p.status && <StatusBadge status={p.status} size="md" />}{p.actions}</div>} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
+        actions={<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{p.status && <StatusBadge status={p.status} label={p.statusLabel} size="md" />}{p.actions}</div>} />
+      <div className={p.responsive ? layout.columns : undefined} style={p.responsive ? undefined : { display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:20,alignItems:'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <DetailPanel title={t('ui.核心信息','核心信息')} items={p.coreFields} />
           {p.sections?.map((s, i) => <PageSection key={i} title={s.title}>{s.content}</PageSection>)}
           {p.attachments && <PageSection title={t('ui.附件','附件')}><AttachmentViewer urls={p.attachments.urls} count={p.attachments.count} /></PageSection>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {p.sidebar}
           {p.approval && <PageSection title={t('ui.审批记录','审批记录')}><WorkflowTimeline steps={p.approval} title="" /></PageSection>}
           {p.timeline && <PageSection title={t('ui.操作记录','操作记录')}><AuditTimeline items={p.timeline} title="" /></PageSection>}
         </div>

@@ -31,6 +31,7 @@ export function AuthFetchInterceptor() {
       input: RequestInfo | URL,
       init?: RequestInit
     ): Promise<Response> {
+      const sentToken = sessionStorage.getItem('phoenix_token');
       const res = await _origFetch(input, init);
 
       // 只处理 /api/* 路径的 401
@@ -48,7 +49,7 @@ export function AuthFetchInterceptor() {
           if (body.subcode === 'PERMS_CHANGED') reason = 'perms_changed';
         } catch { /* ignore parse error */ }
         // 通过共享防抖函数派发（与 api-client.ts 共用同一个冷却锁）
-        dispatchAuthExpired(reason);
+        if (sentToken===sessionStorage.getItem('phoenix_token')) dispatchAuthExpired(reason);
       }
 
       if (res.status >= 400 && path.startsWith('/api')) {

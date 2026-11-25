@@ -1,9 +1,18 @@
 import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { EggSourceOwner, EggShellClass, SHELL_TYPES, sourceClock } from './egg-source-change-policy';
-import { EggSourceProfile, SkuAvailabilityService } from './sku-availability.service';
+import { EggSourceProfile, SkuAvailabilityService, SourceSkuBlocked, SourceSkuIssue, SkuResolveResult } from './sku-availability.service';
 
 export type SourceSkuRequirement = { gradeCode: string; specCode: string };
+
+export class SourcePlanBlocked extends ConflictException {
+  constructor(readonly reasonCode: string, response: string|Record<string,unknown>) { super(response); }
+}
+
+export type SourcePrecheckRow = SourceSkuRequirement & {
+  status:'PASSED'|'BLOCKED'|'NOT_CHECKED'; issues:SourceSkuIssue[];
+  skuCode?:string;productCode?:string;domainVerified?:boolean;
+};
 
 /** New commercial approvals on a formal route require an active product with its original opening proof. */
 export async function requireEggProductDomain(m: EntityManager, owner: Pick<EggSourceOwner, 'companyCode'|'houseCode'>,
@@ -14,7 +23,7 @@ export async function requireEggProductDomain(m: EntityManager, owner: Pick<EggS
       AND d.company_code=$2 AND d.warehouse_code=$4 AND d.product_code=$5
     FOR SHARE OF d,s`, [scopeId, owner.companyCode, owner.houseCode, warehouseCode, productCode]);
   if (rows.length !== 1 || rows[0].scope_state !== 'ACTIVE') {
-    throw new ConflictException({ code:'EGG_SOURCE_PRODUCT_DOMAIN_REQUIRED', productCode, warehouseCode,
+    throw new SourcePlanBlocked('EGG_SOURCE_PRODUCT_DOMAIN_REQUIRED',{ code:'EGG_SOURCE_PRODUCT_DOMAIN_REQUIRED', productCode, warehouseCode,
       message:'目标产品未纳入本舍正式库存范围，请先办理受控扩域' });
   }
   const [domain] = await m.query(`SELECT d.id,d.state FROM production_inventory_domain_states d
@@ -25,7 +34,7 @@ export async function requireEggProductDomain(m: EntityManager, owner: Pick<EggS
     WHERE d.company_code=$1 AND d.warehouse_code=$2 AND d.product_code=$3 FOR SHARE OF d`, [owner.companyCode, warehouseCode, productCode]);
   const id = rows[0].inventory_domain_id;
   if (!id || !domain || domain.state !== 'ACTIVE' || domain.id !== id) {
-    throw new ConflictException({ code:'EGG_SOURCE_PRODUCT_DOMAIN_UNAVAILABLE', productCode, warehouseCode,
+    throw new SourcePlanBlocked('EGG_SOURCE_PRODUCT_DOMAIN_UNAVAILABLE',{ code:'EGG_SOURCE_PRODUCT_DOMAIN_UNAVAILABLE', productCode, warehouseCode,
       message:'目标产品库存域尚未启用、已暂停或成员身份不一致' });
   }
   return id;
@@ -56,14 +65,14 @@ export async function sourceUseBlockers(m: EntityManager, owner: EggSourceOwner,
 }
 
 export async function verifySourceChangePlan(m: EntityManager, skus: SkuAvailabilityService, owner: EggSourceOwner,
-  date: string, kind: EggShellClass, warehouseCode: string, requirements: SourceSkuRequirement[], planDocument?: string) {
+  date: string, kind: EggShellClass, warehouseCode: string, requirements: SourceSkuRequirement[], planDocument?: string, diagnostics?: SourcePrecheckRow[]) {
   const [warehouse] = await m.query(`SELECT warehouse_code FROM wms_warehouses WHERE warehouse_code=$1 AND company_code=$2
     AND status='ACTIVE' AND domain='OPERATIONAL' FOR SHARE`, [warehouseCode, owner.companyCode]);
-  if (!warehouse) throw new ConflictException('目标仓须为本公司启用的操作仓');
+  if (!warehouse) throw new SourcePlanBlocked('WAREHOUSE_UNAVAILABLE','目标仓须为本公司启用的操作仓');
   const scopes = await m.query(`SELECT id,state,first_production_date::text FROM production_cutover_scopes
     WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' FOR SHARE`, [owner.companyCode, owner.houseCode]);
   if (scopes.length > 1 || scopes.some((s: any) => s.state !== 'ACTIVE' || s.first_production_date > date)) {
-    throw new ConflictException('鸡舍的正式库存范围未就绪');
+    throw new SourcePlanBlocked('CUTOVER_NOT_READY','鸡舍的正式库存范围未就绪');
   }
   let planned: { documentId:string; version:number; flockNo:string } | null = null;
   if (planDocument) {
@@ -71,15 +80,25 @@ export async function verifySourceChangePlan(m: EntityManager, skus: SkuAvailabi
       FROM brd_flock_documents WHERE id=$1 AND company_code=$2 FOR SHARE`, [planDocument, owner.companyCode]);
     if (!plan || !['ADMIT','TRANSFER'].includes(plan.kind) || !['DRAFT','SUBMITTED','APPROVED','POSTED'].includes(plan.status)
       || (plan.kind === 'ADMIT' ? plan.house_code : plan.payload.targetHouseCode) !== owner.houseCode
-      || plan.business_date !== date) throw new ConflictException('换群计划与鸡舍或产蛋生效日不一致');
+      || plan.business_date !== date) throw new SourcePlanBlocked('PLAN_MISMATCH','换群计划与鸡舍或产蛋生效日不一致');
     planned = { documentId:plan.id, version:plan.version, flockNo:plan.flock_no };
   }
   const profile: EggSourceProfile = { ...owner, ...SHELL_TYPES[kind], eggDate:date, effectiveDate:date, profileCode:'PROPOSED' };
   const items = [];
   for (const requirement of requirements) {
-    const selected = await skus.resolveForProfile({ ...owner, ...requirement, usage:'stock' }, profile, m, date);
-    const domainId = scopes.length ? await requireEggProductDomain(m, owner, scopes[0].id, warehouseCode, selected.productCode) : null;
-    items.push({ ...selected, domainId });
+    let selected:SkuResolveResult|undefined;
+    try {
+      selected = await skus.resolveForProfile({ ...owner, ...requirement, usage:'stock' }, profile, m, date,!!diagnostics);
+      const domainId = scopes.length ? await requireEggProductDomain(m, owner, scopes[0].id, warehouseCode, selected.productCode) : null;
+      items.push({ ...selected, domainId });
+      diagnostics?.push({ ...requirement,status:'PASSED',issues:[],skuCode:selected.skuCode,productCode:selected.productCode,domainVerified:!!domainId });
+    } catch (error) {
+      if (!diagnostics) throw error;
+      const issues: SourceSkuIssue[] = error instanceof SourceSkuBlocked ? error.issues
+        : error instanceof SourcePlanBlocked ? [{ layer:'INVENTORY',code:error.reasonCode }] : [];
+      if (!issues.length) throw error;
+      diagnostics.push({ ...requirement,status:'BLOCKED',issues,skuCode:selected?.skuCode,productCode:selected?.productCode });
+    }
   }
   return { items, scopeId:scopes[0]?.id ?? null, planned };
 }
