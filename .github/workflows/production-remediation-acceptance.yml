@@ -214,3 +214,53 @@ jobs:
           docker pull nginx:1.28-alpine
           node --test scripts/ops/production-remediation-{held-facts,handoff}.test.mjs scripts/ops/production-held-follow-up.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
           python3 scripts/ci/production-remediation-edge-hold.test.py
+
+  production-ui-upgrade:
+    name: Current production API and schema / PostgreSQL ${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Detect changes to production UI extension migrations
+        id: scope
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          before="${BEFORE:-b80d326812b011966b3d98580ad001e20ac1acb2}"
+          if git diff --quiet "$before" HEAD -- 'apps/api/src/database/migrations/1795565[123]00000-*.ts'; then
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.scope.outputs.required == 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        if: steps.scope.outputs.required == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+      - if: steps.scope.outputs.required == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Rehearse previous API, upgrade, rerun and cold installation
+        if: steps.scope.outputs.required == 'true'
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          POSTGRES_MAJOR: ${{ matrix.pg }}
+        run: |
+          set -euo pipefail
+          python3 scripts/test/production-remediation-release-compat.py \
+            "${BEFORE:-b80d326812b011966b3d98580ad001e20ac1acb2}" HEAD --postgres-major "$POSTGRES_MAJOR" \
+            | tee "$RUNNER_TEMP/production-ui-upgrade.log"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scope.outputs.required == 'true'
+        with:
+          name: production-ui-upgrade-pg${{ matrix.pg }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-ui-upgrade.log
