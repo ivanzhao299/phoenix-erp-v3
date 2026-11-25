@@ -13,9 +13,10 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
       if (sql.includes('FROM pkg_packing_records')) return [record];
       if (sql.includes('FROM inv_batches') || sql.includes('FROM inv_ledger')) return [];
       if (sql.includes('FROM pkg_work_shifts')) return [{ site_id: record.site_id, egg_date: record.egg_date, is_test: false }];
-      if (sql.includes('SELECT g.code FROM pkg_grading_records')) return [{ code: 'GR' }];
+      if (sql.includes('SELECT g.code,') && sql.includes('FROM pkg_grading_records')) return [{ code: 'GR', egg_date:record.egg_date }];
       if (sql.includes('SELECT DISTINCT s.house_code')) return [{ house_code: 'HOUSE', egg_date: record.egg_date, batch_status: 'RECEIVED', is_test: false, grading_is_test: false }];
       if (sql.includes('FROM brd_houses')) return [{ house_code: 'HOUSE', farm_code: 'FARM', site_code: 'SITE', company_code: 'COMP' }];
+      if (sql.includes('clock_timestamp() AT TIME ZONE')) return [{day:'2026-08-07'}];
       if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP' }];
       if (sql.includes('FROM sys_organizations')) return [{ org_code: 'COMP' }];
       if (sql.includes('FROM md_egg_source_profiles')) return [{ profile_code: 'PROFILE', company_code: 'COMP', farm_code: 'FARM', site_code: 'SITE', house_code: 'HOUSE', product_mode: 'VARIANT', variety_code: 'VAR', effective_date: '2026-01-01', status: 'ACTIVE' }];
@@ -41,7 +42,7 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     const { service, ds, eggInv, modeSvc } = setup();
     await expect(service.completeTerminalPacking('PKG-1', { ...location, manager: ds })).resolves.toMatchObject({ totalInbound: 30, skippedByMode: false });
     expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM', companyCode: 'COMP' }, ds);
-    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({ companyCode: 'COMP', eggDate: '2026-08-06', varietyCode: 'VAR', sourceProfileRefs: [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }], productCode: 'PRODUCT', skuCode: 'SKU', specCode: 'SPEC', qty: 30, collectionBatchRef: 'SHIFT-9', ...location }), ds);
+    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({ companyCode: 'COMP', eggDate: '2026-08-06', postingDate:'2026-08-07', varietyCode: 'VAR', sourceProfileRefs: [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }], productCode: 'PRODUCT', skuCode: 'SKU', specCode: 'SPEC', qty: 30, collectionBatchRef: 'SHIFT-9', ...location }), ds);
     expect(ds.query).toHaveBeenCalledWith(expect.stringContaining('FROM md_sku_org_scope'), ['SKU', 'COMP', 'FARM', 'SITE']);
   });
   it('TEMP mode does not write packaging inventory', async () => {

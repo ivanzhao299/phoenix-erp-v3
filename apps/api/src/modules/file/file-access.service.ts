@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -6,7 +7,9 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createReadStream, existsSync, statSync } from 'fs';
+import { constants, createReadStream, existsSync, statSync } from 'fs';
+import { open } from 'fs/promises';
+import { createHash } from 'node:crypto';
 import { basename, isAbsolute, relative, resolve, sep } from 'path';
 import { ClsService } from 'nestjs-cls';
 import { Repository } from 'typeorm';
@@ -24,6 +27,7 @@ export interface FileAccessPolicy {
   storeCode?: string;
   requiredMenu: string;
   requiredOperation?: PermCode;
+  expectedChecksum?: string;
   /** Set only by the flock service after authoritative house DataScope validation. */
   canonicalBreedingHouseScopeVerified?: boolean;
 }
@@ -93,8 +97,11 @@ export class FileAccessService {
       throw new NotFoundException('FILE_BINARY_NOT_FOUND');
     }
 
+    const stream = policy.expectedChecksum
+      ? new StreamableFile(await this.readFrozenEvidence(path,Number(file.sizeBytes),file.checksum,policy.expectedChecksum))
+      : new StreamableFile(createReadStream(path));
     return {
-      stream: new StreamableFile(createReadStream(path)),
+      stream,
       originalName: file.originalName,
       mimeType: file.mimeType,
       sizeBytes: Number(file.sizeBytes),
@@ -134,6 +141,22 @@ export class FileAccessService {
     this.assertRbac(file, policy, mode);
     this.assertDataScope(file, policy, mode);
     return file;
+  }
+
+  private async readFrozenEvidence(path:string, size:number, checksum:string, expected:string) {
+    if (!/^[a-f0-9]{64}$/.test(expected) || checksum!==expected || !Number.isSafeInteger(size)
+        || size<1 || size>15*1024*1024) throw new ConflictException('原证据已变化');
+    const handle=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+    try{
+      const file=await handle.stat();
+      if (!file.isFile() || file.size!==size) throw new ConflictException('原证据已变化');
+      const content=Buffer.alloc(size);
+      const {bytesRead}=await handle.read(content,0,size,0);
+      if (bytesRead!==size || createHash('sha256').update(content).digest('hex')!==expected) {
+        throw new ConflictException('原证据已变化');
+      }
+      return content;
+    }finally{await handle.close();}
   }
 
   private validateFileId(fileId: string) {

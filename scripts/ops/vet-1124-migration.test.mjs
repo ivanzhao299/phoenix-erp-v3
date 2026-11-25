@@ -206,7 +206,7 @@ test('owned PG18 clone returns raw HOLD and the two fixed rows in one read-only 
 
 test('workflow inspect exits read-only and apply reaches backup only after the matching CAS and audit', () => {
   const workflow = fs.readFileSync(path.join(root,'.github/workflows/controlled-pending-migration-apply.yml'),'utf8');
-  const start = workflow.indexOf('            if [ "$AUDIT_SCOPE" = vet-1124 ]; then\n              VET_INSPECTION_SHA256=');
+  const start = workflow.indexOf('            if [ -n "$SCOPED_REVIEW_HELPER" ]; then\n              VET_INSPECTION_SHA256=');
   const end = workflow.indexOf('# BEGIN pending-migration backup:',start);
   assert.ok(start > 0 && end > start);
   const script = ['set -euo pipefail',
@@ -215,7 +215,7 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
     'verify_vet_backup_volume() { [ "$SNAPSHOT" != bad_volume ]; }',
     'docker() { case "$1" in image) echo "$TARGET_SHA";; login|pull) echo "docker:$1" >&2;; *) return 1;; esac; }',
     workflow.slice(start,end), 'echo REACHED_BACKUP; fi'].join('\n');
-  const env = { ...process.env, PHASE:'apply', AUDIT_SCOPE:'vet-1124', SNAPSHOT:'inspection', EXPECTED_VET_INSPECTION_SHA256:'inspection',
+  const env = { ...process.env, PHASE:'apply', AUDIT_SCOPE:'vet-1124', SCOPED_REVIEW_HELPER:'vet-1124-migration.mjs', SNAPSHOT:'inspection', EXPECTED_VET_INSPECTION_SHA256:'inspection',
     TARGET_SHA:target, LEDGER_SHA256:'ledger', EXPECTED_BEFORE_LEDGER_SHA256:'ledger', GHCR_LOGIN_USER:'fixture', GHCR_LOGIN_TOKEN:'fixture',
     VET_API_IMAGE:image('api'), MIGRATION_PATHS:'reviewed', PENDING_CLASSES:units.join(' ') };
   const run = fields => spawnSync('bash',['-c',script],{env:{...env,...fields},encoding:'utf8'});
@@ -225,7 +225,7 @@ test('workflow inspect exits read-only and apply reaches backup only after the m
   const badVolume=run({PHASE:'inspect',SNAPSHOT:'bad_volume'});
   assert.notEqual(badVolume.status,0);assert.doesNotMatch(badVolume.stdout,/INSPECT=COMPLETE/);
   const apply = run({}); assert.equal(apply.status,0,apply.stderr); assert.match(apply.stdout,/REACHED_BACKUP/);
-  for (const fields of [{AUDIT_SCOPE:'ordinary'},{SNAPSHOT:'invalid'},{SNAPSHOT:'drift'},
+  for (const fields of [{AUDIT_SCOPE:'ordinary',SCOPED_REVIEW_HELPER:''},{SNAPSHOT:'invalid'},{SNAPSHOT:'drift'},
     {EXPECTED_VET_INSPECTION_SHA256:''},{EXPECTED_BEFORE_LEDGER_SHA256:'moved'}]) {
     const denied = run(fields); assert.notEqual(denied.status,0); assert.doesNotMatch(denied.stdout+denied.stderr,/docker:|REACHED_BACKUP/);
   }

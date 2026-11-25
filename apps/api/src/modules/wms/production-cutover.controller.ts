@@ -15,6 +15,10 @@ export class ProductionCutoverController {
   @Post('inspect') @RequireAnyMenu(readers)
   @UseGuards(new StrictBodyGuard(CutoverBoundaryDto))
   inspect(@Body() body:CutoverBoundaryDto){return this.cutovers.inspect(body);}
+  @Post('inspect-extension') @RequireAnyMenu(readers)
+  inspectExtension(@Body() body:Parameters<ProductionCutoverService['inspectExtension']>[0]){
+    return this.cutovers.inspectExtension(body);
+  }
   @Get() @RequireAnyMenu(readers)
   list(@Query('companyCode') company:string,@Query('warehouseCode') warehouse:string){return this.cutovers.list(company,warehouse);}
   @Get('locations') @RequireAnyMenu(readers)

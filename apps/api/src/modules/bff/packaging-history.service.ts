@@ -57,13 +57,17 @@ export class PackagingHistoryService {
     if(!alternatives.some(s=>s.isGlobal)){params.push([...new Set(alternatives.flatMap(s=>s.allowedCompanyCodes))],[...new Set(alternatives.flatMap(s=>s.allowedFarmCodes))]);prefilter=`f.company_code=ANY($${params.length-1}::text[]) AND ws.site_id=ANY($${params.length}::text[])`;}
     const sql=`SELECT p.code,p.batches_json,p.grading_code,p.grading_codes_json,p.total_eggs,p.total_boxes,p.status,p.void_reason,p.business_revision,p.workflow_contract_version,p.label_encoding_version, p.id::text id, p.shift_id::text shift_id, p.production_date::text production_date,
       ws.shift_code,ws.production_date::text shift_date,ws.status shift_status,ws.site_id,f.company_code,
-      (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
+      (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,
+      EXISTS(SELECT 1 FROM pkg_audit_logs audit WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
+        AND audit.action='CROSS_SHIFT_GRADING_CONSUME' AND NULLIF(btrim(audit.reason),'') IS NOT NULL
+        AND audit.after_data->>'shiftId'=p.shift_id::text AND audit.after_data->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
+      COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('gradingId',g.id::text,'gradingCode',g.code,
         'sourceBatchId',s.id::text,'sourceBatchCode',s.batch_code,'houseCode',s.house_code,'siteCode',sf.farm_code,
         'companyCode',sf.company_code,'sourceOriginalQty',s.received_qty,'allocationQty',NULL,'precision','RELATED_ONLY',
-        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',s.production_date::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
+        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',(CASE WHEN p.production_date=ws.production_date THEN s.production_date ELSE COALESCE(s.lay_date,s.production_date) END)::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
         FROM pkg_grading_records g LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
         LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id LEFT JOIN brd_houses sh ON sh.house_code=s.house_code
         LEFT JOIN ${OrgOwnershipService.FARM_TABLE} sf ON sf.farm_code=sh.farm_code WHERE g.code=ANY(ARRAY
@@ -104,7 +108,7 @@ export class PackagingHistoryService {
     const evidence = packingEvidence(r,r.inventory,r.ledger,r.handovers,r.commit_receipt);
     if(r.inventory_mode==='TEMP_PRODUCTION_INBOUND'&&evidence.state==='PENDING'){evidence.quality='UNKNOWN';evidence.issues=['TEMP 来源仅场日汇总，精确原单交接未支持'];}
     const sourcesOk = completePackingSources(r);
-    const reasons = !sourcesOk ? ['来源关联缺失'] : r.production_date !== r.shift_date ? ['原单与班次日期不一致'] : evidence.issues;
+    const reasons = !sourcesOk ? ['来源关联缺失'] : r.production_date > r.shift_date ? ['原单产蛋日晚于班次日期'] : evidence.issues;
     return { record: {id:r.id,code:r.code,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),recordStatus:r.status,voidReason:r.void_reason,isTest:false,contractVersion:r.workflow_contract_version,labelEncodingVersion:r.label_encoding_version},
       shift:{id:r.shift_id,code:r.shift_code,productionDate:r.shift_date,status:r.shift_status,siteCode:r.site_id},
       ownership:{companyCode:r.company_code,siteCode:r.site_id,businessTimezone:null,provenance:'SHIFT_FARM',timezoneConfidence:'UNKNOWN'},

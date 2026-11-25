@@ -38,7 +38,7 @@ function boundary(input:CutoverEvidenceBoundary):CutoverEvidenceBoundary {
 }
 
 /** Read-only evidence, never an activation decision. All callers must keep these facts internal until scoped/redacted for their actor. */
-async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}) {
+async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean;targetProductOnly?:boolean}={}) {
   if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
   const scope=boundary(input),houses=scope.houses.map(h=>h.houseCode),missing:string[]=[],warnings:string[]=[];
   const catalog=await m.query(`SELECT c.relname,array_agg(a.attname::text) FILTER(WHERE a.attnum>0 AND NOT a.attisdropped) AS columns FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -70,11 +70,11 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
     LEFT JOIN product_skus sku ON sku.sku_code=b.sku_code
     WHERE (b.company_code=$1 OR (b.company_code IS NULL OR b.company_code='ALL') AND EXISTS(
       SELECT 1 FROM wms_warehouses w WHERE w.warehouse_code=b.warehouse_code AND w.company_code=$1)) AND (b.material_code IS NULL OR b.sku_code IS NOT NULL) AND ((b.warehouse_code=$2 AND (sku.product_code=ANY($3::text[]) OR b.material_code IS NULL AND b.product_code=ANY($3::text[])))
-      OR EXISTS(SELECT 1 FROM inv_ledger l WHERE l.batch_no=b.batch_no AND to_jsonb(l)->>'ref_no'=ANY($6::text[])
+      OR NOT $7::boolean AND (EXISTS(SELECT 1 FROM inv_ledger l WHERE l.batch_no=b.batch_no AND to_jsonb(l)->>'ref_no'=ANY($6::text[])
         AND to_jsonb(l)->>'change_type' IN ('FARM_IN','FARM_REVERSED'))
       OR b.collection_batch_ref=ANY($4::text[]) OR EXISTS(SELECT 1 FROM jsonb_array_elements(
         CASE WHEN jsonb_typeof(to_jsonb(b)->'source_profile_snapshot')='array' THEN to_jsonb(b)->'source_profile_snapshot' ELSE '[]'::jsonb END) p
-        WHERE p->>'houseCode'=ANY($5::text[])))`,[scope.companyCode,scope.warehouseCode,scope.productCodes,houses.map(h=>`HOUSE-${h}`),houses,flockNos]):[];
+        WHERE p->>'houseCode'=ANY($5::text[]))))`,[scope.companyCode,scope.warehouseCode,scope.productCodes,houses.map(h=>`HOUSE-${h}`),houses,flockNos,!!options.targetProductOnly]):[];
   const byBatch=new Map<string,Record<string,unknown>>(batches.map((b:{fact:Record<string,unknown>})=>[String(b.fact.batch_no),b.fact]));
   const foreignByBatch=new Map<string,Record<string,unknown>>();
   const addBatch=(fact:Record<string,unknown>)=>{
@@ -89,7 +89,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
   const lineage:Record<string,Record<string,unknown>[]>={};
   async function packagingFor(tokens:string[]) {
     const sources=await rows('pkg_source_batches',`to_jsonb(f)->>'batch_code'=ANY($1::text[]) OR to_jsonb(f)->>'source_inbound_no'=ANY($1::text[])
-      OR to_jsonb(f)->>'house_code'=ANY($2::text[])`,[tokens,houses]);
+      OR to_jsonb(f)->>'house_code'=ANY($2::text[])`,[tokens,options.targetProductOnly?[]:houses]);
     const gradingLinks=await rows('pkg_grading_source_links',"to_jsonb(f)->>'source_batch_id'=ANY($1::text[])",[sources.map(f=>String(f.id))]);
     const grading=await rows('pkg_grading_records',"to_jsonb(f)->>'id'=ANY($1::text[])",[gradingLinks.map(f=>String(f.grading_id))]);
     const packing=await rows('pkg_packing_records',`to_jsonb(f)->>'code'=ANY($2::text[]) OR to_jsonb(f)->>'grading_code'=ANY($1::text[]) OR EXISTS(
@@ -97,7 +97,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
     return {sources,gradingLinks,grading,packing};
   }
   let packaging=await packagingFor([...byBatch.keys()]);
-  let processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
+  let processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns,!!options.targetProductOnly);
   let expanded=true;
   while(expanded){expanded=false;const tokens=[...byBatch.keys()].sort();
     for(const [table,parent,child] of edges){
@@ -114,7 +114,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
       const outputs=await rows('inv_batches',"to_jsonb(f)->>'packaging_batch_ref'=ANY($1::text[])",[packaging.packing.map(f=>String(f.code))]);
       for(const output of outputs)if(addBatch(output))expanded=true;
     }
-    processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
+    processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns,!!options.targetProductOnly);
     const processingBatches=processing.stockBatchNos.filter(no=>!byBatch.has(no)&&!foreignByBatch.has(no));
     if(processingBatches.length){
       const actual=await rows('inv_batches','f.batch_no=ANY($1::text[])',[processingBatches]);
@@ -269,7 +269,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
     assessment:'EVIDENCE_ONLY' as const};
 }
 /** UTC belongs to the evidence serialization scope; never leak it into subsequent business eligibility checks. */
-export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}){
+export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean;targetProductOnly?:boolean}={}){
   if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
   const [previous]=await m.query("SELECT current_setting('TimeZone') AS zone");
   if(typeof previous?.zone!=='string'||!previous.zone)throw new ConflictException('CUTOVER_EVIDENCE_TIMEZONE_REQUIRED');
@@ -283,6 +283,6 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   }
   await m.query("SELECT set_config('TimeZone',$1,true)",[previous.zone]);return evidence;
 }
-export async function inspectProductionCutoverEvidence(db:DataSource,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}){
+export async function inspectProductionCutoverEvidence(db:DataSource,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean;targetProductOnly?:boolean}={}){
   return db.transaction('REPEATABLE READ',async m=>{await m.query('SET TRANSACTION READ ONLY');return readProductionCutoverEvidence(m,input,options);});
 }

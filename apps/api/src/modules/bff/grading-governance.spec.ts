@@ -9,7 +9,7 @@ const payload = {
   idempotencyKey: 'grading-55-45-test-key',
 };
 
-function buildController(options: { netQty?: number; sourceShiftId?: number; productionDate?: unknown } = {}) {
+function buildController(options: { netQty?: number; sourceShiftId?: number; productionDate?: string; sourceDate?: string } = {}) {
   let stored: { code: string; total_output: number; payload_hash: string; status: string; is_test: boolean } | null = null;
   const links: unknown[][] = [];
   const manager: any = {
@@ -21,7 +21,7 @@ function buildController(options: { netQty?: number; sourceShiftId?: number; pro
       }
       if (sql.includes('FROM pkg_source_batches') && sql.includes('FOR UPDATE')) {
         return [{ id: 45, batch_code: 'SRC-45', shift_id: options.sourceShiftId ?? 55,
-          house_code: 'HOUSE-1', net_qty: options.netQty ?? 300 }];
+          house_code: 'HOUSE-1', egg_date:options.sourceDate ?? '2026-09-09', net_qty: options.netQty ?? 300 }];
       }
       if (sql.includes('FROM pkg_grading_source_links') && sql.includes('GROUP BY')) return [];
       if (sql.includes('INSERT INTO pkg_grading_records')) {
@@ -75,8 +75,8 @@ describe('PackagingTerminal grading governance', () => {
       .rejects.toMatchObject({ status: 400 });
   });
 
-  it('formats a database Date value as an ISO production date before insert', async () => {
-    const { controller, manager } = buildController({ productionDate: new Date(2026, 8, 10) });
+  it('persists the actual source day when the grading shift is later', async () => {
+    const { controller, manager } = buildController({ productionDate:'2026-09-11', sourceDate:'2026-09-10' });
     await expect(controller.submitGrading(payload)).resolves.toMatchObject({ data: { code: 'GRD-TEST' } });
     const insert = manager.query.mock.calls.find(([sql]: [string]) => sql.includes('INSERT INTO pkg_grading_records'));
     expect(insert?.[1]?.[3]).toBe('2026-09-10');

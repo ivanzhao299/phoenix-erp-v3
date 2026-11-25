@@ -13,7 +13,7 @@ export interface CutoverProcessingEvidence {
   documents:Fact[];inputs:Fact[];outputs:Fact[];rawRoots:Fact[];derivationParents:Fact[];rawBalances:CutoverRawBalance[];
 }
 export async function readCutoverProcessingEvidence(m:EntityManager,boundary:{companyCode:string;warehouseCode:string;productCodes:string[];houses:Array<{houseCode:string}>},
-  batchNos:string[],tables:Set<string>,columns:Map<string,Set<string>>){
+  batchNos:string[],tables:Set<string>,columns:Map<string,Set<string>>,targetProductOnly=false){
   const missing:string[]=[],warnings:string[]=[],stock=new Set<string>();
   const group=(names:string[])=>{
     const present=names.filter(name=>tables.has(name));
@@ -51,7 +51,7 @@ export async function readCutoverProcessingEvidence(m:EntityManager,boundary:{co
         &&(!p.expire_date||String(p.expire_date)>=String(candidate.production_date)));
       const inferred=[...new Set(historical.map(p=>profileKey({productMode:p.product_mode,varietyCode:p.variety_code})).filter((key):key is string=>key!==undefined))];
       const declaredHouse=boundary.houses.some(h=>h.houseCode===candidate.house_code),related=frozen?varieties.has(frozen):inferred.some(v=>varieties.has(v));
-      if(declaredHouse||related){selected.push(candidate);if(profile?!frozen:inferred.length!==1)warnings.push('RAW_VARIETY_BOUNDARY_UNRESOLVED');}
+      if((declaredHouse&&!targetProductOnly)||related){selected.push(candidate);if(profile?!frozen:inferred.length!==1)warnings.push('RAW_VARIETY_BOUNDARY_UNRESOLVED');}
       else if(profile?!frozen:!inferred.length)warnings.push('RAW_VARIETY_BOUNDARY_UNRESOLVED');
     }
     return selected;

@@ -1,3 +1,4 @@
+import { assertApprovedEggSku, checkApprovedEggSource, requireEggProductDomain } from '../../product-master/services/egg-source-change-facts';
 import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
 import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
 import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile, reviewSnapshotHash } from '../../wms/production-finance-review';
@@ -37,7 +38,7 @@ export interface InboundDraftInput {
 }
 type Document = Record<string, any>;
 type FrozenItem = InboundDraftItem & { skuCode: string; productCode: string; specCode: string;
-  varietyCode: string | null; inventoryStatus: string; sources: FormalSourceAllocation[] };
+  varietyCode: string | null; inventoryStatus: string; sourceDomainId?: string | null; sources: FormalSourceAllocation[] };
 
 type SourceUsage = { ordinaryNet: number; rawUsedQty: number };
 type SourceUsageRow = { daily_log_id: string; grade_code: string; quantity: number };
@@ -458,6 +459,7 @@ export class ProductionInboundDocumentsService {
     if (mode !== 'TEMP_PRODUCTION_INBOUND') throw new ConflictException('正式交库须先明确启用临时生产入库模式；包装路径不能重复交库');
     const profile = await this.skus.resolveSourceProfile({ companyCode:d.company_code,houseCode:d.house_code,
       eggDate:d.production_date,farmCode:context.farmCode,siteCode:context.siteCode },m);
+    const approval = await checkApprovedEggSource(m,profile);
     const medicines = await m.query(`SELECT 1 FROM brd_medication_records WHERE flock_no=ANY($1::text[])
       AND status<>'CANCELLED' AND start_date<=$2 AND (withdraw_until IS NULL OR withdraw_until>=$2) LIMIT 1`,
     [[...new Set(reports.map(r => r.flock_no))],d.production_date]);
@@ -482,6 +484,9 @@ export class ProductionInboundDocumentsService {
       const sku = await this.skus.resolve({ companyCode:d.company_code,houseCode:d.house_code,eggDate:d.production_date,
         farmCode:context.farmCode,siteCode:context.siteCode,sourceProfileCode:profile.profileCode,
         gradeCode:item.gradeCode,specCode:item.specCode ?? 'LOOSE',usage:'stock' },m);
+      assertApprovedEggSku(approval,sku,d.payload.warehouseCode);
+      const domain = approval ? { sourceDomainId:await requireEggProductDomain(m,profile,d.scope_id,
+        d.payload.warehouseCode,sku.productCode) } : {};
       const sources: FormalSourceAllocation[] = []; let remaining = item.quantity;
       for (const r of reports) {
         const key = sourceQuotaKey(r.id,item.gradeCode);
@@ -509,7 +514,7 @@ export class ProductionInboundDocumentsService {
       }
       if (remaining!==0) throw new ConflictException({ code:'PRODUCTION_GRADE_CAPACITY',gradeCode:item.gradeCode,
         remaining:item.quantity-remaining,message:`${item.gradeCode} 日报可入余额不足或分配来源不一致` });
-      items.push({ ...item,sources,skuCode:sku.skuCode,productCode:sku.productCode,specCode:sku.specCode,
+      items.push({ ...item,...domain,sources,skuCode:sku.skuCode,productCode:sku.productCode,specCode:sku.specCode,
         varietyCode:sku.varietyCode,inventoryStatus:policy.defaultStockStatus });
     }
     if([...physicalRemaining.values()].some(n=>n!==0))throw new ConflictException('本单必须完整承接该次实物交接；请核对遗漏档位或分段');
@@ -649,8 +654,11 @@ export class ProductionInboundDocumentsService {
       }
       const recheck = await this.freezeItems(m,{ ...d,payload:{ ...d.payload,items:this.sourceDraftItems(d.payload.items) } },reports);
       const items = d.payload.items as FrozenItem[];
-      if (recheck.items.some((item,i) => item.skuCode !== items[i].skuCode || item.productCode !== items[i].productCode
+      const profileKeys = ['profileCode','productMode','varietyCode','houseCode','companyCode','farmCode','siteCode','effectiveDate'];
+    if (profileKeys.some(key => d.payload.profile?.[key] !== recheck.profile[key]) ||
+      recheck.items.length !== items.length || recheck.items.some((item,i) => item.skuCode !== items[i].skuCode || item.productCode !== items[i].productCode
         || item.varietyCode !== items[i].varietyCode || item.inventoryStatus !== items[i].inventoryStatus
+        || item.sourceDomainId !== items[i].sourceDomainId
         || item.sources.some((a,n) => a.reportHash !== items[i].sources[n]?.reportHash
           || a.snapshot.evidenceChecksum!==items[i].sources[n]?.snapshot.evidenceChecksum
           || a.snapshot.handoverId!==items[i].sources[n]?.snapshot.handoverId

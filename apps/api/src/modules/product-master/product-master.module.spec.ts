@@ -15,7 +15,7 @@ class EmptyApprovalModule {}
 @Global()
 @Module({
   providers: [
-    { provide: getDataSourceToken(), useValue: { query: jest.fn(), manager: { query: jest.fn() } } },
+    { provide: getDataSourceToken(), useValue: { query: jest.fn(), manager: { query: jest.fn() }, entityMetadatas: [], options: { type: 'postgres' }, getRepository: jest.fn() } },
     { provide: getEntityManagerToken(), useValue: { query: jest.fn() } },
     { provide: ClsService, useValue: { get: jest.fn(), set: jest.fn() } },
     { provide: ApprovalEngineService, useValue: {} },

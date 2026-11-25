@@ -282,9 +282,13 @@ export class SkuAvailabilityService {
   /** Grade/spec + validated provenance -> exactly one SKU. */
   async resolve(input: SkuResolveInput, mgr?: Db, eligibilityDate?:string): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
-    if(eligibilityDate!==undefined)this.date(eligibilityDate,'库存授权日期');
+    return this.resolveForProfile(input, await this.source(input, db), db, eligibilityDate);
+  }
+
+  /** Internal planning uses a proposed policy derived by the source approval service. */
+  async resolveForProfile(input: SkuResolveInput, profile: EggSourceProfile, db: Db, eligibilityDate?: string): Promise<SkuResolveResult> {
+    if (eligibilityDate !== undefined) this.date(eligibilityDate, '库存授权日期');
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
-    const profile = await this.source(input, db);
     const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
     const varieties = profile.varietyCode === null ? [] : [profile.varietyCode];
     const spec = input.specCode?.trim() || 'LOOSE';

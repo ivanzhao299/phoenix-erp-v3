@@ -7,6 +7,10 @@ import { ProductSkusController } from './controllers/product-skus.controller';
 import { ProductCatalogController } from './controllers/product-catalog.controller';
 import { LookupController } from './controllers/lookup.controller';
 import { MenuAdminController } from './controllers/menu-admin.controller';
+import { EggSourceChangeController } from './controllers/egg-source-change.controller';
+import { EggHistoryReviewService } from './services/egg-history-review.service';
+import { EggSourceChangeService } from './services/egg-source-change.service';
+import { FileModule } from '../file/file.module';
 import { MasterDataCenterModule } from '../master-data/master-data-center.module';
 
 /**
@@ -21,7 +25,7 @@ import { MasterDataCenterModule } from '../master-data/master-data-center.module
  * 为 H3（价格接 SKU）和 H4（库存批次统一 grade_code）做准备。
  */
 @Module({
-  imports: [MasterDataCenterModule],
+  imports: [MasterDataCenterModule,FileModule],
   controllers: [
     ProductGradesController,
     PackagingSpecsController,
@@ -29,8 +33,9 @@ import { MasterDataCenterModule } from '../master-data/master-data-center.module
     ProductCatalogController,
     LookupController,
     MenuAdminController,
+    EggSourceChangeController,
   ],
-  providers: [ProductMasterService, SkuAvailabilityService],
+  providers: [ProductMasterService, SkuAvailabilityService, EggSourceChangeService, EggHistoryReviewService],
   exports: [ProductMasterService, SkuAvailabilityService],
 })
 export class ProductMasterModule {}

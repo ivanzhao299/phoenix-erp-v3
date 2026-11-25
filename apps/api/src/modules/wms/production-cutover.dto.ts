@@ -50,7 +50,25 @@ class RawPhysicalCountDto {
   @IsString() @MaxLength(128) evidenceFileId!:string;
   @IsString() @MaxLength(1000) reason!:string;
 }
+class CutoverExtensionItemDto {
+  @IsString() @MaxLength(64) gradeCode!:string;
+  @IsString() @MaxLength(64) specCode!:string;
+}
+class CutoverExtensionDto {
+  @IsIn(['ATTACH_EXISTING_SCOPE','INIT_EXISTING_SCOPE_ZERO']) kind!:'ATTACH_EXISTING_SCOPE'|'INIT_EXISTING_SCOPE_ZERO';
+  @IsUUID() scopeId!:string;
+  @IsInt() @Min(1) scopeVersion!:number;
+  @Matches(/^[a-f0-9]{64}$/) scopeManifestSha256!:string;
+  @IsOptional() @IsUUID() domainId?:string;
+  @IsOptional() @IsInt() @Min(1) domainVersion?:number;
+  @IsOptional() @IsUUID() openingReceiptId?:string;
+  @IsIn(['STANDARD','RED','PINK']) targetClass!:'STANDARD'|'RED'|'PINK';
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) effectiveDate!:string;
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(96) @ValidateNested({each:true}) @Type(()=>CutoverExtensionItemDto)
+  requirements!:CutoverExtensionItemDto[];
+}
 export class CreateCutoverDto {
+  @IsOptional() @ValidateNested() @Type(()=>CutoverExtensionDto) extension?:CutoverExtensionDto;
   @IsOptional() @IsArray() @ArrayMaxSize(5000) @ValidateNested({each:true}) @Type(()=>RawPhysicalCountDto) rawCounts?:RawPhysicalCountDto[];
   @ValidateNested() @Type(()=>CutoverBoundaryDto) boundary!:CutoverBoundaryDto;
   @IsString() @MaxLength(128) intentKey!:string;

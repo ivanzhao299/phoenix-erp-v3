@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
+import { assertApprovedEggSku, checkApprovedEggSource } from '../product-master/services/egg-source-change-facts';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 type Db = Pick<EntityManager, 'query'>;
@@ -57,18 +58,25 @@ export async function resolvePackagingSourceContext(db: Db, input: {
   if (shiftId) {
     const [shift] = await db.query(`SELECT site_id, is_test, production_date::text AS egg_date FROM pkg_work_shifts WHERE id=$1 FOR SHARE`, [shiftId]);
     if (!shift?.site_id || !shift.egg_date) fail('SOURCE_MISSING', '包装班次缺权威场站或生产日期');
-    if (eggDate && eggDate !== shift.egg_date) fail('SOURCE_DATE_MISMATCH', '包装与班次生产日期不匹配');
-    farmCode = shift.site_id; eggDate = shift.egg_date;
+    farmCode = shift.site_id;
     if (!gradingCodes?.length) fail('SOURCE_MISSING', '包装缺分级来源关联');
-    const grades = await db.query(`SELECT g.code FROM pkg_grading_records g WHERE g.code=ANY($1::text[])
+    const grades: Array<{code:string;egg_date:string}> = await db.query(`SELECT g.code,g.production_date::text AS egg_date FROM pkg_grading_records g WHERE g.code=ANY($1::text[])
       AND g.status='ACTIVE' AND g.is_test=$2 AND EXISTS (SELECT 1 FROM pkg_grading_source_links l WHERE l.grading_id=g.id) FOR SHARE`, [gradingCodes, shift.is_test]);
     if (grades.length !== new Set(gradingCodes).size) fail('SOURCE_MISSING', '包装缺有效分级来源关联');
     await db.query(`SELECT s.id FROM pkg_source_batches s JOIN pkg_grading_source_links l ON l.source_batch_id=s.id
       JOIN pkg_grading_records g ON g.id=l.grading_id WHERE g.code=ANY($1::text[]) FOR SHARE OF s, l`, [gradingCodes]);
-    houses = await db.query(`SELECT DISTINCT s.house_code, s.production_date::text AS egg_date, s.batch_status, s.is_test, g.is_test AS grading_is_test
+    houses = await db.query(`SELECT DISTINCT s.house_code,
+      (CASE WHEN s.is_test OR $2::boolean THEN s.production_date ELSE COALESCE(s.lay_date,s.production_date) END)::text AS egg_date, s.batch_status, s.is_test, g.is_test AS grading_is_test
       FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id
-      LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id WHERE g.code=ANY($1::text[])`, [gradingCodes]);
-    if (houses.some(h => ['VOID', 'CANCELLED', 'SCRAPPED','QC_ON_HOLD'].includes(h.batch_status) || h.is_test !== h.grading_is_test || h.egg_date !== eggDate)) fail('SOURCE_INVALID', '包装来源失效、模式或生产日期不一致');
+      LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id WHERE g.code=ANY($1::text[])`, [gradingCodes,!!input.historical]);
+    const sourceDates = [...new Set(houses.map(h => h.egg_date))];
+    if (sourceDates.length !== 1 || (eggDate && sourceDates[0] !== eggDate) ||
+        grades.some(g => g.egg_date !== sourceDates[0]) ||
+        houses.some(h => ['VOID', 'CANCELLED', 'SCRAPPED','QC_ON_HOLD'].includes(h.batch_status) ||
+          h.is_test !== h.grading_is_test || !h.egg_date || h.egg_date > shift.egg_date)) {
+      fail('SOURCE_INVALID', '包装来源失效、模式或产蛋日期不一致');
+    }
+    eggDate = sourceDates[0];
   } else {
     if (!input.houseCode) fail('SOURCE_MISSING', '包装缺权威来源鸡舍/班次');
     houses = [{ house_code: input.houseCode }];
@@ -144,6 +152,9 @@ export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity)
       houseCode, gradeCode: input.grade, specCode: spec.spec_code, usage: 'stock' }, db);
     if ((input.skuCode && sku.skuCode !== input.skuCode) || (input.productCode && sku.productCode !== input.productCode)
       || (identity && sku.skuCode !== identity.skuCode)) fail('SKU_MISMATCH', 'SKU 与来源品种、产品、等级、规格不匹配');
+    const source = await availability.resolveSourceProfile({ ...context, houseCode,
+      sourceProfileCode:context.houseProfiles?.[houseCode]?.sourceProfileCode ?? context.sourceProfileCode },db);
+    assertApprovedEggSku(await checkApprovedEggSource(db,source),sku);
     identity = sku;
   }
   return { grade: input.grade, productCode: identity!.productCode, skuCode: identity!.skuCode,

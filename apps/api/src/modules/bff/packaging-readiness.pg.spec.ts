@@ -30,7 +30,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       CREATE TABLE wms_locations(location_code text PRIMARY KEY,warehouse_code text,status text);
       CREATE TABLE pkg_work_shifts(id serial PRIMARY KEY,shift_code text,site_id text,production_date date,status text,is_test boolean);
       CREATE TABLE pkg_source_batches(id serial PRIMARY KEY,house_code text,shift_id integer,production_date date,batch_status text,is_test boolean,received_qty integer,received_weight numeric,
-        batch_code varchar(80) NOT NULL,source_inbound_no varchar(80));
+        batch_code varchar(80) NOT NULL,source_inbound_no varchar(80),lay_date date);
       CREATE TABLE pkg_grading_records(id serial PRIMARY KEY,code text,shift_id integer,production_date date,status text,is_test boolean,outputs_json jsonb);
       CREATE TABLE pkg_grading_source_links(grading_id integer,source_batch_id integer);
       CREATE TABLE pkg_tasks(id serial PRIMARY KEY,task_no text,grade_results jsonb,house_code text,pack_spec text,packed_qty integer,output_qty integer,created_at timestamp,shift_id integer);
@@ -91,6 +91,19 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
   afterEach(async()=>{await ds?.destroy();});
   async function counts(){return (await ds.query('SELECT (SELECT count(*)::int FROM inv_batches) batches,(SELECT count(*)::int FROM inv_ledger) ledgers,(SELECT count(*)::int FROM pkg_handover_records) handovers'))[0];}
   const zero={batches:0,ledgers:0,handovers:0};
+  it('posts prior-day eggs on the actual handover date without changing batch provenance',async()=>{
+    await ds.query(`UPDATE pkg_work_shifts SET production_date='2026-09-10';
+      UPDATE pkg_source_batches SET production_date='2026-09-10',lay_date='2026-09-09';`);
+    const summary=await controller.getActiveGrading('1',req,'2026-09-09');
+    expect(summary.data).toMatchObject({eggDate:'2026-09-09',eggDates:['2026-09-09'],productionDate:'2026-09-10',gradingCodes:['GR']});
+    const receipt=await controller.confirmHandover(body,req);
+    expect(receipt.data.inventory.totalInbound).toBe(30);
+    const [persisted]=await ds.query(`SELECT b.egg_date::text,b.inbound_date::text,l.log_date::text FROM inv_batches b
+      JOIN inv_ledger l USING(batch_no) WHERE b.packaging_batch_ref='PKG-LOCAL'`);
+    expect(persisted.egg_date).toBe('2026-09-09');
+    expect(persisted.inbound_date > persisted.egg_date).toBe(true);
+    expect(persisted.log_date).toBe(persisted.inbound_date);
+  });
   it('resolves legacy grade/spec uniquely without guessing a product, confirms CLOSED original date and concurrent retries exactly once',async()=>{
     await ds.query("UPDATE pkg_work_shifts SET status='CLOSED'");
     const [a,b]=await Promise.all([controller.confirmHandover(body,req),controller.confirmHandover(body,req)]);

@@ -9,7 +9,7 @@ on:
         type: choice
         options: [inspect, apply]
       approve_production:
-        description: 'Type APPLY-PENDING-MIGRATIONS-20261103 to authorize'
+        description: 'Use APPLY-PENDING-MIGRATIONS-20261103 or APPLY-EGG-SOURCE-20261125 for its exact named scope'
         required: true
         type: string
       expected_main_sha:
@@ -22,12 +22,12 @@ on:
         type: string
 
       audit_scope:
-        description: 'Use the ordinary gate or the sealed 2026-11-24 veterinary candidate'
+        description: 'Choose the ordinary gate or the exact approved candidate scope'
         type: choice
-        options: [ordinary, vet-1124]
+        options: [ordinary, vet-1124, egg-source-1125]
         default: ordinary
       expected_vet_inspection_sha256:
-        description: 'vet-1124 apply only: VET_INSPECTION_SHA256 from the exact candidate inspect'
+        description: 'Scoped apply only: inspection SHA-256 from that exact candidate inspect'
         type: string
         required: false
 
@@ -42,7 +42,10 @@ concurrency:
 
 jobs:
   execute:
-    if: inputs.phase == 'inspect' || inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103'
+    if: >-
+      inputs.phase == 'inspect' ||
+      (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-1125' && inputs.approve_production == 'APPLY-EGG-SOURCE-20261125') ||
+      (inputs.phase == 'apply' && inputs.audit_scope != 'egg-source-1125' && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
@@ -57,18 +60,23 @@ jobs:
           test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
-      - name: Verify sealed veterinary merge and official main CI
-        if: inputs.audit_scope == 'vet-1124'
+      - name: Verify exact scoped candidate and official main CI
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
+          AUDIT_SCOPE: ${{ inputs.audit_scope }}
         run: |
           set -euo pipefail
-          node scripts/ops/vet-1124-migration.mjs source
-          node --test scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
+          if [ "$AUDIT_SCOPE" = egg-source-1125 ]; then
+            node scripts/ops/egg-source-release.mjs source
+          else
+            node scripts/ops/vet-1124-migration.mjs source
+          fi
+          node --test scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
           node scripts/ops/vet-1124-ci.mjs hosted-log-reader
       - name: Match the official API digest to every reviewed migration
-        if: inputs.audit_scope == 'vet-1124'
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -113,6 +121,8 @@ jobs:
           script: |
             set -Eeuo pipefail
             umask 077
+            case "$PHASE" in inspect|apply) ;; *) exit 22 ;; esac
+            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125) ;; *) exit 22 ;; esac
             cd /data/phoenix-erp
             export DEPLOY_REPO_ROOT=/data/phoenix-erp
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
@@ -155,8 +165,13 @@ jobs:
               chmod 600 "$STAGE/$helper"
             done
 
-            if [ "$AUDIT_SCOPE" = vet-1124 ]; then
-              for helper in vet-1124-migration.mjs production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
+            SCOPED_REVIEW_HELPER=
+            if [ "$AUDIT_SCOPE" = vet-1124 ] || [ "$AUDIT_SCOPE" = egg-source-1125 ]; then
+              case "$AUDIT_SCOPE" in
+                vet-1124) SCOPED_REVIEW_HELPER=vet-1124-migration.mjs ;;
+                egg-source-1125) SCOPED_REVIEW_HELPER=egg-source-release.mjs ;;
+              esac
+              for helper in "$SCOPED_REVIEW_HELPER" production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
                 git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               done
             fi
@@ -199,23 +214,24 @@ jobs:
               fresh_ledger="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")" || return 1
               test "$fresh_ledger" = "$LEDGER_JSON_LINE" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED' >&2; return 1; }
               RUNNING_CHECKOUT="$checkout" \
-                LEDGER_SHA256="$LEDGER_SHA256" PENDING_CLASSES="$PENDING_CLASSES" node "$STAGE/vet-1124-migration.mjs" inspect
+                LEDGER_SHA256="$LEDGER_SHA256" PENDING_CLASSES="$PENDING_CLASSES" node "$STAGE/$SCOPED_REVIEW_HELPER" inspect
             }
             verify_vet_backup_volume() {
               node --input-type=module -e "import {physicalParent,physicalPins} from '$STAGE/vet-1124-backup-volume.mjs'; physicalPins(physicalParent); console.log('VET_BACKUP_VOLUME=VERIFIED')"
             }
-            if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+            if [ -n "$SCOPED_REVIEW_HELPER" ]; then
               VET_INSPECTION_SHA256="$(vet_inspection)"
-              echo "VET_INSPECTION_SHA256=$VET_INSPECTION_SHA256"
+              echo "SCOPED_INSPECTION_SHA256=$VET_INSPECTION_SHA256"
+              if [ "$AUDIT_SCOPE" = vet-1124 ]; then echo "VET_INSPECTION_SHA256=$VET_INSPECTION_SHA256"; fi
               if [ "$PHASE" = apply ]; then
                 test "$VET_INSPECTION_SHA256" = "$EXPECTED_VET_INSPECTION_SHA256" || { echo 'MIGRATION_APPLY=HOLD_INSPECTION_MOVED'; exit 1; }
               fi
             fi
             if [ "$PHASE" = inspect ]; then
-              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+              if [ -n "$SCOPED_REVIEW_HELPER" ]; then
                 verify_vet_backup_volume
               fi
-              if [ "$AUDIT_SCOPE" != vet-1124 ]; then
+              if [ -z "$SCOPED_REVIEW_HELPER" ]; then
                 echo "AUDIT_CONCLUSION=$(run_audit)"
                 cat "$STAGE/out/REPORT.md"
               fi
@@ -228,7 +244,7 @@ jobs:
               # Compare-and-swap: refuse to execute migrations if anything else
               # touched the ledger since the reviewed inspect phase.
               test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
-              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+              if [ -n "$SCOPED_REVIEW_HELPER" ]; then
                 API_IMAGE="$VET_API_IMAGE"
               else
                 AUDIT_CONCLUSION="$(run_audit)"
@@ -241,7 +257,7 @@ jobs:
               # BEGIN pending-migration backup: archive parsing does not restore a database.
               [[ "$MIGRATION_RUN_ID" =~ ^[0-9]+-[0-9]+$ && "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
               BACKUP_PARENT=/opt/phoenix-erp-backups
-              if [ "${AUDIT_SCOPE:-ordinary}" = vet-1124 ]; then
+              if [ -n "$SCOPED_REVIEW_HELPER" ]; then
                 BACKUP_PARENT=/data/backups/opt/phoenix-erp-backups
               fi
               BACKUP_DIR="$BACKUP_PARENT/pending-migration-${MIGRATION_RUN_ID}"
@@ -274,7 +290,7 @@ jobs:
               echo "MIGRATION_BACKUP_TOC_ENTRIES=$TOC_ENTRIES"
               echo 'MIGRATION_BACKUP=VERIFIED_CUSTOM_ARCHIVE_FULL_PARSE'
               # END pending-migration backup.
-              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
+              if [ -n "$SCOPED_REVIEW_HELPER" ]; then
                 BACKUP_SHA256="$BACKUP_SHA256" TOC_ENTRIES="$TOC_ENTRIES" node "$STAGE/pending-migration-backup-paths.mjs" receipt "$MIGRATION_RUN_ID"
                 # Backup can take time. Re-observe main, runtime, ledger and both complete audit rows.
                 git_safe fetch --no-tags origin main
@@ -285,8 +301,8 @@ jobs:
               REQUIRE_BACKUP_RECEIPT=1 node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
-              if [ "$AUDIT_SCOPE" = vet-1124 ]; then
-                BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" node "$STAGE/vet-1124-migration.mjs" after
+              if [ -n "$SCOPED_REVIEW_HELPER" ]; then
+                BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" node "$STAGE/$SCOPED_REVIEW_HELPER" after
               fi
               # Re-derive pending from the fresh ledger.
               PENDING_AFTER=""

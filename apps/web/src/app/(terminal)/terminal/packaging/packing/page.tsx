@@ -15,6 +15,8 @@ const DEFECT_PALETTE = ['var(--status-warning)', 'var(--status-danger)', 'var(--
 const POLL_MS = 5000;
 type GradingSnapshot = {
   gradingCodes: string[];
+  eggDate?: string;
+  eggDates?: string[];
   outputs: Record<string, number>;
   packed: Record<string, number>;
   remaining: Record<string, number>;
@@ -56,6 +58,7 @@ export default function PackingPage() {
   }));
 
   // ── 服务端实时快照（5 s 心跳） ────────────────────────────────────────────
+  const [eggDate, setEggDate] = useState('');
   const [snap, setSnap] = useState<GradingSnapshot | null>(null);
   const [snapLoading, setLoading] = useState(true);
   const [snapError, setSnapError] = useState('');
@@ -66,7 +69,7 @@ export default function PackingPage() {
       setSnap(null); setCombinations([]); setSnapError('请先选择已开启的包装班次，并完成来源批次接收与分级'); setLoading(false); return;
     }
     try {
-      const data = await packagingApi.getActiveGrading(shiftId);
+      const data = await packagingApi.getActiveGrading(shiftId, eggDate || undefined);
       const ready = data.gradingCodes.length ? await packagingApi.getReadyCombinations(shiftId, data.gradingCodes) : [];
       if (current !== generation.current) return;
       setSnap(data); setCombinations(ready);
@@ -81,7 +84,7 @@ export default function PackingPage() {
     void fetchSnap(current);
     const timer = setInterval(() => { void fetchSnap(current); }, POLL_MS);
     return () => { ++generation.current; clearInterval(timer); };
-  }, [ctx.currentShift?.id, ctx.currentShift?.status]);
+  }, [ctx.currentShift?.id, ctx.currentShift?.status, eggDate]);
 
   // ── 服务端剩余（snap.remaining 已减去所有终端已包装量） ───────────────────
   const serverRemaining = snap?.remaining ?? {};
@@ -238,6 +241,12 @@ export default function PackingPage() {
           fontWeight: 700,
           color: T.TXT
         }}>{t('terminal.packing', '包装作业')}</div>
+          {!!snap?.eggDates?.length && <label>{t('eggSources.productionDate','产蛋日期')}{' '}
+            <select disabled={items.length > 0 || submitting} value={snap.eggDate}
+              onChange={event=>{ setEggDate(event.target.value); setSnap(null); setCombinations([]); setSelectedSpec(null); }}>
+              {snap.eggDates.map(day=><option key={day} value={day}>{day}</option>)}
+            </select>
+          </label>}
           <div style={{
           fontSize: 12,
           color: T.MUT

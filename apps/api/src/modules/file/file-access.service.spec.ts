@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm, rmdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { FileAccessService } from './file-access.service';
 
@@ -53,4 +56,21 @@ describe('FileAccessService storage path compatibility', () => {
     expect(() => resolvePath(service(), file('uploads/contracts/a.pdf', 'b.pdf')))
       .toThrow('FILE_STORAGE_NAME_MISMATCH');
   });
+  it('serves frozen evidence bytes and rejects same-length replacement content',async()=>{
+    const dir=await mkdtemp(resolve(tmpdir(),'phoenix-frozen-evidence-'));
+    const path=resolve(dir,'owned.pdf');
+    try{
+      const original=Buffer.from('verified record');
+      const replaced=Buffer.from('replaced record');
+      const digest=createHash('sha256').update(original).digest('hex');
+      await writeFile(path,original);
+      const frozen=service() as unknown as {
+        readFrozenEvidence:(path:string,size:number,checksum:string,expected:string)=>Promise<Buffer>
+      };
+      await expect(frozen.readFrozenEvidence(path,original.length,digest,digest)).resolves.toEqual(original);
+      await writeFile(path,replaced);
+      await expect(frozen.readFrozenEvidence(path,original.length,digest,digest)).rejects.toThrow('原证据已变化');
+    }finally{await rm(path,{force:true});await rmdir(dir);}
+  });
+
 });

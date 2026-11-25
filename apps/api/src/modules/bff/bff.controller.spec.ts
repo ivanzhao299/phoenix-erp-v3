@@ -129,8 +129,8 @@ describe('PackagingTerminalBffController', () => {
       if (sql.includes('FROM md_product_varieties')) return [{variety_code:varietyCode,status:'ACTIVE'}];
       if (sql.includes('FROM md_sku_org_scope')) return [{scope_type:'COMPANY',scope_code:'C',status:'ACTIVE',sale_enabled:false,stock_enabled:true,today:'2026-08-21'}];
       if (sql.includes('SELECT gr.*')) return [{ code:'GC-A',shift_id:1,outputs_json:{A:360} }];
-      if (sql.includes('SELECT g.code')) return [{code:'GC-A'}];
-      if (sql.includes('SELECT DISTINCT s.house_code, s.production_date')) return [{house_code:'H',egg_date:'2026-08-21',batch_status:'RECEIVED',is_test:false,grading_is_test:false}];
+      if (sql.includes('SELECT g.code')) return [{code:'GC-A',egg_date:'2026-08-21'}];
+      if (sql.includes('SELECT DISTINCT s.house_code,') && sql.includes('AS egg_date')) return [{house_code:'H',egg_date:'2026-08-21',batch_status:'RECEIVED',is_test:false,grading_is_test:false}];
       if (sql.includes('SELECT DISTINCT s.house_code FROM')) return [{house_code:'H'}];
       if (sql.includes('FROM product_grades')) return [{ status:'ACTIVE',is_saleable:true,is_storable:true }];
       if (sql.includes('FROM packaging_specs')) return [{ status:'ACTIVE',spec_code:'SPEC',qty_per_unit:180 }];
@@ -246,7 +246,8 @@ describe('PackagingTerminalBffController', () => {
   it('accepts the legacy gradable quantity and stores the canonical total received quantity', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
-        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN' }];
+        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN', work_date:'9999-12-31' }];
+        if (sql.includes('AS managed')) return [{managed:false,scheduled:false}];
         if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-LEGACY' }];
         return [];
@@ -272,7 +273,8 @@ describe('PackagingTerminalBffController', () => {
   it('persists all source quantity columns for a new received batch', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
-        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN' }];
+        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN', work_date:'9999-12-31' }];
+        if (sql.includes('AS managed')) return [{managed:false,scheduled:false}];
         if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-1' }];
         return [];
