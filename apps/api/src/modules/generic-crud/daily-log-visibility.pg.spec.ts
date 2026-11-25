@@ -227,7 +227,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       INSERT INTO sys_dict(dict_type,dict_code,status,dict_label_zh,dict_label_en,dict_label_lo)
         VALUES('BRD_BREED','ARCHIVE-BREED','ACTIVE','复核品种','Archive breed English','ສາຍພັນເອກະສານ');
       ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text, ADD COLUMN IF NOT EXISTS farm_name_en text;
-      UPDATE brd_farms SET farm_name_en='Archive farm English' WHERE farm_code='LPH_FARM_A';
+      UPDATE brd_farms SET farm_name_en='Field farm English' WHERE farm_code='LPH_FARM_A';
       ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int, ADD COLUMN IF NOT EXISTS max_capacity int;
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS placement_date date, ADD COLUMN IF NOT EXISTS breed_code text;
       INSERT INTO brd_flocks(flock_no,house_code,current_qty,initial_qty,farm_code,status,start_date,breed_code)
@@ -236,17 +236,17 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     try {
       const get = (id: number, name: string, query = {}) => request(app.getHttpServer())
         .get('/api/v3/farm/archive/' + name).query(query).auth(token(id), { type: 'bearer' });
-      const page = await get(40101, 'flocks', { search: 'ARCHIVE', page: 5 }).expect(200);
+      const page = await get(40101, 'flocks', { search: 'ARCHIVE-', page: 5 }).expect(200);
       expect(page.body.total).toBe(101);
       expect(page.body.items).toEqual([expect.objectContaining({
         flock_no: 'ARCHIVE-101', company_code: 'COMP-A', site_code: 'SITE-A',
       })]);
-      const byFarm = await get(40101, 'flocks', { search: 'Archive farm English', status: 'RETIRED', page: 5 }).expect(200);
+      const byFarm = await get(40101, 'flocks', { search: 'Field farm English', status: 'RETIRED', page: 5 }).expect(200);
       expect(byFarm.body.total).toBe(101);
       const byBreed = await get(40101, 'flocks', { search: 'ສາຍພັນເອກະສານ', page: 5 }).expect(200);
       expect(byBreed.body.total).toBe(101);
       expect(byBreed.body.items).toEqual([expect.objectContaining({ flock_no: 'ARCHIVE-101' })]);
-      const other = await get(40103, 'flocks', { search: 'ARCHIVE' }).expect(200);
+      const other = await get(40103, 'flocks', { search: 'ARCHIVE-' }).expect(200);
       expect(other.body.items).toEqual([]);
       const houses = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
       expect(houses.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: 100 })]);
