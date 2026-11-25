@@ -94,24 +94,6 @@ export default function MedicinePage() {
   };
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
-  const openNew = useCallback(() => {
-    setSubmitError('');
-    setEditId(null);
-    setForm({ ...EMPTY_FORM, recordNo: 'MED-' + crypto.randomUUID() });
-    setShowDrawer(true);
-  }, []);
-  useEffect(() => {
-    if (!canEdit || new URLSearchParams(location.search).get('action') !== 'create') return;
-    const url = new URL(location.href);
-    url.searchParams.delete('action');
-    url.searchParams.delete('date');
-    const timer = setTimeout(() => {
-      history.replaceState(history.state, '', url);
-      openNew();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [canEdit, openNew]);
-
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({
     ...EMPTY_FORM
@@ -120,6 +102,27 @@ export default function MedicinePage() {
   const flocks = useVetFlocks();
   const flock = flocks.find(f=>f.flock_no===form.batchNo);
   const [submitError,setSubmitError] = useState('');
+  const today = todayStr();
+  const openNew = useCallback((startDate = '') => {
+    setSubmitError('');
+    setEditId(null);
+    setForm({ ...EMPTY_FORM, startDate, recordNo: 'MED-' + crypto.randomUUID() });
+    setShowDrawer(true);
+  }, []);
+  useEffect(() => {
+    if (!canEdit || new URLSearchParams(location.search).get('action') !== 'create') return;
+    const url = new URL(location.href);
+    const requestedDate = url.searchParams.get('date') ?? '';
+    const startDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && requestedDate <= today ? requestedDate : '';
+    url.searchParams.delete('action');
+    url.searchParams.delete('date');
+    const timer = setTimeout(() => {
+      history.replaceState(history.state, '', url);
+      openNew(startDate);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [canEdit, openNew, today]);
+
   const [busy, setBusy] = useState(false);
   const unwrap = (value: unknown): Record<string, unknown>[] => {
     if (Array.isArray(value)) return value as Record<string, unknown>[];
@@ -231,7 +234,6 @@ export default function MedicinePage() {
     cleared: t('ui.已解禁', '已解禁')
   };
   const data = filter === 'all' ? records : records.filter(r => r.status === filter);
-  const today = todayStr();
   const KPI_CARDS: { label: string; val: string; tone: Tone }[] = [
     { label: t('ui.停药期内批次', '停药期内批次'), val: `${records.filter(r => r.status === 'inWithdrawal').length} 个`, tone: 'warning' },
     { label: t('vet.courseEnding', '今日休药期届满'), val: `${records.filter(r => r.clearDate === today).length} 个`,    tone: 'success' },
@@ -313,7 +315,7 @@ export default function MedicinePage() {
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]}
         actions={canEdit && (
-          <button type="button" onClick={openNew} style={primaryActionButton}>
+          <button type="button" onClick={() => openNew()} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增用药记录', '新增用药记录')}
           </button>
         )}

@@ -37,6 +37,15 @@ describe('FarmFeedController ledger save payload compatibility', () => {
     expect(saveScopedDay).not.toHaveBeenCalled();
   });
 
+  it('reports a malformed rollout setting without opening either write path', async () => {
+    process.env.FARM_FEED_SCOPED_WRITES = 'CO/*';
+    const { controller, saveLedger, saveScopedDay } = setup();
+    await expect(controller.saveLedger({ date, items: [] }, {})).rejects.toThrow('饲料账启用配置无效');
+    await expect(controller.saveScopedDay({ date, companyCode: 'CO', farmCode: 'FA' }, {})).rejects.toThrow('饲料账启用配置无效');
+    expect(saveLedger).not.toHaveBeenCalled();
+    expect(saveScopedDay).not.toHaveBeenCalled();
+  });
+
   it('closes unscoped writes only after the full cutover', async () => {
     process.env.FARM_FEED_SCOPED_WRITES = '*';
     const { controller, saveLedger } = setup();

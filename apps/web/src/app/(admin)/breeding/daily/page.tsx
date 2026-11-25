@@ -80,7 +80,9 @@ export default function DailyPage() {
 }
 function DailyEntry(){
   const lifecycle=usePermission('MENU_FARM_DATA'),lifecycleCreate=usePermission('MENU_FLOCK_CREATE');
-  const canCorrect=lifecycle.canView&&lifecycleCreate.canEdit;
+  const lifecycleCorrection=usePermission('MENU_FLOCK_REPORT');
+  const canRecordMortality=lifecycle.canView&&lifecycleCreate.canEdit;
+  const canCorrect=canRecordMortality&&lifecycleCorrection.canApprove;
   const writing=useRef(false),selection=useRef(0);
   const [posting,setPosting]=useState(false);
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -527,7 +529,7 @@ function DailyEntry(){
           {genResult.avgHum != null && ` · ${t('ui.湿度', '湿度')}: ${Number(genResult.avgHum).toFixed(1)}%`}
         </div>}
 
-      {managedHouse&&<p role="status">已接续事件账：死淘请使用生命周期单据；{confirmedDaily?'本日报已确认，修改须独立审核。':'首次提交即确认实际日报。'} {canCorrect&&<a href={lifecycleHref('MORTALITY')}>{t('productionJobs.recordLoss')}</a>}</p>}
+      {managedHouse&&<p role="status">已接续事件账：死淘请使用生命周期单据；{confirmedDaily?'本日报已确认，修改须独立审核。':'首次提交即确认实际日报。'} {canRecordMortality&&<a href={lifecycleHref('MORTALITY')}>{t('productionJobs.recordLoss')}</a>}</p>}
       {selectedHouse&&!allowReport&&<p role="status">{t(context?reasonKey:'common.loading')} <button onClick={()=>setRevision(n=>n+1)}>{t('common.refresh')}</button></p>}
       {/* 表单头部 */}
       <div ref={formRef} className={`${s.card} ${u.mb16}`}>

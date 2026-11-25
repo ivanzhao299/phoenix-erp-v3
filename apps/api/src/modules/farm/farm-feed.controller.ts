@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Req, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Req, ForbiddenException, ConflictException, ServiceUnavailableException, Optional } from '@nestjs/common';
 import { FarmFeedService } from './farm-feed.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -10,6 +10,7 @@ function scopedFeedMode() {
   const scope = process.env.FARM_FEED_SCOPED_WRITES?.trim() ?? '';
   if (scope === '*') return { phase: 'ACTIVE', scope } as const;
   if (/^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(scope)) return { phase: 'PILOT', scope } as const;
+  if (scope) throw new ServiceUnavailableException('饲料账启用配置无效，请联系管理员');
   return { phase: 'LEGACY', scope: '' } as const;
 }
 

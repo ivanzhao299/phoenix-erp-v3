@@ -64,6 +64,8 @@ function LegacyFeedLedger() {
   //   原 gate 用 MENU_FARM_FEED(仅 1 角色持有)→ 5 个持 MENU_BREEDING:E 的角色看不到保存按钮且后端会 403 漂移。
   //   对齐到 MENU_BREEDING 与端点守卫一致。
   const { canEdit } = usePermission('MENU_BREEDING');
+  const inout = usePermission('MENU_WMS_INOUT');
+  const issue = usePermission('MENU_WMS_ISSUE');
   const [date, setDate] = useState(today());
   const [rows, setRows] = useState<FeedLedgerRow[]>([]);
   const [houseMap, setHouseMap] = useState<Record<string, string>>({});
@@ -72,6 +74,7 @@ function LegacyFeedLedger() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [failureAction, setFailureAction] = useState<'read' | 'write'>('read');
   const isToday = date === today();
   const requestId = useRef(0);
   const [loadedDate, setLoadedDate] = useState('');
@@ -81,7 +84,9 @@ function LegacyFeedLedger() {
     setRows([]);
     setLoading(true);
     setError('');
+    setFailureAction('read');
     setSaved(false);
+    if (!d) { setLoading(false); return; }
     try {
       const [ledger, housesPayload] = await Promise.all([apiFetch<unknown>(`/api/farm/feed/ledger?date=${d}`), apiFetch<unknown>('/api/farm/feed/houses')]);
       if (id !== requestId.current) return;
@@ -118,9 +123,10 @@ function LegacyFeedLedger() {
     setSaved(false);
   };
   const handleSave = async () => {
-    if (loading || saving || loadedDate !== date) return;
+    if (!date || loading || saving || loadedDate !== date) return;
     setSaving(true);
     setError('');
+    setFailureAction('write');
     try {
       const response = await apiPost<unknown>(
         '/api/farm/feed/ledger',
@@ -143,12 +149,12 @@ function LegacyFeedLedger() {
         breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.饲料台账', '饲料台账')]}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/warehouse/inbound?action=create&type=FEED" style={{ ...primaryActionButton, textDecoration: 'none' }}>
+            {inout.canCreate && <a href="/warehouse/inbound" style={{ ...primaryActionButton, textDecoration: 'none' }}>
               <Save size={14} />{t('ui.新建饲料入库', '+ 新建饲料入库')}
-            </a>
-            <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
+            </a>}
+            {issue.canCreate && <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
               {t('ui.新建饲料发放', '+ 新建饲料发放')}
-            </a>
+            </a>}
           </div>
         }
       />
@@ -166,21 +172,21 @@ function LegacyFeedLedger() {
       marginBottom: 20,
       flexWrap: 'wrap'
     }}>
-        <button disabled={saving} onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
+        <button disabled={!date || saving} onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
           <ChevronLeft size={14} />{t('ui.前一天', '前一天')}
         </button>
         <input type="date" disabled={saving} value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
-        <button onClick={() => setDate(d => addDays(d, 1))} disabled={isToday || saving} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
+        <button onClick={() => setDate(d => addDays(d, 1))} disabled={!date || isToday || saving} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
           {t('ui.后一天', '后一天')}<ChevronRight size={14} />
         </button>
-        <button disabled={saving} onClick={() => loadData(date)} style={secondaryActionButton}>
+        <button disabled={!date || saving} onClick={() => loadData(date)} style={secondaryActionButton}>
           <RefreshCw size={13} />{t('common.refresh', '刷新')}
         </button>
         <div className={u.flex1} />
         {canEdit && (
           <button
             onClick={handleSave}
-            disabled={saving || loading || loadedDate !== date}
+            disabled={!date || saving || loading || loadedDate !== date}
             aria-busy={saving}
             style={saved ? secondaryActionButton : primaryActionButton}
           >
@@ -231,7 +237,7 @@ function LegacyFeedLedger() {
       color: 'var(--status-danger)',
       fontSize: 13
     }}>
-          {t('ui.feed保存失败', '保存失败：')}{error}
+          {failureAction === 'read' ? t('ui.feed加载失败', '读取失败：') : t('ui.feed保存失败', '保存失败：')}{error}
         </div>}
 
       {/* 主表格 */}

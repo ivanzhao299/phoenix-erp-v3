@@ -32,7 +32,9 @@ function ReportForm(){
   const verified=!!house&&rangeKey===verifiedRange;
   const inbound=usePermission('MENU_PROD_INBOUND');
   const flock=usePermission('MENU_FARM_DATA'),createFlock=usePermission('MENU_FLOCK_CREATE');
+  const reportCorrection=usePermission('MENU_FLOCK_REPORT');
   const canOpenLifecycle=flock.canView&&createFlock.canEdit;
+  const canCorrect=canOpenLifecycle&&reportCorrection.canApprove;
   const touched=useRef(false), saving=useRef(false);
   useEffect(()=>{
     const signal=new AbortController();
@@ -86,7 +88,7 @@ function ReportForm(){
       {prior?<div className={s.notice}><p>{t('productionReports.existing','该班次已有原日报，以下为原始记录；更正请走审核单。')}</p>
         <strong>#{prior.id}{priorTotal!==null&&<> · {priorTotal} {t('productionJobs.eggs')}</>}</strong>
         {prior.grade_status==='REVIEW_REQUIRED'&&<p role="status">{t('breeding.daily.reviewGrades','历史分级须核对原单后才能发起新的交接。')}</p>}
-        {canOpenLifecycle&&<p><Link href={lifeHref('REPORT_CORRECTION',prior.id)}>{t('productionJobs.correctReport')}</Link></p>}
+        {canCorrect&&<p><Link href={lifeHref('REPORT_CORRECTION',prior.id)}>{t('productionJobs.correctReport')}</Link></p>}
         {Object.entries(prior.eggs_by_grade??{}).map(([code,qty])=>{
           const grade=grades.find(g=>g.grade_code===code);
           return <p key={code}>{grade?localizedMasterName(grade as unknown as Record<string,unknown>,'grade_name',lang)||code:code}: {typeof qty==='number'||typeof qty==='string'?qty:'—'}</p>;
