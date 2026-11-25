@@ -1,4 +1,3 @@
-import type { EgglogSummarySnapshot } from './egglog-payload';
 /**
  * mobile-api.ts — 手机端管理日报 API 客户端
  */
@@ -122,6 +121,12 @@ export interface FarmLog {
   feed_consumed?:  number | string;
   water_consumed?: number | string;
 }
+
+type MobileEggLog = Pick<FarmLog, 'house_code' | 'flock_no' | 'shift' | 'eggs_produced' | 'dirty_eggs' | 'broken_eggs'> & {
+  temp?: number | string | null;
+  humidity?: number | string | null;
+  report_version: string;
+};
 
 export interface FeedLedgerRow {
   id:              number | null;
@@ -342,9 +347,8 @@ export const mobileApi = {
   getQcInspections: (date: string) =>
     get<QcInspection[]>(`/api/quality/inspections?start_date=${date}&end_date=${date}&limit=200`),
 
-  /** 养殖日报（仅 ROLE_FARM_MGR/ROLE_ADMIN 可访问；其他角色返回 403 则降级） */
-  getFarmLogs: (date: string) =>
-    get<{ data: FarmLog[]; total: number }>(`/api/crud/brd_daily_logs?log_date=${date}&limit=200`),
+  getMobileDailySummary: (date: string, shift: string) =>
+    get<MobileEggLog[]>(`/api/v3/farm/daily-logs/mobile-summary?${new URLSearchParams({ date, shift })}`),
 
   getFarmLogsForHouse: (date: string, house: string) =>
     get<FarmLog[]>(`/api/crud/brd_daily_logs?${new URLSearchParams({ log_date: date, house_code: house, limit: '2' })}`),
@@ -477,8 +481,8 @@ export const mobileApi = {
     temp?:         number | null;
     humidity?:     number | null;
     operator?:     string;
-    expectedSummary?: EgglogSummarySnapshot | null;
-  }) => post<{ code: number; msg: string }>('/api/v3/farm/daily-logs', payload),
+    expectedReportVersion?: string | null;
+  }) => post<{ code: number; msg: string; reportVersion?: string }>('/api/v3/farm/daily-logs', payload),
 };
 
 // ── Workflow / Approval / Notification API ────────────────────────────────────

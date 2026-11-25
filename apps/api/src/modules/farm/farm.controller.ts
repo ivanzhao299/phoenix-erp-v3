@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Put, Get, Header, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { FarmService, OrgScope, deriveOrgScope } from './farm.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -27,6 +27,13 @@ export class FarmController {
 
   // 2026-06-06 调整：日报录入应归 MENU_FARM_DAILY（业务字面对齐），不归
   // MENU_FARM_DATA（后者是养殖场/鸡舍/鸡群主数据维护权，业务录入用户不该有 E）。
+  @Get('daily-logs/mobile-summary')
+  @RequireMenu('MENU_FARM_DATA', 'V')
+  @Header('Cache-Control', 'no-store')
+  async mobileDailySummary(@Query('date') date: string, @Query('shift') shift: string, @Req() req: any) {
+    return { code: 200, data: await this.farmService.readMobileDailySummary(date, shift, this.getScope(req)) };
+  }
+
   @Post('daily-logs')
   @RequireMenu('MENU_FARM_DAILY', 'E')
   async submitBreedingDailyLog(@Body() body: any, @Req() req: any) {

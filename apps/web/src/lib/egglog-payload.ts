@@ -6,7 +6,7 @@ export interface EgglogEntryValues {
   humidity: string;
 }
 
-export function egglogSummarySnapshot(entry: EgglogEntryValues) {
+function egglogSummaryQuantities(entry: EgglogEntryValues) {
   return {
     eggs_produced: Math.max(0, Number(entry.eggs) || 0),
     dirty_eggs: Math.max(0, Number(entry.dirty) || 0),
@@ -16,8 +16,6 @@ export function egglogSummarySnapshot(entry: EgglogEntryValues) {
   };
 }
 
-export type EgglogSummarySnapshot = ReturnType<typeof egglogSummarySnapshot>;
-
 export function buildEgglogPayload(
   entry: EgglogEntryValues,
   base: {
@@ -26,10 +24,10 @@ export function buildEgglogPayload(
     log_date: string;
     shift: string;
     operator?: string;
-    expectedSummary?: EgglogSummarySnapshot | null;
+    expectedReportVersion?: string | null;
   },
 ) {
-  const summary = egglogSummarySnapshot(entry);
+  const summary = egglogSummaryQuantities(entry);
   return {
     ...base,
     ...summary,

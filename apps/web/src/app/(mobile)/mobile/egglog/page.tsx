@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
-import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
+import { mobileApi, FlockRecord } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
@@ -14,7 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadEgglogFlocks, registerEgglogVisibilityRefresh } from '@/lib/egglog-refresh';
-import { buildEgglogPayload, egglogSummarySnapshot, type EgglogSummarySnapshot } from '@/lib/egglog-payload';
+import { buildEgglogPayload } from '@/lib/egglog-payload';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ interface HouseEntry {
 type HouseDraft = {
   entry: HouseEntry;
   reportZero: boolean;
-  expectedSummary: EgglogSummarySnapshot | null;
+  expectedReportVersion: string | null;
   status?: 'unverified' | 'conflict';
 };
 const emptyEntry = (): HouseEntry => ({
@@ -331,6 +331,7 @@ export default function EggLogPage() {
   const [shift, setShift] = useState('早班');
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
   const [entries, setEntries] = useState<Record<string, HouseEntry>>({});
+  const [reportVersions, setReportVersions] = useState<Record<string, string>>({});
   const [existing, setExisting] = useState<Record<string, number>>({});
   const [drafts, setDrafts] = useState<Record<string, Record<string, HouseDraft>>>({});
   const scope = JSON.stringify([user?.userId ?? user?.username, date, shift]);
@@ -374,31 +375,33 @@ export default function EggLogPage() {
     setSaved(false);
     setError('');
     try {
-      const res = await mobileApi.getFarmLogs(d);
+      const rows = await mobileApi.getMobileDailySummary(d, s);
       if (id !== generation.current) return;
-      const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
-      const filtered = arr.filter((r: any) => !s || r.shift === s || !r.shift);
       const existMap: Record<string, number> = {};
       const entryMap: Record<string, HouseEntry> = {};
-      for (const r of filtered) {
+      const versions: Record<string, string> = {};
+      for (const r of rows) {
         const key = r.house_code || r.flock_no || '';
         if (!key) continue;
+        if (r.shift === s && r.report_version) versions[key] = r.report_version;
         existMap[key] = (existMap[key] || 0) + Number(r.eggs_produced || 0);
         entryMap[key] = {
           eggs: (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
-          dirty: (entryMap[key]?.dirty || 0) + Number((r as any).dirty_eggs || 0),
+          dirty: (entryMap[key]?.dirty || 0) + Number(r.dirty_eggs || 0),
           // bad_eggs is legacy-only. Never add it to broken_eggs or defects double-count.
-          broken: (entryMap[key]?.broken || 0) + Number((r as any).broken_eggs || 0),
-          temp: (r as any).temp != null ? String((r as any).temp) : '',
-          humidity: (r as any).humidity != null ? String((r as any).humidity) : ''
+          broken: (entryMap[key]?.broken || 0) + Number(r.broken_eggs || 0),
+          temp: r.temp != null ? String(r.temp) : '',
+          humidity: r.humidity != null ? String(r.humidity) : ''
         };
       }
       setExisting(existMap);
       setEntries(entryMap);
+      setReportVersions(versions);
       setLoadedScope(keyScope);
     } catch {
       if (id !== generation.current) return;
       setEntries({});
+      setReportVersions({});
       setExisting({});
       setLoadFailed(true);
     } finally {
@@ -437,8 +440,8 @@ export default function EggLogPage() {
     setDrafts(all => {
       const draft = all[scope]?.[house];
       if (draft?.status) return all;
-      const expectedSummary = draft ? draft.expectedSummary : entries[house] ? egglogSummarySnapshot(entries[house]) : null;
-      return { ...all, [scope]: { ...all[scope], [house]: { entry, reportZero, expectedSummary } } };
+      const expectedReportVersion = draft ? draft.expectedReportVersion : reportVersions[house] ?? null;
+      return { ...all, [scope]: { ...all[scope], [house]: { entry, reportZero, expectedReportVersion } } };
     });
   }
 
@@ -457,10 +460,12 @@ export default function EggLogPage() {
       const entry = draft.entry;
       try {
         if (sessionStorage.getItem('phoenix_token') !== token) throw new Error(tr('common.loginRequired', '请重新登录'));
-        await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
-          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift, expectedSummary: draft.expectedSummary,
+        const receipt = await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
+          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift, expectedReportVersion: draft.expectedReportVersion,
         }));
         confirmed.push(key);
+        const reportVersion = receipt.reportVersion;
+        if (reportVersion) setReportVersions(old => ({ ...old, [key]: reportVersion }));
         setExisting(old => ({ ...old, [key]: entry.eggs }));
         setEntries(old => ({ ...old, [key]: entry }));
       } catch (error) {
