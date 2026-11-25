@@ -210,10 +210,12 @@ function DailyEntry(){
     const generation = ++historyRequest.current;
     setHistoryStatus('loading');
     // Filter before the API's page limit; another house cannot crowd this one out.
+    const shiftValues = historyShift === 'AM' ? ['AM', '早班']
+      : historyShift === 'PM' ? ['PM', '晚班'] : historyShift === 'DAILY' ? ['DAILY', 'ALL'] : historyShift;
     const [data, allHouses] = await Promise.all([fetchRecords({
       ...(historyHouse ? { house_code: historyHouse } : {}),
       ...(historyDate ? { log_date: historyDate } : {}),
-      ...(historyShift ? { shift: historyShift } : {}),
+      ...(shiftValues ? { shift: shiftValues } : {}),
       limit: 31, offset: historyPage * 30,
     }), fetchHouses()]);
     if (generation !== historyRequest.current) return;

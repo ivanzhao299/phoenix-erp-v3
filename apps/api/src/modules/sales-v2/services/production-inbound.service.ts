@@ -297,17 +297,22 @@ export class ProductionInboundService {
     if (!table[0]?.table_name) return;
 
     const reports = await mgr.query(
-      `SELECT eggs_by_grade, eggs_produced, company_code, shift
-         FROM brd_daily_logs
+      `SELECT eggs_by_grade, eggs_produced, company_code, shift,
+              to_jsonb(d)->>'production_input_kind' AS production_input_kind,
+              to_jsonb(d)->>'dirty_eggs' AS dirty_eggs, to_jsonb(d)->>'broken_eggs' AS broken_eggs
+         FROM brd_daily_logs d
         WHERE log_date = $1 AND house_code = $2`,
       [dto.eggDate, dto.houseCode],
     );
-    if (reports.length > 1 && reports.some((r: {shift?: string}) => r.shift === 'DAILY')) {
+    if (reports.length > 1 && reports.some((r: {shift?: string}) => ['DAILY', 'ALL'].includes(r.shift?.trim().toUpperCase() ?? ''))) {
       throw new BadRequestException('同舍日的全天日报与其他日报重复覆盖，请先核对来源');
     }
-    if (reports.some((r: { company_code?: string; eggs_by_grade?: unknown; eggs_produced?: number }) =>
-      (r.company_code && r.company_code !== companyCode)
-      || (Number(r.eggs_produced) > 0 && !Object.values(normalizeGradeQuantityMap(r.eggs_by_grade)).some(qty => qty > 0)))) {
+    if (reports.some(r => {
+      const hasSummaryQuantity = Number(r.eggs_produced) > 0 || (r.production_input_kind === 'LEGACY_MOBILE_SUMMARY'
+        && (Number(r.dirty_eggs) > 0 || Number(r.broken_eggs) > 0));
+      return (r.company_code && r.company_code !== companyCode)
+        || (hasSummaryQuantity && !Object.values(normalizeGradeQuantityMap(r.eggs_by_grade)).some(qty => qty > 0));
+    })) {
       throw new BadRequestException('日报归属或分级数量未核实，请核对后再入库');
     }
     const expected = sumGradeQuantityMaps(reports);

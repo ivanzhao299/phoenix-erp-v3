@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,9 +15,7 @@ import { useMedicineInbound } from '@/hooks/useMedicineInbound';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+
 
 type Tab = 'stock' | 'inbound' | 'ledger';
 
@@ -27,14 +25,18 @@ interface EntryRow {
 }
 
 export default function MedicinePage() {
+  const { canEdit, user } = usePermission('MENU_FARM_VET');
+  const actor = String(user.userId ?? user.id ?? user.username ?? '');
+  const { allowed, loading, readonly } = useMobilePermission('medicine');
+  return !loading && allowed ? <MedicineWorkbench key={actor} actor={actor} readonly={!canEdit || readonly} /> : null;
+}
+
+function MedicineWorkbench({ actor, readonly }: { actor: string; readonly: boolean }) {
   const router = useRouter();
-  const today  = fmtDate(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
   const { isDark, toggle, t } = useMobileTheme();
   const { t: tr } = useLanguage();
-  const { allowed, loading: permLoading } = useMobilePermission('medicine');
-  const { canEdit, user } = usePermission('MENU_FARM_VET');
-  const readonly = !canEdit;
-  const inbound = useMedicineInbound(String(user.userId ?? user.id ?? user.username ?? ''), '/api/farm/medicine/inbound/receipted');
+  const inbound = useMedicineInbound(actor, '/api/farm/medicine/inbound/receipted');
   const CHANGE_LABELS_TR: Record<string, string> = {
     MED_INBOUND:  tr('mob.brd.inbound', '入库'),
     MED_OUTBOUND: tr('mob.brd.outbound', '出库'),
@@ -52,12 +54,14 @@ export default function MedicinePage() {
   const [error, setError]     = useState('');
 
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
+  const submitted = useRef<Record<string, EntryRow> | undefined>(undefined);
+  const entryLocked = saving || readonly || !inbound.ready || Boolean(inbound.pending);
 
   const [warehouses, setWarehouses] = useState<MedicineWarehouse[]>([]);
   const [warehouseCode, setWarehouseCode] = useState('');
   const warehouse = warehouses.find(row => row.warehouse_code === warehouseCode);
   useEffect(() => {
-    if (!allowed || readonly || tab !== 'inbound') return;
+    if (readonly || tab !== 'inbound') return;
     let active = true;
     mobileApi.getMedicineWarehouses().then(rows => {
       if (!active) return;
@@ -72,15 +76,14 @@ export default function MedicinePage() {
       }
     });
     return () => { active = false; };
-  }, [allowed, readonly, tab]);
+  }, [readonly, tab]);
 
   const [houseMap, setHouseMap] = useState<Record<string, string>>({});
   useEffect(() => {
-    if (!allowed) return;
     mobileApi.getFeedHousesDetail()
       .then(rows => setHouseMap(Object.fromEntries(rows.map(row => [row.house_code, row.house_name || row.house_code]))))
       .catch(() => setHouseMap({}));
-  }, [allowed]);
+  }, []);
 
   const loadStock = useCallback(async () => {
     setLoading(true);
@@ -107,17 +110,16 @@ export default function MedicinePage() {
   }, [today]);
 
   useEffect(() => {
-    if (!allowed) return;
     if (tab === 'ledger') loadLedger();
     else loadStock();
-  }, [allowed, tab, loadStock, loadLedger]);
+  }, [tab, loadStock, loadLedger]);
 
-  if (permLoading || !allowed) return null;
 
   const getEntry = (code: string): EntryRow =>
     entries[code] ?? { qty: 0, note: '' };
 
   const setEntry = (code: string, patch: Partial<EntryRow>) => {
+    if (entryLocked) return;
     setEntries(p => ({ ...p, [code]: { ...getEntry(code), ...patch } }));
     setSaved(false);
   };
@@ -128,12 +130,15 @@ export default function MedicinePage() {
 
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
 
-  const handleSave = async () => {
-    if (readonly || saving || !inbound.pending && (!hasChanges || !warehouse || tab !== 'inbound')) return;
+  async function handleInbound(recovering: boolean) {
+    if (readonly || saving || !inbound.ready) return;
+    if (recovering ? !inbound.pending : entryLocked || !hasChanges || !warehouse || tab !== 'inbound') return;
+    if (!recovering) submitted.current = entries;
+    const submittedEntries = submitted.current;
     setSaving(true);
     setError('');
     try {
-      const items = inbound.pending || !warehouse ? [] : Object.entries(entries)
+      const items = recovering || !warehouse ? [] : Object.entries(entries)
         .filter(([, e]) => e.qty > 0)
         .map(([code, e]) => ({
           material_code: code,
@@ -144,12 +149,13 @@ export default function MedicinePage() {
           note:            e.note || undefined,
         }));
 
-      const receipt = await inbound.submit(today, items);
+      const receipt = recovering ? await inbound.recover() : await inbound.submit(today, items);
       if (!receipt) return;
       setReceiptLines(receipt.lines);
       invalidateCache('medStock');
       setSaved(true);
-      setEntries({});
+      setEntries(current => current === submittedEntries ? {} : current);
+      submitted.current = undefined;
       setTimeout(() => setSaved(false), 3000);
       setTab('stock');
     } catch (e: any) {
@@ -157,7 +163,7 @@ export default function MedicinePage() {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
     <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
@@ -186,8 +192,8 @@ export default function MedicinePage() {
         </button>
         {(tab === 'inbound' && !readonly) && (
           <button
-            onClick={handleSave}
-            disabled={saving || !hasChanges || !warehouse}
+            onClick={() => void handleInbound(false)}
+            disabled={entryLocked || !hasChanges || !warehouse}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '8px 14px', borderRadius: 10,
@@ -250,10 +256,10 @@ export default function MedicinePage() {
       </p>}
       {inbound.pending && !readonly && <div role="status">
         {tr('ui.药品入库结果待核', '药品入库结果待核')} · {inbound.pending.date}
-        <button type="button" disabled={saving} onClick={handleSave}>{tr('ui.找回药品入库回执', '找回原入库回执')}</button>
+        <button type="button" disabled={saving} onClick={() => void handleInbound(true)}>{tr('ui.找回药品入库回执', '找回原入库回执')}</button>
       </div>}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 12 }}>
+        <div role="alert" style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
@@ -306,7 +312,7 @@ export default function MedicinePage() {
 
             <label style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
               {tr('ui.仓库', '仓库')}
-              <select value={warehouseCode} onChange={event => {
+              <select value={warehouseCode} disabled={entryLocked} onChange={event => {
                 setWarehouseCode(event.target.value);
                 setEntries({});
               }}>
@@ -338,7 +344,7 @@ export default function MedicinePage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.qty', '数量')}</div>
                       <input
-                        type="number" inputMode="numeric" min="0"
+                        type="number" inputMode="numeric" min="0" disabled={entryLocked}
                         value={e.qty || ''}
                         onChange={ev => setEntry(code, { qty: Math.max(0, Number(ev.target.value) || 0) })}
                         placeholder="0"
@@ -355,7 +361,7 @@ export default function MedicinePage() {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 10, color: t.textFaint }}>{tr('mob.brd.note', '备注')}</div>
                       <input
-                        type="text"
+                        type="text" disabled={entryLocked}
                         value={e.note}
                         onChange={ev => setEntry(code, { note: ev.target.value })}
                         placeholder={tr('mob.brd.supplier_batch', '供应商/批号…')}

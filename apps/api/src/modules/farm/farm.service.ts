@@ -1,7 +1,7 @@
 import { productionReportFactsSql } from './production-report-facts';
 import { normalizeGradeQuantityMap, normalizeReportGrades, sameReportGrades, storedGradeStatus } from './daily-report-grades';
 import { refreshDailyFlockLayRate } from './effective-production-source';
-import { Injectable, NotFoundException, BadRequestException, Optional, Inject, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Optional, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
@@ -162,6 +162,18 @@ const ALLOWED_DAILY_COLS = new Set([
 ]);
 
 // Old handhelds send a saleable total and exactly the two observed defect counts.
+const LEGACY_SUMMARY_FIELDS = ['eggs_produced', 'dirty_eggs', 'broken_eggs', 'temp', 'humidity'] as const;
+function matchingLegacySummary(expected: unknown, saved: Record<string, unknown>) {
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)) return false;
+  const snapshot = expected as Record<string, unknown>;
+  return LEGACY_SUMMARY_FIELDS.every(field => {
+    const value = snapshot[field];
+    return value === null ? saved[field] == null
+      : (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+        && Number.isFinite(Number(value)) && saved[field] != null && Number(value) === Number(saved[field]);
+  });
+}
+
 function isLegacyMobileSummary(input: Record<string, unknown>): boolean {
   const grades = input.eggs_by_grade;
   if (!grades || typeof grades !== 'object' || Array.isArray(grades)) return false;
@@ -444,6 +456,18 @@ export class FarmService {
       if (priorSummary && !legacySummary) {
         throw new BadRequestException('旧手机汇总日报须以原口径录入，分级请办理独立更正');
       }
+      const isDaySummary = ['DAILY', 'ALL'].includes(String(body.shift).trim().toUpperCase());
+      const [overlap] = await manager.query(
+        `SELECT 1 FROM brd_daily_logs WHERE log_date=$1 AND house_code=$2
+          AND shift IS DISTINCT FROM $3 AND ($4 OR UPPER(BTRIM(shift)) IN ('DAILY','ALL')
+            OR UPPER(BTRIM(shift)) = ANY($5::text[])) LIMIT 1`,
+        [logDate, houseCode, body.shift, isDaySummary,
+          ['AM','早班'].includes(String(body.shift)) ? ['AM','早班']
+            : ['PM','晚班'].includes(String(body.shift)) ? ['PM','晚班'] : []],
+      );
+      if (overlap) {
+        throw new BadRequestException('同一鸡舍和日期不能同时登记全天与分班日报，或重复登记同一班次，请核对原单后办理更正');
+      }
       if (legacySummary) {
         const [schema] = await manager.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
         if (schema?.scopes && (await manager.query(`
@@ -454,10 +478,8 @@ export class FarmService {
         }
         // Summary rows carry explicit counters but no stock-producing allocations.
         // Do not convert an existing classified report or pooled receipt in place.
-        if (flock.lifecycle_managed || (await manager.query(
-          "SELECT 1 FROM brd_daily_logs WHERE log_date=$1 AND house_code=$2 AND shift='DAILY' LIMIT 1",
-          [logDate, houseCode])).length) {
-          throw new BadRequestException('该舍已有正式占栏或全天日报，请核对原单及录入范围');
+        if (flock.lifecycle_managed) {
+          throw new BadRequestException('该舍已有正式占栏，请使用正式生产日报');
         }
         if (prior && !priorSummary) {
           throw new BadRequestException('已有日报口径不同，请核对原单后办理更正');
@@ -465,6 +487,14 @@ export class FarmService {
         body.dirty_eggs = birdCount(input.dirty_eggs, 'dirty_eggs');
         body.broken_eggs = birdCount(input.broken_eggs, 'broken_eggs');
         body.eggs_by_grade = JSON.stringify({});
+        const submittedSummary = { ...body, temp: body.temp ?? null, humidity: body.humidity ?? null };
+        if (prior && matchingLegacySummary(submittedSummary, prior)) {
+          return { code: 200, msg: '已核对保存的原日报', ledgerSkipped: false };
+        }
+        if ((prior && !matchingLegacySummary(input.expectedSummary, prior))
+          || (!prior && input.expectedSummary != null)) {
+          throw new ConflictException('该班日报已有较新记录，请重新核对后录入');
+        }
       } else if (input.eggs_by_grade !== undefined) {
         const grades = normalizeReportGrades(input.eggs_by_grade);
         const matchesConfirmed = prior?.occupancy_id && sameReportGrades(prior.eggs_by_grade, grades);
@@ -607,9 +637,14 @@ export class FarmService {
       eggs_by_grade: any;
       eggs_produced: number | string | null;
       inbound_by_grade: any;
+      production_input_kind: string | null;
+      dirty_eggs: string | null;
+      broken_eggs: string | null;
     }> = await this.entityManager.query(
       `SELECT dl.house_code, dl.eggs_by_grade, dl.eggs_produced,
-              (BOOL_OR(dl.shift='DAILY') OVER (PARTITION BY dl.house_code)
+              to_jsonb(dl)->>'production_input_kind' AS production_input_kind,
+              to_jsonb(dl)->>'dirty_eggs' AS dirty_eggs, to_jsonb(dl)->>'broken_eggs' AS broken_eggs,
+              (BOOL_OR(UPPER(BTRIM(dl.shift)) IN ('DAILY','ALL')) OVER (PARTITION BY dl.house_code)
                AND COUNT(*) OVER (PARTITION BY dl.house_code)>1) AS overlapping_shifts,
               COALESCE((
                 SELECT jsonb_object_agg(inbound.grade_code, inbound.qty)
@@ -648,7 +683,8 @@ export class FarmService {
       catch { missingBreakdownLogs++; continue; }
       const hasBreakdown = Object.values(ebg).some(qty => qty > 0);
       if (!hasBreakdown) {
-        if (eggs > 0) missingBreakdownLogs += 1;
+        if (eggs > 0 || (r.production_input_kind === 'LEGACY_MOBILE_SUMMARY'
+          && (Number(r.dirty_eggs) > 0 || Number(r.broken_eggs) > 0))) missingBreakdownLogs += 1;
         continue;
       }
       for (const [grade, qty] of Object.entries(ebg as Record<string, unknown>)) {
@@ -734,9 +770,10 @@ export class FarmService {
               AND (limit_qty.value IS NULL OR flock.qty <= limit_qty.value * 1.2))),false) AS archive_normal
         FROM brd_houses h JOIN ${owners} owner ON owner.farm_code=h.farm_code
         LEFT JOIN LATERAL (SELECT count(*) AS count,max(f.current_qty) AS qty,
-          count(*) FILTER (WHERE f.status IS NULL OR f.status NOT IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')) AS conflicts,
+          count(*) FILTER (WHERE f.farm_code IS DISTINCT FROM owner.farm_code OR f.status IS NULL
+            OR f.status NOT IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')) AS conflicts,
           max(COALESCE(f.placement_date,f.start_date))::text AS started,max(f.current_lay_rate) AS rate
-          FROM brd_flocks f WHERE f.house_code=h.house_code AND f.farm_code=owner.farm_code
+          FROM brd_flocks f WHERE f.house_code=h.house_code
           AND (f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING') OR COALESCE(f.current_qty,0)>0)) flock ON true
         CROSS JOIN LATERAL (SELECT min(candidate) AS value FROM (VALUES (h.capacity),(h.max_capacity)) sizes(candidate)
           WHERE candidate>0) limit_qty
@@ -744,7 +781,7 @@ export class FarmService {
           AND concat_ws(' ',${houseSearch}) ILIKE $3`
       : `SELECT f.*, f.flock_no AS archive_key, f.current_qty AS archive_birds, false AS archive_normal,
           owner.company_code AS archive_company_code, owner.site_code AS archive_site_code
-        FROM brd_flocks f JOIN ${owners} owner ON owner.farm_code=f.farm_code
+        FROM brd_flocks f ${scope.isGlobal ? 'LEFT JOIN' : 'JOIN'} ${owners} owner ON owner.farm_code=f.farm_code
         LEFT JOIN brd_houses h ON h.house_code=f.house_code AND h.farm_code=owner.farm_code
         WHERE ${predicate} AND ($1='' OR f.farm_code=$1)
           AND ($2='' OR f.status=$2 OR ($2='LAYING' AND f.status='ACTIVE'))

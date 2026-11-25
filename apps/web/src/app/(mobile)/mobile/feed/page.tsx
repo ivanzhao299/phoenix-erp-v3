@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+
+import { MobilePageShell } from '@/components/design-system/mobile/MobileKit';
 import FeedLedgerRollout from '@/components/breeding/FeedLedgerRollout';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
@@ -281,9 +284,11 @@ function LegacyFeedLedger() {
   const { t: tr } = useLanguage();
   const {
     allowed,
-    loading: permLoading
+    loading: permLoading,
+    readonly
   } = useMobilePermission('feed');
-  const { canEdit } = usePermission('MENU_BREEDING');
+  const { canEdit: canEditMenu } = usePermission('MENU_BREEDING');
+  const canEdit = canEditMenu && !readonly;
   const toast = useToast();
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
   const [date, setDate] = useState(today);
@@ -557,6 +562,17 @@ function LegacyFeedLedger() {
     </div>;
 }
 export default function MobileFeedLedger() {
-  const { allowed } = useMobilePermission('feed');
-  return allowed ? <FeedLedgerRollout legacy={<LegacyFeedLedger />} /> : null;
+  const { allowed, readonly } = useMobilePermission('feed');
+  const { t } = useLanguage();
+  if (!allowed) return null;
+  return <FeedLedgerRollout readonly={readonly} legacy={<LegacyFeedLedger />} renderStandalone={content => (
+    <MobilePageShell title={t('mob.brd.feed_ledger', '饲料台账')} left={
+      <Link href="/mobile/home" aria-label={t('common.back', '返回')}
+        style={{ display: 'grid', placeItems: 'center', width: 44, height: 44, color: 'inherit' }}>
+        <ArrowLeft size={20} aria-hidden />
+      </Link>
+    }>
+      {content}
+    </MobilePageShell>
+  )} />;
 }

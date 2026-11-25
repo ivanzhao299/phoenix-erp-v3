@@ -1,4 +1,6 @@
 {
+  "mob.brd.reportChanged": "The report was updated. Review it before entering a new draft.",
+  "mob.brd.discardStaleReportDraft": "Discard this house draft and reload",
   "mob.brd.reportZero": "Confirm zero eggs for this shift",
   "mob.brd.saveUnverified": "Submission pending verification",
   "common.loginRequired": "Sign in again",

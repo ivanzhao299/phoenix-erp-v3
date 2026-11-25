@@ -215,18 +215,18 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       <p>{t('eggSources.exactQuantity','可归属枚数')} {result.evidence.exactQuantity??t('eggSources.unknown','来源待核实')}</p>
       {permission.canEdit&&<form onSubmit={submit}>
         <div className={s.grid}>
-          <label className={s.field}>{t('eggSources.ledger','原库存流水')}<select required value={ledger} onChange={e=>setLedger(e.target.value)}>
+          <label className={s.field}>{t('eggSources.ledger','原库存流水')}<select required disabled={busy||!!pending} value={ledger} onChange={e=>setLedger(e.target.value)}>
             <option value="">{t('eggSources.choose','请选择')}</option>
             {result.evidence.ledger.map(line=><option key={line.id} value={line.id}>#{line.id} · {line.ref_no??t('eggSources.originalRestricted','原业务单据需相应权限')} · {line.change_type} · {line.qty_change}</option>)}
           </select></label>
-          <label className={s.field}>{t('eggSources.shell','商品壳色')}<select value={target} onChange={e=>setTarget(e.target.value)}>
+          <label className={s.field}>{t('eggSources.shell','商品壳色')}<select disabled={busy||!!pending} value={target} onChange={e=>setTarget(e.target.value)}>
             {['STANDARD','RED','PINK'].map(value=><option value={value} key={value}>{label(value)}</option>)}
           </select></label>
           <label className={s.field}>{t('eggSources.exactQuantity','可归属枚数')}<input type="number" min={1} step={1}
-            disabled={result.evidence.exactQuantity===null} max={result.evidence.exactQuantity??undefined} value={qty} onChange={e=>setQty(e.target.value)}/></label>
-          <label className={s.field}>{t('eggSources.reason','依据')}<textarea required value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/></label>
+            disabled={busy||!!pending||result.evidence.exactQuantity===null} max={result.evidence.exactQuantity??undefined} value={qty} onChange={e=>setQty(e.target.value)}/></label>
+          <label className={s.field}>{t('eggSources.reason','依据')}<textarea required disabled={busy||!!pending} value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/></label>
         </div>
-        {owner&&<AttachmentUploader value={attachments} onChange={setAttachments} onUploadingChange={setUploading}
+        {owner&&<AttachmentUploader readOnly={busy||!!pending} value={attachments} onChange={setAttachments} onUploadingChange={setUploading}
           ownership={{moduleCode:'PRODUCTION_INBOUND',ownerType:'HOUSE',ownerId:house,companyCode:owner.companyCode,storeCode:owner.siteCode}}/>}
         <button type="submit" disabled={busy||!!pending||uploading||!ledger||!reason.trim()||!attachments.length}>{t('eggSources.submit','提交审核')}</button>
       </form>}

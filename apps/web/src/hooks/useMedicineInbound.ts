@@ -24,10 +24,16 @@ interface MedicineInboundReceipt {
   lines: { batchNo: string; ledgerId: number }[];
 }
 
+function readDraft(key: string): MedicineInboundDraft | null {
+  const draft = JSON.parse(sessionStorage.getItem(key) ?? 'null') as MedicineInboundDraft | null;
+  return draft?.actionKey && Array.isArray(draft.items) ? draft : null;
+}
+
 export function useMedicineInbound(actor: string, path: string) {
   const storageKey = actor ? 'farm:medicine:inbound:' + actor : '';
-  const [stored, setStored] = useState<{ storageKey: string; draft: MedicineInboundDraft }>();
-  const pending = stored?.storageKey === storageKey ? stored?.draft : undefined;
+  const [stored, setStored] = useState<{ storageKey: string; draft: MedicineInboundDraft | null }>();
+  const ready = Boolean(storageKey) && stored?.storageKey === storageKey;
+  const pending = ready ? stored?.draft : undefined;
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -35,20 +41,25 @@ export function useMedicineInbound(actor: string, path: string) {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
+      let draft: MedicineInboundDraft | null = null;
       try {
-        const draft = JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') as MedicineInboundDraft | null;
-        if (draft?.actionKey && Array.isArray(draft.items)) setStored({ storageKey, draft });
+        draft = readDraft(storageKey);
       } catch {
-        sessionStorage.removeItem(storageKey);
+        // A new submission must still persist its request before sending it.
       }
+      setStored({ storageKey, draft });
     });
     return () => { active = false; };
   }, [storageKey]);
 
-  async function submit(date: string, items: MedicineInboundLine[]) {
-    if (!storageKey || inFlight.current) return;
+  function clearDraft(draft: MedicineInboundDraft) {
+    if (readDraft(storageKey)?.actionKey !== draft.actionKey) return;
+    sessionStorage.removeItem(storageKey);
+    setStored({ storageKey, draft: null });
+  }
+
+  async function send(draft: MedicineInboundDraft) {
     inFlight.current = true;
-    const draft = pending ?? { date, items, actionKey: crypto.randomUUID() };
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(draft));
       setStored({ storageKey, draft });
@@ -58,19 +69,35 @@ export function useMedicineInbound(actor: string, path: string) {
           || !response.data.lines.every(line => line.batchNo && Number.isSafeInteger(line.ledgerId) && line.ledgerId > 0)) {
         throw new Error('药品入库回执待核，请使用原请求找回');
       }
-      sessionStorage.removeItem(storageKey);
-      setStored(undefined);
+      clearDraft(draft);
       return response.data;
     } catch (error) {
-      if ((error as { status?: number })?.status === 400) {
-        sessionStorage.removeItem(storageKey);
-        setStored(undefined);
-      }
+      if ((error as { status?: number })?.status === 400) clearDraft(draft);
       throw error;
     } finally {
       inFlight.current = false;
     }
   }
 
-  return { pending, submit };
+  async function submit(date: string, items: MedicineInboundLine[]) {
+    if (!ready || inFlight.current || !items.length) return;
+    const existing = readDraft(storageKey);
+    if (existing) {
+      setStored({ storageKey, draft: existing });
+      return;
+    }
+    return send({ date, items, actionKey: crypto.randomUUID() });
+  }
+
+  async function recover() {
+    if (!ready || inFlight.current) return;
+    const draft = readDraft(storageKey);
+    if (!draft) {
+      setStored({ storageKey, draft: null });
+      return;
+    }
+    return send(draft);
+  }
+
+  return { ready, pending, submit, recover };
 }

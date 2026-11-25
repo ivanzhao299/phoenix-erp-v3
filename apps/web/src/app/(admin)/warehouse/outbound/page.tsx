@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { flockBusinessToday } from '@/components/flock-lifecycle-form';
 import { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -100,7 +101,7 @@ export default function OutboundPage() {
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [typeFilter,   setTypeFilter]   = useState(issueOnly ? "PRODUCTION_USE" : "");
   const [confirmingNo, setConfirmingNo] = useState("");
-  const [batchHeader, setBatchHeader] = useState<BatchHeader>({ date: new Date().toISOString().slice(0, 10), type: "SALE", warehouse_code: "", destination_type: "CUSTOMER" });
+  const [batchHeader, setBatchHeader] = useState<BatchHeader>({ date: flockBusinessToday(), type: "SALE", warehouse_code: "", destination_type: "CUSTOMER" });
   const [batchItems, setBatchItems] = useState<BatchLine[]>([newBatchLine()]);
 
   // 当前用户的 site/farm 推导 — 用于 Selector 过滤
@@ -233,7 +234,7 @@ export default function OutboundPage() {
     const type = requestedType ? allowedBatchTypes.find(value => value === requestedType) : allowedBatchTypes[0];
     if (!type) return;
     setEditing(null);
-    setBatchHeader({ date: new Date().toISOString().slice(0, 10), type, warehouse_code: siteCode ?? "", destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? "" });
+    setBatchHeader({ date: flockBusinessToday(), type, warehouse_code: siteCode ?? "", destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? "" });
     setBatchItems([newBatchLine()]);
     setDrawerOpen(true);
   }, [canCreateCurrent, allowedBatchTypes, siteCode, setBatchHeader, setBatchItems]);
@@ -264,7 +265,7 @@ export default function OutboundPage() {
         ...values,
         outbound_no: values.outbound_no || ("WO-" + Date.now().toString().slice(-8)),
         status:      values.status || "PENDING",
-        date:        values.date   || new Date().toISOString().slice(0, 10),
+        date:        values.date   || flockBusinessToday(),
         ...(siteCode ? { site_code: siteCode } : {}),
       });
       const outboundNo = encodeURIComponent(String(payload.outbound_no));

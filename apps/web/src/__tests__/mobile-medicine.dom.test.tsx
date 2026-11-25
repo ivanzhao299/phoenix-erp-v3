@@ -6,6 +6,9 @@ import MedicinePage from '@/app/(mobile)/mobile/medicine/page';
 
 const state = vi.hoisted(() => ({
   readonly: false,
+  mobileReadonly: false,
+  pending: false,
+  recover: vi.fn(async () => ({ lines: [{ batchNo: 'OLD-LOT', ledgerId: 2 }] })),
   stock: vi.fn(async () => [
     { material_code: 'MAT-A', medication_code: 'MAT-A', medication_name: '实际物料', unit: '瓶', qty: 15 },
     { material_code: null, medication_code: 'MED-001', medication_name: '历史模板', unit: '瓶', qty: 1 },
@@ -18,20 +21,21 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn() }) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (_: string, fallback: string) => fallback }) }));
 vi.mock('@/contexts/MobileThemeContext', () => ({ useMobileTheme: () => ({ t: {} }) }));
 vi.mock('@/hooks/useMobilePermission', () => ({
-  useMobilePermission: () => ({ allowed: true, readonly: state.readonly, loading: false }),
+  useMobilePermission: () => ({ allowed: true, readonly: state.mobileReadonly, loading: false }),
 }));
 vi.mock('@/hooks/usePermission', () => ({
   usePermission: () => ({ canEdit: !state.readonly, user: { userId: 1 } }),
 }));
 vi.mock('@/hooks/useMedicineInbound', () => ({
-  useMedicineInbound: () => ({ submit: state.inbound }),
+  useMedicineInbound: () => ({ ready: true, submit: state.inbound, recover: state.recover,
+    pending: state.pending ? { date: '2026-11-25' } : undefined }),
 }));
 vi.mock('@/lib/mobile-api', () => ({
   invalidateCache: vi.fn(),
   mobileApi: { getMedicineWarehouses: state.warehouses, medInbound: state.inbound, getMedStock: state.stock, getMedLedger: state.ledger, getFeedHousesDetail: async () => [] },
 }));
 
-afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { state.mobileReadonly = false; state.pending = false; vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 it.each([false, true])('opens the governed treatment workflow and retains ledger access (readonly %s)', async readonly => {
   state.readonly = readonly;
@@ -73,6 +77,53 @@ it('receives only actual material into the selected authorized medicine warehous
     expect(state.inbound).toHaveBeenCalledWith(expect.any(String), [{
       material_code: 'MAT-A', qty: 2, note: undefined, warehouse_code: 'W1', site_code: 'S1', company_code: 'C1',
     }]);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+
+it('enforces mobile-only read access even with business menu edit permission', async () => {
+  state.readonly = false;
+  state.mobileReadonly = true;
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  const host = document.createElement('div');
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<MedicinePage />));
+    expect([...host.querySelectorAll('button')].some(b => b.textContent === '入库')).toBe(false);
+    expect(state.inbound).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+it('recovers a prior receipt without submitting or clearing another draft', async () => {
+  state.readonly = false;
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  const host = document.createElement('div');
+  const root = createRoot(host);
+  const button = (label: string) => [...host.querySelectorAll('button')].find(b => b.textContent === label)!;
+  try {
+    await act(async () => root.render(<MedicinePage />));
+    await act(async () => button('入库').click());
+    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '9');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    state.pending = true;
+    await act(async () => root.render(<MedicinePage />));
+    expect(input.disabled).toBe(true);
+    expect(button('保存').disabled).toBe(true);
+    await act(async () => button('找回原入库回执').click());
+    expect(state.recover).toHaveBeenCalledOnce();
+    expect(state.inbound).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('OLD-LOT');
+    state.pending = false;
+    await act(async () => root.render(<MedicinePage />));
+    await act(async () => button('入库').click());
+    expect(host.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('9');
   } finally {
     await act(async () => root.unmount());
   }

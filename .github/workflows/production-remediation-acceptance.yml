@@ -103,7 +103,7 @@ jobs:
             src/modules/product-master/services/egg-source-change.pg.spec.ts \
             src/modules/wms/official-inventory.pg.spec.ts src/modules/wms/production-cutover-admission.pg.spec.ts
           ./node_modules/.bin/jest --runInBand --testTimeout=60000 --runTestsByPath src/modules/farm/scoped-feed-ledger.pg.spec.ts src/modules/farm/farm-medicine-inbound.pg.spec.ts
-          ./node_modules/.bin/jest --runInBand --testTimeout=60000 --runTestsByPath src/modules/generic-crud/daily-log-visibility.pg.spec.ts -t 'preserves each quantity|production archives'
+          ./node_modules/.bin/jest --runInBand --testTimeout=60000 --runTestsByPath src/modules/generic-crud/daily-log-visibility.pg.spec.ts
           OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" ./node_modules/.bin/jest --runInBand --testTimeout=60000 \
             --json --outputFile="$evidence/http.json" --runTestsByPath src/modules/sales-v2/services/production-inbound-http.pg.spec.ts
 
