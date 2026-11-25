@@ -60,12 +60,12 @@ function HistoryWorkbench({ actor }: { actor: string }) {
     void request<{code: number; data?: {houses: typeof houses}}>(endpoint + '/options', { signal: controller.signal })
       .then(response => {
         if (controller.signal.aborted) return;
-        if (response.code !== 200 || !Array.isArray(response.data?.houses)) throw new Error('鸡舍候选不可用');
+        if (response.code !== 200 || !Array.isArray(response.data?.houses)) throw new Error(t('eggSources.historyHouseOptionsUnavailable'));
         setHouses(response.data.houses);
         setOptionsError('');
       }).catch(error => { if (!controller.signal.aborted) setOptionsError(String(error.message)); });
     return () => controller.abort();
-  }, [permission.canView, optionsRevision]);
+  }, [permission.canView, optionsRevision, t]);
   useEffect(() => {
     if (!permission.canView || !house) return;
     const controller = new AbortController();
@@ -73,12 +73,12 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       endpoint + '/options?' + new URLSearchParams({ houseCode: house }), { signal: controller.signal })
       .then(response => {
         if (controller.signal.aborted) return;
-        if (response.code !== 200 || !Array.isArray(response.data?.warehouses)) throw new Error('仓库候选不可用');
+        if (response.code !== 200 || !Array.isArray(response.data?.warehouses)) throw new Error(t('eggSources.historyWarehouseOptionsUnavailable'));
         setWarehouseOptions(response.data.warehouses);
         setOptionsError('');
       }).catch(error => { if (!controller.signal.aborted) setOptionsError(String(error.message)); });
     return () => controller.abort();
-  }, [permission.canView, house, optionsRevision]);
+  }, [permission.canView, house, optionsRevision, t]);
   const [warehouse,setWarehouse]=useState('');
   const [date,setDate]=useState('');
   const [batch,setBatch]=useState('');
