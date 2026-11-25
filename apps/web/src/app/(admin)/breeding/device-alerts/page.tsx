@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { AlertTriangle, RefreshCw, Wifi, WifiOff } from "lucide-react";
@@ -53,13 +53,14 @@ interface AlarmItem {
   unit: string;
   category: string;
   system_category: string;
-  severity: "critical" | "warning" | "normal";
+  severity: "critical" | "warning" | "normal" | "unclassified";
   triggered_at: string | number;
   threshold_val: number | null;
   alarm_status: string;
   house_name?: string;
 }
 interface Summary {
+  diagnosticCode?: string;
   totalHouses: number;
   activeHouses: number;
   totalAlarms: number;
@@ -476,7 +477,7 @@ function AlarmRow({
         padding: "3px 9px",
         borderRadius: 8
       }}>
-          {isCritical ? "紧急" : "预警"}
+          {isCritical ? t('ui.紧急', '紧急') : alarm.severity === "warning" ? t('ui.预警', '预警') : t('ui.未分级', '未分级')}
         </span>
         <span style={{
         fontSize: 11,
@@ -511,7 +512,9 @@ export default function DeviceAlertsPage() {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+  const alarmRequest = useRef(0);
   const fetchAlarms = useCallback(async () => {
+    const version = ++alarmRequest.current;
     try {
       const token = sessionStorage.getItem("phoenix_token") ?? "";
       const res = await fetch("/api/v3/iot/devices/all-summary", {
@@ -521,7 +524,13 @@ export default function DeviceAlertsPage() {
       });
       if (!res.ok) throw new Error(`IoT API 返回 ${res.status}`);
       const json = await res.json();
-      setSummary(json.data?.summary ?? null);
+      if (version !== alarmRequest.current) return;
+      const data = json.data;
+      const diagnostic = data?._diagnostic?.code ?? data?.summary?.diagnosticCode;
+      if (json.ok !== true || !data?.summary || !Array.isArray(data.houses) || !Array.isArray(data.recentAlarms) || diagnostic === 'DB_QUERY_FAILED') {
+        throw new Error(t('ui.设备告警查询不完整', '设备告警查询不完整，请重试'));
+      }
+      setSummary({ ...data.summary, diagnosticCode: diagnostic });
 
       // Extract houses array
       const rawHouses = (Array.isArray(json.data?.houses) ? json.data.houses : []) as Record<string, unknown>[];
@@ -562,7 +571,7 @@ export default function DeviceAlertsPage() {
         unit: String(a.unit ?? ""),
         category: String(a.category ?? ""),
         system_category: String(a.system_category ?? a.category ?? ""),
-        severity: a.severity === "warning" || a.severity === "normal" ? a.severity : "critical",
+        severity: a.severity === "critical" || a.severity === "warning" || a.severity === "normal" ? a.severity : "unclassified",
         triggered_at: (a.triggered_at ?? a.created_at ?? "") as string | number,
         threshold_val: a.threshold_val != null ? Number(a.threshold_val) : a.threshold_value != null ? Number(a.threshold_value) : null,
         alarm_status: String(a.alarm_status ?? a.status ?? "")
@@ -571,11 +580,15 @@ export default function DeviceAlertsPage() {
       setLastUpdate(new Date());
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (version !== alarmRequest.current) return;
+      setSummary(null);
+      setHouses([]);
+      setAlarms([]);
+      setError(e instanceof Error ? e.message : t('ui.读取失败', '读取失败'));
     } finally {
-      setLoading(false);
+      if (version === alarmRequest.current) setLoading(false);
     }
-  }, []);
+  }, [t]);
   usePolling(fetchAlarms, 30_000);
 
   // ── Derived data ────────────────────────────────────────────────────────────
@@ -606,7 +619,8 @@ export default function DeviceAlertsPage() {
         const order = {
           critical: 0,
           warning: 1,
-          normal: 2
+          normal: 2,
+          unclassified: 3
         };
         return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
       });
@@ -633,16 +647,18 @@ export default function DeviceAlertsPage() {
     }
     return groups;
   }, [filteredAlarms, filterMode]);
-  const hasAlarm = (summary?.totalAlarms ?? alarms.length) > 0;
+  const hasAlarm = (summary?.totalAlarms ?? 0) > 0 || alarms.length > 0;
+  const knownHealthy = !loading && !error && summary?.diagnosticCode === 'OK'
+    && houses.length > 0 && worstFreshness === 'normal' && !hasAlarm;
 
   // ── KPI cards ───────────────────────────────────────────────────────────────
 
   const freshCfg = FRESH[worstFreshness];
   const KPI_CARDS: { label: string; val: string; sub: string; tone: Tone }[] = [
-    { label: t('ui.活跃告警', '活跃告警'),   val: loading ? "—" : String(summary?.totalAlarms ?? alarms.length),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} ${t('ui.栋鸡舍受影响', '栋鸡舍受影响')}`,                                  tone: hasAlarm ? "danger" : "success" },
-    { label: t('ui.紧急 / 预警', '紧急 / 预警'), val: loading ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: t('ui.按严重程度分类', '按严重程度分类'),                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
-    { label: t('ui.在线传感器', '在线传感器'), val: loading ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `${t('ui.共', '共')} ${summary?.totalSensorCnt ?? 0} ${t('ui.个监测点', '个监测点')}`,                                                    tone: "info" },
-    { label: t('ui.数据状态', '数据状态'),   val: loading ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `${t('ui.更新于', '更新于')} ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
+    { label: t('ui.活跃告警', '活跃告警'),   val: loading || error ? "—" : String(summary?.totalAlarms ?? "—"),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} ${t('ui.栋鸡舍受影响', '栋鸡舍受影响')}`,                                  tone: hasAlarm ? "danger" : knownHealthy ? "success" : "warning" },
+    { label: t('ui.紧急 / 预警', '紧急 / 预警'), val: loading || error ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: t('ui.最近告警按严重程度分类', '最近告警明细'),                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
+    { label: t('ui.在线传感器', '在线传感器'), val: loading || error ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `${t('ui.共', '共')} ${summary?.totalSensorCnt ?? 0} ${t('ui.个监测点', '个监测点')}`,                                                    tone: "info" },
+    { label: t('ui.数据状态', '数据状态'),   val: loading || error ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `${t('ui.更新于', '更新于')} ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
   ];
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -669,7 +685,7 @@ export default function DeviceAlertsPage() {
       </div>
 
       {/* Error banner */}
-      {error && <div style={{
+      {error && <div role="alert" style={{
       background: "var(--status-danger-bg-faint)",
       border: "1px solid var(--status-danger-bg-strong)",
       borderRadius: 10,
@@ -743,7 +759,7 @@ export default function DeviceAlertsPage() {
         }}>
             {(["all", "critical", "warning", "byHouse"] as FilterMode[]).map(mode => {
             const labels: Record<FilterMode, string> = {
-              all: `${t('ui.全部', '全部')} (${alarms.length})`,
+              all: `${t('ui.最近告警', '最近告警')} (${alarms.length})`,
               critical: `${t('ui.紧急', '紧急')} (${criticalCount})`,
               warning: `${t('ui.预警', '预警')} (${warningCount})`,
               byHouse: t('ui.按鸡舍', '按鸡舍')
@@ -785,18 +801,20 @@ export default function DeviceAlertsPage() {
             width: "65%"
           }} />
               </div>)}
-          </div> : filteredAlarms.length === 0 ? <div className={s.emptyState} style={{
+          </div> : error ? null : filteredAlarms.length === 0 ? <div className={s.emptyState} style={{
         padding: "60px 20px"
       }}>
             <Wifi size={40} style={{
-          color: "var(--status-success)",
+          color: knownHealthy && filterMode === "all" ? "var(--status-success)" : "var(--text-secondary)",
           opacity: 0.6
         }} />
             <div className={s.emptyStateText} style={{
-          color: "var(--status-success)",
+          color: knownHealthy && filterMode === "all" ? "var(--status-success)" : "var(--text-secondary)",
           fontWeight: 600
         }}>
-              {filterMode === "all" ? `✅ ${t('ui.当前所有鸡舍环境指标正常，无告警', '当前所有鸡舍环境指标正常，无告警')}` : t('ui.当前筛选条件下无告警', '当前筛选条件下无告警')}
+              {filterMode !== "all" ? t('ui.最近告警无筛选结果', '最近告警中无符合筛选条件的记录')
+                : knownHealthy ? t('ui.未返回告警', '本次查询未返回告警')
+                : t('ui.环境数据待核', '暂无可显示的告警，环境状态待核实')}
             </div>
           </div> : groupedByHouse ?
       // Grouped by house

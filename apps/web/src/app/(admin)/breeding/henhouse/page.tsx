@@ -2,7 +2,7 @@
 
 import type { FarmRow } from '@/types';
 import u from "@/styles/uix-utils.module.css";
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 interface HouseCard {
   id: string | number;
   dbId?: unknown;
@@ -13,7 +13,7 @@ interface HouseCard {
   type?: string;
   capacity: number;
   capacityConflict: boolean;
-  current: number;
+  current: number | null;
   currentBirds: number;
   ageWeeks: number;
   layingRate: number | null;
@@ -26,6 +26,7 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
+import { useProductionArchive } from '@/hooks/useProductionArchive';
 import { useCrud } from '@/hooks/useCrud';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
@@ -53,20 +54,22 @@ export default function HenHousePage() {
     hasPerm
   } = usePermission();
   // G23-B：菜单码必须走 PBAC，不再把 MENU_* 当角色传给 can(role[])。
-  const { canEdit: canEditHouse } = usePermission('MENU_FARM_MASTER');
+  const { canEdit: canEditHouse, canCreate: canCreateHouse } = usePermission('MENU_FARM_MASTER');
   const {
     t
   } = useLanguage();
+  const [openedAt] = useState(() => Date.now());
   const [farmFilter, setFarmFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
+  const writing = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editRow, setEditRow] = useState<HouseCard | null>(null);
   const [form, setForm] = useState(emptyForm());
-  const [housesList, setHousesList] = useState<HouseCard[]>([]);
+  const archive = useProductionArchive('houses', '', farmFilter === 'all' ? '' : farmFilter);
   const [farmsList, setFarmsList] = useState<FarmRow[]>([]);
   const [mappedHouses, setMappedHouses] = useState<Set<string>>(new Set());
   const {
-    fetchRecords,
     createRecord,
     updateRecord
   } = useCrud('brd_houses');
@@ -74,60 +77,31 @@ export default function HenHousePage() {
     fetchRecords: fetchFarms
   } = useCrud('brd_farms');
   const {
-    fetchRecords: fetchFlocks
-  } = useCrud('brd_flocks');
-  const {
     optionPairs: houseTypeOptions,
     codeMap: houseTypeMap
   } = useDictOptions('BRD_HOUSE_TYPE');
-  const loadData = useCallback(async () => {
-    const [houses, flocks] = await Promise.all([fetchRecords(), fetchFlocks()]);
-    const flockByHouse: Record<string, any> = {};
-    (flocks || []).forEach((f: Record<string, unknown>) => {
-      const hc = f.house_code as string;
-      if (!hc) return;
-      if (!flockByHouse[hc]) flockByHouse[hc] = {
-        qty: 0,
-        layRateSum: 0,
-        layRateWeight: 0,
-        startDate: null
-      };
-      const qty = Number(f.current_qty) || 0;
-      flockByHouse[hc].qty += qty;
-      if (f.current_lay_rate != null && qty > 0) {
-        flockByHouse[hc].layRateSum += Number(f.current_lay_rate) * qty;
-        flockByHouse[hc].layRateWeight += qty;
-      }
-      if (f.start_date && (!flockByHouse[hc].startDate || String(f.start_date) < flockByHouse[hc].startDate)) flockByHouse[hc].startDate = f.start_date;
-    });
-    const today = new Date();
-    const mapped = (houses || []).map((d: Record<string, unknown>) => {
+  const housesList = useMemo<HouseCard[]>(() => (archive.result?.items ?? []).map(d => {
       const hc = d.house_code as string;
-      const agg = flockByHouse[hc] || {
-        qty: 0,
-        layRateSum: 0,
-        layRateWeight: 0,
-        startDate: null
-      };
-      const ageWeeks = agg.startDate ? Math.floor((today.getTime() - new Date(agg.startDate).getTime()) / (7 * 86400000)) : 0;
-      const layingRate = agg.layRateWeight > 0 ? parseFloat((agg.layRateSum / agg.layRateWeight).toFixed(2)) : null;
+      const startDate = typeof d.archive_start === 'string' ? Date.parse(d.archive_start) : NaN;
+      const ageWeeks = Number.isFinite(startDate) ? Math.max(0, Math.floor((openedAt - startDate) / (7 * 86400000))) : 0;
+      const layingRate = d.archive_rate == null ? null : Number(d.archive_rate);
       const legacyCapacity = Number(d.capacity);
       const maxCapacity = Number(d.max_capacity);
       const limits = [legacyCapacity, maxCapacity].filter(value => Number.isSafeInteger(value) && value > 0);
       const cap = limits.length ? Math.min(...limits) : 0;
       const capacityConflict = limits.length === 2 && legacyCapacity !== maxCapacity;
-      const current = agg.qty;
-      const occupancyPct = cap > 0 ? Math.round(current / cap * 100) : 0;
+      const current = d.archive_birds == null ? null : Number(d.archive_birds);
+      const occupancyPct = cap > 0 && current !== null ? Math.round(current / cap * 100) : 0;
       const isOverload = cap > 0 && occupancyPct > 120;
-      const status = d.status === 'ACTIVE' && !isOverload ? 'normal' : 'warning';
+      const status = d.archive_normal ? 'normal' : 'warning';
       return {
-        id: hc || d.id,
+        id: hc || String(d.id),
         dbId: d.id,
         code: hc,
-        farmName: d.farm_code,
-        farmLabel: d.farm_name || d.farm_code,
-        name: d.house_name,
-        type: d.house_type,
+        farmName: String(d.farm_code ?? ""),
+        farmLabel: String(d.scoped_farm_name || d.farm_code || ""),
+        name: String(d.house_name ?? ""),
+        type: String(d.house_type ?? ""),
         capacity: cap,
         capacityConflict,
         current,
@@ -138,11 +112,8 @@ export default function HenHousePage() {
         status,
         isOverload
       };
-    });
-    setHousesList(mapped);
-  }, [fetchRecords, fetchFlocks]);
+  }), [archive.result, openedAt]);
   useEffect(() => {
-    loadData();
     fetchFarms().then(res => {
       const farms = res || [];
       setFarmsList(farms);
@@ -157,7 +128,7 @@ export default function HenHousePage() {
         Authorization: `Bearer ${token}`
       } : {}
     }).then(r => r.ok ? r.json() : []).then(ms => setMappedHouses(new Set((Array.isArray(ms) ? ms : []).filter((m: Record<string, unknown>) => m.status === 'ACTIVE').map((m: Record<string, unknown>) => m.erp_house_code as string)))).catch(() => {});
-  }, [loadData]);
+  }, [fetchFarms]);
   const handleEdit = (row: HouseCard) => {
     setEditId(String(row.id));
     setEditRow(row);
@@ -171,6 +142,7 @@ export default function HenHousePage() {
     setShowDrawer(true);
   };
   const handleSave = async () => {
+    if (writing.current || !(editId ? canEditHouse : canCreateHouse)) return;
     if (!form.farmName) {
       toast.error(t('ui.请选择农场', '请选择农场'));
       return;
@@ -187,33 +159,38 @@ export default function HenHousePage() {
     }
     const farmInfo = farmsList.find(f => f.farm_code === form.farmName);
     const payload = {
-      farm_code: form.farmName,
-      farm_name: farmInfo?.farm_name || form.farmName,
+      ...(editId ? {} : { farm_code: form.farmName, farm_name: farmInfo?.farm_name || form.farmName }),
       house_name: form.name.trim(),
       house_type: form.type,
-      ...(capacityChanged ? { max_capacity: cap, capacity: cap } : {}),
-      status: 'ACTIVE'
+      ...(capacityChanged ? { max_capacity: cap, capacity: cap } : {})
     };
-    const ok = editId ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新', '鸡舍信息已更新')) : await createRecord({
-      ...payload,
-
-      current_birds: 0
-    }, t('ui.鸡舍注册成功', '鸡舍注册成功'));
-    if (ok) {
-      setShowDrawer(false);
-      setEditId(null);
-      setEditRow(null);
-      setForm({
-        ...emptyForm(),
-        farmName: farmsList[0]?.farm_code || ''
-      });
-      loadData();
+    writing.current = true;
+    setSaving(true);
+    try {
+      const ok = editId ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新', '鸡舍信息已更新')) : await createRecord({
+        ...payload,
+        status: 'ACTIVE',
+        current_birds: 0
+      }, t('ui.鸡舍注册成功', '鸡舍注册成功'));
+      if (ok) {
+        setShowDrawer(false);
+        setEditId(null);
+        setEditRow(null);
+        setForm({
+          ...emptyForm(),
+          farmName: farmsList[0]?.farm_code || ''
+        });
+        void archive.reload();
+      }
+    } finally {
+      writing.current = false;
+      setSaving(false);
     }
   };
-  const filtered = useMemo(() => farmFilter === 'all' ? housesList : housesList.filter(h => h.farmName === farmFilter), [housesList, farmFilter]);
-  const totalCurrent = useMemo(() => housesList.reduce((s, h) => s + (Number(h.current) || 0), 0), [housesList]);
-  const normalCount = useMemo(() => housesList.filter(h => h.status === 'normal').length, [housesList]);
-  const warnCount = useMemo(() => housesList.filter(h => h.status === 'warning').length, [housesList]);
+  const totalCurrent = archive.result?.birds ?? 0;
+  const normalCount = archive.result?.normal ?? 0;
+  const total = archive.result?.total ?? 0;
+  const warnCount = total - normalCount;
   const columns = [{
     key: 'name',
     title: t('ui.鸡舍', '鸡舍'),
@@ -255,13 +232,13 @@ export default function HenHousePage() {
     width: '120px',
     render: (v: unknown, row: HouseCard) => <div>
         <div className={u.mb4}>
-          <span className={u.fw600}>{(Number(v) || 0).toLocaleString()}</span>
+          <span className={u.fw600}>{v == null ? '—' : Number(v).toLocaleString()}</span>
           <span style={{
           fontSize: 11,
           color: 'var(--text-secondary)',
           marginLeft: 2
         }}>{t('ui.羽', '羽')}</span>
-          {row.capacity > 0 && <span style={{
+          {row.capacity > 0 && row.current !== null && <span style={{
           fontSize: 11,
           color: row.isOverload ? 'var(--status-danger)' : 'var(--text-secondary)',
           marginLeft: 5,
@@ -323,14 +300,14 @@ export default function HenHousePage() {
   }];
   const hasWarn = warnCount > 0;
   const KPI_CARDS: { label: string; val: string; sub: string; Icon: typeof Building2; tone: Tone }[] = [
-    { label: t('ui.鸡舍总数', '鸡舍总数'), val: `${housesList.length}`,             sub: t('ui.栋已登记', '栋已登记'),                                                                  Icon: Building2,    tone: 'brand'   },
-    { label: t('ui.总存栏',   '总存栏'),   val: totalCurrent.toLocaleString(),       sub: t('ui.羽在栏',   '羽在栏'),                                                                    Icon: Users,        tone: 'info'    },
-    { label: t('ui.正常鸡舍', '正常鸡舍'), val: `${normalCount}`,                    sub: `${t('ui.共', '共')} ${housesList.length} ${t('ui.栋正常运行', '栋正常运行')}`,                Icon: CheckCircle,  tone: 'success' },
+    { label: t('ui.鸡舍总数', '鸡舍总数'), val: `${total}`,             sub: t('ui.栋已登记', '栋已登记'),                                                                  Icon: Building2,    tone: 'brand'   },
+    { label: t('ui.总存栏',   '总存栏'),   val: archive.result?.unknown ? '—' : totalCurrent.toLocaleString(),       sub: t('ui.羽在栏',   '羽在栏'),                                                                    Icon: Users,        tone: 'info'    },
+    { label: t('ui.正常鸡舍', '正常鸡舍'), val: `${normalCount}`,                    sub: `${t('ui.共', '共')} ${total} ${t('ui.栋正常运行', '栋正常运行')}`,                Icon: CheckCircle,  tone: 'success' },
     { label: t('ui.需关注',   '需关注'),   val: `${warnCount}`,                      sub: hasWarn ? t('ui.请检查超载鸡舍', '请检查超载鸡舍') : t('ui.全部正常', '全部正常'),             Icon: AlertTriangle, tone: hasWarn ? 'danger' : 'success' },
   ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${housesList.length} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]}
-        actions={canEditHouse && (
+      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${total} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]}
+        actions={canCreateHouse && (
           <button type="button" onClick={() => { setEditId(null); setEditRow(null); setForm({ ...emptyForm(), farmName: farmsList[0]?.farm_code || '' }); setShowDrawer(true); }} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增鸡舍', '新增鸡舍')}
           </button>
@@ -351,11 +328,11 @@ export default function HenHousePage() {
         })}
       </div>
 
-      <DataTable columns={columns} data={filtered} searchPlaceholder={t('ui.搜索鸡舍编码名称', '搜索鸡舍编码名称')} searchKeys={['code', 'name', 'farmLabel']} rowKey="id" filters={<div className={s.toolbar} style={{
+      <DataTable columns={columns} data={archive.loading ? [] : housesList} pageSize={25} server={{ query: archive.search, onQueryChange: archive.setSearch, page: archive.page, onPageChange: archive.setPage, total: archive.result?.total ?? 0 }} emptyText={archive.error || (archive.loading ? t("common.loading", "加载中…") : undefined)} searchPlaceholder={t('ui.搜索鸡舍编码名称', '搜索鸡舍编码名称')} searchKeys={['code', 'name', 'farmLabel']} rowKey="id" filters={<div className={s.toolbar} style={{
       gap: 6
     }}>
-          <button type="button" onClick={() => setFarmFilter('all')} style={toolbarFilterPill(farmFilter === 'all')}>{t('ui.全部农场', '全部农场')}</button>
-          {farmsList.map(f => <button key={f.farm_code as string} type="button" onClick={() => setFarmFilter(f.farm_code as string)} style={toolbarFilterPill(farmFilter === f.farm_code)}>{f.farm_name as string}</button>)}
+          <button type="button" onClick={() => { archive.setPage(1); setFarmFilter('all'); }} style={toolbarFilterPill(farmFilter === 'all')}>{t('ui.全部农场', '全部农场')}</button>
+          {farmsList.map(f => <button key={f.farm_code as string} type="button" onClick={() => { archive.setPage(1); setFarmFilter(f.farm_code as string); }} style={toolbarFilterPill(farmFilter === f.farm_code)}>{f.farm_name as string}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
@@ -372,7 +349,7 @@ export default function HenHousePage() {
             <label className={s.lbl}>{t('ui.所属农场', '所属农场')} <span style={{
               color: 'var(--status-danger)'
             }}>*</span></label>
-            <select value={form.farmName} onChange={e => setForm({
+            <select disabled={!!editId || saving} value={form.farmName} onChange={e => setForm({
             ...form,
             farmName: e.target.value
           })} className={s.inp}>
@@ -439,7 +416,7 @@ export default function HenHousePage() {
         }}>
               📊 {t('ui.当前存栏：', '当前存栏：')}<strong style={{
             color: 'var(--text-primary)'
-          }}>{(editRow.current || 0).toLocaleString()} {t('ui.羽', '羽')}</strong>
+          }}>{editRow.current?.toLocaleString() ?? '—'} {t('ui.羽', '羽')}</strong>
               &nbsp;·&nbsp;{t('ui.占用率：', '占用率：')}<strong style={{
             color: editRow.isOverload ? 'var(--status-danger)' : 'var(--text-primary)'
           }}>{editRow.occupancyPct}%{editRow.isOverload ? ` ⚠️ ${t('ui.超载', '超载')}` : ''}</strong>
@@ -454,7 +431,7 @@ export default function HenHousePage() {
           marginTop: 4
         }}>
             <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); setEditRow(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={handleSave} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认注册', '确认注册')}</button>
+            <button type="button" disabled={saving} onClick={handleSave} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认注册', '确认注册')}</button>
           </div>
         </div>
       </RightDrawer>

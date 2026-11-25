@@ -202,6 +202,47 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     users.forEach(user => scopes.invalidate(String(user.id)));
   });
 
+  it.each([false, true])('preserves each quantity in a legacy mobile report (saleable defects: %s)', async (saleable) => {
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+    await db.query(`INSERT INTO product_grades VALUES ('DIRTY','ACTIVE',7,$1),('BROKEN','ACTIVE',8,$1)
+      ON CONFLICT (grade_code) DO UPDATE SET is_saleable=EXCLUDED.is_saleable`, [saleable]);
+    await db.query('ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text');
+    const payload = { house_code: 'HOUSE-A', log_date: date, shift: '早班',
+      eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, eggs_by_grade: { DIRTY: 2, BROKEN: 1 },
+    };
+    const submit = () => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
+      .auth(token(40101), { type: 'bearer' }).send(payload);
+    await submit().expect(201);
+    await submit().expect(201);
+    const saved = (await read(40101, { house_code: 'HOUSE-A', log_date: date }).expect(200)).body.data;
+    expect(saved).toEqual([expect.objectContaining({ eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, eggs_by_grade: {} })]);
+    expect(await db.query('SELECT * FROM inv_ledger')).toEqual([]);
+    expect(await db.query('SELECT production_input_kind FROM brd_daily_logs'))
+      .toEqual([{ production_input_kind: 'LEGACY_MOBILE_SUMMARY' }]);
+  });
+
+  it('production archives count and find records beyond the old 100-row cutoff within the role scope', async () => {
+    await db.query(`ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text;
+      ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int, ADD COLUMN IF NOT EXISTS max_capacity int;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS placement_date date;
+      INSERT INTO brd_flocks(flock_no,house_code,current_qty,initial_qty,farm_code,status,start_date)
+      SELECT 'ARCHIVE-' || lpad(n::text,3,'0'),'HOUSE-A',0,10,'LPH_FARM_A','RETIRED','2026-01-01'
+        FROM generate_series(1,101) n`);
+    try {
+      const get = (id: number, name: string, query = {}) => request(app.getHttpServer())
+        .get('/api/v3/farm/archive/' + name).query(query).auth(token(id), { type: 'bearer' });
+      const page = await get(40101, 'flocks', { search: 'ARCHIVE', page: 5 }).expect(200);
+      expect(page.body.total).toBe(101);
+      expect(page.body.items.map((row: { flock_no: string }) => row.flock_no)).toEqual(['ARCHIVE-101']);
+      const other = await get(40103, 'flocks', { search: 'ARCHIVE' }).expect(200);
+      expect(other.body.items).toEqual([]);
+      const houses = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
+      expect(houses.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: 100 })]);
+    } finally {
+      await db.query("DELETE FROM brd_flocks WHERE flock_no LIKE 'ARCHIVE-%'");
+    }
+  });
+
   it('shows a saved report to its reporter immediately, on refresh, and after a new login token', async () => {
     await request(app.getHttpServer()).post('/api/v3/farm/daily-logs').auth(token(40101), { type: 'bearer' })
       .send({ house_code: 'HOUSE-A', log_date: '2026-10-17', shift: '早班', eggs_produced: 0, feed_consumed: 7, operator: 'fixture_reporter' })

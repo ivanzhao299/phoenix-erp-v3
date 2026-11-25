@@ -338,7 +338,8 @@ export default function ImmunePage() {
           <button type="button" onClick={() => handleRecordVaccine(row)} style={actionPill("success")}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
         )}
         {canEditImm && ['PENDING', 'PLANNED', 'OVERDUE'].includes(normStatus(row.status)) && (
-          <button type="button" className={s.btnIcon} onClick={async () => { try { await farmProductionApi.cancelImmunePlan(Number(row.id)); loadData(); } catch {} }} title={t('ui.取消', '取消')}><XCircle size={12} /></button>
+          <button type="button" className={s.btnIcon} onClick={async () => { try { await farmProductionApi.cancelImmunePlan(Number(row.id)); await loadData(); }
+            catch (error) { toast.error(error instanceof Error ? error.message : t('ui.取消免疫计划失败', '取消免疫计划失败')); } }} title={t('ui.取消', '取消')}><XCircle size={12} /></button>
         )}
       </div>
   }];

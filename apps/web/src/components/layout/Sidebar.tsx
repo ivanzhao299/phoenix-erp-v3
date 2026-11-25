@@ -91,6 +91,8 @@ export const MENU: MenuItem[] = [
     { id: "brd-flock",      path: "/breeding/flock",          Icon: Feather,        label: "鸡群档案",     perm: "MENU_FARM_DATA" },
     { id: "brd-lifecycle", path: "/breeding/flock-lifecycle", Icon: Feather, label: "鸡群生命周期", perm: "MENU_FARM_DATA" },
     { id: "brd-daily",      path: "/breeding/daily",          Icon: ClipboardList,  label: "日生产日报",   perm: "MENU_FARM_DAILY" },   // G56-C 日报写入=FARM_DAILY(对齐 POST /api/v3/farm/daily-logs)
+    { id: "brd-feed",       path: "/breeding/feed",           Icon: Wheat,          label: "饲料台账",     perm: "MENU_BREEDING" },
+    { id: "brd-med-stock",  path: "/breeding/med-stock",      Icon: Package,        label: "药品库存",     perm: "MENU_FARM_VET" },
     { id: "brd-immune",     path: "/breeding/immune",         Icon: Syringe,        label: "免疫计划",     perm: "MENU_FARM_VET"  },
     { id: "brd-medicine",   path: "/breeding/medicine",       Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET"  },
     { id: "brd-device",     path: "/breeding/device",         Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },

@@ -15,6 +15,7 @@ import { useDictOptions } from '@/hooks/useDictOptions';
 import request, { type ApiError } from '@/lib/api-client';
 import { localizedMasterName } from '@/lib/localized-master-data';
 import { previewProtectedAttachment } from '@/lib/attachments';
+import { useDialog } from '@/contexts/DialogContext';
 import s from './ProductionInboundWorkbench.module.css';
 import RawCollectionReceipts,{RawCollectionSourcePicker,type RawSource} from './RawCollectionReceipts';
 import ProductionStockTrace, {type TraceFilter} from './ProductionStockTrace';
@@ -38,12 +39,25 @@ interface Balance { sourceReviewRequired?:boolean;stockBasisVersion?:number;stoc
 interface Period { state:'OPEN'|'CLOSED'|null;version:number }
 const emptyForm=():Form=>({companyCode:'',houseCode:'',siteCode:'',eggDate:businessDay(),warehouseCode:'',locationCode:'',intentKey:'',handoverRef:'',items:[],remark:'',evidenceFileIds:[]});
 
-function documentForm(d:Document):Form {
+function documentForm(d:Document, rowKey = key):Form {
   return {...emptyForm(),companyCode:d.company_code,houseCode:d.house_code,siteCode:d.siteCode??'',eggDate:d.production_date,
     warehouseCode:d.payload.warehouseCode,locationCode:d.payload.locationCode,intentKey:d.intent_key,handoverRef:d.handover_ref??'',
     remark:d.payload.remark??'',evidenceFileIds:d.payload.evidenceFileIds??[],items:d.kind==='INBOUND'?d.payload.items.flatMap(i=>
-      (i.allocations??i.sources??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:key(),gradeCode:i.gradeCode,specCode:i.specCode,
+      (i.allocations??i.sources??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:rowKey(),gradeCode:i.gradeCode,specCode:i.specCode,
         quantity:String(a.quantity),dailyLogId:a.dailyLogId?String(a.dailyLogId):''}))):[]};
+}
+
+function draftContent(form: Form) {
+  const allocations = new Map<string, number>();
+  for (const row of form.items) {
+    const identity = JSON.stringify([row.gradeCode, row.specCode, row.dailyLogId]);
+    allocations.set(identity, (allocations.get(identity) ?? 0) + Number(row.quantity));
+  }
+  return JSON.stringify([
+    form.companyCode, form.houseCode, form.eggDate, form.warehouseCode, form.locationCode,
+    form.handoverRef, form.remark, [...new Set(form.evidenceFileIds)].sort(),
+    [...allocations].sort(([left], [right]) => left.localeCompare(right)),
+  ]);
 }
 
 export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boolean}) {
@@ -55,6 +69,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
 }
 
 function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
+  const { showConfirm } = useDialog();
   const {t,lang}=useLanguage();const p=usePermission('MENU_PROD_INBOUND');const finance=usePermission('MENU_FIN2_AR_LEDGER');
   const {grades}=useProductGrades({onlyStorable:true});const {codeMap:states}=useDictOptions('PRODUCTION_INBOUND_DOCUMENT_STATE');
   const {codeMap:kinds}=useDictOptions('PRODUCTION_INBOUND_KIND');const {codeMap:handoverStates}=useDictOptions('PRODUCTION_HANDOVER_STATE');
@@ -115,6 +130,14 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   }
   const sourceOverage=[...selectedTotals].some(([key,quantity])=>quantity>(allowance(bySource.get(key))??0));
   const canSubmitSources=canWrite&&completeItems&&!sourceOverage;
+  const selectedInRange = verified && selected?.company_code === form.companyCode
+    && selected.house_code === form.houseCode && selected.production_date === form.eggDate
+    && selected.payload.warehouseCode === form.warehouseCode;
+  const loadedInbound = selected?.state === 'DRAFT' && selected.kind === 'INBOUND' && selected.intent_key === form.intentKey;
+  const unsavedChanges = loadedInbound && draftContent(form) !== draftContent(documentForm(selected, () => ''));
+  const canFreeze = !!selectedInRange && p.canEdit
+    && (selected?.kind === 'INBOUND' ? loadedInbound && canSubmitSources && !!commercial.profile && !unsavedChanges : canWrite);
+
 
   const displayDocument=useCallback((d:Document)=>{setTrace(null);setSelected(d);setReverseQty({});setForm(documentForm(d));setProof([]);},[]);
   useEffect(()=>{let alive=true;Promise.resolve().then(()=>{
@@ -213,7 +236,19 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     history.replaceState(null,'',location.pathname);
   }
   const newIntent=()=>{setSelected(null);setReverseQty({});setProof([]);patch({intentKey:key(),handoverRef:'',replacesId:undefined,rawCollectionSourceId:undefined,items:[],remark:'',evidenceFileIds:[]});history.replaceState(null,'',location.pathname);};
-  const freeze=async(d:Document)=>{const submit=submitKeys.current[d.id]??key();submitKeys.current[d.id]=submit;
+  const freeze=async(d:Document)=>{
+    if (!canFreeze || d.id !== selected?.id) return;
+    const confirmed = await showConfirm({
+      title: t('productionInstallments.ready', '核对并冻结本单'),
+      subtitle: [d.document_no, d.house_code, d.production_date, d.payload.warehouseCode, d.payload.locationCode].filter(Boolean).join(' · '),
+      content: <ul>{d.payload.items.map((line, index) => <li key={index}>
+        {gradeName(line.gradeCode)} · {line.specCode} · {line.quantity} {t('productionInstallments.eggsUnit', '枚')}
+        {(line.allocations ?? line.sources ?? []).map(source => <span key={source.dailyLogId}> · #{source.dailyLogId}: {source.quantity}</span>)}
+      </li>)}</ul>,
+      confirmLabel: t('productionInstallments.confirmFreeze', '确认冻结'),
+    });
+    if (!confirmed) return;
+    const submit=submitKeys.current[d.id]??key();submitKeys.current[d.id]=submit;
     sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current}));await send(`/${d.id}/ready`,{version:d.version,submitKey:submit});await load(d.id);};
   const updateItem=(id:string,next:Partial<Item>)=>patch({items:form.items.map(i=>i.id===id?{...i,...next}:i)});
   const preview=async(kind:'handovers'|'documents',id:string,fileId:string)=>{
@@ -226,7 +261,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       return response.blob();
     },messages);
   };
-  const rows=documents.filter(d=>(!recovered||recovered.some(hit=>hit.id===d.id))&&(!reviewOnly||d.kind==='REVERSAL'&&d.state==='READY'));
+  const rows=recovered ?? documents.filter(d=>!reviewOnly||d.kind==='REVERSAL'&&d.state==='READY');
   const drafts=savedIntents.filter(d=>d.companyCode===form.companyCode&&d.houseCode===form.houseCode&&d.eggDate===form.eggDate&&d.warehouseCode===form.warehouseCode);
   if(!p.canView)return <p>{t('productionInstallments.noPermission','无权查看生产交库。')}</p>;
   if(!restored)return <p>{t('common.loading','加载中…')}</p>;
@@ -334,13 +369,14 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
     <section id="history" className={s.card}><h2>{t('productionInstallments.history','分次入库及冲销历史')}</h2><div className={s.actions}>
       <button disabled={busy||!form.companyCode} onClick={()=>run(async()=>{const docs=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,intentKey:form.intentKey})}`);if(docs[0])await load(docs[0].id);else setNotice(t('productionInstallments.notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{t('productionInstallments.recover','找回原意图结果')}</button>
       <button disabled={busy||!form.companyCode||!form.handoverRef} onClick={()=>run(async()=>{const found=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,handoverRef:form.handoverRef})}`);
-        setRecovered(found);if(!found.length)setNotice(t('productionInstallments.notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{t('productionInstallments.recoverHandover','按实物交接号找回（跨设备）')}</button></div>
-      {p.canApprove&&<label><input type="checkbox" checked={reviewOnly} onChange={e=>setReviewOnly(e.target.checked)}/> {t('productionJobs.pendingReview')}</label>}
-      {verified&&(rows.length?<ul className={s.history}>{rows.map(d=><li key={d.id}><div><strong>{d.handover_ref||kinds[d.kind]||d.kind}</strong>
-          <p>{kinds[d.kind]??d.kind} · {states[d.state]??d.state} · {d.production_date}</p><code>{d.document_no}</code></div>
+        setRecovered(found);if(!found.length)setNotice(t('productionInstallments.notFound','尚未找到该意图的单据，可保留原意图重试。'));},false)}>{t('productionInstallments.recoverHandover','按实物交接号找回（跨设备）')}</button></div>
+      {recovered!==null&&<button type="button" disabled={busy} onClick={()=>setRecovered(null)}>{t('productionInstallments.showRangeHistory','返回当前范围历史')}</button>}
+      {p.canApprove&&recovered===null&&<label><input type="checkbox" checked={reviewOnly} onChange={e=>setReviewOnly(e.target.checked)}/> {t('productionJobs.pendingReview')}</label>}
+      {(verified||recovered!==null)&&(rows.length?<ul className={s.history}>{rows.map(d=><li key={d.id}><div><strong>{d.handover_ref||kinds[d.kind]||d.kind}</strong>
+          <p>{kinds[d.kind]??d.kind} · {states[d.state]??d.state} · {d.production_date} · {d.house_code} · {d.payload.warehouseCode}</p><code>{d.document_no}</code></div>
           <button disabled={busy} onClick={()=>run(async()=>{await load(d.id);},false)}>{t('productionInstallments.view','查看原单')}</button></li>)}</ul>:<p>{t('productionJobs.empty')}</p>)}
     </section>
-    {verified&&selected&&<section className={`${s.card} ${s.selected}`}><h2 className={s.wide}>{selected.document_no}</h2><p>{kinds[selected.kind]??selected.kind} · {states[selected.state]??selected.state} · v{selected.version}</p>
+    {selected&&<section className={`${s.card} ${s.selected}`}><h2 className={s.wide}>{selected.document_no}</h2><p>{kinds[selected.kind]??selected.kind} · {states[selected.state]??selected.state} · v{selected.version}</p>
       <p>{t('productionInstallments.productionDate','生产日期')}：{selected.production_date} · {t('productionInstallments.postingDate','记账日期')}：{selected.expected_posting_date??'—'}</p>
       <p>{selected.payload.remark??''}</p>{selected.kind==='REVERSAL'&&<p>{t('productionInstallments.reason','实物差异或期间变更依据')}：{String((selected.payload as unknown as {reason?:string}).reason??'')}</p>}
       <div className={s.scroll}><table className={s.table}><thead><tr><th>{t('productionInstallments.grade','档位')}</th><th>{t('productionInstallments.spec','规格')}</th><th>{t('productionInstallments.quantity','本次枚数')}</th><th>{t('productionInstallments.source','实际日报来源')}</th></tr></thead>
@@ -348,19 +384,20 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       <div className={s.actions}>{selected.payload.evidenceFileIds?.map(file=><button key={file} disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,file))}>{t('productionInstallments.proof','查看原证据')}</button>)}</div>
       <div className={s.actions}>
         {selected.state==='DRAFT'&&selected.kind==='INBOUND'&&p.canEdit&&<button disabled={busy||!p.canEdit} onClick={()=>patch({companyCode:selected.company_code,houseCode:selected.house_code,eggDate:selected.production_date,warehouseCode:selected.payload.warehouseCode,locationCode:selected.payload.locationCode,intentKey:selected.intent_key,handoverRef:selected.handover_ref,remark:selected.payload.remark??'',evidenceFileIds:selected.payload.evidenceFileIds??[],items:selected.payload.items.flatMap(i=>(i.allocations??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:key(),gradeCode:i.gradeCode,specCode:i.specCode,quantity:String(a.quantity),dailyLogId:a.dailyLogId?String(a.dailyLogId):''})))})}>{t('productionInstallments.loadDraft','载入草稿编辑')}</button>}
-        {selected.state==='DRAFT'&&<button disabled={busy||!(selected.kind==='INBOUND'?canSubmitSources&&!!commercial.profile:canWrite)||!p.canEdit} onClick={()=>run(()=>freeze(selected))}>{t('productionInstallments.ready','核对并冻结本单')}</button>}
-        {(selected.state==='READY'&&selected.kind==='INBOUND'||selected.state==='APPROVED'||selected.state==='POSTED')&&<button disabled={busy||selected.state!=='POSTED'&&(!canWrite||!p.canEdit)} onClick={()=>run(async()=>{await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);})}>{selected.state==='POSTED'?t('productionInstallments.receipt','找回原过账回执'):t('productionInstallments.post','过账本单')}</button>}
-        {['READY','APPROVED'].includes(selected.state)&&selected.expected_posting_date<businessDay()&&p.canEdit&&p.canCreate&&<button disabled={busy||!canWrite} onClick={()=>run(async()=>{
+        {unsavedChanges&&<p role="status" className={s.notice}>{t('productionInstallments.saveBeforeFreeze','先保存修改，再按原单明细核对并冻结。')}</p>}
+        {selected.state==='DRAFT'&&<button disabled={busy||!canFreeze} onClick={()=>run(()=>freeze(selected))}>{t('productionInstallments.ready','核对并冻结本单')}</button>}
+        {(selected.state==='READY'&&selected.kind==='INBOUND'||selected.state==='APPROVED'||selected.state==='POSTED')&&<button disabled={busy||selected.state!=='POSTED'&&(!selectedInRange||!canWrite||!p.canEdit)} onClick={()=>run(async()=>{await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);})}>{selected.state==='POSTED'?t('productionInstallments.receipt','找回原过账回执'):t('productionInstallments.post','过账本单')}</button>}
+        {['READY','APPROVED'].includes(selected.state)&&selected.expected_posting_date<businessDay()&&p.canEdit&&p.canCreate&&<button disabled={busy||!selectedInRange||!canWrite} onClick={()=>run(async()=>{
           const idKey=`${storageKey}:reissue:${selected.id}`;const intent=sessionStorage.getItem(idKey)??key();sessionStorage.setItem(idKey,intent);
           const next=await send<{documentId:string}>(`/${selected.id}/reissue`,{version:selected.version,intentKey:intent});await load(next.documentId);
         })}>{t('productionJobs.reissue')}</button>}
-        {['DRAFT','READY','APPROVED'].includes(selected.state)&&p.canEdit&&<button disabled={busy||!canWrite} onClick={()=>run(async()=>{await send(`/${selected.id}/cancel`,{version:selected.version});await load(selected.id);})}>{t('productionInstallments.cancelDocument','取消未过账单')}</button>}
+        {['DRAFT','READY','APPROVED'].includes(selected.state)&&p.canEdit&&<button disabled={busy||!selectedInRange||!canWrite} onClick={()=>run(async()=>{await send(`/${selected.id}/cancel`,{version:selected.version});await load(selected.id);})}>{t('productionInstallments.cancelDocument','取消未过账单')}</button>}
       </div>
       {selected.receipt&&<div className={s.notice} role="status">{t('productionInstallments.postedReceipt','原过账回执')} · {t('productionInstallments.quantity','本次枚数')} {String(selected.receipt.totalInbound??selected.receipt.totalReversed??'—')} · {t('productionInstallments.postingDate','记账日期')} {String(selected.receipt.postingDate??'—')}</div>}
       {selected.lines?.map(l=><div key={l.line_no} className={s.notice}><strong>{gradeName(l.grade_code)} · {balance?.stockBasisVersion===2?<button onClick={()=>inspect({view:'warehouse',batchNo:l.batch_no})}>{l.batch_no}</button>:l.batch_no}</strong><p>{t('productionInstallments.original','原单数量')} {l.quantity} · {t('productionInstallments.current','当前实存')} {l.current_quantity} · {t('productionInstallments.available','当前可用')} {l.current_available}</p>
         {selected.kind==='INBOUND'&&selected.state==='POSTED'&&p.canCreate&&l.allocations.map(a=><label key={a.id} className={s.field}>{t('productionInstallments.reverseSegment','原来源分段冲销')} #{a.daily_log_id} · {t('productionInstallments.reversible','原分段尚未冲销')} {a.quantity-a.reversed_quantity}
-          <input type="number" min="0" max={a.quantity-a.reversed_quantity} step="1" disabled={!canWrite||!p.canCreate} value={reverseQty[a.id]??''} onChange={e=>setReverseQty(old=>({...old,[a.id]:e.target.value}))}/></label>)}</div>)}
-      {selected.kind==='INBOUND'&&selected.state==='POSTED'&&p.canCreate&&<div className={s.actions}><button disabled={busy||!canWrite||!p.canCreate} onClick={()=>run(async()=>{
+          <input type="number" min="0" max={a.quantity-a.reversed_quantity} step="1" disabled={!selectedInRange||!canWrite||!p.canCreate} value={reverseQty[a.id]??''} onChange={e=>setReverseQty(old=>({...old,[a.id]:e.target.value}))}/></label>)}</div>)}
+      {selected.kind==='INBOUND'&&selected.state==='POSTED'&&p.canCreate&&<div className={s.actions}><button disabled={busy||!selectedInRange||!canWrite||!p.canCreate} onClick={()=>run(async()=>{
         const storage=`${storageKey}:reversal:${selected.id}`;const prior=sessionStorage.getItem(storage);
         let intent=prior??key();if(prior){const existing=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:selected.company_code,intentKey:prior})}`);
           if(existing[0]&&!['POSTED','CANCELLED'].includes(existing[0].state)){await load(existing[0].id);return;}
@@ -369,7 +406,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
         const segments=Object.entries(reverseQty).filter(([,n])=>Number(n)>0).map(([allocationId,n])=>({allocationId,quantity:Number(n)}));
         const d=await send<Document>(`/${selected.id}/reversals`,{intentKey:intent,reason,segments,evidenceFileIds:proof});await load(d.id);})}>{t('productionInstallments.createReversal','依原来源建立冲销草稿')}</button></div>}
       {!mobile&&selected.kind==='REVERSAL'&&selected.state==='READY'&&(linkedFinance.canView||linkedFinance.canEdit||finance.canEdit)&&<Link href="/breeding/production-finance-review">{t('productionJobs.finance')}</Link>}
-      {selected.kind==='REVERSAL'&&selected.state==='READY'&&p.canApprove&&<div className={s.actions}>{selected.clearances?.map(c=><div key={c.id}><button disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,c.evidence_file_id))}>{t('productionInstallments.financeProof','查看此财务签认原据')}</button><button disabled={busy||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/approve`,{version:selected.version,contentHash:selected.content_hash,financialClearanceId:c.id});await load(selected.id);})}>{t('productionInstallments.approve','审核此摘要及财务回执')} · {c.signed_by}</button></div>)}</div>}
+      {selected.kind==='REVERSAL'&&selected.state==='READY'&&p.canApprove&&<div className={s.actions}>{selected.clearances?.map(c=><div key={c.id}><button disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,c.evidence_file_id))}>{t('productionInstallments.financeProof','查看此财务签认原据')}</button><button disabled={busy||!selectedInRange||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/approve`,{version:selected.version,contentHash:selected.content_hash,financialClearanceId:c.id});await load(selected.id);})}>{t('productionInstallments.approve','审核此摘要及财务回执')} · {c.signed_by}</button></div>)}</div>}
     </section>}
     {verified&&(p.canEdit||p.canCreate||p.canApprove||finance.canEdit)&&<section className={s.card}><h2>{t('productionInstallments.difference','差异、冲销与期间证据')}</h2><label className={s.field}>{t('productionInstallments.reason','实物差异或期间变更依据')}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
       {form.houseCode&&<AttachmentUploader ownership={ownership} value={proof} onChange={setProof} readOnly={busy||!p.canCreate&&!p.canEdit&&!finance.canEdit} label={t('productionInstallments.differenceProof','上传本人取得的差异 / 财务依据')}/>}

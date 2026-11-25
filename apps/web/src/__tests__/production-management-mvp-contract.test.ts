@@ -41,7 +41,7 @@ describe('production management MVP web contracts', () => {
 
     expect(page).toContain("'/api/farm/medicine/stock'");
     expect(page).toContain('`/api/farm/medicine/ledger?start=');
-    expect(page).toContain("'/api/farm/medicine/inbound'");
+    expect(page).toContain("'/api/farm/medicine/inbound/receipted'");
     expect(page).not.toContain("crudApi.create('brd_medications'");
   });
 });

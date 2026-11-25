@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings, Wheat, FileBarChart, Package, Bird, Thermometer, Droplet, Wind } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
+import { canAccessPath } from '@/components/layout/Sidebar';
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
@@ -18,13 +20,11 @@ import {
   actionGroupBox, detailInfoBox, MONO_FONT,
 } from "@/components/design-system/cockpit-styles";
 import {
-  addLocalDays,
   asDailyLogRows,
   asNumber,
   dailyLogDateKey,
   dailyLogMortalityTotal,
   dailyLogRowDate,
-  localDateString,
   sumBreedingOverviewTodayMetrics,
 } from "@/lib/breeding-overview-metrics";
 import { isCanonicalCurrentFlock } from "@/lib/home-farm-kpi";
@@ -83,6 +83,7 @@ interface WeekSummary {
 }
 export default function BreedingPage() {
   const router = useRouter();
+  const { hasPermission } = useAuth();
   const toast = useToast();
   const dialog = useDialog();
   const {
@@ -151,16 +152,19 @@ export default function BreedingPage() {
     v: boolean;
   }) => {
     const now = new Date();
-    const today = localDateString(now);
-    const weekAgo = localDateString(addLocalDays(now, -7));
-    const ydStr = localDateString(addLocalDays(now, -1));
-    const [farmsRaw, flocksRaw, logsRaw, todayLogsRaw, medsRaw, immuneRaw] = await Promise.all([
+    const businessDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' });
+    const today = businessDay.format(now);
+    const weekAgo = businessDay.format(new Date(now.getTime() - 6 * 86400000));
+    const ydStr = businessDay.format(new Date(now.getTime() - 86400000));
+    const [farmsRaw, flocksRaw, logsRaw, todayLogsRaw, medsRaw, immuneRaw, todayReport, previousReport] = await Promise.all([
       apiFetch("/api/crud/brd_farms"),
       apiFetch("/api/crud/brd_flocks?limit=1000"),
       apiFetch("/api/crud/brd_daily_logs?limit=1000"),
       apiFetch(`/api/crud/brd_daily_logs?log_date=${today}&limit=1000`),
       apiFetch("/api/farm/medication-records/withdrawals"),
-      apiFetch("/api/farm/immune/plans")
+      apiFetch("/api/farm/immune/plans"),
+      apiFetch('/api/v3/farm/daily-hen-report?date=' + today),
+      apiFetch('/api/v3/farm/daily-hen-report?date=' + ydStr)
     ]);
 
     // If the effect was superseded (Strict Mode double-invoke) or farms API failed,
@@ -173,15 +177,9 @@ export default function BreedingPage() {
     const todayMetricLogs = todayLogsRaw === null ? logs : asDailyLogRows(todayLogsRaw);
     const meds = Array.isArray(medsRaw?.data) ? medsRaw.data : Array.isArray(medsRaw) ? medsRaw : [];
     const immune = Array.isArray(immuneRaw?.data) ? immuneRaw.data : Array.isArray(immuneRaw) ? immuneRaw : [];
-    const flockFarmMap: Record<string, string> = {};
-    const flockQtyMap: Record<string, number> = {};
     // 按农场直接汇总实际存栏数（brd_flocks.current_qty），不依赖日志
     const farmBirdsMap: Record<string, number> = {};
     flocks.forEach((fk: Record<string, unknown>) => {
-      if (fk.flock_no) {
-        flockFarmMap[fk.flock_no as string] = fk.farm_code as string;
-        flockQtyMap[fk.flock_no as string] = asNumber(fk.current_qty);
-      }
       if (fk.farm_code && isCanonicalCurrentFlock(fk)) {
         const fc = fk.farm_code as string;
         farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + asNumber(fk.current_qty);
@@ -203,23 +201,14 @@ export default function BreedingPage() {
       immuneDone,
       immuneTotal
     });
-    const latestDate = logs.reduce((mx: string, l: Record<string, unknown>) => dailyLogRowDate(l) > mx ? dailyLogRowDate(l) : mx, "");
-    const recentLogs = logs.filter((l: Record<string, unknown>) => dailyLogRowDate(l) === latestDate);
-    const farmEggMap: Record<string, number> = {};
-    // farmLayMap: 用于产蛋率分母（有日报记录的当日在产鸡数），独立于存栏总数
-    const farmLayMap: Record<string, number> = {};
-    recentLogs.forEach((l: Record<string, unknown>) => {
-      const fc = flockFarmMap[l.flock_no as string];
-      if (!fc) return;
-      farmEggMap[fc] = (farmEggMap[fc] || 0) + asNumber(l.eggs_produced);
-      farmLayMap[fc] = (farmLayMap[fc] || 0) + (flockQtyMap[l.flock_no as string] || 0);
-    });
+    const farmRates = (report: {farm_totals?: { farm_code: string; lay_rate: number | null }[]} | null) =>
+      new Map((report?.farm_totals ?? []).map(row => [row.farm_code, row.lay_rate]));
+    const todayRates = farmRates(todayReport);
+    const yesterdayRates = farmRates(previousReport);
     const mapped: Farm[] = farmsData.map((d: Record<string, unknown>) => {
       const fc = d.farm_code as string;
       const totalBirds = farmBirdsMap[fc] || 0; // 实际存栏：来自 brd_flocks.current_qty
-      const layBirds = farmLayMap[fc] || 0; // 产蛋率分母：当日有日报的鸡数
-      const eggs = farmEggMap[fc] || 0;
-      const rate = layBirds > 0 ? (eggs / layBirds * 100).toFixed(1) : "—";
+      const rate = todayRates.get(fc) ?? null;
       const location = d.location as string || "—";
       return {
         id: fc,
@@ -228,8 +217,8 @@ export default function BreedingPage() {
         houses: asNumber(d.houses),
         designCapacity: asNumber(d.capacity),
         totalBirds,
-        layingRate: rate,
-        status: layBirds > 0 && Number(rate) < WARN_LAY_RATE_PCT || d.status === "WARNING" ? "warning" : "normal"
+        layingRate: rate === null ? "—" : rate.toFixed(1),
+        status: rate !== null && rate < WARN_LAY_RATE_PCT || d.status === "WARNING" ? "warning" : "normal"
       };
     });
     setFarms(mapped);
@@ -250,25 +239,9 @@ export default function BreedingPage() {
         time: t('ui.系统', '系统')
       });
     });
-    const ydLogs = logs.filter((l: Record<string, unknown>) => dailyLogRowDate(l) === ydStr);
-    const ydMap: Record<string, {
-      eggs: number;
-      cap: number;
-    }> = {};
-    ydLogs.forEach((l: Record<string, unknown>) => {
-      const fc = flockFarmMap[l.flock_no as string];
-      if (!fc) return;
-      if (!ydMap[fc]) ydMap[fc] = {
-        eggs: 0,
-        cap: 0
-      };
-      ydMap[fc].eggs += asNumber(l.eggs_produced);
-      ydMap[fc].cap += flockQtyMap[l.flock_no as string] || 0;
-    });
     mapped.forEach(farm => {
-      const todayR = farmEggMap[farm.id] && farmLayMap[farm.id] ? farmEggMap[farm.id] / farmLayMap[farm.id] * 100 : null;
-      const ydD = ydMap[farm.id];
-      const ydR = ydD && ydD.cap > 0 ? ydD.eggs / ydD.cap * 100 : null;
+      const todayR = todayRates.get(farm.id) ?? null;
+      const ydR = yesterdayRates.get(farm.id) ?? null;
       if (todayR !== null && ydR !== null && ydR - todayR > 2) alertList.push({
         id: "lr-" + farm.id,
         type: "warning",
@@ -418,7 +391,7 @@ export default function BreedingPage() {
 
       {/* g200f Sub-nav pills — toolbarFilterPill 风格,统一 active 蓝/inactive 灰 */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
-        {SUB_NAV.map(item => (
+        {SUB_NAV.filter(item => canAccessPath(item.path, hasPermission)).map(item => (
           <button
             key={item.label}
             type="button"
@@ -584,7 +557,7 @@ export default function BreedingPage() {
                 fontWeight: 700,
                 color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate) < WARN_LAY_RATE_PCT ? "var(--status-danger)" : "var(--status-success)"
               }}>
-                    {farm.layingRate}%
+                    {farm.layingRate}{farm.layingRate === '—' ? '' : '%'}
                   </div>
                   <div style={{
                 fontSize: 11,

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomUUID } from 'node:crypto';
 import { FileAccessService } from '../../file/file-access.service';
 import { DataSource, EntityManager } from 'typeorm';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import type { OrgScope } from '../../farm/farm.service';
 import { hasPerm } from '../../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../../org/services/data-scope.service';
@@ -25,6 +26,27 @@ export class EggHistoryReviewService {
   constructor(private readonly db: DataSource, private readonly files: FileAccessService,
     private readonly dataScopes: DataScopeService) {}
 
+  async options(houseCode: string | undefined, context: Context) {
+    if (!context.dataScope || !context.scope) throw new ForbiddenException('缺少历史核认的数据范围');
+    const allowedCompanies = context.dataScope.allowedCompanyCodes ?? [];
+    if (houseCode) {
+      const owner = await readEggSourceOwner(this.db.manager, houseCode);
+      assertEggSourceScope(context.scope, owner);
+      const warehouses = await this.db.query(`SELECT warehouse_code AS code, warehouse_name AS name, status
+        FROM wms_warehouses WHERE company_code=$1 AND ($2 OR warehouse_code=ANY($3::text[]))
+        ORDER BY warehouse_code`, [owner.companyCode, context.dataScope.isGlobal, context.dataScope.allowedWarehouseCodes ?? []]);
+      return { warehouses: context.dataScope.isGlobal || allowedCompanies.includes(owner.companyCode) ? warehouses : [] };
+    }
+    const houses = await this.db.query(`SELECT h.house_code AS "houseCode", h.house_name AS name, h.status,
+      f.company_code AS "companyCode", f.farm_code AS "farmCode", ${OrgOwnershipService.FARM_SITE_SQL} AS "siteCode"
+      FROM brd_houses h JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=h.farm_code
+      WHERE NULLIF(f.company_code,'') IS NOT NULL AND ($1 OR f.company_code=ANY($2::text[]))
+      ORDER BY h.house_code`, [context.dataScope.isGlobal, allowedCompanies]);
+    return { houses: houses.filter((house: EggSourceOwner) => !!house.siteCode && (context.scope.isGlobal
+      || context.scope.companyCodes?.includes(house.companyCode) || context.scope.farmCodes?.includes(house.farmCode)
+      || context.scope.siteCodes?.includes(house.siteCode))) };
+  }
+
   async read(input: Input, context: Context) {
     return this.db.transaction('REPEATABLE READ',async m => {
       await m.query('SET TRANSACTION READ ONLY');
@@ -35,12 +57,13 @@ export class EggHistoryReviewService {
       const batch = sourceText(input.batchNo,'实际库存批次',128);
       const evidence = await this.evidence(m,owner,warehouse,date,batch);
       const reviews: Array<Record<string,unknown>&{dispositions:HistoryDisposition[]}> = await m.query(`SELECT id,state,source_line,quantity,target_class,reviewed_at,
+        COALESCE(created_by = $6, false) AS "submittedByMe",
         review->>'reason' AS decision,review->>'disposition' AS disposition,
         payload->>'reason' AS reason,payload->'attachments' AS attachments,
         ARRAY(SELECT d.receipt FROM md_egg_history_dispositions d WHERE d.review_id=md_egg_history_reviews.id
           ORDER BY d.recorded_at,d.inventory_ledger_id) AS dispositions
         FROM md_egg_history_reviews WHERE company_code=$1 AND house_code=$2 AND production_date=$3
-          AND batch_no=$4 AND payload->>'warehouse'=$5 ORDER BY created_at`,[owner.companyCode,owner.houseCode,date,batch,warehouse]);
+          AND batch_no=$4 AND payload->>'warehouse'=$5 ORDER BY created_at`,[owner.companyCode,owner.houseCode,date,batch,warehouse,String(context.user?.userId ?? '')]);
       const originalMenus=[...new Set(evidence.ledger.map(line=>line.original_module).filter((value):value is string=>!!value))];
       const visible=new Set((await Promise.all(originalMenus.map(async menu=>
         await this.canViewOriginal(context,menu,owner.companyCode,warehouse)?menu:null))).filter(Boolean));
@@ -72,6 +95,7 @@ export class EggHistoryReviewService {
       this.authorize(context,owner,warehouse);
       const date = sourceDate(input.productionDate);
       const batch = sourceText(input.batchNo,'实际库存批次',128);
+      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['egg-history-intent:' + owner.companyCode + ':' + key]);
       await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`egg-history:${owner.companyCode}:${batch}`]);
       const request = { ...owner,date,batch,warehouse,ledgerId,quantity,targetClass,reason,evidenceIds };
       const requestHash = sourceDigest(request);

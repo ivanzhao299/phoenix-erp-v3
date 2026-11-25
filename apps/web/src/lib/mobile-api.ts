@@ -364,19 +364,15 @@ export const mobileApi = {
 
   /** 饲料台账 — 保存 */
   saveFeedLedger: (date: string, items: Partial<FeedLedgerRow>[]) =>
-    fetch((process.env.NEXT_PUBLIC_API_BASE || '') + '/api/farm/feed/ledger', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : ''}`,
-      },
-      body: JSON.stringify({ date, items }),
-    }).then(r => r.json()),
+    post<{ code: number; msg?: string; data?: FeedLedgerRow[] }>('/api/farm/feed/ledger', { date, items }),
 
   /** G109 鸡舍列表明细（code+中文名+容量）——按当前用户农场/场区隔离 */
   getFeedHousesDetail: (): Promise<Array<{ house_code: string; house_name: string; capacity?: number | null; house_type?: string | null; current_birds?: number | null }>> =>
     get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses')
-      .then(rows => (Array.isArray(rows) ? rows : [])),
+      .then(rows => {
+        if (!Array.isArray(rows)) throw new Error('鸡舍响应格式无效');
+        return rows;
+      }),
 
   /** 鸡舍 code 列表（向后兼容：以 code 为数据键的页面继续可用） */
   getFeedHouses: (): Promise<string[]> =>

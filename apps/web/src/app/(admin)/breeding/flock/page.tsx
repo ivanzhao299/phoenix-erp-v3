@@ -28,6 +28,7 @@ import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation
 import FlockCycleDrawer from '@/components/breeding/FlockCycleDrawer';
 import { flockArchiveAge, flockArchiveDate, flockArchiveFormatNumber, flockArchiveNumber, flockArchivePlacementDate, flockArchiveTransferPath } from '@/components/breeding/flock-archive';
 import { flockBusinessToday, flockDay } from '@/components/flock-lifecycle-form';
+import { useProductionArchive } from '@/hooks/useProductionArchive';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
@@ -114,10 +115,11 @@ export default function FlockPage() {
     label: t('flockArchive.closed', '已关群')
   }];
   const [statusFilter, setStatusFilter] = useState('all');
+  const archive = useProductionArchive('flocks', statusFilter === 'all' ? '' : statusFilter);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [originalForm, setOriginalForm] = useState(emptyForm());
-  const [flockFacts, setFlockFacts] = useState<Record<string, unknown>[]>([]);
+  const flockFacts = archive.result?.items;
   const [businessDate, setBusinessDate] = useState(flockBusinessToday);
   const farmMasters = useMasterNames('farm');
   const houseMasters = useMasterNames('house');
@@ -132,18 +134,9 @@ export default function FlockPage() {
   const [confirmFlockNo, setConfirmFlockNo] = useState<string | null>(null);
   const [cycleFlockNo, setCycleFlockNo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const {
-    fetchRecords,
-    updateRecord
-  } = useCrud('brd_flocks');
-  const load = useCallback(async () => {
-    const data = await fetchRecords();
-    if (!Array.isArray(data)) return false;
-    setFlockFacts(data);
-    setBusinessDate(flockBusinessToday());
-    return true;
-  }, [fetchRecords]);
-  const flocks: FlockCard[] = useMemo(() => flockMasterLabels(flockFacts, farms, houses, lang).map(d => ({
+  const { updateRecord } = useCrud('brd_flocks');
+  const load = archive.reload;
+  const flocks: FlockCard[] = useMemo(() => flockMasterLabels(flockFacts ?? [], farms, houses, lang).map(d => ({
       id: d.flock_no,
       batchNo: String(d.flock_no ?? ''),
       farmCode: d.farmCode,
@@ -164,7 +157,6 @@ export default function FlockPage() {
       _raw: d
     })), [flockFacts, businessDate, farms, houses, lang, breedOptions]);
   useEffect(() => {
-    void load();
   }, [load]);
   useEffect(() => {
     const refreshBusinessDate = () => setBusinessDate(flockBusinessToday());
@@ -364,7 +356,7 @@ export default function FlockPage() {
 
       <PageHeader
         title={t('ui.鸡群档案', '鸡群档案')}
-        subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
+        subtitle={`${t('ui.当前共', '当前共')} ${archive.result?.total ?? 0} ${t('ui.个鸡群批次', '个鸡群批次')}`}
         breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
         actions={canCreateFlock && (
           <button type="button" style={primaryActionButton} onClick={() => { window.location.href='/breeding/flock-lifecycle/admissions?kind=ADMIT'; }}>
@@ -373,10 +365,10 @@ export default function FlockPage() {
         )}
       />
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'farmCode', 'houseName', 'houseCode', 'breed', 'breedCode', 'breedSearch']} rowKey="id" filters={
+      <DataTable columns={columns} data={archive.loading ? [] : data} pageSize={25} server={{ query: archive.search, onQueryChange: archive.setSearch, page: archive.page, onPageChange: archive.setPage, total: archive.result?.total ?? 0 }} emptyText={archive.error || (archive.loading ? t("common.loading", "加载中…") : undefined)} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'farmCode', 'houseName', 'houseCode', 'breed', 'breedCode', 'breedSearch']} rowKey="id" filters={
         <div style={{ display: 'flex', gap: 6 }}>
           {statusFilters.map(f => (
-            <button key={f.key} type="button" onClick={() => setStatusFilter(f.key)} style={toolbarFilterPill(statusFilter === f.key)}>
+            <button key={f.key} type="button" onClick={() => { archive.setPage(1); setStatusFilter(f.key); }} style={toolbarFilterPill(statusFilter === f.key)}>
               {f.label}
             </button>
           ))}

@@ -65,8 +65,8 @@ export class InventorySourceController {
 
   @Get('production-inbound/availability')
   @RequireMenu('MENU_PROD_INBOUND', 'V')
-  productionInboundAvailability(@Query('houseCode') houseCode: string) {
-    return this.prodInbound.temporaryAvailability(houseCode);
+  productionInboundAvailability(@Query('houseCode') houseCode: string, @Query('eggDate') eggDate?: string) {
+    return this.prodInbound.temporaryAvailability(houseCode, eggDate);
   }
 
   @Get('production-inbound/locations')

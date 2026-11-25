@@ -29,6 +29,7 @@ import { useVetChoices, useVetFlocks } from '@/hooks/useVetFlocks';
 import { farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDialog } from '@/contexts/DialogContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Plus, XCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
@@ -63,6 +64,7 @@ const todayStr = () => {
 };
 export default function MedicinePage() {
   const toast = useToast();
+  const { showConfirm } = useDialog();
   // G18-1：从 role check 改为 PBAC menu perm check（宋明光持 MENU_FARM_VET:C,E 但无 ROLE_VET，旧 role check 拒之门外）
   const {
     canEdit
@@ -92,6 +94,24 @@ export default function MedicinePage() {
   };
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
+  const openNew = useCallback(() => {
+    setSubmitError('');
+    setEditId(null);
+    setForm({ ...EMPTY_FORM, recordNo: 'MED-' + crypto.randomUUID() });
+    setShowDrawer(true);
+  }, []);
+  useEffect(() => {
+    if (!canEdit || new URLSearchParams(location.search).get('action') !== 'create') return;
+    const url = new URL(location.href);
+    url.searchParams.delete('action');
+    url.searchParams.delete('date');
+    const timer = setTimeout(() => {
+      history.replaceState(history.state, '', url);
+      openNew();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [canEdit, openNew]);
+
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({
     ...EMPTY_FORM
@@ -140,9 +160,24 @@ export default function MedicinePage() {
     loadData();
   }, [loadData]);
   const handleCancel = async (row: MedicineRecord) => {
-    if (!canEdit || !window.confirm(t('ui.确认撤销该用药记录', '确认撤销该用药记录？'))) return;
+    if (!canEdit || busy) return;
     setBusy(true);
-    try { await farmProductionApi.cancelMedicationRecord(Number(row.id)); await loadData(); } catch {} finally { setBusy(false); }
+    try {
+      const confirmed = await showConfirm({
+        title: t('ui.确认撤销该用药记录', '确认撤销该用药记录？'),
+        subtitle: '#' + row.id,
+        message: t('vet.cancelReturnsStock', '撤销成功后，用药数量将按原批次退回库存。'),
+        confirmLabel: t('ui.确认撤销', '确认撤销'),
+      });
+      if (!confirmed) return;
+      await farmProductionApi.cancelMedicationRecord(Number(row.id));
+      toast.success(t('ui.用药记录已撤销', '用药记录已撤销'));
+      await loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('ui.用药记录撤销失败', '用药记录撤销失败'));
+    } finally {
+      setBusy(false);
+    }
   };
   const createRecord = async (payload: Record<string, unknown>) => {
     try {
@@ -278,7 +313,7 @@ export default function MedicinePage() {
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]}
         actions={canEdit && (
-          <button type="button" onClick={() => { setSubmitError(''); setEditId(null); setForm({ ...EMPTY_FORM, recordNo:'MED-'+crypto.randomUUID() }); setShowDrawer(true); }} style={primaryActionButton}>
+          <button type="button" onClick={openNew} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增用药记录', '新增用药记录')}
           </button>
         )}

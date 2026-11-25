@@ -211,7 +211,26 @@ export class ProductionInboundService {
     return this.describeSourceMode(houseCode, owner);
   }
 
-  async temporaryAvailability(houseCode: string) {
+  private originalTemporaryRows(manager: Pick<EntityManager, 'query'>, source: {
+    companyCode: string; eggDate: string; collectionRef: string | null; houseCode?: string;
+  }, lock: boolean) {
+    return manager.query(`SELECT ib.batch_no, ib.quality_grade, ib.qty, ib.product_code, ib.sku_code, ib.spec_code,
+        ib.variety_code, ib.status, ib.egg_date::text AS egg_date, ib.collection_batch_ref,
+        ib.warehouse_code, ib.location_code,
+        (SELECT CASE WHEN count(*)=1 THEN min(l.qty_change) END
+           FROM inv_ledger l
+          WHERE l.batch_no=ib.batch_no AND l.change_type='TEMP_PRODUCTION_INBOUND' AND l.ref_no=ib.source_no
+            AND l.company_code=ib.company_code AND l.warehouse_code=ib.warehouse_code
+            AND l.location_code=ib.location_code AND l.log_date=ib.egg_date AND l.qty_change>0) AS original_qty
+      FROM inv_batches ib
+      WHERE ib.company_code=$1 AND ib.source_type='TEMP_PRODUCTION' AND ib.egg_date=$2
+        AND (ib.collection_batch_ref IS NOT DISTINCT FROM $3
+          OR ($4::text IS NOT NULL AND ib.source_no='TEMP-' || $2::date::text || '-' || $4))
+      ORDER BY ib.batch_no ${lock ? 'FOR UPDATE OF ib' : ''}`,
+      [source.companyCode, source.eggDate, source.collectionRef, source.houseCode ?? null]);
+  }
+
+  async temporaryAvailability(houseCode: string, eggDate?: string) {
     const owner = await this.temporaryHouseContext(houseCode);
     const [mode, scopes] = await Promise.all([
       this.describeSourceMode(houseCode, owner),
@@ -219,7 +238,22 @@ export class ProductionInboundService {
         FROM production_cutover_scopes
         WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`, [owner.companyCode, houseCode]),
     ]);
-    return { ...mode, state: scopes[0]?.state ?? 'OFF', firstProductionDate: scopes[0]?.firstProductionDate ?? null };
+    const availability = { ...mode, state: scopes[0]?.state ?? 'OFF', firstProductionDate: scopes[0]?.firstProductionDate ?? null };
+    if (eggDate === undefined) return availability;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eggDate) || !Number.isFinite(Date.parse(eggDate))
+      || new Date(eggDate).toISOString().slice(0, 10) !== eggDate) {
+      throw new BadRequestException('生产日期无效');
+    }
+    const rows = await this.originalTemporaryRows(this.ds, {
+      companyCode: owner.companyCode, collectionRef: 'HOUSE-' + houseCode, eggDate, houseCode,
+    }, false);
+    for (const row of rows) this.assertScope(owner.companyCode, row.warehouse_code);
+    return { ...availability, priorInbound: rows.map((row: any) => ({
+      batchNo: row.batch_no, warehouseCode: row.warehouse_code, locationCode: row.location_code,
+      originalQty: Number.isSafeInteger(Number(row.original_qty)) && Number(row.original_qty) > 0
+        && row.collection_batch_ref === 'HOUSE-' + houseCode ? Number(row.original_qty) : null,
+      currentQty: Number(row.qty),
+    })) };
   }
 
   async temporaryLocations(houseCode: string, warehouseCode: string) {
@@ -392,16 +426,9 @@ export class ProductionInboundService {
       if (mode !== 'TEMP_PRODUCTION_INBOUND') {
         throw new ForbiddenException('已启用包装入库模式（PACKAGING_INBOUND），不允许直接生成库存。请通过「包装作业中心」完成入库。');
       }
-      let existing = await mgr.query(
-        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,
-                egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
-           FROM inv_batches
-          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
-            AND (collection_batch_ref IS NOT DISTINCT FROM $3
-              OR ($4::text IS NOT NULL AND source_no = 'TEMP-' || $2::date::text || '-' || $4))
-          ORDER BY batch_no FOR UPDATE`,
-        [companyCode, dto.eggDate, collectionRef, dto.houseCode ?? null],
-      );
+      let existing = await this.originalTemporaryRows(mgr, {
+        companyCode, eggDate: dto.eggDate, collectionRef, houseCode: dto.houseCode,
+      }, true);
       if (existing.some((row: any) => TEMP_PRODUCTION_REVERSAL_CASE.targets.some(target => target.batchNo === row.batch_no))) {
         // Existing source rows are already locked in the daily-house transaction.
         // A strict complete incident is the sole zero-row exclusion; ordinary
@@ -426,13 +453,16 @@ export class ProductionInboundService {
           if (matches.length !== 1) throw new BadRequestException('该日报入库请求档位或规格与已有记录不一致');
           return { grade: item.grade, qty: item.qty, specCode: matches[0].spec_code };
         }).sort(sort);
-        const actual = existing.map((row: any) => ({ grade: row.quality_grade, qty: Number(row.qty), specCode: row.spec_code })).sort(sort);
+        if (existing.some((row: any) => !Number.isSafeInteger(Number(row.original_qty)) || Number(row.original_qty) <= 0)) {
+          throw new ConflictException('已有批次缺少唯一可信的原入库流水，请核对历史台账');
+        }
+        const actual = existing.map((row: any) => ({ grade: row.quality_grade, qty: Number(row.original_qty), specCode: row.spec_code })).sort(sort);
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
           throw new BadRequestException('该日报入库请求已存在但数量或档位不同，请先核对库存后再重试');
         }
         idempotent = true;
         for (const source of existing) {
-          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code, varietyCode: source.variety_code ?? null, status: source.status ?? 'AVAILABLE' });
+          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.original_qty), productCode: source.product_code, varietyCode: source.variety_code ?? null, status: source.status ?? 'AVAILABLE' });
         }
         return;
       }

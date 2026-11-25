@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
+import { useMedicineInbound } from '@/hooks/useMedicineInbound';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import { RefreshCw, Search } from 'lucide-react';
@@ -22,18 +23,6 @@ async function apiFetch<T>(path: string): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
   return body.data ?? body;
-}
-async function apiPost<T = any>(path: string, data: unknown): Promise<T> {
-  const res = await fetch((process.env.NEXT_PUBLIC_API_BASE || '') + path, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: {
-      Authorization: `Bearer ${tok()}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
 }
 interface MedicineWarehouse {warehouse_code:string;site_code:string;company_code:string}
 interface MedStock {
@@ -77,7 +66,8 @@ export default function MedStockPage() {
   } = usePermission();
   const { t, lang } = useLanguage();
   // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
-  const { canEdit } = usePermission('MENU_FARM_VET');
+  const { canEdit, user } = usePermission('MENU_FARM_VET');
+  const inbound = useMedicineInbound(String(user.userId ?? user.id ?? user.username ?? ''), '/api/farm/medicine/inbound/receipted');
   const [tab, setTab] = useState<Tab>('stock');
   const [search, setSearch] = useState('');
   const [stock, setStock] = useState<MedStock[]>([]);
@@ -85,6 +75,7 @@ export default function MedStockPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [receiptLines, setReceiptLines] = useState<{ batchNo: string; ledgerId: number }[]>([]);
   const [error, setError] = useState('');
   const [warehouses,setWarehouses] = useState<MedicineWarehouse[]>([]);
   const [warehouseCode,setWarehouseCode] = useState('');
@@ -151,20 +142,19 @@ export default function MedStockPage() {
   };
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
   const handleSave = async () => {
-    if (!hasChanges || !warehouse) return;
+    if (!canEdit || saving || !inbound.pending && (!hasChanges || !warehouse)) return;
     setSaving(true);
     setError('');
     try {
-      const items = Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
+      const items = inbound.pending || !warehouse ? [] : Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
         ...warehouse, material_code: code,
         qty: e.qty, manufacturer_batch_no:e.manufacturerBatch || undefined, expire_date:e.expireDate || undefined,
         house_code: undefined,
         note: e.note || undefined
       }));
-      await apiPost('/api/farm/medicine/inbound', {
-        date: today(),
-        items
-      });
+      const receipt = await inbound.submit(today(), items);
+      if (!receipt) return;
+      setReceiptLines(receipt.lines);
       setSaved(true);
       setEntries({});
       setTimeout(() => setSaved(false), 3000);
@@ -218,6 +208,13 @@ export default function MedStockPage() {
         )}
       </div>
 
+      {receiptLines.length > 0 && <p role="status">{t('ui.药品入库回执', '药品入库回执')}
+        {receiptLines.map(line => <span key={line.ledgerId}> · {line.batchNo} #{line.ledgerId}</span>)}
+      </p>}
+      {inbound.pending && canEdit && <div role="status">
+        {t('ui.药品入库结果待核', '药品入库结果待核')} · {inbound.pending.date}
+        <button type="button" disabled={saving} onClick={handleSave}>{t('ui.找回药品入库回执', '找回原入库回执')}</button>
+      </div>}
       {error && <div style={{
       marginBottom: 14,
       padding: '10px 14px',

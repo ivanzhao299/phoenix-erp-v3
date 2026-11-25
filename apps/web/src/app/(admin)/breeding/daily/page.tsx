@@ -133,6 +133,10 @@ function DailyEntry(){
   // Entry defaults must not silently hide authorized historical records.
   const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
   const [historyDate, setHistoryDate] = useState(() => sp.get('historyDate') || '');
+  const [historyShift, setHistoryShift] = useState(() => sp.get('historyShift') || '');
+  const [historyPage, setHistoryPage] = useState(0);
+  const [hasNextHistory, setHasNextHistory] = useState(false);
+  const [historyStatus, setHistoryStatus] = useState<'loading'|'failed'|'ready'>('loading');
   useEffect(() => {
     // Keep a saved/backdated report addressable across refresh and login return.
     const url = new URL(window.location.href);
@@ -140,8 +144,10 @@ function DailyEntry(){
     else url.searchParams.delete('historyHouse');
     if (historyDate) url.searchParams.set('historyDate', historyDate);
     else url.searchParams.delete('historyDate');
+    if (historyShift) url.searchParams.set('historyShift', historyShift);
+    else url.searchParams.delete('historyShift');
     window.history.replaceState(window.history.state, '', url);
-  }, [historyHouse, historyDate]);
+  }, [historyHouse, historyDate, historyShift]);
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
   // A result belongs to one selection, including when returning to an earlier house/day.
@@ -200,22 +206,32 @@ function DailyEntry(){
   const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
     const generation = ++historyRequest.current;
+    setHistoryStatus('loading');
     // Filter before the API's page limit; another house cannot crowd this one out.
     const [data, allHouses] = await Promise.all([fetchRecords({
       ...(historyHouse ? { house_code: historyHouse } : {}),
       ...(historyDate ? { log_date: historyDate } : {}),
-      limit: 30,
+      ...(historyShift ? { shift: historyShift } : {}),
+      limit: 31, offset: historyPage * 30,
     }), fetchHouses()]);
     if (generation !== historyRequest.current) return;
+    if (!Array.isArray(data)) {
+      setReports([]);
+      setHasNextHistory(false);
+      setHistoryStatus('failed');
+      return;
+    }
+    setHasNextHistory(data.length > 30);
+    setHistoryStatus('ready');
     const houseNameMap: Record<string, string> = {};
     (allHouses || []).forEach((h: Record<string, unknown>) => {
       if (h.house_code) houseNameMap[h.house_code as string] = h.house_name as string || h.house_code as string;
       if (h.house_no) houseNameMap[h.house_no as string] = h.house_name as string || h.house_no as string;
     });
-    setReports(((data || []) as Record<string, unknown>[]).map((d: Record<string, unknown>) => ({
-      id:Number(d.id),date: d.log_date,
-      house: d.house_code || d.flock_no || t('ui.未知', '未知'),
-      houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知', '未知'),
+    setReports((data as Record<string, unknown>[]).slice().reverse().slice(0, 30).map(d => ({
+      id:Number(d.id),date: d.log_date,shift: d.shift,
+      house: d.house_code || d.flock_no || '—',
+      houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || '—',
       eggs: d.eggs_produced || 0,
       eggsByGrade: d.eggs_by_grade,
       dirtyEggs: d.dirty_eggs || 0,
@@ -228,11 +244,11 @@ function DailyEntry(){
       // 手机端 mortality 写入
       feedKg: d.feed_consumed ?? '',
       waterL: d.water_consumed ?? '',
-      temp: d.temp || 25,
-      humidity: d.humidity || 60,
+      temp: d.temp ?? null,
+      humidity: d.humidity ?? null,
       remark: d.note || ''
-    })).reverse());
-  }, [fetchRecords, fetchHouses, historyHouse, historyDate]);
+    })));
+  }, [fetchRecords, fetchHouses, historyHouse, historyDate, historyPage, historyShift]);
   useEffect(() => {
     Promise.all([fetchHouses(), fetchFlocks()]).then(([houses, flocks]: [Record<string, unknown>[], Record<string, unknown>[]]) => {
       const fromHouses = (houses || []).filter((h: Record<string, unknown>) => h.house_code || h.house_no);
@@ -281,7 +297,7 @@ function DailyEntry(){
     return()=>{alive=false;};
   },[occupancyContext,API_BASE]);
   useEffect(() => {
-    if (!selectedHouse) return;
+    if (!selectedHouse || formDate !== today) return;
     const turn=selection.current;
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
     fetch(`${API_BASE}/api/v3/iot/devices/${selectedHouse}/overview`, {
@@ -295,10 +311,17 @@ function DailyEntry(){
         setDeviceHint(null);
         return;
       }
-      const byCode = Object.fromEntries(snap.map((s: Record<string, unknown>) => [s.property_code, s]));
       const hint: Record<string, string> = {};
-      if (byCode['2001']?.value) hint.temp = Number(byCode['2001'].value).toFixed(1);
-      if (byCode['2083']?.value) hint.humidity = Number(byCode['2083'].value).toFixed(0);
+      const businessDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' });
+      for (const sample of snap) {
+        const collectedAt = Number(sample?.collect_time);
+        if (!Number.isFinite(collectedAt) || collectedAt <= 0 || collectedAt > Date.now()
+          || businessDay.format(new Date(collectedAt)) !== formDate || sample.value == null || sample.value === '') continue;
+        const value = Number(sample.value);
+        if (!Number.isFinite(value)) continue;
+        if (String(sample.property_code) === '2001') hint.temp = value.toFixed(1);
+        if (String(sample.property_code) === '2083') hint.humidity = value.toFixed(0);
+      }
       // A realtime cumulative counter is not a daily consumption measurement. Use the dated generation action for actual advice.
       if (Object.keys(hint).length) {
         setDeviceHint(hint);
@@ -310,8 +333,8 @@ function DailyEntry(){
       } else {
         setDeviceHint(null);
       }
-    }).catch(() => setDeviceHint(null));
-  }, [selectedHouse]);
+    }).catch(() => { if (turn === selection.current) setDeviceHint(null); });
+  }, [API_BASE, selectedHouse, formDate, today]);
   const updateRow = (id: number, field: string, val: string) => setRows(previous => previous.map(r => r.id === id ? {
     ...r,
     [field]: val
@@ -358,7 +381,9 @@ function DailyEntry(){
       feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
       elimination_qty: Number(row.elimination) || 0, culling_reason: row.elimReason || null,
-      temp: officialReport?(row.temp===''?null:Number(row.temp)):Number(row.temp)||25, humidity:officialReport?(row.humidity===''?null:Number(row.humidity)):Number(row.humidity)||60, note: row.remark,
+      temp: row.temp === '' ? null : Number(row.temp),
+      humidity: row.humidity === '' ? null : Number(row.humidity),
+      note: row.remark,
       operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
     };
     if(managedHouse)for(const k of ['mortality_qty','elimination_qty','mortality_reason','culling_reason'])delete payload[k];
@@ -366,7 +391,7 @@ function DailyEntry(){
     try {
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
-      setHistoryHouse(selectedHouse); setHistoryDate(formDate); await loadData(); setRows([mkRow(1, officialReport?row.shift:'DAILY')]);
+      setHistoryHouse(selectedHouse); setHistoryDate(formDate); setHistoryShift(''); setHistoryPage(0); await loadData(); setRows([mkRow(1, officialReport?row.shift:'DAILY')]);
       setSubmitted(true); setTimeout(() => setSubmitted(false), 3000);
     } catch (error: unknown) {
       toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
@@ -428,12 +453,16 @@ function DailyEntry(){
       setGenerating(false);
     }
   };
+  const hasGradeInput = rows.some(row => Object.values(row.gradeQty).some(value => value !== ''));
+  const saleableGrades = productGrades.filter(grade => grade.is_saleable);
   const total = {
-    eggs: rows.reduce((sum, r) => sum + (Number(r.eggs) || 0), 0),
+    eggs: rows.reduce((sum, row) => sum + gradeSumOf(row.gradeQty), 0),
+    reportedEggs: rows.reduce((sum, row) =>
+      sum + saleableGrades.reduce((subtotal, grade) => subtotal + (Number(row.gradeQty[grade.grade_code]) || 0), 0), 0),
     deadCull: rows.reduce((sum, r) => sum + (Number(r.deaths) || 0) + (Number(r.elimination) || 0), 0),
     feedKg: rows.reduce((sum, r) => sum + (Number(r.feedKg) || 0), 0)
   };
-  const visibleReports = reports;
+  const visibleReports = historyStatus === 'ready' ? reports : [];
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.一次录入当日生产数据', '一次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
       display: 'flex',
@@ -558,13 +587,13 @@ function DailyEntry(){
             unit: t('ui.羽', '羽'),
             accent: 'var(--text-primary)',
           }, {
-            label: t('ui.合计产蛋', '合计产蛋'),
-            val: total.eggs || '—',
+            label: t('ui.全部分级枚数', '全部分级枚数'),
+            val: hasGradeInput ? total.eggs.toLocaleString() : '—',
             unit: t('ui.枚', '枚'),
             accent: 'var(--color-primary)',
           }, {
-            label: t('ui.产蛋率', '产蛋率'),
-            val: (currentQty > 0 && total.eggs > 0) ? (total.eggs / currentQty * 100).toFixed(1) : '—',
+            label: t('ui.日报产蛋率预览', '日报产蛋率预览'),
+            val: currentQty > 0 && hasGradeInput ? (total.reportedEggs / currentQty * 100).toFixed(1) : '—',
             unit: '%',
             accent: 'var(--status-success)',
           }, {
@@ -734,26 +763,41 @@ function DailyEntry(){
       <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <label>
           {t('ui.鸡舍', '鸡舍')}
-          <HouseSelector value={historyHouse} onChange={setHistoryHouse} placeholder={t('common.all', '全部')} />
+          <HouseSelector value={historyHouse} onChange={value => { setHistoryPage(0); setHistoryHouse(value); }} placeholder={t('common.all', '全部')} />
         </label>
         <label>
           {t('common.date', '日期')}
-          <input type="date" value={historyDate} onChange={event => setHistoryDate(event.target.value)} />
+          <input type="date" value={historyDate} onChange={event => { setHistoryPage(0); setHistoryDate(event.target.value); }} />
         </label>
       </div>
+      <div className={s.toolbar}>
+        <label>{t('ui.班次', '班次')}
+          <DictSelect dictType="PRODUCTION_REPORT_SHIFT" value={historyShift}
+            onChange={value => { setHistoryPage(0); setHistoryShift(value); }} />
+        </label>
+        <button type="button" disabled={!historyPage || historyStatus === 'loading'}
+          style={secondaryActionButton} onClick={()=>setHistoryPage(page=>page-1)}>{t('ui.上一页', '上一页')}</button>
+        <button type="button" disabled={!hasNextHistory || historyStatus === 'loading'}
+          style={secondaryActionButton} onClick={()=>setHistoryPage(page=>page+1)}>{t('ui.下一页', '下一页')}</button>
+      </div>
+      {historyStatus === 'failed' && <p role="alert">
+        {t('ui.读取日报历史失败', '读取日报历史失败')}
+        <button type="button" onClick={()=>void loadData()}>{t('common.retry', '重试')}</button>
+      </p>}
       <div className={s.card} style={{
       overflowX: 'auto'
     }}>
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
+              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.班次', '班次'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {visibleReports.map((r, i) => <tr key={i}>
                 <td>{String(r.date ?? '—')}{r.id&&canCorrect&&<p><a href={lifecycleHref('REPORT_CORRECTION',r.id,String(r.house),String(r.date).slice(0,10))}>#{r.id} · {t('productionJobs.correctReport')}</a></p>}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
+                <td>{String(r.shift ?? '—')}</td>
                 <td className={u.fw600}>{Number(r.eggs ?? 0).toLocaleString()}</td>
                 <td><DailyGradeDetails value={r.eggsByGrade} grades={productGrades} /></td>
                 <td style={{
@@ -771,11 +815,11 @@ function DailyEntry(){
             }}>{Number(r.elimination) > 0 ? String(r.elimination) : '—'}</td>
                 <td className={u.muted12}>{cullingReasonLabel(r.cullingReason, cullingReasonCodeMap)}</td>
                 <td>{String(r.feedKg ?? '—')}</td>
-                <td>{String(r.temp ?? '—')}℃</td>
-                <td>{String(r.humidity ?? '—')}%</td>
+                <td>{r.temp == null || r.temp === '' ? '—' : `${r.temp}℃`}</td>
+                <td>{r.humidity == null || r.humidity === '' ? '—' : `${r.humidity}%`}</td>
                 <td className={u.muted12}>{String(r.remark ?? '—')}</td>
               </tr>)}
-            {!visibleReports.length && <tr><td colSpan={13} style={{
+            {historyStatus === 'ready' && !visibleReports.length && <tr><td colSpan={14} style={{
               padding: 24,
               textAlign: 'center',
               color: 'var(--text-secondary)',

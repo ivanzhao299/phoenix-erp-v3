@@ -36,7 +36,9 @@ export function unwrapFeedLedgerSaveResponse(value: unknown): FeedLedgerRow[] {
     throw new Error(typeof response.msg === 'string' ? response.msg : '保存失败');
   }
 
-  return normalizeFeedLedgerRows(response.data ?? value);
+  const rows = response.data ?? value;
+  if (!Array.isArray(rows)) throw new Error('饲料台账保存回执无效，请刷新核对');
+  return normalizeFeedLedgerRows(rows);
 }
 
 const finiteNumber = (value: unknown): number => {
@@ -73,4 +75,18 @@ export function normalizeFeedLedgerRows(value: unknown): FeedLedgerRow[] {
       note: typeof row.note === 'string' ? row.note : '',
     };
   });
+}
+
+export function normalizeFeedLedgerHouses(value: unknown): Record<string, string> {
+  if (!Array.isArray(value)) return {};
+  const houses: Record<string, string> = Object.create(null);
+  for (const house of value) {
+    if (typeof house === 'string' && house) {
+      houses[house] = house;
+    } else if (house && typeof house.house_code === 'string' && house.house_code) {
+      houses[house.house_code] = typeof house.house_name === 'string' && house.house_name
+        ? house.house_name : house.house_code;
+    }
+  }
+  return houses;
 }

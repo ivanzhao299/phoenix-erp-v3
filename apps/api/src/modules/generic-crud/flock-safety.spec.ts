@@ -45,8 +45,8 @@ describe('flock and house mutation boundaries',()=>{
   it('passes resolved scope to daily PUT',async()=>{
     const update=jest.fn().mockResolvedValue({code:200});
     const controller=new FarmController({updateBreedingDailyLog:update} as never,{} as never);
-    await controller.updateBreedingDailyLog(7,{mortality_qty:2},{user:{},dataScope:scoped});
-    expect(update).toHaveBeenCalledWith(7,{mortality_qty:2},expect.objectContaining({companyCodes:[],farmCodes:['A']}));
+    await controller.updateBreedingDailyLog(7,{mortality_qty:2},{user:{username:'fixture-operator'},dataScope:scoped});
+    expect(update).toHaveBeenCalledWith(7,{mortality_qty:2},expect.objectContaining({companyCodes:[],farmCodes:['A']}),'fixture-operator');
   });
   it('forbids direct population edits, unknown exit states, premature close and reopening',async()=>{
     for(const [current,body,message] of [

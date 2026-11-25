@@ -47,6 +47,6 @@ done
 
 (
   cd apps/web
-  PLAYWRIGHT_BASE_URL="$INSTALLMENT_WEB_URL" ./node_modules/.bin/playwright test e2e/egg-source-workspace.spec.ts \
+  PLAYWRIGHT_BASE_URL="$INSTALLMENT_WEB_URL" ./node_modules/.bin/playwright test e2e/egg-source-workspace.spec.ts e2e/production-operator-feedback.spec.ts \
     --workers=1 --reporter=line --output="$report_dir/egg-source-browser-artifacts"
 ) | tee "$report_dir/egg-source-browser.log"

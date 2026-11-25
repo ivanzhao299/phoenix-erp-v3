@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { mobileApi, invalidateCache, MedicineWarehouse, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { usePermission } from '@/hooks/usePermission';
+import { useMedicineInbound } from '@/hooks/useMedicineInbound';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -29,7 +31,10 @@ export default function MedicinePage() {
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
   const { t: tr } = useLanguage();
-  const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
+  const { allowed, loading: permLoading } = useMobilePermission('medicine');
+  const { canEdit, user } = usePermission('MENU_FARM_VET');
+  const readonly = !canEdit;
+  const inbound = useMedicineInbound(String(user.userId ?? user.id ?? user.username ?? ''), '/api/farm/medicine/inbound/receipted');
   const CHANGE_LABELS_TR: Record<string, string> = {
     MED_INBOUND:  tr('mob.brd.inbound', '入库'),
     MED_OUTBOUND: tr('mob.brd.outbound', '出库'),
@@ -43,6 +48,7 @@ export default function MedicinePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
+  const [receiptLines, setReceiptLines] = useState<{ batchNo: string; ledgerId: number }[]>([]);
   const [error, setError]     = useState('');
 
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
@@ -123,11 +129,11 @@ export default function MedicinePage() {
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
 
   const handleSave = async () => {
-    if (readonly || saving || !hasChanges || !warehouse || tab !== 'inbound') return;
+    if (readonly || saving || !inbound.pending && (!hasChanges || !warehouse || tab !== 'inbound')) return;
     setSaving(true);
     setError('');
     try {
-      const items = Object.entries(entries)
+      const items = inbound.pending || !warehouse ? [] : Object.entries(entries)
         .filter(([, e]) => e.qty > 0)
         .map(([code, e]) => ({
           material_code: code,
@@ -138,7 +144,9 @@ export default function MedicinePage() {
           note:            e.note || undefined,
         }));
 
-      await mobileApi.medInbound(today, items);
+      const receipt = await inbound.submit(today, items);
+      if (!receipt) return;
+      setReceiptLines(receipt.lines);
       invalidateCache('medStock');
       setSaved(true);
       setEntries({});
@@ -237,6 +245,13 @@ export default function MedicinePage() {
       )}
 
       {/* 错误 */}
+      {receiptLines.length > 0 && <p role="status">{tr('ui.药品入库回执', '药品入库回执')}
+        {receiptLines.map(line => <span key={line.ledgerId}> · {line.batchNo} #{line.ledgerId}</span>)}
+      </p>}
+      {inbound.pending && !readonly && <div role="status">
+        {tr('ui.药品入库结果待核', '药品入库结果待核')} · {inbound.pending.date}
+        <button type="button" disabled={saving} onClick={handleSave}>{tr('ui.找回药品入库回执', '找回原入库回执')}</button>
+      </div>}
       {error && (
         <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}

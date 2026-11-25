@@ -529,12 +529,16 @@ export class FlockLifecycleService {
   async overview(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
     const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
-      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,e.steps,e.previously_used,e.open_occupancy,f.farm_status,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
+      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,cleaning.id AS cleaning_start_document_id,e.steps,e.previously_used,e.open_occupancy,f.farm_status,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
       acceptance.last_acceptance_on,o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
       (SELECT COUNT(*)::integer FROM brd_flocks x WHERE x.house_code=h.house_code AND
         (x.status IS DISTINCT FROM 'RETIRED' OR COALESCE(x.current_qty,0)>0)) AS legacy_flocks
       FROM brd_houses h JOIN (SELECT farm_code,company_code,status AS farm_status,mapped_site_code,mapped_site_code AS site_code FROM brd_farms) f ON f.farm_code=h.farm_code
       LEFT JOIN brd_flock_house_states s ON s.house_code=h.house_code
+      LEFT JOIN brd_flock_documents cleaning ON s.state='CLEANING' AND cleaning.id=s.document_id
+        AND cleaning.kind='CLEAN_START' AND cleaning.status='POSTED' AND cleaning.posted_at IS NOT NULL
+        AND cleaning.house_code=h.house_code AND cleaning.company_code=f.company_code AND cleaning.farm_code=h.farm_code
+        AND cleaning.site_code=COALESCE(f.site_code,'')
       LEFT JOIN (
         SELECT DISTINCT ON (house_code,company_code,farm_code,site_code) house_code,company_code,farm_code,site_code,
           business_date::text AS last_acceptance_on

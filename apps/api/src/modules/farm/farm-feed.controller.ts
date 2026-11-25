@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Req, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
 import { FarmFeedService } from './farm-feed.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
+import { hasPerm } from '../../auth/permissions.util';
+import { DataScopeService } from '../org/services/data-scope.service';
 import { deriveOrgScope } from './farm.service';
 
 // [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
@@ -10,30 +12,49 @@ import { deriveOrgScope } from './farm.service';
 @UseGuards(MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_BREEDING', 'V')
 export class FarmFeedController {
-  constructor(private readonly feedService: FarmFeedService) {}
+  constructor(private readonly feedService: FarmFeedService, @Optional() private readonly dataScopes?: DataScopeService) {}
 
-  /** GET /api/farm/feed/ledger?date=2026-05-16 */
-  @Get('ledger')
-  async getLedger(@Query('date') date: string) {
-    const d = date || new Date().toISOString().slice(0, 10);
-    return this.feedService.getLedger(d);
+  private warehouseScope(req: any) {
+    const user = req.user;
+    const viewMenu = ['MENU_WMS_ISSUE', 'MENU_WMS_INOUT', 'MENU_WMS_VIEW'].find(menu => hasPerm(user?.permissions,menu,'V'));
+    if (!this.dataScopes || !user || !viewMenu) return { isGlobal: false, allowedWarehouseCodes: [] };
+    const userId = String(user.userId ?? user.id ?? user.sub ?? '');
+    if (!userId) return { isGlobal: false, allowedWarehouseCodes: [] };
+    return this.dataScopes.resolve(userId, user.roles ?? (user.role ? [user.role] : []), viewMenu, user.perms_version);
   }
 
-  /** POST /api/farm/feed/ledger  body: { date, items: [...] } */
+  @Get('scoped/farms')
+  async scopedFarms(@Req() req: any) {
+    return { code: 200, data: await this.feedService.scopedFarms(req.dataScope) };
+  }
+
+  @Get('scoped/day')
+  async scopedDay(@Query() query: Record<string, unknown>, @Req() req: any) {
+    return { code: 200, data: await this.feedService.scopedDay(req.dataScope, query, await this.warehouseScope(req)) };
+  }
+
+  @Post('scoped/day')
+  @RequireMenu('MENU_BREEDING','E')
+  async saveScopedDay(@Body() body: Record<string, unknown>, @Req() req: any) {
+    const operator = String(req.user?.userId ?? req.user?.username ?? req.user?.sub ?? 'unknown');
+    return { code: 200, data: await this.feedService.saveScopedDay(req.dataScope, body ?? {}, operator, await this.warehouseScope(req)) };
+  }
+
+  @Get('ledger')
+  async getLedger(@Query('date') date: string, @Req() req: any) {
+    if (!req.dataScope?.isGlobal) throw new ForbiddenException('旧饲料账暂无可核验的场归属，请使用新版按场查询');
+    return this.feedService.getLedger(date || new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Singapore' }).format(new Date()));
+  }
+
   @Post('ledger')
   @RequireMenu('MENU_BREEDING', 'E')
-  async saveLedger(@Body() body: any, @Req() req: any) {
-    const { date } = body;
-    // PC feed ledger posts `rows`; retain `items` for mobile/legacy callers.
-    const items = Array.isArray(body.items) ? body.items : body.rows;
-    if (!date || !Array.isArray(items)) return { code: 400, msg: '缺少 date 或 items' };
-    const operator = req.user?.username || req.user?.sub || 'unknown';
-    return this.feedService.saveLedger(date, items, operator);
+  saveLedger() {
+    throw new ConflictException('旧饲料账写入已关闭，请刷新至按场记账页面');
   }
 
-  /** GET /api/farm/feed/ledger-range?start=...&end=... */
   @Get('ledger-range')
-  async getLedgerRange(@Query('start') start: string, @Query('end') end: string) {
+  async getLedgerRange(@Query('start') start: string, @Query('end') end: string, @Req() req: any) {
+    if (!req.dataScope?.isGlobal) throw new ForbiddenException('旧饲料账暂无可核验的场归属');
     if (!start || !end) return { code: 400, msg: '缺少 start/end' };
     return this.feedService.getLedgerRange(start, end);
   }

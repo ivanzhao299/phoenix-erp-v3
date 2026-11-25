@@ -3,37 +3,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const pageSource = readFileSync(
-  join(process.cwd(), "src/app/(admin)/breeding/feed/page.tsx"),
+  join(process.cwd(), "src/components/breeding/ScopedFeedLedger.tsx"),
   "utf8",
 );
 
 const cssSource = readFileSync(
-  join(process.cwd(), "src/app/(admin)/breeding/feed/feed.module.css"),
+  join(process.cwd(), "src/components/breeding/ScopedFeedLedger.module.css"),
   "utf8",
 );
 
-describe("breeding feed ledger column alignment", () => {
-  it("uses page-scoped header alignment that overrides the shared left-aligned table heading", () => {
-    expect(pageSource).toContain("className={`${s.table} ${styles.feedTable}`}");
-    expect(pageSource.match(/className=\{styles\.alignRight\}/g)).toHaveLength(5);
-    expect(pageSource.match(/className=\{styles\.alignCenter\}/g)).toHaveLength(2);
-    expect(cssSource).toContain(".feedTable th.alignRight");
-    expect(cssSource).toContain(".feedTable th.alignCenter");
+describe('scoped breeding feed ledger', () => {
+  it('keeps warehouse issues separate from editable field measurements', () => {
+    expect(pageSource).toContain('仓储发放');
+    expect(pageSource).toContain('实际耗用');
+    expect(pageSource).toContain('现场盘余');
+    expect(pageSource).toContain('version: day.version');
   });
-
-  it("keeps the ledger readable through horizontal scrolling on narrow screens", () => {
-    expect(pageSource).toContain("className={styles.tableViewport}");
-    expect(cssSource).toContain("overflow-x: auto");
-    expect(cssSource).toContain("min-width: 1080px");
-    expect(cssSource).toContain("@media (max-width: 768px)");
-    expect(cssSource).toContain("min-width: 980px");
-  });
-
-  it("preserves permission gates plus loading, empty, and error states", () => {
-    expect(pageSource).toContain("usePermission('MENU_BREEDING')");
-    expect(pageSource).toContain("{canEdit && (");
-    expect(pageSource).toContain("{error && <div role=\"alert\"");
-    expect(pageSource).toContain("loading ? <tr>");
-    expect(pageSource).toContain("rows.length === 0 ? <tr>");
+  it('uses a scrollable table on narrow screens and leaves data on the current range', () => {
+    expect(pageSource).toContain('className={styles.tableViewport}');
+    expect(cssSource).toContain('overflow-x: auto');
+    expect(pageSource).toContain('loaded === range');
+    expect(pageSource).toContain('version: day.version');
   });
 });

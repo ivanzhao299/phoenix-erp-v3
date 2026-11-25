@@ -36,7 +36,7 @@ describe('inventory inbound-date write-path contract', () => {
     // across lines must not change this contract or substitute a creation date.
     expect(medicine).toMatch(/'MED_INBOUND',\s*safeDate,\s*expireDate/);
     expect(medicine).toMatch(/'AVAILABLE',\s*\$9::date,\s*\$10::date,\s*\$11::varchar/);
-    expect(medicine).toContain('const safeDate = normalizeDate(logDate)');
+    expect(medicine).toContain('const safeDate = normalizeDate(explicitDate)');
   });
 
   it('records unknown legacy and packaging dates as NULL without created-at fallback', () => {
