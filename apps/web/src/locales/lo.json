@@ -15712,6 +15712,7 @@
   "inventorySource.precedence": "ລະບົບກວດສອບຕາມສະຖານທີ່ (ລະຫັດຟາມ), ບໍລິສັດ ແລະ ກຸ່ມຕາມລຳດັບ. ເລືອກເຮືອນໄກ່ເພື່ອເບິ່ງໂໝດທີ່ໃຊ້.",
   "inventorySource.defaultMode": "ຄ່າເລີ່ມຕົ້ນ",
   "inventorySource.effectiveForHouse": "ໂໝດຂອງເຮືອນໄກ່ນີ້",
+  "eggSources.invalidResponse": "ບໍລິການແຫຼ່ງໄຂ່ສົ່ງຂໍ້ມູນໃນຮູບແບບທີ່ບໍ່ຄາດໄວ້. ກະລຸນາລອງໃໝ່.",
   "eggSources.title": "ໂປຣໄຟລ໌ແຫຼ່ງໄຂ່",
   "eggSources.history": "ກວດສອບແຫຼ່ງໄຂ່ຍ້ອນຫຼັງ",
   "eggSources.standard": "ໄຂ່ທຳມະດາ",

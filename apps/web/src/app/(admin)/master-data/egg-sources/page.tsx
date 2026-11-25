@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProductGrades } from '@/hooks/useProductGrades';
 import request from '@/lib/api-client';
+import { eggSourceEndpoint as endpoint, requestEggSourceData } from '@/lib/egg-source-api';
 import s from '@/components/breeding/ProductionInboundWorkbench.module.css';
 
 type EggClass = 'STANDARD' | 'RED' | 'PINK';
@@ -14,13 +15,15 @@ type Item = { gradeCode:string; specCode:string };
 type Profile = { profile_code:string; effective_date:string; expire_date:string|null; shellClass:EggClass|null; status:string };
 type Change = { id:string; state:string; version:number; effective_date:string; target_class:EggClass;
   payload:{ reason:string; warehouseCode:string }; approval:{ planDigest:string; previousClass?:EggClass|null; snapshot?:{scopeId:string|null;items:Array<Item & {productCode:string;skuCode:string}>} }|null };
-type Timeline = { owner:{ companyCode:string; siteCode:string }; businessDay:string; zone:string; profiles:Profile[]; changes:Change[] };
-const endpoint = '/product-master/egg-sources';
+type Timeline = { owner:{ companyCode:string; siteCode:string; houseCode:string }; businessDay:string; zone:string; profiles:Profile[]; changes:Change[] };
+type PlanOption = { id:string; flock_no:string; kind:string; status:string };
+type PreviewItem = { skuCode:string; productCode:string };
 const shellClasses: EggClass[] = ['STANDARD','RED','PINK'];
 
 export default function EggSourcesPage() {
   const { t } = useLanguage();
   const permission = usePermission('MENU_MD_PRODUCT');
+  const invalidResponse = t('eggSources.invalidResponse', '蛋品来源数据返回格式异常，请重试。');
   const { grades } = useProductGrades({ onlyStorable:true });
   const [house,setHouse]=useState('');
   const [timeline,setTimeline]=useState<Timeline|null>(null);
@@ -29,12 +32,12 @@ export default function EggSourcesPage() {
   const [shell,setShell]=useState<EggClass>('STANDARD');
   const [reason,setReason]=useState('');
   const [planDocument,setPlanDocument]=useState('');
-  const [planOptions,setPlanOptions]=useState<Array<{id:string;flock_no:string;kind:string;status:string}>>([]);
+  const [planOptions,setPlanOptions]=useState<PlanOption[]>([]);
   const [items,setItems]=useState<Item[]>([{gradeCode:'',specCode:''}]);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [busy,setBusy]=useState(false);
-  const [preview,setPreview]=useState<Array<{ skuCode:string;productCode:string }> | null>(null);
+  const [preview,setPreview]=useState<PreviewItem[]|null>(null);
   const [decisionReasons,setDecisionReasons]=useState<Record<string,string>>({});
   const [creatingKey,setCreatingKey]=useState('');
   const keys=useRef(new Map<string,string>());
@@ -42,34 +45,60 @@ export default function EggSourcesPage() {
     : value==='RED' ? t('eggSources.red','红壳蛋') : value==='PINK' ? t('eggSources.pink','粉壳蛋')
     : t('eggSources.unknown','来源待核实');
   const currentHouse=useRef(house);
-  const refresh=useCallback(async (code:string)=>{
-    if (!code) return;
-    try {
-      const data=await request<Timeline>(endpoint+'?'+new URLSearchParams({houseCode:code}));
-      if (currentHouse.current===code) setTimeline(data);
-    } catch (e) { if (currentHouse.current===code) setError(e instanceof Error ? e.message : String(e)); }
+  const selectHouse=useCallback((code:string)=>{
+    if (currentHouse.current===code) return;
+    currentHouse.current=code;
+    setHouse(code);
+    setTimeline(null);
+    setWarehouse('');
+    setPlanDocument('');
+    setPlanOptions([]);
+    setPreview(null);
+    setCreatingKey('');
+    setError('');
+    setNotice('');
   },[]);
+  const refresh=useCallback(async (code:string, signal?:AbortSignal)=>{
+    if (!code || currentHouse.current!==code) return;
+    setError('');
+    try {
+      const data=await requestEggSourceData<Timeline>(endpoint+'?'+new URLSearchParams({houseCode:code}),
+        value=>value.owner?.houseCode===code && typeof value.owner.companyCode==='string' &&
+          typeof value.businessDay==='string' && Array.isArray(value.profiles) && value.profiles.every(Boolean) &&
+          Array.isArray(value.changes) && value.changes.every(change=>change?.payload &&
+            (!change.approval?.snapshot || Array.isArray(change.approval.snapshot.items))),
+        invalidResponse,{signal});
+      if (!signal?.aborted && currentHouse.current===code) setTimeline(data);
+    } catch (e) {
+      if (!signal?.aborted && currentHouse.current===code) {
+        setTimeline(null);
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    }
+  },[invalidResponse]);
   useEffect(()=>{
     if(!permission.canView)return;
     const timer=window.setTimeout(()=>{
       const selected=new URLSearchParams(window.location.search).get('houseCode');
-      if(selected){currentHouse.current=selected;setHouse(selected);}
+      if(selected)selectHouse(selected);
     },0);
     return()=>window.clearTimeout(timer);
-  },[permission.canView]);
+  },[permission.canView,selectHouse]);
   useEffect(()=>{
     if(!house||!date||!permission.canEdit)return;
     const controller=new AbortController();
     const qs=new URLSearchParams({houseCode:house,effectiveDate:date});
-    request<typeof planOptions>(endpoint+'/flock-plans?'+qs,{signal:controller.signal})
+    requestEggSourceData<PlanOption[]>(endpoint+'/flock-plans?'+qs,
+      options=>Array.isArray(options) && options.every(Boolean),invalidResponse,{signal:controller.signal})
       .then(options=>{if(!controller.signal.aborted)setPlanOptions(options);})
-      .catch(error=>{if(!controller.signal.aborted)setError(error.message);});
+      .catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error ? error.message : String(error));});
     return()=>controller.abort();
-  },[house,date,permission.canEdit]);
+  },[house,date,permission.canEdit,invalidResponse]);
   useEffect(()=>{
-    if(!permission.canView)return;
-    const timer=window.setTimeout(()=>void refresh(house),0);
-    return()=>window.clearTimeout(timer);
+    if(!house||!permission.canView)return;
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>void refresh(house,controller.signal),0);
+    return()=>{window.clearTimeout(timer);controller.abort();};
   },[house,permission.canView,refresh]);
 
   const input={houseCode:house,effectiveDate:date,targetClass:shell,warehouseCode:warehouse,
@@ -116,10 +145,11 @@ export default function EggSourcesPage() {
     {notice&&<p role="status" className={s.notice}>{notice}</p>}
     {permission.canView&&<section className={s.card}>
       <label className={s.field}>{t('eggSources.house','鸡舍')}
-        <HouseSelector value={house} disabled={busy} onChange={code=>{
-          currentHouse.current=code;setHouse(code);setTimeline(null);setWarehouse('');setPreview(null);setCreatingKey('');setError('');
-        }} />
+        <HouseSelector value={house} disabled={busy} onChange={selectHouse} />
       </label>
+      {house&&!timeline&&error&&<button type="button" disabled={busy} onClick={()=>void perform(()=>refresh(house))}>
+        {t('common.retry','重试')}
+      </button>}
       {timeline&&<><p>{timeline.owner.companyCode} · {timeline.owner.siteCode} · {timeline.businessDay} ({timeline.zone})</p>
         <div className={s.scroll}><table className={s.table}><thead><tr>
           <th>{t('eggSources.shell','商品壳色')}</th><th>{t('eggSources.start','生效日')}</th>
@@ -164,8 +194,9 @@ export default function EggSourcesPage() {
         onChange={e=>{setReason(e.target.value);setPreview(null);}} /></label>
       <div className={s.actions}>
         <button type="button" disabled={busy||!ready} onClick={()=>void perform(async()=>{
-          const data=await request<{verified:{items:Array<{skuCode:string;productCode:string}>}}>(endpoint+'/preview',
-            {method:'POST',body:JSON.stringify(input)});
+          const data=await requestEggSourceData<{verified:{items:PreviewItem[]}}>(endpoint+'/preview',
+            value=>Array.isArray(value.verified?.items) && value.verified.items.every(Boolean),
+            invalidResponse,{method:'POST',body:JSON.stringify(input)});
           setPreview(data.verified.items);
         })}>{t('eggSources.preview','预检 SKU 与库存范围')}</button>
         <button type="submit" disabled={busy||!ready}>{t('eggSources.save','保存草稿')}</button>

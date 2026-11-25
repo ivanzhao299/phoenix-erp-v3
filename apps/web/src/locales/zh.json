@@ -15718,6 +15718,7 @@
   "inventorySource.precedence": "库存来源按场站（农场编码）、公司、集团依次匹配。下表各行显示该范围的配置，选舍可查看实际命中项。",
   "inventorySource.defaultMode": "系统默认",
   "inventorySource.effectiveForHouse": "该鸡舍生效模式",
+  "eggSources.invalidResponse": "蛋品来源数据返回格式异常，请重试。",
   "eggSources.title": "蛋品来源档案",
   "eggSources.house": "鸡舍",
   "eggSources.shell": "商品壳色",

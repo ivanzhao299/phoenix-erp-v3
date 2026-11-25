@@ -15738,6 +15738,7 @@
   "inventorySource.precedence": "Inventory sourcing checks site (farm code), company, then group. Each row below is a scope setting. Select a house to see the rule that applies.",
   "inventorySource.defaultMode": "System default",
   "inventorySource.effectiveForHouse": "Effective mode for this house",
+  "eggSources.invalidResponse": "The egg source service returned unexpected data. Try again.",
   "eggSources.title": "Egg source profiles",
   "eggSources.unknown": "Source unverified",
   "eggSources.warehouse": "Destination warehouse",
