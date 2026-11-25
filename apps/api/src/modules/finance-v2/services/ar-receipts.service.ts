@@ -1,7 +1,8 @@
 import {
   Injectable, Logger, NotFoundException,
-  ForbiddenException, BadRequestException,
+  ForbiddenException, BadRequestException, ConflictException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { ClsService }       from 'nestjs-cls';
@@ -15,6 +16,7 @@ import {
 } from '../dto/ar-receipt.dto';
 import { ArInvoicesService }     from './ar-invoices.service';
 import { CashAccountsService }   from './cash-accounts.service';
+import { flockMoneyCents, flockMoneyNumber, isFlockArNumber } from './flock-ar-receipts';
 import { CashTransactionsService } from './cash-transactions.service';
 
 /**
@@ -91,6 +93,7 @@ export class ArReceiptsService {
     if (user.companyCodes.length === 0) return ['1=0'];
     params.push(user.companyCodes);
     const conds = [`r.company_code = ANY($${params.length}::text[])`];
+    if (user.scopeLevel==='PROJECT') conds.push("r.receipt_no NOT LIKE 'FR-%'");
     if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
       params.push(user.projectCodes);
       conds.push(`r.project_code = ANY($${params.length}::text[])`);
@@ -102,13 +105,16 @@ export class ArReceiptsService {
   private async assertReceiptOwnership(receiptId: string): Promise<any> {
     const rows = await this.ds.query(
       `SELECT id, receipt_no, company_code, project_code, status, amount_original, currency_code,
-              exchange_rate, received_account_code, customer_name
+              exchange_rate, received_account_code, customer_name,customer_code,base_currency,amount_base
        FROM fin_ar_receipts WHERE id = $1`,
       [receiptId],
     );
     if (!rows.length) throw new NotFoundException(`AR Receipt #${receiptId} 不存在`);
     const rec  = rows[0];
     const user = this.currentUser();
+    if (!user.scopeAll && user.scopeLevel==='PROJECT' && String(rec.receipt_no).startsWith('FR-')) {
+      throw new ForbiddenException('无权访问公司级鸡群收款');
+    }
     if (!user.scopeAll && user.companyCodes.length === 0) {
       throw new ForbiddenException('无权访问 AR Receipt（数据范围未配置）');
     }
@@ -199,7 +205,28 @@ export class ArReceiptsService {
   async create(dto: CreateArReceiptDto) {
     const user      = this.currentUser();
     this.assertWritableOwnership(dto.companyCode, dto.projectCode);
-    const receiptNo = await this.genReceiptNo();
+    let dedicated: string | undefined;
+    if (dto.flockInvoiceId!==undefined || dto.paymentKey!==undefined) {
+      const id=dto.flockInvoiceId ?? '';
+      const key=dto.paymentKey ?? '';
+      if (!/^[1-9][0-9]{0,18}$/.test(id) || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(key)) {
+        throw new BadRequestException('交付收款须绑定应收和原支付请求编号');
+      }
+      if (!user.scopeAll && user.scopeLevel==='PROJECT') throw new ForbiddenException('交付收款须由公司范围财务办理');
+      const [invoice]=await this.ds.query('SELECT ar_no,company_code,customer_code,currency_code FROM fin_ar_invoices WHERE id=$1',[id]);
+      if (!invoice || !isFlockArNumber(invoice.ar_no) || invoice.company_code!==dto.companyCode
+        || invoice.customer_code!==dto.customerCode || invoice.currency_code!==dto.currencyCode) {
+        throw new BadRequestException('交付应收和收款身份不一致');
+      }
+      const amount=flockMoneyCents(dto.amountOriginal);
+      if (amount===0n || dto.projectCode?.trim() || !dto.receivedAccountCode?.trim() || dto.baseCurrency!==dto.currencyCode
+        || Number(dto.exchangeRate ?? 1)!==1 || (dto.amountBase!==undefined && flockMoneyCents(dto.amountBase)!==amount)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(dto.receiptDate)) {
+        throw new BadRequestException('交付收款须按原币提交，并指定业务日和资金账户');
+      }
+      dedicated='FR-' + id + '-' + createHash('sha256').update(key).digest('hex').slice(0,32);
+    }
+    const receiptNo = dedicated ?? await this.genReceiptNo();
     const exRate    = dto.exchangeRate ?? 1;
     const amtBase   = dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
 
@@ -216,7 +243,7 @@ export class ArReceiptsService {
          $9,$10,$11,$12,$13,$14,
          $15,$16,$17,
          'DRAFT',$18,$19,$19
-       )`,
+       ) ${dedicated ? 'ON CONFLICT (receipt_no) DO NOTHING' : ''}`,
       [
         receiptNo, dto.companyCode, dto.companyName ?? null,
         dto.projectCode ?? null, dto.projectName ?? null,
@@ -228,8 +255,17 @@ export class ArReceiptsService {
     );
 
     const newRec = await this.ds.query(
-      `SELECT * FROM fin_ar_receipts WHERE receipt_no = $1`, [receiptNo],
+      `SELECT *,receipt_date::text AS receipt_date FROM fin_ar_receipts WHERE receipt_no = $1`, [receiptNo],
     );
+    if (dedicated) {
+      const rec=newRec[0];
+      if (!rec || rec.company_code!==dto.companyCode || rec.customer_code!==dto.customerCode
+        || rec.currency_code!==dto.currencyCode || rec.base_currency!==dto.baseCurrency
+        || flockMoneyCents(rec.amount_original)!==flockMoneyCents(dto.amountOriginal)
+        || rec.receipt_date!==dto.receiptDate || rec.received_account_code!==dto.receivedAccountCode
+        || (rec.receipt_method ?? null)!==(dto.receiptMethod ?? null) || (rec.bank_ref ?? null)!==(dto.bankRef ?? null)
+        || rec.created_by!==user.userId) throw new ConflictException('原收款请求编号已绑定其他内容');
+    }
     this.logger.log(`[AR] 创建收款草稿: ${receiptNo}`);
     // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
     return { ...newRec[0], id: Number(newRec[0].id) };
@@ -240,12 +276,26 @@ export class ArReceiptsService {
   async confirm(receiptId: string, dto: ConfirmArReceiptDto) {
     const rec = await this.assertReceiptOwnership(receiptId);
 
+    const dedicated = String(rec.receipt_no).startsWith('FR-');
+    if (dedicated && dto.receiveAccountId?.trim()) {
+      throw new BadRequestException('交付收款确认须使用草稿中的原资金账户');
+    }
+    if (rec.status==='CONFIRMED' && dedicated) {
+      const alloc=dto.allocations?.[0];
+      const detail=await this.findById(receiptId);
+      if (alloc && dto.allocations.length===1 && detail.allocations.length===1
+        && String(rec.receipt_no).startsWith('FR-' + alloc.arInvoiceId + '-')
+        && String(detail.allocations[0].ar_invoice_id)===alloc.arInvoiceId
+        && flockMoneyCents(detail.allocations[0].allocated_amount_original)===flockMoneyCents(alloc.allocatedAmountOriginal)) return detail;
+      throw new ConflictException('收款已确认，重试内容与原核销不同');
+    }
     if (rec.status !== 'DRAFT') {
       throw new BadRequestException(`收款单状态 ${rec.status} 不允许确认`);
     }
     // 允许未指定 AR 的普通收款先确认入账；有分摊时仍逐笔核销应收。
     // 资金账户必须来自 DTO 的账户 ID 或创建草稿时保存的账户编码。
     const allocations = dto.allocations ?? [];
+    let flockReceipt = false;
 
     const totalAllocated = allocations.reduce(
       (s, a) => s + Number(a.allocatedAmountOriginal), 0,
@@ -267,7 +317,7 @@ export class ArReceiptsService {
       // a. 逐条校验 AR 余额（行锁）
       for (const alloc of allocations) {
         const arRows = await qr.query(
-          `SELECT id, ar_no, balance_amount_original, currency_code, company_code, project_code
+          `SELECT id, ar_no, balance_amount_original, currency_code, company_code, project_code,customer_code,base_currency,status
            FROM fin_ar_invoices WHERE id = $1 FOR UPDATE`,
           [alloc.arInvoiceId],
         );
@@ -275,6 +325,25 @@ export class ArReceiptsService {
           throw new BadRequestException(`AR Invoice #${alloc.arInvoiceId} 不存在`);
         }
         const ar = arRows[0];
+
+        if (isFlockArNumber(ar.ar_no)) {
+          flockReceipt = true;
+          if (!String(rec.receipt_no).startsWith('FR-' + alloc.arInvoiceId + '-')) {
+            throw new BadRequestException('请从鸡群交付应收发起原单收款');
+          }
+          if ((!user.scopeAll && user.scopeLevel==='PROJECT') || ar.company_code!==rec.company_code
+            || !rec.customer_code || ar.customer_code!==rec.customer_code || ar.currency_code!==rec.currency_code
+            || ar.base_currency!==rec.currency_code || rec.base_currency!==rec.currency_code || rec.project_code || ar.project_code
+            || !['OPEN','OVERDUE','PARTIALLY_RECEIVED'].includes(ar.status)) {
+            throw new BadRequestException('交付应收的公司、客户、原币或应收状态与收款不一致');
+          }
+          const amount = flockMoneyCents(rec.amount_original);
+          if (allocations.length!==1 || amount===0n || flockMoneyCents(alloc.allocatedAmountOriginal)!==amount
+            || amount>flockMoneyCents(ar.balance_amount_original) || flockMoneyCents(rec.amount_base)!==amount
+            || Number(rec.exchange_rate)!==1 || !rec.received_account_code?.trim()) {
+            throw new BadRequestException('每笔鸡群收款须有同币种入账账户，并全额分摊至一张交付应收');
+          }
+        }
 
         // DataScope 验证
         const userCodes = user.companyCodes;
@@ -298,13 +367,13 @@ export class ArReceiptsService {
         }
       }
 
+      if (dedicated && !flockReceipt) throw new BadRequestException('交付收款只能核销指定应收');
       // b. 收款单 → CONFIRMED
-      await qr.query(
-        `UPDATE fin_ar_receipts
-         SET status = 'CONFIRMED', updated_by = $1, updated_at = now()
-         WHERE id = $2`,
-        [user.userId, receiptId],
-      );
+      const confirmed = await qr.query(`WITH changed AS (
+        UPDATE fin_ar_receipts SET status='CONFIRMED',updated_by=$1,updated_at=now()
+        WHERE id=$2 AND status='DRAFT' RETURNING id
+      ) SELECT id FROM changed`,[user.userId,receiptId]);
+      if (confirmed.length!==1) throw new ConflictException('收款单状态已变化，请重新读取');
 
       // c. 写分摊记录 + 更新 AR 余额/状态
       for (const alloc of allocations) {
@@ -380,11 +449,13 @@ export class ArReceiptsService {
         if (acc.company_code !== rec.company_code) {
           throw new ForbiddenException(`资金账户 ${acc.account_code} 不属于收款公司 ${rec.company_code}`);
         }
+        if (flockReceipt && acc.currency_code!==rec.currency_code) throw new BadRequestException('资金账户必须与鸡群收款同币种');
         if (acc.status !== 'ACTIVE') {
           throw new BadRequestException(`资金账户状态 ${acc.status}，不允许入账`);
         }
 
-        const amount = Number(rec.amount_original);
+        const amount = flockReceipt ? flockMoneyNumber(flockMoneyCents(rec.amount_original)) : Number(rec.amount_original);
+        if (flockReceipt) flockMoneyNumber(flockMoneyCents(acc.current_balance)+flockMoneyCents(rec.amount_original));
         const newBalance = await this.cashAccSvc.applyBalance(
           qr, String(acc.id), amount, user.userId,
         );
@@ -420,6 +491,83 @@ export class ArReceiptsService {
     }
   }
 
+  async reverseFlockReceipt(receiptId: string, inputReason?: string) {
+    const reason = inputReason?.trim();
+    if (!reason || reason.length>500) throw new BadRequestException('请填写 1 至 500 字的冲销依据');
+    const scoped = await this.assertReceiptOwnership(receiptId);
+    const user = this.currentUser();
+    if (!user.scopeAll && user.scopeLevel==='PROJECT') throw new ForbiddenException('须由公司范围财务冲销交付收款');
+
+    const qr = this.ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const [rec] = await qr.query(`SELECT * FROM fin_ar_receipts WHERE id=$1 AND company_code=$2 FOR UPDATE`,
+        [receiptId,scoped.company_code]);
+      if (!rec || !['CONFIRMED','CANCELLED'].includes(rec.status) || rec.project_code) {
+        throw new ConflictException('收款单未确认或不属于受控鸡群收款');
+      }
+      const allocations = await qr.query(`SELECT a.*,i.status AS invoice_status,i.ar_no AS invoice_no,
+        i.company_code,i.customer_code,i.currency_code AS invoice_currency,i.received_amount_original,i.received_amount_base,
+        i.amount_original,i.amount_base,i.base_currency
+        FROM fin_ar_receipt_allocations a JOIN fin_ar_invoices i ON i.id=a.ar_invoice_id
+        WHERE a.receipt_id=$1 ORDER BY i.id FOR UPDATE OF i`,[receiptId]);
+      const ar = allocations[0];
+      const amount = flockMoneyCents(rec.amount_original);
+      if (allocations.length!==1 || !ar || !isFlockArNumber(ar.invoice_no) || ar.ar_no!==ar.invoice_no
+        || ar.receipt_no!==rec.receipt_no || !rec.customer_code || ar.customer_code!==rec.customer_code
+        || ar.company_code!==rec.company_code || ar.currency_code!==rec.currency_code || ar.invoice_currency!==rec.currency_code
+        || ar.base_currency!==rec.currency_code || amount===0n || flockMoneyCents(ar.allocated_amount_original)!==amount
+        || flockMoneyCents(ar.allocated_amount_base)!==amount) {
+        throw new ConflictException('只允许冲销全额核销到一张鸡群交付应收的同币种收款');
+      }
+
+      const ledger = await qr.query(`SELECT account_id,direction,amount,company_code,currency_code,source_no
+        FROM fin_cash_transactions WHERE source_type='AR_RECEIPT' AND source_id=$1 ORDER BY id`,[receiptId]) as Array<{account_id:string;direction:string;amount:string;company_code:string;currency_code:string;source_no:string}>;
+      const original = ledger.find(row => row.direction==='IN');
+      const matchesReceipt = (row: typeof original) => row && row.company_code===rec.company_code
+        && row.currency_code===rec.currency_code && row.source_no===rec.receipt_no && flockMoneyCents(row.amount)===amount;
+      const reversal = ledger.find(row => row.direction==='OUT');
+      if (rec.status==='CANCELLED' && ledger.length===2 && matchesReceipt(original)
+        && matchesReceipt(reversal) && reversal?.account_id===original?.account_id) {
+        await qr.commitTransaction();
+        return {id:receiptId,status:'CANCELLED',reversed:true};
+      }
+      if (rec.status!=='CONFIRMED' || ledger.length!==1 || !matchesReceipt(original)
+        || ['DISPUTED','CANCELLED','WRITTEN_OFF'].includes(ar.invoice_status)
+        || flockMoneyCents(ar.received_amount_original)<amount || flockMoneyCents(ar.received_amount_base)<amount) {
+        throw new ConflictException('原收款流水或应收状态不完整，须先核对');
+      }
+      const [account] = await qr.query(`SELECT * FROM fin_cash_accounts WHERE id=$1 FOR UPDATE`,[original?.account_id]);
+      if (!account || account.status!=='ACTIVE' || account.company_code!==rec.company_code || account.currency_code!==rec.currency_code
+        || flockMoneyCents(account.current_balance)<amount) throw new ConflictException('原账户余额不足、停用或归属已变');
+
+      const numericAmount = flockMoneyNumber(amount);
+      flockMoneyNumber(flockMoneyCents(account.current_balance)-amount);
+      const balanceAfter = await this.cashAccSvc.applyBalance(qr,String(account.id),-numericAmount,user.userId);
+      await this.cashTxnSvc.writeTransaction({qr,accountId:account.id,accountCode:account.account_code,accountName:account.account_name,
+        companyCode:account.company_code,companyName:account.company_name,direction:'OUT',sourceType:'AR_RECEIPT',
+        sourceId:receiptId,sourceNo:rec.receipt_no,currencyCode:account.currency_code,amount:numericAmount,balanceAfter,
+        remark:'鸡群收款冲销：' + reason,createdBy:user.userId});
+      await qr.query(`UPDATE fin_ar_invoices
+        SET received_amount_original=received_amount_original-$2::numeric,received_amount_base=received_amount_base-$2::numeric,
+          balance_amount_original=amount_original-received_amount_original+$2::numeric,
+          balance_amount_base=amount_base-received_amount_base+$2::numeric,
+          status=CASE WHEN received_amount_original=$2::numeric THEN 'OPEN' ELSE 'PARTIALLY_RECEIVED' END,
+          collection_status=CASE WHEN received_amount_original=$2::numeric THEN 'UNRECEIVED' ELSE 'PARTIAL' END,updated_by=$3,updated_at=now()
+        WHERE id=$1`,[ar.ar_invoice_id,rec.amount_original,user.userId]);
+      await qr.query(`UPDATE fin_ar_receipts SET status='CANCELLED',remark=COALESCE(remark,'')||$2,updated_by=$3,updated_at=now()
+        WHERE id=$1`,[receiptId,' [冲销依据：' + reason + ']',user.userId]);
+      await qr.commitTransaction();
+      return {id:receiptId,status:'CANCELLED',reversed:true};
+    } catch (error) {
+      await qr.rollbackTransaction();
+      throw error;
+    } finally {
+      await qr.release();
+    }
+  }
+
   // ── 5. 取消收款（仅 DRAFT 可取消）────────────────────────────────────────
 
   async cancel(receiptId: string, dto: CancelArReceiptDto) {
@@ -433,18 +581,19 @@ export class ArReceiptsService {
     }
 
     const user = this.currentUser();
-    await this.ds.query(
-      `UPDATE fin_ar_receipts
+    const changed = await this.ds.query(
+      `WITH changed AS (UPDATE fin_ar_receipts
        SET status = 'CANCELLED',
            remark = COALESCE(remark, '') || $1,
            updated_by = $2, updated_at = now()
-       WHERE id = $3`,
+       WHERE id = $3 AND status='DRAFT' RETURNING id) SELECT id FROM changed`,
       [
         dto.reason ? ` [取消原因: ${dto.reason}]` : '',
         user.userId, receiptId,
       ],
     );
 
+    if (changed.length!==1) throw new ConflictException('收款单状态已变化，请重新读取');
     this.logger.log(`[AR] 取消收款草稿 #${receiptId} (${rec.receipt_no})`);
     return { id: receiptId, receiptNo: rec.receipt_no, status: 'CANCELLED' };
   }

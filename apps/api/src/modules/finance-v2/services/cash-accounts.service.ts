@@ -211,6 +211,7 @@ export class CashAccountsService {
     openingBalance: number,
     updatedBy: string | null,
   ): Promise<{ accountCode: string; currentBalance: number; txnCount: number }> {
+    await mgr.query('SELECT id FROM fin_cash_accounts WHERE account_code=$1 FOR UPDATE',[accountCode]);
     const txns = await mgr.query(
       `SELECT id, direction, amount, source_type
          FROM fin_cash_transactions
@@ -286,6 +287,13 @@ export class CashAccountsService {
 
     const oldAccountCode = txn.account_code;
     await this.ds.transaction(async (mgr) => {
+      await mgr.query('SELECT id FROM fin_cash_accounts WHERE account_code=ANY($1::text[]) ORDER BY account_code FOR UPDATE',
+        [[oldAccountCode,target.accountCode]]);
+      const [protectedReceipt] = await mgr.query(`SELECT 1 FROM fin_cash_transactions t
+        JOIN fin_ar_receipts r ON r.id=t.source_id AND r.receipt_no=t.source_no
+        WHERE t.id=$1 AND t.source_type='AR_RECEIPT' AND r.receipt_no LIKE 'FR-%'`,[txnId]);
+      if (protectedReceipt) throw new BadRequestException('鸡群收款流水必须通过原应收办理冲销，禁止改挂');
+
       await mgr.query(
         `UPDATE fin_cash_transactions
             SET account_id = $1, account_code = $2, account_name = $3,

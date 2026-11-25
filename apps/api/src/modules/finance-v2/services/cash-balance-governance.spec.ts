@@ -42,14 +42,15 @@ describe('cash balance finite-number governance', () => {
 
   it('rebuildChain rejects a corrupt amount before any balance write', async () => {
     const mgr = {
-      query: jest.fn().mockResolvedValueOnce([
+      query: jest.fn().mockResolvedValueOnce([{ id: 'account' }]).mockResolvedValueOnce([
         { id: '7', direction: 'IN', amount: 'NaN', source_type: 'MANUAL' },
       ]),
     } as any;
     const service = new CashAccountsService(repository, {} as any, cls);
     await expect((service as any).rebuildChain(mgr, 'CASH', 100, null))
       .rejects.toBeInstanceOf(BadRequestException);
-    expect(mgr.query).toHaveBeenCalledTimes(1);
+    expect(mgr.query).toHaveBeenCalledTimes(2);
+    expect(mgr.query.mock.calls[0][0]).toContain('FOR UPDATE');
   });
 
   it('createManual serializes concurrent snapshots with SELECT FOR UPDATE', async () => {

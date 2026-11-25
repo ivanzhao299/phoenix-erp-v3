@@ -1,3 +1,4 @@
+import { availableFormalReportShifts } from './formal-report-supplement';
 import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { EntityManager } from 'typeorm';
@@ -492,6 +493,10 @@ async function detailedBlockers(db: EntityManager, row: ActionFacts, action: Pen
       const [report] = await db.query(`SELECT ${flockReportSnapshotColumns('d')} FROM brd_daily_logs d
         WHERE d.id=$1 AND d.flock_no=$2 AND d.house_code=$3 AND d.log_date=$4`, [payload.dailyLogId,flock,house,day]);
       if (!report || reportHash(report) !== payload.expectedReportHash) blockers.push('FLOCK_REPORT_SNAPSHOT_CHANGED');
+    } else if (typeof payload.supplementShift==='string' && typeof payload.supplementOccupancyId==='string') {
+      const shifts=await availableFormalReportShifts(db,{houseCode:house,flockNo:flock,businessDate:day,
+        occupancyId:payload.supplementOccupancyId,companyCode:row.company_code,farmCode:row.farm_code,siteCode:row.site_code});
+      if (!shifts.includes(payload.supplementShift)) blockers.push('FLOCK_FORMAL_SHIFT_UNAVAILABLE');
     } else {
       const [existing] = await db.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 LIMIT 1', [house,day]);
       if (existing) blockers.push('FLOCK_REPORT_DAY_ALREADY_RECORDED');

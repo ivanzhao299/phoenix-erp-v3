@@ -56,6 +56,18 @@ export class FinArController {
   // AR Invoice
   // ══════════════════════════════════════════════════════════════════════════
 
+  @Get('flock-settlements/:id')
+  @RequireMenu('MENU_FIN2_AR', 'V')
+  readFlockSettlement(@Param('id') id: string) {
+    return this.arInvoicesSvc.flockSettlement(id);
+  }
+
+  @Post('flock-settlements/:id')
+  @RequireMenu('MENU_FIN2_AR', 'E')
+  createFlockInvoice(@Param('id') id: string) {
+    return this.arInvoicesSvc.flockSettlement(id,true);
+  }
+
   @Get('invoices')
   @RequireMenu('MENU_FIN2_AR', 'V')
   listInvoices(@Query() q: QueryArInvoiceDto) {
@@ -121,6 +133,12 @@ export class FinArController {
     @Body() dto: ConfirmArReceiptDto,
   ) {
     return this.arReceiptsSvc.confirm(id, dto);
+  }
+
+  @Post('receipts/:id/reverse-flock')
+  @RequireMenu('MENU_FIN2_AR', 'A')
+  reverseFlockReceipt(@Param('id') id: string, @Body() dto: CancelArReceiptDto) {
+    return this.arReceiptsSvc.reverseFlockReceipt(id,dto.reason);
   }
 
   @Post('receipts/:id/cancel')

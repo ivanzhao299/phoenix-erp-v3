@@ -40,6 +40,10 @@ export class FlockLifecycleController {
     return {code:200,data:await readFlockClosePreview(this.db,deriveOrgScope(req),id,date,production)};
   }
   @Get('reports') async reports(@Req() req:any){return {code:200,data:await this.service.reports(deriveOrgScope(req))};}
+  @Get('reports/missing-shifts')
+  async missingShifts(@Req() req: any, @Query() input: Record<string, unknown>) {
+    return {code:200,data:await this.service.missingFormalShifts(input,deriveOrgScope(req),this.actor(req))};
+  }
   @Get('reports/search')
   async searchReports(@Req() req: any, @Query() filters: FlockSearchInput) {
     return {code:200,data:await searchFlockReports(this.db,deriveOrgScope(req),filters)};

@@ -209,12 +209,17 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
   const allReports = reports.data?.items ?? [];
   const reportRows = allReports.filter(row => row.occupancy_id === occupancy?.occupancy_id && row.flock_no === flockNo);
   const eligibleReports = reportRows.filter(row => !selection.shift || row.shift === selection.shift);
+  const missingShifts = useResource<string[]>(kind === "REPORT_CORRECTION" && validHouseDay && occupancy && !selection.shift
+    && reports.data?.hasHouseDayReports && day < flockBusinessToday().slice(0,7) + "-01"
+    ? endpoint + "/reports/missing-shifts?" + flockFormParams({ houseCode,flockNo,businessDate:day,occupancyId:str(occupancy.occupancy_id) }) : "");
+  const selectedShift = selection.reportId?.startsWith("shift:") ? selection.reportId.slice(6) : "";
+  const supplementShift = selectedShift && missingShifts.data?.includes(selectedShift) ? selectedShift : "";
   const canSupplement = reports.data?.hasHouseDayReports === false && !allReports.length
     && (!selection.shift || selection.shift === "DAILY");
   const chosenReport = selection.reportId && selection.reportId !== "0" ? eligibleReports.find(row => str(row.id) === selection.reportId)
     : selection.reportId !== "0" && eligibleReports.length === 1 ? eligibleReports[0] : undefined;
   const supplement = canSupplement && !chosenReport && (!selection.reportId || selection.reportId === "0");
-  const reportBound = Boolean(chosenReport || supplement);
+  const reportBound = Boolean(chosenReport || supplement || supplementShift);
   const reportHash = chosenReport ? str(chosenReport.report_hash) : supplement ? "ABSENT" : undefined;
   const reportChanged = Boolean(reportHash && edited?.reportHash && reportHash !== edited.reportHash);
   const closeChecks = useResource<FlockRow[]>(kind === "CLOSE" && occupancy && day
@@ -464,7 +469,8 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
         if (!reportBound || !quantities.length || quantities.some(([, value]) => value === null || value < 0)) {
           setFeedback(t("flockForm.reportGradeRequired")); return;
         }
-        Object.assign(body, { dailyLogId: Number(chosenReport?.id ?? 0), expectedReportHash: chosenReport ? chosenReport.report_hash : "ABSENT",
+        Object.assign(body, { dailyLogId: Number(chosenReport?.id ?? 0), expectedReportHash: chosenReport ? chosenReport.report_hash : supplementShift ? "SHIFT_ABSENT" : "ABSENT",
+          ...(supplementShift ? {supplementShift,supplementOccupancyId:str(occupancy?.occupancy_id)} : {}),
           correction: { eggsByGrade: Object.fromEntries(quantities), feedConsumed: input.feed === "" ? null : Number(input.feed),
             waterConsumed: input.water === "" ? null : Number(input.water), notes: input.notes } });
         break;
@@ -558,19 +564,24 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
                   {occupancies.data?.items.map(row => <option key={str(row.occupancy_id)} value={str(row.flock_no)}>{str(row.flock_no)}</option>)}
                 </select>
               </label>}
-              {kind === "REPORT_CORRECTION" && occupancy && reports.data && (reportRows.length > 0 || canSupplement) && <label>
+              {kind === "REPORT_CORRECTION" && occupancy && reports.data && (reportRows.length > 0 || canSupplement || Boolean(missingShifts.data?.length)) && <label>
                 {t("flockForm.report")}
-                <select value={str(chosenReport?.id ?? (supplement ? "0" : ""))} required disabled={Boolean(context.dailyLogId || context.shift)}
+                <select value={selectedShift ? "shift:" + selectedShift : str(chosenReport?.id ?? (supplement ? "0" : ""))} required disabled={Boolean(context.dailyLogId || context.shift)}
                   onChange={event => changeSelection({ ...selection, reportId: event.target.value })}>
                   <option value="">{t("flockForm.chooseReport")}</option>
                   {eligibleReports.map(row => <option key={str(row.id)} value={str(row.id)}>{str(row.id)} · {shiftName(row.shift)} · {dayLabel(row.log_date)}</option>)}
                   {canSupplement && <option value="0">{t("flockForm.supplement")}</option>}
+                  {missingShifts.data?.map(shift => <option key={shift} value={"shift:" + shift}>
+                    {t("flockForm.missingShiftOption").replace("{shift}",shiftName(shift))}
+                  </option>)}
                 </select>
               </label>}
             </div>
           </fieldset>
           {kind === "CLEAN_ACCEPT" && (house?.entry_readiness ?? house?.state) === "CLEANING"
             && renderFacts([["cleaningDocument", str(house?.document_id) || "—"]])}
+          {supplementShift && <p className={css.callout}>{t("flockForm.missingShiftAuthorization")}</p>}
+          {missingShifts.error && <p role="alert">{t("flockForm.missingShiftUnavailable")} <button type="button" onClick={missingShifts.refresh}>{t("flockForm.reload")}</button></p>}
           {loading && <p className={css.callout} role="status">{t("flockForm.loading")}</p>}
           {resourceProblems.map((r, i) => <p key={i} className={css.error} role="alert">
             {r.error} <button type="button" className={css.inlineButton} onClick={r.refresh}>{t("flockForm.reload")}</button>
