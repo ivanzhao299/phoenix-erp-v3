@@ -1,4 +1,10 @@
 {
+  "ui.legacyFeedGuide": "This ledger shows manually entered receipts, issues and stock. Use the warehouse actions to post transactions, or edit this ledger and save your changes.",
+  "ui.feedPilotReadOnly": "The new ledger is available for review at this farm.",
+  "ui.feedRolloutUnavailable": "Could not determine which feed ledger is enabled.",
+  "ui.feedLegacyEntry": "Return to the original feed ledger",
+  "ui.feedScopedEntry": "Review the new feed ledger by farm",
+  "ui.feedPilotNotice": "The pilot uses a separate ledger. Switch the official ledger after sign-off.",
   "eggSources.historyHouseOptionsUnavailable": "Henhouse options are unavailable",
   "eggSources.historyWarehouseOptionsUnavailable": "Warehouse options are unavailable",
   "ui.feedFarmOptionsInvalid": "Invalid list of authorized farms",

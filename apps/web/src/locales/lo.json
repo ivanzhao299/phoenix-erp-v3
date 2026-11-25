@@ -1,4 +1,10 @@
 {
+  "ui.legacyFeedGuide": "ບັນຊີນີ້ສະແດງຍອດຮັບເຂົ້າ, ເບີກຈ່າຍ ແລະຄົງເຫຼືອທີ່ບັນທຶກດ້ວຍມື. ໃຊ້ເມນູສາງເພື່ອລົງບັນຊີລາຍການ ຫຼືແກ້ໄຂແລ້ວບັນທຶກໃນບັນຊີນີ້.",
+  "ui.feedPilotReadOnly": "ບັນຊີອາຫານສັດໃໝ່ຂອງຟາມນີ້ເບິ່ງໄດ້ເພື່ອກວດສອບ.",
+  "ui.feedRolloutUnavailable": "ກວດສອບບໍ່ໄດ້ວ່າເປີດໃຊ້ບັນຊີອາຫານສັດໃດ.",
+  "ui.feedLegacyEntry": "ກັບໄປບັນຊີອາຫານສັດເດີມ",
+  "ui.feedScopedEntry": "ກວດສອບບັນຊີອາຫານສັດໃໝ່ຕາມຟາມ",
+  "ui.feedPilotNotice": "ໄລຍະທົດລອງໃຊ້ບັນຊີແຍກຕ່າງຫາກ. ປ່ຽນບັນຊີທາງການຫຼັງຢືນຢັນຜົນ.",
   "eggSources.historyHouseOptionsUnavailable": "ບໍ່ສາມາດໂຫຼດລາຍຊື່ເລົ້າໄກ່",
   "eggSources.historyWarehouseOptionsUnavailable": "ບໍ່ສາມາດໂຫຼດລາຍຊື່ສາງ",
   "ui.feedFarmOptionsInvalid": "ລາຍຊື່ຟາມທີ່ມີສິດບໍ່ຖືກຕ້ອງ",

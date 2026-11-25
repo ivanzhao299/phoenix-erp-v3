@@ -7,6 +7,16 @@ import { feedFarms, readFeedDay, writeFeedDay, type FeedWarehouseScope } from '.
 import type { DataScopeContext } from '../org/services/data-scope.service';
 import { resolveHouseCapacity } from './house-capacity';
 
+const DEFAULT_MATERIALS = [
+  { name: '玉米',     unit: '公斤', daily_usage: 15000 },
+  { name: '豆粕',     unit: '公斤', daily_usage: 6000  },
+  { name: '预混料',   unit: '公斤', daily_usage: 450   },
+  { name: '青年预混料', unit: '公斤', daily_usage: 150  },
+  { name: '豆油',     unit: '公斤', daily_usage: 240   },
+  { name: '石粉',     unit: '公斤', daily_usage: 1300  },
+  { name: '米糠',     unit: '公斤', daily_usage: 500   },
+];
+
 @Injectable()
 export class FarmFeedService {
   constructor(
@@ -27,9 +37,9 @@ export class FarmFeedService {
   }
 
   // ── 查询某日台账（若无数据则从前日结转） ─────────────────────────────────────
-  async getLedger(date: string) {
+  async getLedger(date: string, includeTemplate = false, manager = this.em) {
 
-    const rows: any[] = await this.em.query(
+    const rows: any[] = await manager.query(
       `SELECT * FROM farm_feed_ledger WHERE ledger_date = $1 ORDER BY sort_order, material_name`,
       [date],
     );
@@ -38,7 +48,62 @@ export class FarmFeedService {
       return { code: 200, data: rows.map(this.formatRow) };
     }
 
-    return { code: 200, data: [] };
+    if (!includeTemplate) return { code: 200, data: [] };
+
+    // 无当日数据 → 从前日结转 prev_stock，返回空白模板
+    const prevDate = this.prevDay(date);
+    const prevRows: any[] = await manager.query(
+      `SELECT * FROM farm_feed_ledger WHERE ledger_date = $1 ORDER BY sort_order, material_name`,
+      [prevDate],
+    );
+
+    const prevMap = new Map(prevRows.map(r => [r.material_name, r]));
+    const template = DEFAULT_MATERIALS.map((m, i) => {
+      const prev = prevMap.get(m.name);
+      const prevStock = prev ? Number(prev.prev_stock) + Number(prev.inbound_qty) - Number(prev.outbound_total) : 0;
+      return this.formatRow({
+        id: null, ledger_date: date,
+        material_name: m.name, unit: m.unit, sort_order: i,
+        prev_stock: prevStock < 0 ? 0 : prevStock,
+        inbound_qty: 0, outbound_detail: {}, outbound_total: 0,
+        daily_usage: prev ? Number(prev.daily_usage) : m.daily_usage,
+        note: '', operator: '',
+      });
+    });
+
+    return { code: 200, data: template };
+  }
+
+  // ── 保存台账（单日全量 upsert） ───────────────────────────────────────────────
+  async saveLedger(date: string, items: any[], operator: string) {
+    return this.em.transaction(async manager => {
+      for (const item of items) {
+        const outboundDetail = item.outbound_detail ?? {};
+        const outboundTotal  = Object.values(outboundDetail).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+        await manager.query(`
+          INSERT INTO farm_feed_ledger
+            (ledger_date, material_name, unit, sort_order, prev_stock, inbound_qty,
+             outbound_detail, outbound_total, daily_usage, note, operator, updated_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+          ON CONFLICT (ledger_date, material_name)
+          DO UPDATE SET
+            inbound_qty     = EXCLUDED.inbound_qty,
+            outbound_detail = EXCLUDED.outbound_detail,
+            outbound_total  = EXCLUDED.outbound_total,
+            daily_usage     = EXCLUDED.daily_usage,
+            prev_stock      = EXCLUDED.prev_stock,
+            note            = EXCLUDED.note,
+            operator        = EXCLUDED.operator,
+            updated_at      = now()
+        `, [
+          date, item.material_name, item.unit ?? '公斤', item.sort_order ?? 0,
+          item.prev_stock ?? 0, item.inbound_qty ?? 0,
+          JSON.stringify(outboundDetail), outboundTotal,
+          item.daily_usage ?? 0, item.note ?? '', operator,
+        ]);
+      }
+      return this.getLedger(date, true, manager);
+    });
   }
 
   // ── 查询历史范围 ──────────────────────────────────────────────────────────────
@@ -212,5 +277,10 @@ export class FarmFeedService {
     };
   }
 
-
+  private prevDay(date: string): string {
+    const [y, m, d] = date.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  }
 }

@@ -1,4 +1,10 @@
 {
+  "ui.legacyFeedGuide": "本页展示手工登记的入库、发放和库存。要登记新的入库/发放，请点右上\"+ 新建饲料入库 / 发放\"按钮（走标准 WMS 流程）。已有物料的余量可直接在表格里调整后点\"保存\"。",
+  "ui.feedPilotReadOnly": "当前农场的新版饲料账仅供核对。",
+  "ui.feedRolloutUnavailable": "暂时无法确认饲料账的启用状态。",
+  "ui.feedLegacyEntry": "返回原饲料账",
+  "ui.feedScopedEntry": "按农场核对新版饲料账",
+  "ui.feedPilotNotice": "试点期间两个账独立记录，请在签认后切换正式口径。",
   "eggSources.historyHouseOptionsUnavailable": "鸡舍候选不可用",
   "eggSources.historyWarehouseOptionsUnavailable": "仓库候选不可用",
   "ui.feedFarmOptionsInvalid": "授权农场候选无效",

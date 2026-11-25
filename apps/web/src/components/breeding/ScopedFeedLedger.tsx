@@ -8,7 +8,7 @@ import request from '@/lib/api-client';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import styles from './ScopedFeedLedger.module.css';
 
-type Farm = { farm_code: string; farm_name: string; company_code: string; status: string };
+type Farm = { farm_code: string; farm_name: string; company_code: string; status: string; canWrite: boolean };
 type Movement = { houseCode: string; batchNo: string; outboundNo: string; quantity: number };
 type Item = {
   materialCode: string; name: string; unit: string;
@@ -98,7 +98,7 @@ function FeedDayForm({ editable }: { editable: boolean }) {
   }, [companyCode, farmCode, date, range, reload]);
 
   const ready = !loading && loaded === range && !!day;
-  const writable = ready && editable && farm?.status === 'ACTIVE' && !saving;
+  const writable = ready && editable && farm?.status === 'ACTIVE' && farm.canWrite && !saving;
   const rowKey = (row: Item) => JSON.stringify([row.materialCode, row.unit]);
   const update = (row: Item, patch: Partial<Item>) => {
     setDraft(old => ({ ...old, [rowKey(row)]: { ...row, ...old[rowKey(row)], ...patch } }));
@@ -156,6 +156,7 @@ function FeedDayForm({ editable }: { editable: boolean }) {
     {loading && <p role="status">{t('common.loading','加载中…')}</p>}
     {!loading && !farm && !failure && <p>{t('ui.请选择农场','请选择农场')}</p>}
     {ready && day && <>
+      {!farm?.canWrite && <p role="status">{t('ui.feedPilotReadOnly', '当前农场的新版饲料账仅供核对。')}</p>}
       {day.warehouseCoverage !== 'ALL' && <p role="status">
         {day.warehouseCoverage === 'NONE' ? t('ui.无仓范围','当前账号无可用仓储范围，发放量待核。')
           : t('ui.发放仓范围','发放量仅合计已授权仓库。')}

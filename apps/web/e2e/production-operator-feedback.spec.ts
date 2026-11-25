@@ -10,8 +10,9 @@ test.beforeEach(async ({ page }) => {
 
 test('scoped feed ledger distinguishes issues and blocks writes after a failed day read', async ({ page }) => {
   let fail = false;
+  await page.route('**/api/farm/feed/scoped/rollout', route => route.fulfill({ json: { code: 200, data: { phase: 'ACTIVE' } } }));
   await page.route('**/api/farm/feed/scoped/farms', route => route.fulfill({
-    json: { code: 200, data: [{ company_code: 'CO', farm_code: 'A', farm_name: '一号场', status: 'ACTIVE' }] },
+    json: { code: 200, data: [{ company_code: 'CO', farm_code: 'A', farm_name: '一号场', status: 'ACTIVE', canWrite: true }] },
   }));
   await page.route('**/api/farm/feed/scoped/day?**', route => {
     if (fail) return route.fulfill({ status: 503, json: { message: 'fixture' } });

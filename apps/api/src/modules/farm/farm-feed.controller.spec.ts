@@ -4,31 +4,55 @@ import { REQUIRE_MENU_KEY } from '../../common/guards/menu.guard';
 
 describe('FarmFeedController ledger save payload compatibility', () => {
   const date = '2026-07-20';
+  const originalScope = process.env.FARM_FEED_SCOPED_WRITES;
+  afterEach(() => {
+    if (originalScope === undefined) delete process.env.FARM_FEED_SCOPED_WRITES;
+    else process.env.FARM_FEED_SCOPED_WRITES = originalScope;
+  });
 
   function setup() {
     const feedService = {
       saveScopedDay: jest.fn().mockResolvedValue({ version: 1 }),
+      saveLedger: jest.fn().mockResolvedValue({ code: 200, data: [] }),
       getHouses: jest.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<Pick<FarmFeedService, 'saveScopedDay' | 'getHouses'>>;
+    } as unknown as jest.Mocked<Pick<FarmFeedService, 'saveScopedDay' | 'saveLedger' | 'getHouses'>>;
     return {
       controller: new FarmFeedController(feedService as unknown as FarmFeedService),
       saveScopedDay: feedService.saveScopedDay,
+      saveLedger: feedService.saveLedger,
       getHouses: feedService.getHouses,
     };
   }
 
-  it('retains a clear conflict for an old unscoped write', () => {
-    const { controller, saveScopedDay } = setup();
-    expect(() => controller.saveLedger()).toThrow('旧饲料账写入已关闭');
+  it('keeps both legacy payloads available until rollout', async () => {
+    delete process.env.FARM_FEED_SCOPED_WRITES;
+    const { controller, saveLedger, saveScopedDay } = setup();
+    const items = [{ material_name: 'A' }];
+    const request = { user: { username: 'operator' } };
+    await expect(controller.saveLedger({ date, items }, request)).resolves.toEqual({ code: 200, data: [] });
+    await controller.saveLedger({ date, rows: items }, request);
+    expect(saveLedger).toHaveBeenNthCalledWith(1, date, items, 'operator');
+    expect(saveLedger).toHaveBeenNthCalledWith(2, date, items, 'operator');
+    await expect(controller.saveScopedDay({ date, companyCode: 'CO', farmCode: 'FA' }, request)).rejects.toThrow('尚未开放登记');
     expect(saveScopedDay).not.toHaveBeenCalled();
   });
 
-  it('uses auth identity and data scope for scoped saves', async () => {
+  it('closes unscoped writes only after the full cutover', async () => {
+    process.env.FARM_FEED_SCOPED_WRITES = '*';
+    const { controller, saveLedger } = setup();
+    await expect(controller.saveLedger({ date, items: [] }, {})).rejects.toThrow('旧饲料账写入已关闭');
+    expect(saveLedger).not.toHaveBeenCalled();
+  });
+
+  it('limits pilot writes to the configured farm and keeps the authorized actor', async () => {
+    process.env.FARM_FEED_SCOPED_WRITES = 'CO/FA';
     const { controller, saveScopedDay } = setup();
     const dataScope = { isGlobal: true };
     const body = { date, companyCode: 'CO', farmCode: 'FA', version: 0, items: [] };
-    await expect(controller.saveScopedDay(body,{dataScope,user:{userId:'01'}})).resolves.toEqual({ code: 200, data: {version:1} });
-    expect(saveScopedDay).toHaveBeenCalledWith(dataScope,body,'01',{isGlobal:false,allowedWarehouseCodes:[]});
+    const request = { dataScope, user: { userId: '01' } };
+    await expect(controller.saveScopedDay({ ...body, farmCode: 'FB' }, request)).rejects.toThrow('尚未开放登记');
+    await expect(controller.saveScopedDay(body, request)).resolves.toEqual({ code: 200, data: { version: 1 } });
+    expect(saveScopedDay).toHaveBeenCalledWith(dataScope, body, '01', { isGlobal: false, allowedWarehouseCodes: [] });
   });
 
   it('guards local henhouse creation with the create action, not the edit action', () => {

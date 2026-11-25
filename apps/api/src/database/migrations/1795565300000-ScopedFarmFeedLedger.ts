@@ -3,8 +3,25 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class ScopedFarmFeedLedger1795565300000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      'CREATE TABLE IF NOT EXISTS farm_feed_ledger (id serial PRIMARY KEY, ledger_date date NOT NULL, material_name varchar(100) NOT NULL, unit varchar(20), sort_order int, prev_stock numeric, inbound_qty numeric, outbound_detail jsonb, outbound_total numeric, daily_usage numeric, note varchar(200), operator varchar(50), created_at timestamp, updated_at timestamp, UNIQUE(ledger_date, material_name))',
+      `CREATE TABLE IF NOT EXISTS farm_feed_ledger (
+        id            SERIAL PRIMARY KEY,
+        ledger_date   DATE         NOT NULL,
+        material_name VARCHAR(100) NOT NULL,
+        unit          VARCHAR(20)  NOT NULL DEFAULT '公斤',
+        sort_order    INT          NOT NULL DEFAULT 0,
+        prev_stock    DECIMAL(12,2) NOT NULL DEFAULT 0,
+        inbound_qty   DECIMAL(12,2) NOT NULL DEFAULT 0,
+        outbound_detail JSONB       NOT NULL DEFAULT '{}',
+        outbound_total  DECIMAL(12,2) NOT NULL DEFAULT 0,
+        daily_usage   DECIMAL(12,2) NOT NULL DEFAULT 0,
+        note          VARCHAR(200),
+        operator      VARCHAR(50),
+        created_at    TIMESTAMP DEFAULT now(),
+        updated_at    TIMESTAMP DEFAULT now(),
+        UNIQUE (ledger_date, material_name)
+      )`,
     );
+    await queryRunner.query('CREATE INDEX IF NOT EXISTS idx_feed_ledger_date ON farm_feed_ledger(ledger_date DESC)');
     await queryRunner.query(
       'CREATE TABLE farm_feed_days (company_code text NOT NULL, farm_code text NOT NULL, ledger_date date NOT NULL, version int NOT NULL DEFAULT 0, operator text NOT NULL, PRIMARY KEY(company_code, farm_code, ledger_date))',
     );

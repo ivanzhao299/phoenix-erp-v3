@@ -60,12 +60,12 @@ function HistoryWorkbench({ actor }: { actor: string }) {
     void request<{code: number; data?: {houses: typeof houses}}>(endpoint + '/options', { signal: controller.signal })
       .then(response => {
         if (controller.signal.aborted) return;
-        if (response.code !== 200 || !Array.isArray(response.data?.houses)) throw new Error(t('eggSources.historyHouseOptionsUnavailable'));
+        if (response.code !== 200 || !Array.isArray(response.data?.houses)) throw new Error('eggSources.historyHouseOptionsUnavailable');
         setHouses(response.data.houses);
         setOptionsError('');
       }).catch(error => { if (!controller.signal.aborted) setOptionsError(String(error.message)); });
     return () => controller.abort();
-  }, [permission.canView, optionsRevision, t]);
+  }, [permission.canView, optionsRevision]);
   useEffect(() => {
     if (!permission.canView || !house) return;
     const controller = new AbortController();
@@ -73,12 +73,12 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       endpoint + '/options?' + new URLSearchParams({ houseCode: house }), { signal: controller.signal })
       .then(response => {
         if (controller.signal.aborted) return;
-        if (response.code !== 200 || !Array.isArray(response.data?.warehouses)) throw new Error(t('eggSources.historyWarehouseOptionsUnavailable'));
+        if (response.code !== 200 || !Array.isArray(response.data?.warehouses)) throw new Error('eggSources.historyWarehouseOptionsUnavailable');
         setWarehouseOptions(response.data.warehouses);
         setOptionsError('');
       }).catch(error => { if (!controller.signal.aborted) setOptionsError(String(error.message)); });
     return () => controller.abort();
-  }, [permission.canView, house, optionsRevision, t]);
+  }, [permission.canView, house, optionsRevision]);
   const [warehouse,setWarehouse]=useState('');
   const [date,setDate]=useState('');
   const [batch,setBatch]=useState('');
@@ -202,7 +202,7 @@ function HistoryWorkbench({ actor }: { actor: string }) {
             </option>)}
           </select>
         </label>
-        {optionsError&&<p role="alert">{optionsError} <button type="button" onClick={()=>setOptionsRevision(value=>value+1)}>{t('common.retry','重试')}</button></p>}
+        {optionsError&&<p role="alert">{t(optionsError, optionsError)} <button type="button" onClick={()=>setOptionsRevision(value=>value+1)}>{t('common.retry','重试')}</button></p>}
         <label className={s.field}>{t('eggSources.productionDate','产蛋日期')}<input type="date" value={date} disabled={busy||uploading}
           onChange={event=>{setDate(event.target.value);clear();}}/></label>
         <label className={s.field}>{t('eggSources.batch','批次号')}<input value={batch} disabled={busy||uploading} maxLength={128}
