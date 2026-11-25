@@ -110,8 +110,10 @@ async function collectPlan(dataSource, plan, authority) {
     await manager.query("SET TRANSACTION READ ONLY; SET LOCAL statement_timeout='60s'; SET LOCAL TIME ZONE 'UTC'");
     const [guard] = await manager.query(`SELECT current_setting('transaction_read_only')='on'
       AND current_setting('default_transaction_read_only')='on'
-      AND NOT pg_is_in_recovery() AS ready`);
+      AND NOT pg_is_in_recovery() AS ready,
+      current_setting('server_version_num')::int>=170000 AS supports_transaction_timeout`);
     if (!guard?.ready) throw new Error('PRIMARY_READ_ONLY_REQUIRED');
+    if (guard.supports_transaction_timeout) await manager.query("SET LOCAL transaction_timeout='25min'");
     const inventory = partitionInventory(await manager.query(inventorySql));
     const batches = [];
     const reasons = {};
@@ -187,7 +189,11 @@ async function main() {
     synchronize: false,
     migrationsRun: false,
     installExtensions: false,
-    extra: { options: '-c default_transaction_read_only=on -c timezone=UTC', max: 1 },
+    extra: {
+      options: '-c default_transaction_read_only=on -c timezone=UTC -c idle_in_transaction_session_timeout=60000',
+      connectionTimeoutMillis: 5000,
+      max: 1,
+    },
   }).initialize();
   try {
     process.stdout.write(JSON.stringify(await collectPlan(dataSource, planFlockLossCache, { apiSha, workflowSha, runId, runAttempt, containerId, imageId, programSha256 })) + '\n');
@@ -197,11 +203,17 @@ async function main() {
 }
 
 if (!module.parent) {
+  // Close this dedicated client's socket even if the SSH transport disappears.
+  const deadline = setTimeout(() => {
+    process.stderr.write('FLOCK_CACHE_PRODUCTION_PLAN_DEADLINE\n');
+    process.exit(1);
+  }, 26 * 60_000);
+  deadline.unref();
   void main().catch(error => {
     const code = /^[A-Z_]+$/.test(error?.message ?? '') ? error.message : 'FLOCK_CACHE_PRODUCTION_PLAN_FAILED';
     process.stderr.write(code + '\n');
     process.exitCode = 1;
-  });
+  }).finally(() => clearTimeout(deadline));
 }
 
 module.exports = { partitionInventory, collectPlan };

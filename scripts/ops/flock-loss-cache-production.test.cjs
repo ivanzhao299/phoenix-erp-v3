@@ -44,7 +44,8 @@ function database(allowed, rows) {
     assert.equal(isolation, 'REPEATABLE READ');
     return work({ query: async sql => {
       if (sql.startsWith('SET TRANSACTION READ ONLY')) return [];
-      if (sql.includes("current_setting('transaction_read_only')")) return [{ ready: allowed }];
+      if (sql.includes("current_setting('transaction_read_only')")) return [{ ready: allowed, supports_transaction_timeout: true }];
+      if (sql.includes("SET LOCAL transaction_timeout='25min'")) return [];
       return rows;
     } });
   } };
