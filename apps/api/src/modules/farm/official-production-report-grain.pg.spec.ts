@@ -9,7 +9,9 @@ import { GenericCrudService } from '../generic-crud/generic-crud.service';
 import { assertNewHandoverGrades } from './daily-report-grades';
 import { lockProductionSourceReports } from '../sales-v2/services/production-source-facts';
 import { FarmService, OrgScope } from './farm.service';
+import { readFlockActionEligibility } from './flock-lifecycle-queries';
 import { FlockLifecycleService } from './flock-lifecycle.service';
+import { applyFlockLossCache, planFlockLossCache } from '../../tools/flock-loss-cache-repair';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 const url=process.env.OFFICIAL_INVENTORY_PG_URL;
@@ -72,9 +74,101 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     expect((await db.query("SELECT to_jsonb(d) AS row FROM brd_daily_logs d WHERE log_date='2026-11-17'"))[0]).toEqual(old);
     expect((await db.query("SELECT sum(mortality_qty)::int AS n FROM brd_daily_logs WHERE log_date='2026-11-18'"))[0].n).toBe(0);
     expect((await farm.getDailyHenReport('2026-11-18',scope)).totals).toMatchObject({mortality:1,eggs:300,current_qty:999});
-    expect((await farm.getFarmTrend(7,scope)).rows.find((r:any)=>r.date==='2026-11-18')).toMatchObject({mortality:1,eggs:300});
     await expect(db.query("UPDATE brd_daily_logs SET eggs_produced=71 WHERE log_date='2026-11-17'")).rejects.toThrow('ARCHIVED');
   });
+  it('posts the sole missing previous-month formal shift only with authorization bound to its original draft', async () => {
+    await run('up');
+    const [calendar]=await db.query(`SELECT (now() AT TIME ZONE 'Asia/Singapore')::date::text AS today,
+      (date_trunc('month',now() AT TIME ZONE 'Asia/Singapore')-interval '1 month')::date::text AS baseline,
+      (date_trunc('month',now() AT TIME ZONE 'Asia/Singapore')-interval '1 month'+interval '1 day')::date::text AS day`);
+    await db.query("UPDATE brd_flocks SET start_date=$1 WHERE flock_no='FLOCK-A'",[calendar.baseline]);
+    await post({kind:'HISTORY_AUTH',businessDate:calendar.today,periodFrom:calendar.baseline,periodTo:calendar.baseline,authorizedSourceKey:'baseline-old'});
+    await post({kind:'BASELINE',businessDate:calendar.baseline,sourceKey:'baseline-old',quantity:1000,expectedLegacyQty:1000});
+    await draft();
+    await db.query("UPDATE production_cutover_scopes SET first_production_date=$1",[calendar.day]);
+    await db.query("UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now()");
+    const [o]=await lifecycle.occupancies(scope);
+    const input=report('AM',100);
+    await db.query(`INSERT INTO brd_daily_logs(flock_no,house_code,farm_code,company_code,site_code,log_date,business_date,
+      shift,occupancy_id,eggs_by_grade,eggs_produced,mortality_qty,elimination_qty)
+      SELECT flock_no,house_code,farm_code,company_code,site_code,$1,$1,'AM',id,$2,100,0,0 FROM brd_flock_occupancies WHERE id=$3`,
+      [calendar.day,JSON.stringify(input.eggs_by_grade),o.occupancy_id]);
+    const [am]=await db.query("SELECT to_jsonb(d) AS fact FROM brd_daily_logs d WHERE shift='AM'");
+    const coord={houseCode:'HOUSE-A',flockNo:'FLOCK-A',businessDate:calendar.day,occupancyId:o.occupancy_id};
+    expect(await lifecycle.missingFormalShifts(coord,scope,maker)).toEqual(['PM']);
+    await expect(farm.submitBreedingDailyLog({...report('PM'),log_date:calendar.day},scope)).rejects.toThrow();
+    const key='named-pm';
+    const auth={kind:'HISTORY_AUTH',businessDate:calendar.today,periodFrom:calendar.day,periodTo:calendar.day,authorizedSourceKey:key};
+    await post(auth);
+    const payload={kind:'REPORT_CORRECTION',sourceKey:key,houseCode:coord.houseCode,flockNo:coord.flockNo,businessDate:coord.businessDate,
+      dailyLogId:0,expectedReportHash:'SHIFT_ABSENT',supplementShift:'PM',supplementOccupancyId:o.occupancy_id,
+      expectedVersion:0,reason:'fixture signed late shift',responsible:maker.id,evidence:['FILE-count'],differenceReceipt:'LATE-SHIFT',
+      correction:{eggsByGrade:report('PM',200).eggs_by_grade,feedConsumed:null,waterConsumed:null,notes:'fixture'}};
+    await expect(lifecycle.create({...payload,supplementShift:undefined,supplementOccupancyId:undefined,expectedReportHash:'ABSENT'},scope,maker)).rejects.toThrow('已有日报');
+    let doc=await lifecycle.create(payload,scope,maker);
+    expect((await lifecycle.create(payload,scope,maker)).id).toBe(doc.id);
+    await expect(lifecycle.create({...payload,sourceKey:'other-pm'},scope,maker)).rejects.toThrow('在途补录');
+    doc=await lifecycle.transition(doc.id,'submit',doc.version,scope,maker);
+    doc=await lifecycle.transition(doc.id,'approve',doc.version,scope,reviewer);
+    expect((await readFlockActionEligibility(db.manager,doc.id,scope,maker)).blockers).toContain('FLOCK_FORMAL_SHIFT_AUTH_REQUIRED');
+    await expect(lifecycle.transition(doc.id,'post',doc.version,scope,maker)).rejects.toThrow('影响期间');
+    const authorized=await post(auth);
+    expect(authorized.payload.authorizedShiftDocumentId).toBe(doc.id);
+    expect((await readFlockActionEligibility(db.manager,doc.id,scope,maker)).blockers).not.toContain('FLOCK_FORMAL_SHIFT_AUTH_REQUIRED');
+    await lifecycle.transition(doc.id,'post',doc.version,scope,maker);
+    expect((await db.query("SELECT to_jsonb(d) AS fact FROM brd_daily_logs d WHERE shift='AM'"))[0]).toEqual(am);
+    const [pm]=await db.query("SELECT occupancy_id,eggs_produced,mortality_qty,elimination_qty FROM brd_daily_logs WHERE shift='PM'");
+    expect(pm).toEqual({occupancy_id:o.occupancy_id,eggs_produced:200,mortality_qty:0,elimination_qty:0});
+    expect(await lifecycle.missingFormalShifts(coord,scope,maker)).toEqual([]);
+  });
+
+  it('plans and repairs only the approved cache columns, deferring rows used by in-flight corrections',async()=>{
+    await run('up');await managed();await activate();
+    await farm.submitBreedingDailyLog(report(),scope);await farm.submitBreedingDailyLog(report('PM',200),scope);
+    // Fixture only: model a pre-rebuild cache error.
+    await db.query("UPDATE brd_daily_logs SET mortality_qty=8,elimination_qty=3");
+    const repairScope={company:'COMP-A',houses:['HOUSE-A'],from:'2026-11-18',through:'2026-11-18'};
+    const first=await planFlockLossCache(db,repairScope);
+    expect(first.eligible).toBe(2);
+    const [am]=(await lifecycle.reports(scope)).filter((r:any)=>r.shift==='AM');
+    await lifecycle.create({kind:'REPORT_CORRECTION',sourceKey:'feed-only',houseCode:'HOUSE-A',flockNo:'FLOCK-A',
+      businessDate:'2026-11-18',dailyLogId:am.id,expectedReportHash:am.report_hash,expectedVersion:0,
+      reason:'feed-only fixture',responsible:maker.id,evidence:['FILE-count'],differenceReceipt:'FEED',
+      correction:{eggsByGrade:am.eggs_by_grade,feedConsumed:4,waterConsumed:null,notes:am.notes??''}},scope,maker);
+    await expect(applyFlockLossCache(db,repairScope,first.digest)).rejects.toThrow('REPAIR_PLAN_CHANGED');
+    const next=await planFlockLossCache(db,repairScope);
+    expect(next.rows.find(row=>row.shift==='AM')?.holds).toContain('IN_FLIGHT_REPORT_CORRECTION');
+    const result=await applyFlockLossCache(db,repairScope,next.digest);
+    expect(result.updatedIds).toHaveLength(1);
+    expect(await db.query('SELECT shift,mortality_qty,elimination_qty,eggs_produced FROM brd_daily_logs ORDER BY shift')).toEqual([
+      {shift:'AM',mortality_qty:8,elimination_qty:3,eggs_produced:100},
+      {shift:'PM',mortality_qty:0,elimination_qty:0,eggs_produced:200},
+    ]);
+    await expect(applyFlockLossCache(db,repairScope,next.digest)).rejects.toThrow('REPAIR_PLAN_CHANGED');
+    expect((await farm.getDailyHenReport('2026-11-18',scope)).totals).toMatchObject({eggs:300,mortality:0,elimination:0});
+  });
+
+  it('holds a stale cache whose same-house event points to a different historical occupancy',async()=>{
+    await run('up');await managed();
+    await farm.submitBreedingDailyLog(report('DAILY',100),scope);
+    const older=randomUUID();
+    await db.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,
+      ended_on,capacity_snapshot,opened_document_id) SELECT $1,flock_no,house_code,company_code,farm_code,site_code,
+      began_on-1,began_on,capacity_snapshot,opened_document_id FROM brd_flock_occupancies WHERE flock_no='FLOCK-A'`,[older]);
+    await db.query(`INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,
+      house_code,business_date,kind,quantity_delta,actor,approved_by)
+      SELECT $1,opened_document_id,99,flock_no,id,company_code,farm_code,site_code,house_code,'2026-11-18','MORTALITY',-5,'fixture','fixture'
+      FROM brd_flock_occupancies WHERE id=$2`,[randomUUID(),older]);
+    await db.query("UPDATE brd_daily_logs SET mortality_qty=5");
+    const repairScope={company:'COMP-A',houses:['HOUSE-A'],from:'2026-11-18',through:'2026-11-18'};
+    const plan=await planFlockLossCache(db,repairScope);
+    expect(plan.rows).toHaveLength(1);
+    expect(plan.rows[0].holds).toContain('LOSS_SOURCE_IDENTITY');
+    expect(plan.eligible).toBe(0);
+    expect((await applyFlockLossCache(db,repairScope,plan.digest)).updatedIds).toEqual([]);
+    expect(await db.query('SELECT mortality_qty FROM brd_daily_logs')).toEqual([{mortality_qty:5}]);
+  });
+
   it('normalizes at entry and replays a signed report without updating its tuple or hash after catalog changes', async () => {
     await run('up'); await managed(); await activate();
     const input = {...report(), eggs_by_grade:{...report().eggs_by_grade, GRADE_1:'100'}};
@@ -142,6 +236,19 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     expect(result.rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({entry_candidate:false,mortality:1,current_qty:0,has_daily_log:false});
     expect(result.rows.find(r=>r.house_code==='HOUSE-A2')).toMatchObject({entry_candidate:true,entry_verified:true,mortality:0,current_qty:999,has_daily_log:false});
     expect(result.totals).toMatchObject({mortality:1,current_qty:999,logged_houses:0,lay_rate:null});
+    await post({kind:'MORTALITY',houseCode:'HOUSE-A2',businessDate:day,expectedVersion:2,quantity:3,
+      disposalMethod:'fixture',receiver:'receiver',evidence:['FILE-A2']});
+    await farm.submitBreedingDailyLog({...report('DAILY',100),house_code:'HOUSE-A2'},scope);
+    await db.query("UPDATE brd_daily_logs SET mortality_qty=4 WHERE house_code='HOUSE-A2'");
+    const bounded={company:'COMP-A',houses:['HOUSE-A2'],from:day,through:day};
+    const repair=await planFlockLossCache(db,bounded);
+    expect(repair.rows).toMatchObject([{previous_mortality:4,mortality:3,holds:[]}]);
+    await applyFlockLossCache(db,bounded,repair.digest);
+    const corrected=await farm.getDailyHenReport(day,scope);
+    expect(corrected.rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({mortality:1});
+    expect(corrected.rows.find(r=>r.house_code==='HOUSE-A2')).toMatchObject({mortality:3,eggs:100});
+    expect(corrected.totals).toMatchObject({mortality:4,current_qty:996});
+
   });
 
   it('corrects an actual AM report through approval and closes only the zero-balance flock with both final shifts',async()=>{

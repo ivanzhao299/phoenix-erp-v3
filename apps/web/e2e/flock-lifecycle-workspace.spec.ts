@@ -156,3 +156,101 @@ test('a lost draft response is recovered after refresh using the exact original 
   });
   await expect(page).toHaveURL(new RegExp('doc=' + id));
 });
+
+test('links a posted delivery to its finance-owned receivable and shows original-currency progress', async ({ page }) => {
+  await workspaceFixture(page);
+  await page.route('**/api/v3/farm/flock-lifecycle/documents/' + id, route => route.fulfill({
+    json: { code: 200, data: { ...document, kind:'SELL_HELD', events:[], audits:[], allowedActions:[], blockers:[],
+      settlement:{quantity:6,finance_status:'PENDING_FINANCE',currency_code:'LAK',amount:'100.00'} } },
+  }));
+  let writes=0;
+  await page.route('**/api/v2/finance/ar/flock-settlements/' + id, route => {
+    if (route.request().method()==='POST') {
+      writes+=1;
+      return route.fulfill({json:{invoice_id:'45',ar_no:'AR-FLOCK-' + id,currency_code:'LAK',
+        received_amount:'25.50',outstanding_amount:'74.50',collection_status:'PARTIAL'}});
+    }
+    return route.fulfill({json:{currency_code:'LAK',collection_status:'PENDING_FINANCE'}});
+  });
+  await page.goto('/breeding/flock-lifecycle/held-deliveries?doc=' + id);
+  await page.getByRole('button',{name:'生成交付应收'}).click();
+  await page.getByRole('dialog',{name:'生成交付应收'}).getByRole('button',{name:'确认',exact:true}).click();
+  await expect(page.getByText('部分收款',{exact:true})).toBeVisible();
+  await expect(page.getByText(/25.50 LAK.*74.50 LAK/)).toBeVisible();
+  await expect(page.getByRole('link',{name:'AR-FLOCK-' + id})).toHaveAttribute('href','/finance2/ar?invoiceId=45');
+  expect(writes).toBe(1);
+});
+
+test('distinguishes a missing prior-month shift from a report amendment', async ({ page }) => {
+  await workspaceFixture(page);
+  const day='2026-10-02';
+  const report={id:27,shift:'AM',house_code:'H0',flock_no:'FL0',log_date:day,occupancy_id:'own-occupancy',
+    eggs_produced:100,eggs_by_grade:{GRADE_1:100},report_hash:'0123abcd'};
+  await page.route('**/api/v3/farm/flock-lifecycle/occupancies/search?**',route=>route.fulfill({json:{code:200,data:{items:[house],nextCursor:null}}}));
+  await page.route('**/api/v3/farm/flock-lifecycle/reports/search?**',route=>route.fulfill({json:{code:200,data:{items:[report],hasHouseDayReports:true,nextCursor:null}}}));
+  await page.route('**/api/v3/farm/flock-lifecycle/balances',route=>route.fulfill({json:{code:200,data:[house]}}));
+  await page.route('**/api/v3/farm/flock-lifecycle/reports/missing-shifts?**',route=>{
+    const query=new URL(route.request().url()).searchParams;
+    expect(query.get('businessDate')).toBe(day);
+    expect(query.get('occupancyId')).toBe(report.occupancy_id);
+    return route.fulfill({json:{code:200,data:['PM']}});
+  });
+  await page.goto('/breeding/flock-lifecycle/corrections?kind=REPORT_CORRECTION&formHouseCode=H0&date=' + day);
+  const choice=page.locator('select').filter({has:page.locator('option[value="shift:PM"]')});
+  await expect(choice).toBeVisible();
+  await choice.selectOption('shift:PM');
+  await expect(page.getByText('保存后为本单申请历史授权，再由独立审核人审核并过账。',{exact:true})).toBeVisible();
+  await expect(choice.locator('option[value="0"]')).toHaveCount(0);
+  await page.goto('/breeding/flock-lifecycle/corrections?kind=REPORT_CORRECTION&formHouseCode=H0&date=' + day + '&shift=PM');
+  await expect(choice).toHaveValue('shift:PM');
+  await expect(choice).toBeDisabled();
+});
+
+test('recovers the same partial receipt after a lost confirmation response and refresh', async ({ page }) => {
+  await workspaceFixture(page);
+  const pending = {
+    flockInvoiceId:'45', paymentKey:'ec7b4f08-31be-4f5d-916d-4bdb9f32f358',amountOriginal:25.5,
+    currencyCode:'LAK',baseCurrency:'LAK',exchangeRate:1,companyCode:'CO',customerCode:'CUSTOMER',
+    customerName:'Fixture customer',receivedAccountCode:'LAK-ACCOUNT',receiptDate:date,
+  };
+  const body=JSON.stringify(pending);
+  const key='phoenix:farm:receipt:fixture-admin:45';
+  await page.addInitScript(({key,body})=>{
+    if (!sessionStorage.getItem('fixture-receipt-initialized')) {
+      sessionStorage.setItem(key,body);
+      sessionStorage.setItem('fixture-receipt-initialized','1');
+    }
+  },{key,body});
+  const writes:string[]=[];
+  let confirmations=0;
+  await page.route('**/api/v2/finance/ar/invoices?*',route=>route.fulfill({json:{items:[],total:0,page:1}}));
+  await page.route('**/api/v2/finance/ar/summary',route=>route.fulfill({json:{byCurrency:[]}}));
+  await page.route('**/api/v2/finance/ar/invoices/45',route=>route.fulfill({json:{
+    id:'45',ar_no:'AR-FLOCK-' + id,source_type:'MANUAL',company_code:'CO',customer_code:'CUSTOMER',customer_name:'Fixture',
+    currency_code:'LAK',status:'OPEN',collection_status:'UNRECEIVED',aging_bucket:'NOT_DUE',
+    amount_original:'100.00',received_amount_original:'0.00',balance_amount_original:'100.00',allocations:[],
+  }}));
+  await page.route('**/api/v2/finance/ar/receipts',route=>{
+    if (route.request().method()==='POST') writes.push(route.request().postData() ?? '');
+    return route.fulfill({json:{id:78}});
+  });
+  await page.route('**/api/v2/finance/ar/receipts/78/confirm',route=>{
+    confirmations+=1;
+    expect(route.request().postDataJSON()).toEqual({allocations:[{arInvoiceId:'45',allocatedAmountOriginal:25.5}]});
+    if (confirmations===1) return route.abort('connectionreset');
+    return route.fulfill({json:{id:'78',status:'CONFIRMED'}});
+  });
+  await page.goto('/finance2/ar?invoiceId=45');
+  const open=page.getByRole('button',{name:'查回原收款请求',exact:true});
+  await open.click();
+  const modal=page.getByRole('dialog',{name:'待查回交付收款'});
+  await modal.getByRole('button',{name:'查回原收款请求',exact:true}).click();
+  await expect(modal.getByRole('alert')).toBeVisible();
+  await page.reload();
+  await open.click();
+  await modal.getByRole('button',{name:'查回原收款请求',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  expect(writes).toEqual([body,body]);
+  expect(confirmations).toBe(2);
+  expect(await page.evaluate(key=>sessionStorage.getItem(key),key)).toBeNull();
+});

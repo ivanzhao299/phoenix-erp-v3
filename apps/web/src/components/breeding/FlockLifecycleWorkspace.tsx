@@ -443,7 +443,7 @@ function documentColumns(
       } },
       { key: 'finance', title: label('settlement'), render: row => {
         const finance = asRow(row.settlement).finance_status ?? row.finance_status;
-        return typeof finance === 'string' ? <StatusBadge status={finance} label={label(finance)} /> : missing;
+        return typeof finance === 'string' ? label('receipt') : missing;
       } },
     ],
     corrections: [

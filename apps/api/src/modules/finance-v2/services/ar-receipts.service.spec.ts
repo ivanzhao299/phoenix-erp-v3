@@ -53,6 +53,7 @@ describe('ArReceiptsService', () => {
     }]);
 
     qr.query.mockImplementation((sql: string, params: unknown[]) => {
+      if (sql.includes("WHERE id=$2 AND status='DRAFT' RETURNING id")) return Promise.resolve([{ id:params[1] }]);
       if (sql.includes('FROM fin_ar_invoices WHERE id = $1 FOR UPDATE')) {
         return Promise.resolve([{
           id: '20',
@@ -120,6 +121,7 @@ describe('ArReceiptsService', () => {
       customer_name: '测试客户',
     }]);
     qr.query.mockImplementation((sql: string, params: unknown[]) => {
+      if (sql.includes("WHERE id=$2 AND status='DRAFT' RETURNING id")) return Promise.resolve([{ id:params[1] }]);
       if (sql.includes('FROM fin_cash_accounts WHERE account_code = $1 FOR UPDATE')) {
         expect(params).toEqual(['CA-AR-002']);
         return Promise.resolve([{

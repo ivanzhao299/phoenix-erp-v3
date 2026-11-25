@@ -17,6 +17,12 @@ export class ArReceiptAllocationDto {
 // ── 创建收款草稿 ──────────────────────────────────────────────────────────
 
 export class CreateArReceiptDto {
+  @IsOptional() @IsString()
+  flockInvoiceId?: string;
+
+  @IsOptional() @IsString()
+  paymentKey?: string;
+
   @IsString()
   companyCode: string;
 

@@ -1,10 +1,11 @@
 import {
   Injectable, Logger, NotFoundException,
-  ForbiddenException, BadRequestException,
+  ForbiddenException, BadRequestException, ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { ClsService }       from 'nestjs-cls';
+import { flockArNumber, isFlockArNumber } from './flock-ar-receipts';
 import type { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   CreateArInvoiceDto,
@@ -85,6 +86,7 @@ export class ArInvoicesService {
     if (!rows.length) throw new NotFoundException(`AR Invoice #${arId} 不存在`);
     const inv  = rows[0];
     const user = this.currentUser();
+    if (!user.scopeAll && user.scopeLevel==='PROJECT' && isFlockArNumber(inv.ar_no)) throw new ForbiddenException('无权访问公司级鸡群应收');
     if (!user.scopeAll && user.companyCodes.length === 0) {
       throw new ForbiddenException('无权访问 AR Invoice（数据范围未配置）');
     }
@@ -112,6 +114,7 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conditions.push(`i.company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel==='PROJECT') conditions.push("i.ar_no NOT LIKE 'AR-FLOCK-%'");
       if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
         params.push(user.projectCodes);
         conditions.push(`i.project_code = ANY($${params.length}::text[])`);
@@ -184,7 +187,7 @@ export class ArInvoicesService {
     const inv = await this.assertOwnership(id);
     // 取收款核销记录
     const allocs = await this.ds.query(
-      `SELECT a.id, a.receipt_no, a.allocated_amount_original, a.currency_code,
+      `SELECT a.id, a.receipt_id::text AS receipt_id, a.receipt_no, a.allocated_amount_original, a.currency_code,
               r.receipt_date, r.receipt_method, r.bank_ref, r.status AS receipt_status,
               a.created_at
        FROM fin_ar_receipt_allocations a
@@ -246,10 +249,69 @@ export class ArInvoicesService {
     return { ...row[0], id: Number(row[0].id) };
   }
 
+  async flockSettlement(documentId: string, create = false) {
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(documentId)) {
+      throw new BadRequestException('请输入完整交付单编号');
+    }
+    const user = this.currentUser();
+    if (!user.scopeAll && user.scopeLevel==='PROJECT') throw new ForbiddenException('鸡群交付应收须由相应公司范围财务办理');
+    const [settlement] = await this.ds.query(`SELECT s.*, d.business_date, c.customer_name
+      FROM brd_flock_sales_settlements s
+      JOIN brd_flock_documents d ON d.id=s.document_id AND d.company_code=s.company_code AND d.kind='SELL_HELD' AND d.status='POSTED'
+      LEFT JOIN sal_customers c ON c.customer_no=s.customer_code AND c.company_code=s.company_code
+      WHERE s.document_id=$1 AND ($2::boolean OR s.company_code=ANY($3::text[]))`,
+      [documentId,user.scopeAll,user.companyCodes]);
+    if (!settlement) throw new NotFoundException('鸡群交付结算凭据不存在或不可见');
+    const arNo = flockArNumber(documentId);
+    const params = [arNo,documentId,settlement.company_code,settlement.customer_code,settlement.currency_code,settlement.amount];
+    if (create) {
+      this.assertWritableOwnership(settlement.company_code);
+      await this.ds.transaction(async manager => {
+        const [alreadyLinked]=await manager.query('SELECT id FROM fin_ar_invoices WHERE ar_no=$1',[arNo]);
+        if (alreadyLinked) return;
+        const [existing] = await manager.query(`SELECT 1 FROM fin_ar_invoices
+          WHERE company_code=$3 AND ar_no<>$1 AND status<>'CANCELLED'
+            AND (source_no=$2 OR ($4::text IS NOT NULL AND (source_no=$4 OR invoice_no=$4))) LIMIT 1`,
+          [arNo,documentId,settlement.company_code,settlement.receipt_reference || null]);
+        if (existing) throw new ConflictException('已有应收使用同一交付编号或签收凭据，请财务核对');
+        await manager.query(`INSERT INTO fin_ar_invoices (ar_no,source_type,source_no,company_code,customer_code,customer_name,
+          invoice_date,currency_code,base_currency,amount_original,amount_base,exchange_rate,balance_amount_original,balance_amount_base,
+          status,collection_status,created_by,updated_by)
+          VALUES($1,'MANUAL',$2,$3,$4,$7,$8,$5,$5,$6,$6,1,$6,$6,'OPEN','UNRECEIVED',$9,$9)
+          ON CONFLICT (ar_no) DO NOTHING`,[...params,settlement.customer_name || settlement.customer_code,settlement.business_date,user.userId]);
+      });
+    }
+
+    const [summary] = await this.ds.query(`SELECT i.id::text AS invoice_id,i.ar_no,
+      i.amount_original::text AS amount,
+      COALESCE(paid.total,0)::numeric(18,2)::text AS received_amount,
+      (i.amount_original-COALESCE(paid.total,0))::numeric(18,2)::text AS outstanding_amount,
+      CASE WHEN COALESCE(paid.total,0)=0 THEN 'UNRECEIVED'
+        WHEN paid.total<i.amount_original THEN 'PARTIAL'
+        WHEN paid.total=i.amount_original THEN 'RECEIVED' ELSE 'REVIEW_REQUIRED' END AS collection_status
+      FROM fin_ar_invoices i
+      CROSS JOIN LATERAL (
+        SELECT SUM(a.allocated_amount_original) AS total FROM fin_ar_receipt_allocations a
+        JOIN fin_ar_receipts r ON r.id=a.receipt_id AND r.receipt_no=a.receipt_no AND r.status='CONFIRMED'
+          AND r.company_code=i.company_code AND r.customer_code=i.customer_code AND r.currency_code=i.currency_code
+        WHERE a.ar_invoice_id=i.id AND a.ar_no=i.ar_no AND a.currency_code=i.currency_code
+          AND (SELECT count(*) FROM fin_cash_transactions t WHERE t.source_type='AR_RECEIPT' AND t.source_id=r.id
+            AND t.source_no=r.receipt_no AND t.company_code=r.company_code AND t.currency_code=r.currency_code
+            AND t.direction='IN' AND t.amount=r.amount_original)=1
+          AND NOT EXISTS (SELECT 1 FROM fin_cash_transactions t WHERE t.source_type='AR_RECEIPT' AND t.source_id=r.id AND t.direction='OUT')
+      ) paid
+      WHERE i.ar_no=$1 AND i.source_no=$2 AND i.company_code=$3 AND i.customer_code=$4 AND i.currency_code=$5
+        AND i.amount_original=$6 AND i.source_type='MANUAL' AND i.status<>'CANCELLED'`,params);
+    if (!summary && create) throw new ConflictException('既有应收与交付凭据不一致，须先核对');
+    return {document_id:documentId,currency_code:settlement.currency_code,settlement_amount:settlement.amount,
+      collection_status:'PENDING_FINANCE',...summary};
+  }
+
   // ── 4. 更新（仅 OPEN / PARTIALLY_RECEIVED 可编辑）─────────────────────────
 
   async update(id: string, dto: UpdateArInvoiceDto) {
     const inv  = await this.assertOwnership(id);
+    if (isFlockArNumber(inv.ar_no)) throw new BadRequestException('鸡群交付应收沿用原始结算凭据，禁止直接修改');
     if (!['OPEN', 'PARTIALLY_RECEIVED'].includes(inv.status)) {
       throw new BadRequestException(`状态 ${inv.status} 不允许修改`);
     }
@@ -305,6 +367,7 @@ export class ArInvoicesService {
 
   async cancel(id: string, dto: CancelArInvoiceDto) {
     const inv = await this.assertOwnership(id);
+    if (isFlockArNumber(inv.ar_no)) throw new BadRequestException('鸡群交付应收须按原凭据和收款冲销追溯');
 
     if (inv.status === 'RECEIVED') {
       throw new BadRequestException('已收清的 AR Invoice 不能取消');
@@ -381,6 +444,7 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel==='PROJECT') conds.push("ar_no NOT LIKE 'AR-FLOCK-%'");
       if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
         params.push(user.projectCodes);
         conds.push(`project_code = ANY($${params.length}::text[])`);
@@ -449,6 +513,7 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel==='PROJECT') conds.push("ar_no NOT LIKE 'AR-FLOCK-%'");
       if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
         params.push(user.projectCodes);
         conds.push(`project_code = ANY($${params.length}::text[])`);

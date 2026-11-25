@@ -8,7 +8,7 @@ import { ClsService } from 'nestjs-cls';
 
 import { FinCashAccountEntity } from '../entities/fin-cash-account.entity';
 import { CreateCashAccountDto, UpdateCashAccountDto, QueryCashAccountDto } from '../dto/cash-account.dto';
-import { finiteCashNumber, returningRow } from './cash-balance.guard';
+import { cashBalanceCents, cashBalanceDecimal, finiteCashNumber, returningRow } from './cash-balance.guard';
 
 @Injectable()
 export class CashAccountsService {
@@ -183,13 +183,14 @@ export class CashAccountsService {
     if (openingChanged) {
       const opening = finiteCashNumber(dto.openingBalance, 'opening_balance');
       await this.ds.transaction(async (mgr) => {
+        await mgr.query('SELECT id FROM fin_cash_accounts WHERE account_code=$1 FOR UPDATE',[acc.accountCode]);
         // 同步 OPENING 期初流水金额(若存在)，保持台账自洽
         await mgr.query(
           `UPDATE fin_cash_transactions SET amount = $1
              WHERE account_code = $2 AND source_type = 'OPENING'`,
           [opening, acc.accountCode],
         );
-        await this.rebuildChain(mgr, acc.accountCode, opening, user?.username ?? null);
+        await this.rebuildChain(mgr, acc.accountCode, user?.username ?? null);
       });
       const fresh = await this.repo.findOne({ where: { id } });
       return fresh ?? saved;
@@ -208,9 +209,11 @@ export class CashAccountsService {
   private async rebuildChain(
     mgr: import('typeorm').EntityManager,
     accountCode: string,
-    openingBalance: number,
     updatedBy: string | null,
   ): Promise<{ accountCode: string; currentBalance: number; txnCount: number }> {
+    const [account] = await mgr.query('SELECT opening_balance FROM fin_cash_accounts WHERE account_code=$1 FOR UPDATE',[accountCode]);
+    if (!account) throw new NotFoundException('资金账户不存在');
+    const opening = cashBalanceCents(account.opening_balance, 'opening_balance');
     const txns = await mgr.query(
       `SELECT id, direction, amount, source_type
          FROM fin_cash_transactions
@@ -219,40 +222,39 @@ export class CashAccountsService {
         FOR UPDATE`,
       [accountCode],
     );
-    let running = finiteCashNumber(openingBalance, 'opening_balance');
+    let running = opening;
     for (const t of txns) {
       if (t.source_type === 'OPENING') {
         await mgr.query(
           `UPDATE fin_cash_transactions SET balance_after = $1 WHERE id = $2`,
-          [openingBalance, t.id],
+          [cashBalanceDecimal(opening), t.id],
         );
         continue;
       }
       if (t.direction !== 'IN' && t.direction !== 'OUT') {
         throw new BadRequestException(`流水 ${t.id} direction 非法`);
       }
-      const amount = finiteCashNumber(t.amount, `流水 ${t.id} amount`);
+      const amount = cashBalanceCents(t.amount, `流水 ${t.id} amount`);
       running += t.direction === 'IN' ? amount : -amount;
-      running = finiteCashNumber(running, `流水 ${t.id} balance_after`);
       await mgr.query(
         `UPDATE fin_cash_transactions SET balance_after = $1 WHERE id = $2`,
-        [running, t.id],
+        [cashBalanceDecimal(running), t.id],
       );
     }
     await mgr.query(
       `UPDATE fin_cash_accounts
           SET current_balance = $1, updated_by = $2, updated_at = now()
         WHERE account_code = $3`,
-      [running, updatedBy, accountCode],
+      [cashBalanceDecimal(running), updatedBy, accountCode],
     );
-    return { accountCode, currentBalance: running, txnCount: txns.length };
+    return { accountCode, currentBalance: Number(cashBalanceDecimal(running)), txnCount: txns.length };
   }
 
   /** 重算单个账户余额（独立入口，供「重算余额」按钮调用）。 */
   async recalcBalance(id: string, user: any) {
     const acc = await this.findById(id, user); // 含 DataScope 归属校验
     return this.ds.transaction((mgr) =>
-      this.rebuildChain(mgr, acc.accountCode, Number(acc.openingBalance), user?.username ?? null),
+      this.rebuildChain(mgr, acc.accountCode, user?.username ?? null),
     );
   }
 
@@ -286,6 +288,13 @@ export class CashAccountsService {
 
     const oldAccountCode = txn.account_code;
     await this.ds.transaction(async (mgr) => {
+      await mgr.query('SELECT id FROM fin_cash_accounts WHERE account_code=ANY($1::text[]) ORDER BY account_code FOR UPDATE',
+        [[oldAccountCode,target.accountCode]]);
+      const [protectedReceipt] = await mgr.query(`SELECT 1 FROM fin_cash_transactions t
+        JOIN fin_ar_receipts r ON r.id=t.source_id AND r.receipt_no=t.source_no
+        WHERE t.id=$1 AND t.source_type='AR_RECEIPT' AND r.receipt_no LIKE 'FR-%'`,[txnId]);
+      if (protectedReceipt) throw new BadRequestException('鸡群收款流水必须通过原应收办理冲销，禁止改挂');
+
       await mgr.query(
         `UPDATE fin_cash_transactions
             SET account_id = $1, account_code = $2, account_name = $3,
@@ -294,14 +303,8 @@ export class CashAccountsService {
         [target.id, target.accountCode, target.accountName,
          target.companyCode, target.companyName, txnId],
       );
-      const oldAcc = await mgr.query(
-        `SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`,
-        [oldAccountCode],
-      );
-      if (oldAcc[0]) {
-        await this.rebuildChain(mgr, oldAccountCode, Number(oldAcc[0].opening_balance), user?.username ?? null);
-      }
-      await this.rebuildChain(mgr, target.accountCode, Number(target.openingBalance), user?.username ?? null);
+      await this.rebuildChain(mgr, oldAccountCode, user?.username ?? null);
+      await this.rebuildChain(mgr, target.accountCode, user?.username ?? null);
     });
 
     return { ok: true, txnId, from: oldAccountCode, to: target.accountCode };
@@ -342,8 +345,7 @@ export class CashAccountsService {
     await this.ds.transaction(async (mgr) => {
       params.push(txnId);
       await mgr.query(`UPDATE fin_cash_transactions SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
-      const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [txn.account_code]);
-      await this.rebuildChain(mgr, txn.account_code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+      await this.rebuildChain(mgr, txn.account_code, user?.username ?? null);
     });
     return { ok: true, txnId };
   }
@@ -362,8 +364,7 @@ export class CashAccountsService {
     this.assertOwnership(txn.company_code, user);
     await this.ds.transaction(async (mgr) => {
       await mgr.query(`DELETE FROM fin_cash_transactions WHERE id = $1`, [txnId]);
-      const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [txn.account_code]);
-      await this.rebuildChain(mgr, txn.account_code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+      await this.rebuildChain(mgr, txn.account_code, user?.username ?? null);
     });
     return { ok: true, txnId };
   }
@@ -397,8 +398,7 @@ export class CashAccountsService {
     await this.ds.transaction(async (mgr) => {
       await mgr.query(`DELETE FROM fin_cash_transactions WHERE id = ANY($1::bigint[])`, [clean]);
       for (const code of accounts) {
-        const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [code]);
-        await this.rebuildChain(mgr, code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+        await this.rebuildChain(mgr, code, user?.username ?? null);
       }
     });
     return { deleted: rows.length, accounts };

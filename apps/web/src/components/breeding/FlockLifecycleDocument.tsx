@@ -5,6 +5,7 @@ import { DrawerV2, ErrorState, LoadingSkeleton, StatusBadge } from '@/components
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { downloadProtectedPdf } from '@/lib/attachments';
+import FlockSettlementFinance from './FlockSettlementFinance';
 import FlockBreedConfirmation from './FlockBreedConfirmation';
 import {
   detailPath, readLifecycleDocument, readLifecycleEvidence, sendLifecycleAction, useLifecycleRead,
@@ -111,7 +112,7 @@ export default function FlockLifecycleDocument({
   id, actor, expanded, created, sourceId, onClose, onExpand, onChanged, onOpen, onForm, canCreate,
 }: DetailProps) {
   const { label, blockerLabel, locale } = useLifecycleLabels();
-  const { translateLiteral } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
   const mayReview = usePermission('MENU_FLOCK_APPROVE').canApprove;
   const mayConfirmBreed = usePermission('MENU_FLOCK_BASELINE').canApprove;
   const validId = documentIdPattern.test(id);
@@ -329,9 +330,13 @@ export default function FlockLifecycleDocument({
       </dl>
       {detail.kind === 'SELL_HELD' && Object.keys(settlement).length > 0 && <section className={css.detailSection}>
         <h3>{label('settlement')}</h3>
-        <p><StatusBadge status={stringify(settlement.finance_status)} label={label(stringify(settlement.finance_status))} /> {quantity(settlement.quantity)}</p>
+        <p>{quantity(settlement.quantity)}</p>
+        <FlockSettlementFinance documentId={id} />
       </section>}
-      {detail.kind === 'REPORT_CORRECTION' && <ReportDifference payload={payload} />}
+      {detail.kind === 'REPORT_CORRECTION' && <>
+        {typeof payload.supplementShift === 'string' && <p>{t('flockForm.missingShiftSelected')} · {t(String('flockForm.shift.' + payload.supplementShift),payload.supplementShift)}</p>}
+        <ReportDifference payload={payload} />
+      </>}
       {blockers.length > 0 && <section className={css.detailSection}>
         <h3>{label('blockers')}</h3>
         <ul>{blockers.map(code => <li key={code}>{blockerLabel(code)}</li>)}</ul>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, X, AlertCircle, Ban, Receipt } from 'lucide-react';
 import { formatMasterData } from '@/lib/business-display';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
+import { StatusBadge, LoadingSkeleton, ModalV2 } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
@@ -53,6 +53,7 @@ interface ArInvoice {
 interface ArAllocation {
   id: string;
   receipt_no: string;
+  receipt_id: string;
   allocated_amount_original: string;
   currency_code: string;
   receipt_date: string;
@@ -433,6 +434,11 @@ function CreateArModal({
 
 // ── 创建收款 Modal ─────────────────────────────────────────────────────────────
 
+function flockPaymentStorage(invoice: ArInvoice | null | undefined, owner: string) {
+  return invoice?.ar_no.startsWith('AR-FLOCK-') && owner
+    ? 'phoenix:farm:receipt:' + owner + ':' + String(invoice.id) : '';
+}
+
 function CreateReceiptModal({
   selectedAr,
   onClose,
@@ -445,6 +451,13 @@ function CreateReceiptModal({
   refreshKey?: number;
 }) {
   const { t } = useLanguage();
+  const { user } = usePermission('MENU_FIN2_AR');
+  const owner = String(user.userId ?? user.username ?? '');
+  const dedicated = Boolean(selectedAr?.ar_no.startsWith('AR-FLOCK-'));
+  const paymentStorage = flockPaymentStorage(selectedAr,owner);
+  const [pendingBody,setPendingBody] = useState(() => typeof window!=='undefined' && paymentStorage
+    ? sessionStorage.getItem(paymentStorage) ?? '' : '');
+
   const [form, setForm] = useState({
     companyCode: selectedAr?.company_code ?? '',
     companyName: selectedAr?.company_name ?? '',
@@ -465,59 +478,74 @@ function CreateReceiptModal({
     [k]: v
   }));
   const handleSubmit = async () => {
-    if (!form.companyCode.trim()) {
-      setErr(t('fin2.ar.err_select_company', '请选择公司'));
-      return;
-    }
-    if (!form.customerName.trim()) {
-      setErr(t('fin2.ar.err_select_customer', '请选择客户'));
-      return;
-    }
-    if (!form.receiptDate) {
-      setErr(t('fin2.ar.err_select_receipt_date', '请选择收款日期'));
-      return;
-    }
-    if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
-      setErr(t('fin2.ar.err_valid_receipt_amount', '请填写有效收款金额'));
-      return;
-    }
-    if (!form.receivedAccountCode.trim()) {
-      setErr(t('fin2.ar.err_select_receipt_account', '请选择收款账户'));
-      return;
+    if (saving) return;
+    if (!pendingBody) {
+      if (!form.companyCode.trim()) {
+        setErr(t('fin2.ar.err_select_company', '请选择公司'));
+        return;
+      }
+      if (!form.customerName.trim()) {
+        setErr(t('fin2.ar.err_select_customer', '请选择客户'));
+        return;
+      }
+      if (!form.receiptDate) {
+        setErr(t('fin2.ar.err_select_receipt_date', '请选择收款日期'));
+        return;
+      }
+      if (!form.amountOriginal || Number(form.amountOriginal) <= 0) {
+        setErr(t('fin2.ar.err_valid_receipt_amount', '请填写有效收款金额'));
+        return;
+      }
+      if (!form.receivedAccountCode.trim()) {
+        setErr(t('fin2.ar.err_select_receipt_account', '请选择收款账户'));
+        return;
+      }
     }
     setSaving(true);
     setErr('');
     try {
-      const receipt = await apiFetch<any>('/api/v2/finance/ar/receipts', {
-        method: 'POST',
-        body: JSON.stringify({
-          companyCode: form.companyCode.trim(),
-          companyName: form.companyName.trim() || undefined,
-          customerName: form.customerName.trim(),
-          customerCode: form.customerCode.trim() || undefined,
-          currencyCode: form.currencyCode,
-          amountOriginal: Number(form.amountOriginal),
-          receiptDate: form.receiptDate,
-          receiptMethod: form.receiptMethod || undefined,
-          receivedAccountCode: form.receivedAccountCode || undefined,
-          bankRef: form.bankRef.trim() || undefined,
-          remark: form.remark.trim() || undefined
-        })
+      const body = pendingBody || JSON.stringify({
+        companyCode: form.companyCode.trim(),
+        companyName: form.companyName.trim() || undefined,
+        customerName: form.customerName.trim(),
+        customerCode: form.customerCode.trim() || undefined,
+        currencyCode: form.currencyCode,
+        amountOriginal: Number(form.amountOriginal),
+        ...(dedicated ? {baseCurrency:form.currencyCode,exchangeRate:1,flockInvoiceId:String(selectedAr?.id),paymentKey:crypto.randomUUID()} : {}),
+        receiptDate: form.receiptDate,
+        receiptMethod: form.receiptMethod || undefined,
+        receivedAccountCode: form.receivedAccountCode || undefined,
+        bankRef: form.bankRef.trim() || undefined,
+        remark: form.remark.trim() || undefined,
       });
+      if (dedicated) {
+        if (!paymentStorage) throw new Error(t('flockCash.captureError'));
+        if (!pendingBody) { sessionStorage.setItem(paymentStorage,body); setPendingBody(body); }
+      }
+      const receipt = await apiFetch<{id:string|number;status?:string}>('/api/v2/finance/ar/receipts',{method:'POST',body});
+      if (dedicated && receipt?.status === 'CANCELLED') {
+        if (paymentStorage) sessionStorage.removeItem(paymentStorage);
+        setPendingBody('');
+        setErr(t('flockCash.paymentCancelled'));
+        return;
+      }
       // confirm 才会进入资金账户流水/余额更新路径；有指定 AR 时同时核销到发票。
       if (receipt?.id) {
         await apiFetch(`/api/v2/finance/ar/receipts/${receipt.id}/confirm`, {
           method: 'POST',
           body: JSON.stringify(selectedAr ? {
             allocations: [{
-              arInvoiceId: selectedAr.id,
-              allocatedAmountOriginal: Number(form.amountOriginal)
+              arInvoiceId: String(selectedAr.id),
+              allocatedAmountOriginal: Number(JSON.parse(body).amountOriginal)
             }]
           } : {
             allocations: []
           })
         });
       }
+      if (dedicated && !receipt?.id) throw new Error(t('flockCash.captureError'));
+      if (paymentStorage) sessionStorage.removeItem(paymentStorage);
+      setPendingBody('');
       invalidateCashAccountLookups();
       onCreated();
       onClose();
@@ -527,7 +555,30 @@ function CreateReceiptModal({
       setSaving(false);
     }
   };
-  return <div style={modalMask} onClick={onClose}>
+  const cancelPending = async () => {
+    if (!pendingBody || !paymentStorage || saving) return;
+    setSaving(true);
+    setErr('');
+    try {
+      const receipt=await apiFetch<{id:string|number;status?:string}>('/api/v2/finance/ar/receipts',{method:'POST',body:pendingBody});
+      if (!receipt?.id) throw new Error(t('flockCash.captureError'));
+      if (receipt.status !== 'CANCELLED') {
+        await apiFetch('/api/v2/finance/ar/receipts/' + encodeURIComponent(String(receipt.id)) + '/cancel',{method:'POST',body:'{}'});
+      }
+      sessionStorage.removeItem(paymentStorage);
+      setPendingBody('');
+    } catch (failure) {
+      setErr(failure instanceof Error ? failure.message : t('flockCash.captureError'));
+    } finally { setSaving(false); }
+  };
+  if (pendingBody) return <ModalV2 open title={t('flockCash.pendingPayment')} onClose={onClose} closeDisabled={saving}
+    footer={<>
+      <button type="button" disabled={saving} onClick={() => void cancelPending()}>{t('flockCash.cancelPending')}</button>
+      <button type="button" disabled={saving} onClick={() => void handleSubmit()}>{t('flockCash.retryPayment')}</button>
+    </>}>
+    <p>{t('flockCash.pendingExplanation')}</p>{err && <p role="alert">{err}</p>}
+  </ModalV2>;
+  return <div style={modalMask} onClick={saving ? undefined : onClose}>
       <div style={modalPanel(500)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -649,6 +700,7 @@ function ArDetailDrawer({
   onChanged: () => void;
 }) {
   const { t, lang } = useLanguage();
+  const { canApprove, canEdit, user } = usePermission("MENU_FIN2_AR");
   const [detail, setDetail] = useState<ArInvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -656,6 +708,27 @@ function ArDetailDrawer({
   const [showCancel, setShowCancel] = useState(false);
   const [cancelErr, setCancelErr] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
+  const [reversing, setReversing] = useState(false);
+  const [reverseTarget, setReverseTarget] = useState<ArAllocation>();
+  const [reverseReason, setReverseReason] = useState('');
+  const [reverseError, setReverseError] = useState('');
+  async function reverseReceipt() {
+    if (!reverseTarget || !reverseReason.trim() || reversing) return;
+    setReversing(true);
+    setReverseError('');
+    try {
+      await apiFetch('/api/v2/finance/ar/receipts/' + encodeURIComponent(reverseTarget.receipt_id) + '/reverse-flock',
+        {method:'POST',body:JSON.stringify({reason:reverseReason.trim()})});
+      invalidateCashAccountLookups();
+      setReverseTarget(undefined);
+      load();
+      onChanged();
+    } catch (error) {
+      setReverseError(error instanceof Error ? error.message : t('flockCash.reverseError'));
+    } finally {
+      setReversing(false);
+    }
+  }
   const [cashRefreshKey, setCashRefreshKey] = useState(0);
   const load = () => {
     setLoading(true);
@@ -682,7 +755,10 @@ function ArDetailDrawer({
       setCancelling(false);
     }
   };
-  const canCancel = detail && !['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.received_amount_original) === 0;
+  const flockInvoice = detail?.ar_no.startsWith('AR-FLOCK-');
+  const pendingStorage = flockPaymentStorage(detail,String(user.userId ?? user.username ?? ''));
+  const recoverable = Boolean(typeof window!=='undefined' && pendingStorage && sessionStorage.getItem(pendingStorage));
+  const canCancel = detail && !flockInvoice && !['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.received_amount_original) === 0;
   /* g200a ArDetailDrawer 整体改造(2026-06-19):
      - mask 点击关闭(全 finance2 抽屉一致体验)
      - drawerPanel(480) + drawerHeader/drawerHeaderTitle/drawerCloseButton 替代自写头
@@ -690,7 +766,8 @@ function ArDetailDrawer({
      - 3 金额卡放大字号 12→14,用 moneyCell + tone
      - 收款核销记录卡用 txnRow 同款克制白底 + 左色条
      - 录入收款 / 取消 按钮换 actionPill,字号统一 12 */
-  return <div style={drawerMask} onClick={onClose}>
+  return <>
+    <div style={drawerMask} onClick={onClose}>
       <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={drawerHeader}>
           <div style={drawerHeaderTitle}>{t('fin2.ar.detail_title', '应收发票详情')}</div>
@@ -765,25 +842,19 @@ function ArDetailDrawer({
                   </div>
                   <div style={moneyCell('success', 'md')}>
                     {fmtMoney(a.allocated_amount_original, a.currency_code)}
+                    {flockInvoice && canApprove && a.receipt_status==='CONFIRMED' && <button type="button" style={actionPill('danger')}
+                      onClick={() => { setReverseTarget(a); setReverseReason(''); setReverseError(''); }}>{t('flockCash.reverse')}</button>}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* 录入收款 */}
-            {!['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.balance_amount_original) > 0 && (
+            {(!flockInvoice || canEdit && canApprove) && (recoverable || !['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.balance_amount_original) > 0) && (
               <div>
-                {!showReceipt ? (
-                  <button onClick={() => setShowReceipt(true)} style={actionPill('success')}>
-                    <Receipt size={11} /> {t('fin2.ar.receipt_for', '录入收款')}
-                  </button>
-                ) : (
-                  <div style={actionGroupBox}>
-                    <CreateReceiptModal refreshKey={cashRefreshKey} selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
-                      setCashRefreshKey(k => k + 1); setShowReceipt(false); load(); onChanged();
-                    }} />
-                  </div>
-                )}
+                <button type="button" disabled={showReceipt} onClick={() => setShowReceipt(true)} style={actionPill('success')}>
+                  <Receipt size={11} /> {recoverable ? t('flockCash.retryPayment') : t('fin2.ar.receipt_for', '录入收款')}
+                </button>
               </div>
             )}
 
@@ -817,6 +888,16 @@ function ArDetailDrawer({
           </div>}
       </div>
 
+    </div>
+    <ModalV2 open={Boolean(reverseTarget)} title={t('flockCash.reverse')} closeDisabled={reversing} onClose={() => setReverseTarget(undefined)}
+        footer={<button type="button" style={actionPill('danger')} disabled={reversing || !reverseReason.trim()}
+          onClick={() => void reverseReceipt()}>{t('flockCash.reverseConfirm')}</button>}>
+        <p>{reverseTarget?.receipt_no} · {reverseTarget && fmtMoney(reverseTarget.allocated_amount_original,reverseTarget.currency_code)}</p>
+        <label>{t('flockCash.reverseReason')}<textarea value={reverseReason} maxLength={500}
+          disabled={reversing} onChange={event=>setReverseReason(event.target.value)} style={inputField} /></label>
+        {reverseError && <p role="alert">{reverseError}</p>}
+      </ModalV2>
+
       {/* 收款 Modal 浮在抽屉外层 */}
       {showReceipt && detail && <CreateReceiptModal refreshKey={cashRefreshKey} selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
       setCashRefreshKey(k => k + 1);
@@ -824,7 +905,7 @@ function ArDetailDrawer({
       load();
       onChanged();
     }} />}
-    </div>;
+  </>;
 }
 
 // ── Tab 类型 ──────────────────────────────────────────────────────────────────
