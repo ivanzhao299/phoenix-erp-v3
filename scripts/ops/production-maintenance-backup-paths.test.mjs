@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {CONTRACT} from './production-config-guard.mjs';
+import {physicalParent} from './vet-1124-backup-volume.mjs';
 import {inspectTrustedDirectory,ancestors} from './production-trusted-paths.mjs';
 import {preparePendingMigrationBackupPaths,verifyPendingMigrationBackupPaths} from './pending-migration-backup-paths.mjs';
 function fixture(){
@@ -60,4 +61,23 @@ test('wrong pin identity, world-accessible run and non-root CLI fail closed',()=
  const mode=fixture();mode.onMkdir=p=>{if(p===mode.directory)mode.states.get(p).mode=0o40755;};assert.throws(mode.prepare,/RUN_DIRECTORY_MODE/);
  assert.throws(()=>preparePendingMigrationBackupPaths(f.runId,{...f.dependencies,uid:1000}),/ROOT_ACTIONS_IDENTITY_REQUIRED/);
  if(process.getuid()!==0){const cli=spawnSync(process.execPath,[path.resolve('scripts/ops/pending-migration-backup-paths.mjs'),'prepare','123-1'],{encoding:'utf8',timeout:5000});assert.notEqual(cli.status,0);assert.match(cli.stderr,/ROOT_ACTIONS_IDENTITY_REQUIRED/);}
+});
+
+test('production UI scoped backup uses the pinned physical volume and fails on directory movement', () => {
+ const f=fixture();
+ f.dependencies.scope='production-ui-1125';
+ const physicalDirectory=physicalParent+'/pending-migration-'+f.runId;
+ f.states.set(physicalParent,f.stat());
+ const inspect=f.dependencies.inspect;
+ f.dependencies.inspect=p=>{
+  if(p!==physicalParent&&!p.startsWith(physicalParent+'/'))return inspect(p);
+  const row=f.states.get(p);
+  if(!row)throw Error('Physical directory missing');
+  return [{path:p,dev:row.dev,ino:row.ino}];
+ };
+ assert.deepEqual(f.prepare(),{directory:physicalDirectory});
+ assert.deepEqual(f.mkdirs,[physicalDirectory]);
+ assert.deepEqual(f.verify(),{directory:physicalDirectory});
+ f.states.get(physicalDirectory).ino=999;
+ assert.throws(f.verify,/PATH_CHANGED/);
 });

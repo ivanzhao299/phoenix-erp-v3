@@ -306,6 +306,14 @@ jobs:
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
               if [ -n "$SCOPED_REVIEW_HELPER" ]; then
+                if [ "$AUDIT_SCOPE" = production-ui-1125 ]; then
+                  for service in phoenix-v3-api phoenix-v3-web; do
+                    test "$(docker inspect "$service" --format '{{.State.Running}}')" = true || {
+                      echo 'PRODUCTION_UI_SCHEMA_HOLD=BASELINE_SERVICE_STOPPED'
+                      exit 1
+                    }
+                  done
+                fi
                 RUNNING_CHECKOUT="$(git_safe rev-parse HEAD)" \
                   BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" \
                   node "$STAGE/$SCOPED_REVIEW_HELPER" after

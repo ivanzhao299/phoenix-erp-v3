@@ -20,4 +20,6 @@
 
 专项 `production-ui-1125` 供显式授权后使用。它要求保留原始 `HOLD`，只接纳既有记录确认规则精确识别的两组原始事实。发布树由 main 的第一父、单文件封存与第二父锁定。镜像、主线 CI、迁移源码及三项待执行清单必须相符。Apply 重新核对 inspection 摘要、账本与备份。执行后只接受这三项账本增量、扩展表就绪、尚无新版业务写入，以及历史鸡蛋事实摘要与执行前一致。
 
-专项受现有 protected environment 门控。仅在本次例外明确授权后，使用 `APPLY-PRODUCTION-UI-20261125` 及同一次 inspect 输出的两个摘要调度 apply。迁移回执齐备后，仍用同一 main SHA 走正式 API 与 Web 发布。
+业务方已明确授权在保持历史事实及原始 HOLD 的前提下按本次精确范围执行。专项受现有 protected environment 门控。使用 `APPLY-PRODUCTION-UI-20261125` 及同一次 inspect 输出的两个摘要调度 apply。迁移回执齐备后，仍用同一 main SHA 走正式 API 与 Web 发布。
+
+若迁移提交后运行中断，保留原运行号、物理备份清单、迁移前摘要和已写回执，复核原事务后走受控回执恢复。专项 apply 只接受三项均待执行。
