@@ -81,7 +81,7 @@ test('legacy mobile report accepts explicit zero and retries only the unresolved
   await page.route('**/api/crud/brd_flocks?**', route => route.fulfill({ json: { data: [
     { house_code: 'H1', flock_no: 'F1' }, { house_code: 'H2', flock_no: 'F2' },
   ] } }));
-  await page.route('**/api/crud/brd_daily_logs?**', route => route.fulfill({ json: { data: [
+  await page.route('**/api/v3/farm/daily-logs/mobile-summary?**', route => route.fulfill({ json: { data: [
     { house_code: 'H2', flock_no: 'F2', shift: '早班', eggs_produced: 0, report_version: '2:10' },
   ] } }));
   const posted: Array<{ house_code: string; eggs_produced: number; dirty_eggs: number; broken_eggs: number; expectedReportVersion: string | null }> = [];

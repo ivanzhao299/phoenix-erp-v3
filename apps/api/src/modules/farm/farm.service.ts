@@ -598,6 +598,25 @@ export class FarmService {
     });
   }
 
+  async readMobileDailySummary(date: string, shift: string, scope: OrgScope) {
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date))
+      || new Date(date).toISOString().slice(0, 10) !== date || !['早班', '晚班'].includes(shift)) {
+      throw new BadRequestException('请选择有效的日报日期和班次');
+    }
+    const params: unknown[] = [date, shift];
+    const predicate = scopeWhere(scope, params, 'owner.');
+    return this.entityManager.query(
+      `SELECT d.house_code, d.flock_no, d.shift, d.eggs_produced, d.dirty_eggs, d.broken_eggs, d.temp, d.humidity,
+              concat(d.id, ':', d.xmin::text) AS report_version
+       FROM brd_daily_logs d
+       ${predicate ? `JOIN brd_houses h ON h.house_code=d.house_code
+         JOIN (SELECT farm_code, company_code, mapped_site_code AS site_code FROM brd_farms WHERE status='ACTIVE')
+           owner ON owner.farm_code=h.farm_code` : ''}
+       WHERE d.log_date=$1 AND (d.shift=$2 OR d.shift IS NULL) ${predicate ? `AND ${predicate}` : ''}
+       ORDER BY d.created_at, d.id`, params,
+    );
+  }
+
   /**
    * 按日期 + 鸡舍 聚合 eggs_by_grade，合并所有班次（早/晚班）。
    * 用于 daily-inbound 页"从今日日报预填"按钮 — 业务方录完日报后，

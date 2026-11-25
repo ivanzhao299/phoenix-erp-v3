@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
-import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
+import { mobileApi, FlockRecord } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
@@ -375,25 +375,23 @@ export default function EggLogPage() {
     setSaved(false);
     setError('');
     try {
-      const res = await mobileApi.getFarmLogs(d);
+      const rows = await mobileApi.getMobileDailySummary(d, s);
       if (id !== generation.current) return;
-      const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
-      const filtered = arr.filter(r => !s || r.shift === s || !r.shift);
       const existMap: Record<string, number> = {};
       const entryMap: Record<string, HouseEntry> = {};
       const versions: Record<string, string> = {};
-      for (const r of filtered) {
+      for (const r of rows) {
         const key = r.house_code || r.flock_no || '';
         if (!key) continue;
         if (r.shift === s && r.report_version) versions[key] = r.report_version;
         existMap[key] = (existMap[key] || 0) + Number(r.eggs_produced || 0);
         entryMap[key] = {
           eggs: (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
-          dirty: (entryMap[key]?.dirty || 0) + Number((r as any).dirty_eggs || 0),
+          dirty: (entryMap[key]?.dirty || 0) + Number(r.dirty_eggs || 0),
           // bad_eggs is legacy-only. Never add it to broken_eggs or defects double-count.
-          broken: (entryMap[key]?.broken || 0) + Number((r as any).broken_eggs || 0),
-          temp: (r as any).temp != null ? String((r as any).temp) : '',
-          humidity: (r as any).humidity != null ? String((r as any).humidity) : ''
+          broken: (entryMap[key]?.broken || 0) + Number(r.broken_eggs || 0),
+          temp: r.temp != null ? String(r.temp) : '',
+          humidity: r.humidity != null ? String(r.humidity) : ''
         };
       }
       setExisting(existMap);

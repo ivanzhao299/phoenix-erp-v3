@@ -251,9 +251,12 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       temp: 26.5, humidity: null, eggs_by_grade: { DIRTY: 2, BROKEN: 1 } };
     const submit = (body: Record<string, unknown>, id = 40101) => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
       .auth(token(id), { type: 'bearer' }).send(body);
+    const summaries = (actor: number) => request(app.getHttpServer()).get('/api/v3/farm/daily-logs/mobile-summary')
+      .query({ date, shift: '早班' }).auth(token(actor), { type: 'bearer' });
     const first = await submit(original).expect(201);
-    const [saved] = (await read(40101, query).expect(200)).body.data;
+    const [saved] = (await summaries(40101).expect(200)).body.data;
     expect(saved.report_version).toEqual(expect.any(String));
+    expect((await summaries(40103).expect(200)).body.data).toEqual([]);
     expect(first.body.reportVersion).toBe(saved.report_version);
     const operatorA = { ...original, eggs_produced: 100, expectedReportVersion: saved.report_version };
     const aWritten = await submit(operatorA).expect(201);
@@ -266,7 +269,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     await submit({ ...original, eggs_produced: 90 }).expect(409);
     const sameValueRetry = await submit(original).expect(201);
     expect(sameValueRetry.body.reportVersion).toBe(restored.body.reportVersion);
-    expect((await read(40101, query).expect(200)).body.data).toEqual([expect.objectContaining({
+    expect((await summaries(40101).expect(200)).body.data).toEqual([expect.objectContaining({
       report_version: restored.body.reportVersion, eggs_produced: 85, dirty_eggs: 2, broken_eggs: 1,
     })]);
     expect(await db.query('SELECT * FROM inv_ledger')).toEqual([]);

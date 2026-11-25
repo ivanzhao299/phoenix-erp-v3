@@ -106,7 +106,7 @@ describe('GenericCrudService', () => {
       ]);
 
       expect(query).toHaveBeenCalledTimes(1);
-      expect(query.mock.calls[0][0]).toContain(`SELECT *, concat(id, ':', xmin::text) AS report_version FROM "brd_daily_logs"`);
+      expect(query.mock.calls[0][0]).toContain('SELECT * FROM "brd_daily_logs"');
     });
 
     it('returns breeding daily logs in deterministic oldest-first order for the legacy client reversal', async () => {
