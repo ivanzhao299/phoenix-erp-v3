@@ -5,7 +5,7 @@
 
 import type { CrudListResponse, PaginationParams } from "@/types";
 import { dispatchAuthExpired } from "@/lib/auth-dispatch";
-import { BROWSER_LOGIN_KEY, isSameRefreshedSession, readBrowserLogin, refreshAndPersistSession, sharedLoginId } from "@/lib/auth-session";
+import { BROWSER_LOGIN_KEY, isSameRefreshedSession, readBrowserLogin, refreshAndPersistSession, sharedLoginId, useSharedAccessToken } from "@/lib/auth-session";
 
 const API_BASE = "/api";
 
@@ -15,7 +15,7 @@ function getToken(): string | null {
   try {
     // ✅ 优先读取 phoenix_token（AuthContext 的存储方式）
     const direct = sessionStorage.getItem("phoenix_token");
-    if (direct) return direct;
+    if (direct) return useSharedAccessToken(direct);
     // 兜底：兼容旧版存储方式（phoenix_user.token）
     const user = JSON.parse(sessionStorage.getItem("phoenix_user") || "null");
     return user?.token ?? null;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BROWSER_LOGIN_KEY, markBrowserLogin, refreshAndPersistSession } from './auth-session';
-import request, { authApi, crudApi } from './api-client';
+import request, { authApi, captureBoundSession, crudApi } from './api-client';
 const response = (body: unknown, ok=true, status=200) => ({ ok, status, json:vi.fn().mockResolvedValue(body), text:vi.fn().mockResolvedValue(JSON.stringify(body)), headers:{ get:()=> 'application/json' } });
 describe('api client',()=>{
   afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
@@ -56,7 +56,8 @@ describe('api client',()=>{
     vi.stubGlobal('fetch',fetch);
     await expect(request('/first',{bindSession:true})).resolves.toEqual({id:'receipt'});
     await expect(request('/next',{bindSession:true})).resolves.toEqual({id:'receipt'});
-    expect(first.get('phoenix_token')).toBe(before);
+    await expect(request('/finance-detail')).resolves.toEqual({id:'receipt'});
+    expect(first.get('phoenix_token')).toBe(after);
   });
   it.each(['access-other',null])('discards a bound result when another tab replaces the shared login with %s',async(next)=>{
     const storage=(getter:()=>string|null)=>({getItem:(key:string)=>key==='phoenix_token'?getter():null});
@@ -68,6 +69,24 @@ describe('api client',()=>{
     vi.stubGlobal('fetch',fetch);
     await expect(request('/production',{method:'POST',bindSession:true,retry:false})).rejects.toMatchObject({name:'AbortError'});
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('does not send an action captured before preparation when a different login replaces it',async()=>{
+    const before='header.payload.alice', after='header.payload.bob';
+    const session=new Map([['phoenix_token',before]]);
+    const shared=new Map(session);
+    for(const [name,store] of [['sessionStorage',session],['localStorage',shared]] as const){
+      vi.stubGlobal(name,{getItem:(key:string)=>store.get(key)??null,setItem:(key:string,value:string)=>store.set(key,value)});
+    }
+    vi.stubGlobal('window',{});
+    markBrowserLogin(before);
+    const pending=captureBoundSession();
+    markBrowserLogin(after);
+    session.set('phoenix_token',after);
+    shared.set('phoenix_token',after);
+    const fetch=vi.fn();
+    vi.stubGlobal('fetch',fetch);
+    await expect(request('/production',{method:'POST',bindSession:pending,retry:false})).rejects.toMatchObject({name:'AbortError'});
+    expect(fetch).not.toHaveBeenCalled();
   });
   it('does not retry ordinary 404',async()=>{const fetch=vi.fn().mockResolvedValue(response({message:'missing'},false,404));vi.stubGlobal('fetch',fetch);await expect(request('/missing')).rejects.toThrow('missing');expect(fetch).toHaveBeenCalledTimes(1);});
   it('preserves structured validation errors and the backend msg on 400',async()=>{

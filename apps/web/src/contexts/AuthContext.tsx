@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { BROWSER_LOGIN_KEY, SHARED_LOGIN_KEY, buildAccessTokenCookie, markBrowserLogin, readBrowserLogin, refreshAndPersistSession, sharedLoginId } from '@/lib/auth-session';
+import { BROWSER_LOGIN_KEY, SHARED_LOGIN_KEY, buildAccessTokenCookie, markBrowserLogin, readBrowserLogin, refreshAndPersistSession, useSharedAccessToken } from '@/lib/auth-session';
 import { invalidateCache } from '@/lib/request-cache';
 
 type AuthUser = {
@@ -53,14 +53,8 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
       // cross-tab session as logged out and redirect back to /login.
     }
     // 优先 sessionStorage，fallback localStorage（路由切换/刷新/新标签页时 sessionStorage 可能为空）
-    const sharedToken = localStorage.getItem('phoenix_token');
-    const sharedId = sharedLoginId(sharedToken);
-    if (sharedToken && sharedId && sessionStorage.getItem(BROWSER_LOGIN_KEY) === sharedId) {
-      sessionStorage.setItem('phoenix_token', sharedToken);
-      const sharedCookie = localStorage.getItem('phoenix_cookie_token');
-      if (sharedCookie) sessionStorage.setItem('phoenix_cookie_token', sharedCookie);
-    }
-    const storedToken = sessionStorage.getItem('phoenix_token') || sharedToken;
+    const tabToken = sessionStorage.getItem('phoenix_token');
+    const storedToken = tabToken ? useSharedAccessToken(tabToken) : localStorage.getItem('phoenix_token');
     const storedUser  = sessionStorage.getItem('phoenix_user')  || localStorage.getItem('phoenix_user');
     if (!storedToken || !storedUser) return { user: null, token: null };
     // fallback 成功时同步回 sessionStorage，保证后续读取一致

@@ -44,6 +44,16 @@ export function readBrowserLogin(token: string | null): string | null {
   return sessionStorage.getItem(BROWSER_LOGIN_KEY);
 }
 
+export function useSharedAccessToken(tabToken: string): string {
+  const loginId = sessionStorage.getItem(BROWSER_LOGIN_KEY);
+  const sharedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!loginId || !sharedToken || sharedToken === tabToken || sharedLoginId(sharedToken) !== loginId) return tabToken;
+  sessionStorage.setItem(ACCESS_TOKEN_KEY, sharedToken);
+  const cookieToken = localStorage.getItem(COOKIE_TOKEN_KEY);
+  if (cookieToken) sessionStorage.setItem(COOKIE_TOKEN_KEY, cookieToken);
+  return sharedToken;
+}
+
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
 export function jwtExpiresInSeconds(token: string, nowSeconds = Math.floor(Date.now() / 1000)): number | null {

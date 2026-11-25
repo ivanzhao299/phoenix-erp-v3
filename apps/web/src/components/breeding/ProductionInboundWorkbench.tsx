@@ -477,7 +477,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
         void run(async()=>setRecovered(await request<Document[]>(`${endpoint}/recover?`+new URLSearchParams({companyCode,[historyField]:code}))),false);
       }}>
         <CompanySelector ariaLabel={t('productionCutover.queryCompany')} value={historyCompany||form.companyCode} disabled={busy} onChange={setHistoryCompany}/>
-        <label className={s.field}>{t('financeReview.type')}<select value={historyField} onChange={event=>{
+        <label className={s.field}>{t('financeReview.type')}<select aria-label={t('financeReview.type')} value={historyField} onChange={event=>{
           setHistoryField(event.target.value==='handoverRef'?'handoverRef':'documentNo');setHistoryNumber('');setRecovered(null);
         }}><option value="documentNo">{t('productionCutover.documentNo')}</option><option value="handoverRef">{t('productionInstallments.handoverRef')}</option></select></label>
         <label className={s.field}>{t(historyField==='documentNo'?'productionCutover.documentNo':'productionInstallments.handoverRef')}<input value={historyNumber} maxLength={128} onChange={event=>setHistoryNumber(event.target.value)}/></label>
