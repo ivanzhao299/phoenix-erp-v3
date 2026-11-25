@@ -15770,5 +15770,9 @@
   "eggSources.target": "目标壳色",
   "eggSources.timeline": "来源档案时间轴",
   "eggSources.timelineFrom": "生效日",
-  "eggSources.timelineThrough": "到期日"
+  "eggSources.timelineThrough": "到期日",
+  "menu.mdc-egg-sources": "蛋品来源档案",
+  "menu.prod-source-history": "历史蛋品来源核认",
+  "eggSources.status.ACTIVE": "有效",
+  "eggSources.status.INACTIVE": "已停用"
 }

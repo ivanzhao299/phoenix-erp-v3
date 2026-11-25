@@ -13,7 +13,7 @@ import s from '@/components/breeding/ProductionInboundWorkbench.module.css';
 type Evidence = { batchNo:string; productCode:string; skuCode:string|null; originalShell:string|null; exactQuantity:number|null;
   ledger:Array<{ id:string; ref_no:string|null; change_type:string; qty_change:string }> };
 type Review = { id:string; state:string; source_line:string; quantity:number|null; target_class:string; reason:string; decision:string|null; disposition:string|null; attachments:Array<{file_id:string;checksum:string}>;
-  dispositions:Array<{id:string;ref_no:string;log_date:string}> };
+  dispositions:Array<{id?:string;ref_no?:string;log_date?:string;restricted?:boolean}> };
 type History = { evidence:Evidence; reviews:Review[] };
 const endpoint='/product-master/egg-sources/history';
 
@@ -117,13 +117,13 @@ export default function EggSourceHistoryPage() {
         <th>{t('eggSources.status','状态')}</th><th>{t('eggSources.reason','依据')}</th>
       </tr></thead><tbody>{result.reviews.map(row=><tr key={row.id}>
         <td>#{row.source_line} · {row.quantity??'—'}</td><td>{label(row.target_class)}</td>
-        <td>{t('eggSources.status.'+row.state,row.state)}</td><td>{row.reason}{row.decision ? ' · '+row.decision : ''}
+        <td>{t(`eggSources.status.${row.state}`,row.state)}</td><td>{row.reason}{row.decision ? ' · '+row.decision : ''}
           <ul>{row.attachments.map(file=><li key={file.file_id}>
             <button type="button" onClick={()=>void perform(()=>preview(row.id,file.file_id))}>{t('eggSources.evidence','核认证据')} {file.file_id}</button>
           </li>)}</ul>
           {row.disposition==='REFER_TO_ORIGINAL'&&<div>
             <p>{row.dispositions.length?t('eggSources.recorded','已关联原业务处置'):t('eggSources.referred','已转原业务，待办理')}</p>
-            {row.dispositions.map(receipt=><p key={receipt.id}>{receipt.log_date} · {receipt.ref_no} · #{receipt.id}</p>)}
+            {row.dispositions.filter(receipt=>!receipt.restricted).map(receipt=><p key={receipt.id}>{receipt.log_date} · {receipt.ref_no} · #{receipt.id}</p>)}
             {permission.canApprove&&<div className={s.actions}>
               <input inputMode="numeric" aria-label={t('eggSources.reversalLedger','正式冲销库存流水号')}
                 value={dispositionLedger[row.id]??''} onChange={e=>setDispositionLedger(old=>({...old,[row.id]:e.target.value}))}/>

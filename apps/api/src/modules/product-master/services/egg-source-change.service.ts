@@ -187,7 +187,7 @@ export class EggSourceChangeService {
       throw new ConflictException('目标壳色与生效日原档相同');
     }
     const blockers = await sourceUseBlockers(m,owner,date);
-    if (blockers.length) throw new ConflictException({ code:'EGG_SOURCE_REFERENCED', blockers,
+    if (blockers.length) throw new ConflictException({ code:'EGG_SOURCE_REFERENCED', blockers:[...new Set(blockers.map((row:{kind:string})=>row.kind))],
       message:'目标日期已有交接、冻结或实际来源事实，请按原单处置' });
     const verified = await verifySourceChangePlan(m,this.skus,owner,date,targetClass,payload.warehouseCode,
       payload.requirements,payload.planDocument ?? undefined);

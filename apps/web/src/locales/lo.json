@@ -15770,5 +15770,9 @@
   "eggSources.target": "ສີເປືອກໄຂ່ເປົ້າໝາຍ",
   "eggSources.timelineFrom": "ວັນເລີ່ມ",
   "eggSources.timelineThrough": "ວັນໝົດຜົນ",
-  "eggSources.zeroDomain": "ເປີດຂອບເຂດໃໝ່ດ້ວຍຜົນນັບສາງເປັນສູນ"
+  "eggSources.zeroDomain": "ເປີດຂອບເຂດໃໝ່ດ້ວຍຜົນນັບສາງເປັນສູນ",
+  "menu.mdc-egg-sources": "ໂປຣໄຟລ໌ແຫຼ່ງໄຂ່",
+  "menu.prod-source-history": "ກວດສອບແຫຼ່ງໄຂ່ຍ້ອນຫຼັງ",
+  "eggSources.status.ACTIVE": "ໃຊ້ງານ",
+  "eggSources.status.INACTIVE": "ຢຸດໃຊ້"
 }

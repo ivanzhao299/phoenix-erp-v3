@@ -68,13 +68,13 @@ export class EggSourceChangeController {
   @Post('history/:id/dispositions')
   @RequireMenu('MENU_PROD_INBOUND','A')
   async recordHistoryDisposition(@Param('id') id:string,@Body() body: Parameters<EggHistoryReviewService['recordDisposition']>[1], @Req() req: any) {
-    return { code:201,data:await this.history.recordDisposition(id,body,{ scope:this.scope(req),dataScope:req.dataScope,permissions:req.user?.permissions },this.actor(req)) };
+    return { code:201,data:await this.history.recordDisposition(id,body,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user },this.actor(req)) };
   }
 
   @Get('history')
   @RequireMenu('MENU_PROD_INBOUND','V')
   async historyEvidence(@Query() query: Parameters<EggHistoryReviewService['read']>[0], @Req() req: any) {
-    return { code:200,data:await this.history.read(query,{ scope:this.scope(req),dataScope:req.dataScope,permissions:req.user?.permissions }) };
+    return { code:200,data:await this.history.read(query,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user }) };
   }
 
   @Get('history/:id/evidence/:fileId')
@@ -89,13 +89,13 @@ export class EggSourceChangeController {
   @Post('history')
   @RequireMenu('MENU_PROD_INBOUND','E')
   async historySubmit(@Body() body: Parameters<EggHistoryReviewService['submit']>[0], @Req() req: any) {
-    return { code:201,data:await this.history.submit(body,{ scope:this.scope(req),dataScope:req.dataScope,permissions:req.user?.permissions },this.actor(req)) };
+    return { code:201,data:await this.history.submit(body,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user },this.actor(req)) };
   }
 
   @Post('history/:id/review')
   @RequireMenu('MENU_PROD_INBOUND','A')
   async historyReview(@Param('id') id:string,@Body() body: Parameters<EggHistoryReviewService['review']>[1], @Req() req: any) {
-    return { code:200,data:await this.history.review(id,body,{ scope:this.scope(req),dataScope:req.dataScope,permissions:req.user?.permissions },this.actor(req)) };
+    return { code:200,data:await this.history.review(id,body,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user },this.actor(req)) };
   }
 
 }

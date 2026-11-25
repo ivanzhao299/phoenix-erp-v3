@@ -15770,5 +15770,9 @@
   "eggSources.end": "Effective through",
   "eggSources.new": "Create a profile or schedule a color change",
   "eggSources.saved": "Draft saved",
-  "eggSources.start": "Effective from"
+  "eggSources.start": "Effective from",
+  "menu.mdc-egg-sources": "Egg source profiles",
+  "menu.prod-source-history": "Historical egg source review",
+  "eggSources.status.ACTIVE": "Active",
+  "eggSources.status.INACTIVE": "Inactive"
 }

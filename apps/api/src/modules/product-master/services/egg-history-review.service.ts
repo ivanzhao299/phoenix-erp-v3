@@ -4,22 +4,26 @@ import { FileAccessService } from '../../file/file-access.service';
 import { DataSource, EntityManager } from 'typeorm';
 import type { OrgScope } from '../../farm/farm.service';
 import { hasPerm } from '../../../auth/permissions.util';
-import { DataScopeContext } from '../../org/services/data-scope.service';
+import { DataScopeContext, DataScopeService } from '../../org/services/data-scope.service';
 import { INV_LEDGER_CHANGE_TYPE as Ledger } from '../../wms/inv-ledger-change-types';
 import {
   assertEggSourceScope, commercialShellClass, EggSourceOwner, readEggSourceOwner, requireShellClass,
   sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid,
 } from './egg-source-change-policy';
 
-type Context = { scope:OrgScope; dataScope:DataScopeContext; permissions?:any };
+type Context = { scope:OrgScope; dataScope:DataScopeContext; user?:{
+  userId?:string|number; permissions?:any; roles?:string[]; role?:string; perms_version?:number
+} };
 type Input = { houseCode?:unknown; warehouseCode?:unknown; productionDate?:unknown; batchNo?:unknown;
   ledgerId?:unknown; actionKey?:unknown; targetClass?:unknown; quantity?:unknown; reason?:unknown; evidenceIds?:unknown };
-type HistoryLedger = {id:string;ref_no:string;change_type:string;qty_change:string};
+type HistoryDisposition = {kind:string;[key:string]:unknown};
+type HistoryLedger = {id:string;ref_no:string;change_type:string;qty_change:string;original_module:string|null};
 const intake:string[] = [Ledger.TEMP_PRODUCTION_INBOUND,Ledger.PACKAGING_INBOUND,Ledger.PRODUCTION_INBOUND,'FARM_IN'];
 
 @Injectable()
 export class EggHistoryReviewService {
-  constructor(private readonly db: DataSource, private readonly files: FileAccessService) {}
+  constructor(private readonly db: DataSource, private readonly files: FileAccessService,
+    private readonly dataScopes: DataScopeService) {}
 
   async read(input: Input, context: Context) {
     return this.db.transaction('REPEATABLE READ',async m => {
@@ -30,15 +34,21 @@ export class EggHistoryReviewService {
       const date = sourceDate(input.productionDate);
       const batch = sourceText(input.batchNo,'实际库存批次',128);
       const evidence = await this.evidence(m,owner,warehouse,date,batch);
-      const reviews = await m.query(`SELECT id,state,source_line,quantity,target_class,reviewed_at,
+      const reviews: Array<Record<string,unknown>&{dispositions:HistoryDisposition[]}> = await m.query(`SELECT id,state,source_line,quantity,target_class,reviewed_at,
         review->>'reason' AS decision,review->>'disposition' AS disposition,
         payload->>'reason' AS reason,payload->'attachments' AS attachments,
         ARRAY(SELECT d.receipt FROM md_egg_history_dispositions d WHERE d.review_id=md_egg_history_reviews.id
           ORDER BY d.recorded_at,d.inventory_ledger_id) AS dispositions
         FROM md_egg_history_reviews WHERE company_code=$1 AND house_code=$2 AND production_date=$3
           AND batch_no=$4 AND payload->>'warehouse'=$5 ORDER BY created_at`,[owner.companyCode,owner.houseCode,date,batch,warehouse]);
+      const originalMenus=[...new Set(evidence.ledger.map(line=>line.original_module).filter((value):value is string=>!!value))];
+      const visible=new Set((await Promise.all(originalMenus.map(async menu=>
+        await this.canViewOriginal(context,menu,owner.companyCode,warehouse)?menu:null))).filter(Boolean));
+      const canReadReturn=reviews.some(row=>row.dispositions.some(receipt=>receipt.kind==='POSTED_SALES_RETURN'))
+        && await this.canViewOriginal(context,'MENU_SALES2_RETURN',owner.companyCode,warehouse);
       return { evidence:{...evidence,ledger:evidence.ledger.map(line =>
-        this.canViewOriginal(context,line.change_type) ? line : {...line,ref_no:null}) }, reviews };
+        intake.includes(line.change_type) || visible.has(line.original_module) ? line : {...line,ref_no:null}) },
+        reviews:reviews.map(row=>({...row,dispositions:row.dispositions.map(receipt=>this.dispositionForActor(canReadReturn,receipt))})) };
     });
   }
 
@@ -148,7 +158,8 @@ export class EggHistoryReviewService {
       if (row.company_code!==owner.companyCode || row.farm_code!==owner.farmCode || row.site_code!==owner.siteCode
           || row.state!=='APPROVED' || row.review?.disposition!=='REFER_TO_ORIGINAL') throw new ConflictException('须核对原归属及通过独立审批的历史核认');
       const [existing] = await m.query('SELECT receipt FROM md_egg_history_dispositions WHERE review_id=$1 AND inventory_ledger_id=$2',[id,ledgerId]);
-      if (existing) return existing.receipt;
+      const canReadReturn=await this.canViewOriginal(context,'MENU_SALES2_RETURN',owner.companyCode,row.payload.warehouse);
+      if (existing) return this.dispositionForActor(canReadReturn,existing.receipt);
       const [official] = await m.query(`SELECT l.id::text,l.ref_no,d.original_document_id,origin.inventory_ledger_id::text AS original_ledger_id,
         l.qty_change,l.log_date::text FROM inv_ledger l
         JOIN production_inbound_lines reversed ON reversed.inventory_ledger_id=l.id AND reversed.batch_no=l.batch_no
@@ -160,7 +171,7 @@ export class EggHistoryReviewService {
       [ledgerId,row.batch_no,row.company_code,row.payload.warehouse,row.house_code,Ledger.PRODUCTION_INBOUND_REVERSAL,row.source_line]);
       let posted=official;
       let kind='POSTED_INBOUND_REVERSAL';
-      if (!posted && hasPerm(context.permissions,'MENU_SALES2_RETURN','V')) {
+      if (!posted && canReadReturn) {
         // Original delivery allocation and returned batch must point to the same sold lot and order item.
         [posted]=await m.query(`SELECT returned.id::text,returned.ref_no,original.id::text AS original_ledger_id,
           ret.id AS original_document_id,returned.qty_change,returned.log_date::text
@@ -181,27 +192,35 @@ export class EggHistoryReviewService {
       const receipt = { ...posted, kind, recordedBy:actor };
       await m.query('INSERT INTO md_egg_history_dispositions(review_id,inventory_ledger_id,recorded_by,receipt) VALUES($1,$2,$3,$4)',
         [id,ledgerId,actor,JSON.stringify(receipt)]);
-      return receipt;
+      return this.dispositionForActor(canReadReturn,receipt);
     });
   }
 
   async preview(idInput:string,fileId:string,context:Context) {
     const id=sourceUuid(idInput,'历史核认单');
     const [row]=await this.db.query('SELECT * FROM md_egg_history_reviews WHERE id=$1',[id]);
-    if (!row || !row.payload.evidenceIds.includes(fileId)) throw new NotFoundException('附件不属于该历史核认单');
+    const frozen=row?.payload.attachments?.find((item:{file_id:string;checksum:string})=>item.file_id===fileId);
+    if (!frozen) throw new NotFoundException('附件不属于该历史核认单');
     const owner=await readEggSourceOwner(this.db.manager,row.house_code);
     this.authorize(context,owner,row.payload.warehouse);
     if (row.company_code!==owner.companyCode || row.farm_code!==owner.farmCode || row.site_code!==owner.siteCode) {
       throw new ConflictException('原核认单的组织归属已变化');
     }
     return this.files.openProtectedFile(fileId,{moduleCode:'PRODUCTION_INBOUND',ownerType:'HOUSE',ownerId:owner.houseCode,
-      companyCode:owner.companyCode,storeCode:owner.siteCode,requiredMenu:'MENU_PROD_INBOUND'},'preview');
+      companyCode:owner.companyCode,storeCode:owner.siteCode,requiredMenu:'MENU_PROD_INBOUND',expectedChecksum:frozen.checksum},'preview');
   }
 
-  private canViewOriginal(context:Context,type:string) {
-    return intake.includes(type) || (type===Ledger.SALE_OUTBOUND
-      ? hasPerm(context.permissions,'MENU_WMS_OUTBOUND','V')
-      : hasPerm(context.permissions,'MENU_SALES2_DELIVERY','V') || hasPerm(context.permissions,'MENU_SALES2_ORDER','V'));
+  private dispositionForActor(canReadReturn:boolean,receipt:HistoryDisposition) {
+    return receipt.kind==='POSTED_SALES_RETURN' && !canReadReturn
+      ? {kind:receipt.kind,restricted:true} : receipt;
+  }
+
+  private async canViewOriginal(context:Context,menu:string,company:string,warehouse:string) {
+    const user=context.user;
+    if (!user?.userId || !hasPerm(user.permissions,menu,'V')) return false;
+    const rawRoles=user.roles ?? (user.role?[user.role]:[]);
+    const scope=await this.dataScopes.resolve(String(user.userId),rawRoles,menu,user.perms_version);
+    return scope.isGlobal || (scope.allowedCompanyCodes.includes(company) && scope.allowedWarehouseCodes.includes(warehouse));
   }
 
   private evidenceDigest(evidence:Awaited<ReturnType<EggHistoryReviewService['evidence']>>,selected:HistoryLedger) {
@@ -243,10 +262,16 @@ export class EggHistoryReviewService {
       && snapshots.length <= 1 && (!snapshots.length || snapshots[0].houseCode === owner.houseCode)
       && (await m.query(`SELECT vet_egg_old_temp_flock(b) AS flock FROM inv_batches b WHERE b.batch_no=$1`,[batchNo]))[0]?.flock;
     if (!local.length && !legacy) throw new ConflictException('无法证明原批与该舍产蛋日期的关系');
-    const ledger:HistoryLedger[] = await m.query(`SELECT l.id::text,l.ref_no,l.change_type,l.qty_change::text
+    const ledger:HistoryLedger[] = await m.query(`SELECT l.id::text,l.ref_no,l.change_type,l.qty_change::text,
+      CASE WHEN l.change_type='SALE_OUTBOUND' THEN 'MENU_WMS_OUTBOUND'
+        WHEN l.change_type='FIFO_OUT' AND EXISTS(SELECT 1 FROM sal_order_item_batch_allocation_actions a
+          JOIN sal_delivery_orders d ON d.id=a.delivery_order_id
+          WHERE a.ledger_id=l.id AND a.action_type='OUTBOUND' AND d.delivery_no=l.ref_no
+            AND d.company_code=l.company_code AND d.fulfillment_warehouse_code=l.warehouse_code)
+        THEN 'MENU_SALES2_DELIVERY' END AS original_module
       FROM inv_ledger l WHERE l.batch_no=$1 AND l.company_code=$2 AND l.warehouse_code=$3 AND
       ((l.change_type=ANY($4::text[]) AND l.qty_change>0 AND (
-        (l.change_type='PRODUCTION_INBOUND' AND EXISTS(SELECT 1 FROM production_inbound_lines item
+        (l.change_type IN ('PRODUCTION_INBOUND','TEMP_PRODUCTION_INBOUND') AND EXISTS(SELECT 1 FROM production_inbound_lines item
           JOIN production_inbound_documents doc ON doc.id=item.document_id
           WHERE item.inventory_ledger_id=l.id AND item.batch_no=l.batch_no AND item.warehouse_code=l.warehouse_code
             AND item.quantity=l.qty_change AND item.sku_code=l.sku_code AND doc.company_code=l.company_code
@@ -256,14 +281,20 @@ export class EggHistoryReviewService {
           CROSS JOIN LATERAL jsonb_array_elements(e.payload->'groups') g
           WHERE p.code=l.ref_no AND NOT p.is_test AND g->>'ledgerId'=l.id::text AND g->>'batchNo'=l.batch_no
             AND g->>'skuCode'=l.sku_code AND g->>'companyCode'=l.company_code AND g->>'warehouseCode'=l.warehouse_code
-            AND g->>'qty'=l.qty_change::text))
+            AND CASE WHEN jsonb_typeof(g->'qty')='number' THEN (g->>'qty')::numeric=l.qty_change ELSE false END))
         OR (l.change_type IN ('TEMP_PRODUCTION_INBOUND','FARM_IN') AND $7::boolean AND
           EXISTS(SELECT 1 FROM inv_batches b WHERE b.batch_no=l.batch_no AND b.source_type='TEMP_PRODUCTION'
             AND b.sku_code IS NOT DISTINCT FROM l.sku_code AND b.source_no=l.ref_no
+            AND NOT EXISTS(SELECT 1 FROM production_inbound_lines formal WHERE formal.batch_no=l.batch_no)
             AND (SELECT count(*) FROM inv_ledger source WHERE source.batch_no=l.batch_no
               AND source.change_type IN ('TEMP_PRODUCTION_INBOUND','FARM_IN') AND source.qty_change>0)=1))
-        OR (l.change_type='TEMP_PRODUCTION_INBOUND' AND $8::boolean AND
-          EXISTS(SELECT 1 FROM inv_flock_source_links linked JOIN brd_egg_source_receipts source
+        OR (l.change_type='TEMP_PRODUCTION_INBOUND' AND $8::boolean
+          AND NOT EXISTS(SELECT 1 FROM production_inbound_lines formal WHERE formal.batch_no=l.batch_no)
+          AND EXISTS(SELECT 1 FROM inv_batches b WHERE b.batch_no=l.batch_no AND b.source_type='TEMP_PRODUCTION'
+            AND b.source_no=l.ref_no AND b.sku_code IS NOT DISTINCT FROM l.sku_code)
+          AND (SELECT count(*) FROM inv_ledger source WHERE source.batch_no=l.batch_no
+            AND source.change_type='TEMP_PRODUCTION_INBOUND' AND source.qty_change>0)=1
+          AND EXISTS(SELECT 1 FROM inv_flock_source_links linked JOIN brd_egg_source_receipts source
             ON source.company_code=linked.company_code AND source.daily_log_id=linked.daily_log_id AND source.source_key=linked.source_key
             WHERE source.company_code=l.company_code AND source.production_date=$10 AND source.house_code=$9
               AND linked.batch_no=l.batch_no AND linked.origin_batch_no=l.batch_no))

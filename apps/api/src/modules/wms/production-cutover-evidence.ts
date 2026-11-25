@@ -89,7 +89,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
   const lineage:Record<string,Record<string,unknown>[]>={};
   async function packagingFor(tokens:string[]) {
     const sources=await rows('pkg_source_batches',`to_jsonb(f)->>'batch_code'=ANY($1::text[]) OR to_jsonb(f)->>'source_inbound_no'=ANY($1::text[])
-      OR to_jsonb(f)->>'house_code'=ANY($2::text[])`,[tokens,houses]);
+      OR to_jsonb(f)->>'house_code'=ANY($2::text[])`,[tokens,options.targetProductOnly?[]:houses]);
     const gradingLinks=await rows('pkg_grading_source_links',"to_jsonb(f)->>'source_batch_id'=ANY($1::text[])",[sources.map(f=>String(f.id))]);
     const grading=await rows('pkg_grading_records',"to_jsonb(f)->>'id'=ANY($1::text[])",[gradingLinks.map(f=>String(f.grading_id))]);
     const packing=await rows('pkg_packing_records',`to_jsonb(f)->>'code'=ANY($2::text[]) OR to_jsonb(f)->>'grading_code'=ANY($1::text[]) OR EXISTS(
@@ -97,7 +97,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
     return {sources,gradingLinks,grading,packing};
   }
   let packaging=await packagingFor([...byBatch.keys()]);
-  let processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
+  let processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns,!!options.targetProductOnly);
   let expanded=true;
   while(expanded){expanded=false;const tokens=[...byBatch.keys()].sort();
     for(const [table,parent,child] of edges){
@@ -114,7 +114,7 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
       const outputs=await rows('inv_batches',"to_jsonb(f)->>'packaging_batch_ref'=ANY($1::text[])",[packaging.packing.map(f=>String(f.code))]);
       for(const output of outputs)if(addBatch(output))expanded=true;
     }
-    processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
+    processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns,!!options.targetProductOnly);
     const processingBatches=processing.stockBatchNos.filter(no=>!byBatch.has(no)&&!foreignByBatch.has(no));
     if(processingBatches.length){
       const actual=await rows('inv_batches','f.batch_no=ANY($1::text[])',[processingBatches]);

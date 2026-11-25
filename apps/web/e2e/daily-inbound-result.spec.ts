@@ -288,7 +288,7 @@ for (const routeRoot of ['/breeding','/mobile']) test(`formal inbound follows th
   await expect(page.getByText(/来源档案生效期重叠/).first()).toBeVisible();
   await expect(page.getByText('红壳蛋',{exact:false})).toHaveCount(0);
   await page.getByLabel('鸡舍',{exact:true}).selectOption('FIXTURE-H2');
-  await expect(page.getByText(/普通分级.*STANDARD/)).toBeVisible();
+  await expect(page.getByText(/来源档案：普通蛋/)).toBeVisible();
   expect(lastQuery?.get('companyCode')).toBe('FIXTURE-OTHER');
   await expect(grade).toHaveCount(0);
 });

@@ -908,6 +908,8 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     expect(snapshots).toHaveLength(2);
     const oldStock=await apiDb.query("SELECT batch_no,qty FROM inv_batches WHERE warehouse_code='WH-A2' ORDER BY batch_no");
     expect(oldStock).toHaveLength(1);
+    await apiDb.query(`INSERT INTO pkg_source_batches(id,house_code,flock_code,received_qty,production_date,lay_date,is_test)
+      VALUES(70007,'HOUSE-A3','FLOCK-A3',5,'2026-11-10','2026-11-10',false)`);
     let targetDomain:Record<string,any>|null=null;
     for(const original of snapshots){
       const mode=targetDomain?'ATTACH':'INIT';
@@ -917,6 +919,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
         ...(targetDomain?{domainId:targetDomain.id,domainVersion:targetDomain.version,openingReceiptId:targetDomain.opening_receipt_id}:{})};
       const {document}=await approvedCount(original.house_code,{warehouse:'WH-A2',products:['PRD-PINK-EXT'],extension:configured,
         firstProductionDate:original.first_production_date});
+      expect(document.snapshot.packaging.sources).toEqual([]);
       const q=await holdExecutor();
       try{
         const admission=await issue(q,document,mode,'3');

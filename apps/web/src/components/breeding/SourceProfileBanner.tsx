@@ -15,7 +15,7 @@ export function SourceProfileBanner({ profile, loading, error, houseCode, style,
 }) {
   const { t } = useLanguage();
   const {canView}=usePermission('MENU_MD_PRODUCT');
-  const link=canView?<Link href={'/master-data/egg-sources?'+new URLSearchParams({houseCode})}>
+  const link=canView?<Link href={{pathname:'/master-data/egg-sources', query:{houseCode}}}>
     {t('eggSources.title','蛋品来源档案')}</Link>:null;
   if (!houseCode) return null;
   const base: CSSProperties = {

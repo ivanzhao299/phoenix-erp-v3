@@ -126,7 +126,7 @@ export default function EggSourcesPage() {
           <th>{t('eggSources.end','到期日')}</th><th>{t('eggSources.status','状态')}</th>
         </tr></thead><tbody>{timeline.profiles.map(profile=><tr key={profile.profile_code}>
           <td>{label(profile.shellClass)}</td><td>{profile.effective_date}</td><td>{profile.expire_date||'—'}</td>
-          <td>{t('eggSources.status.'+profile.status,profile.status)}</td>
+          <td>{t(`eggSources.status.${profile.status}`,profile.status)}</td>
         </tr>)}</tbody></table></div></>}
     </section>}
     {timeline&&permission.canEdit&&<form className={s.card} onSubmit={submit}>
@@ -142,7 +142,7 @@ export default function EggSourcesPage() {
         <label className={s.field}>{t('eggSources.changeDoc','关联入栏或转舍计划（可选）')}
           <select value={planDocument} onChange={event=>{setPlanDocument(event.target.value);setPreview(null);}}>
             <option value="">{t('eggSources.noPlan','本次未关联入栏或转舍计划')}</option>
-            {planOptions.map(plan=><option key={plan.id} value={plan.id}>{plan.flock_no} · {t('eggSources.plan.'+plan.kind,plan.kind)} · {t('eggSources.status.'+plan.status,plan.status)}</option>)}
+            {planOptions.map(plan=><option key={plan.id} value={plan.id}>{plan.flock_no} · {t(`eggSources.plan.${plan.kind}`,plan.kind)} · {t(`eggSources.status.${plan.status}`,plan.status)}</option>)}
           </select>
         </label>
       </div>
@@ -175,7 +175,7 @@ export default function EggSourcesPage() {
     {timeline&&<section className={s.card}>
       <h2>{t('eggSources.changes','来源变更申请')}</h2>
       {timeline.changes.map(change=><div className={s.card} key={change.id}>
-        <p>{change.effective_date} · {label(change.target_class)} · {change.payload.warehouseCode} · {t('eggSources.status.'+change.state,change.state)}</p>
+        <p>{change.effective_date} · {label(change.target_class)} · {change.payload.warehouseCode} · {t(`eggSources.status.${change.state}`,change.state)}</p>
         <p>{change.payload.reason}</p>
         {change.approval?.snapshot&&<ul>{change.approval.snapshot.items.map(item=>
           <li key={item.skuCode}>{item.productCode} · {item.gradeCode} · {item.specCode} · {item.skuCode}</li>)}</ul>}
