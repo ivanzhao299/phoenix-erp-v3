@@ -1,4 +1,7 @@
 {
+  "mob.brd.reportZero": "Confirm zero eggs for this shift",
+  "mob.brd.saveUnverified": "Submission pending verification",
+  "common.loginRequired": "Sign in again",
   "ui.legacyFeedGuide": "This ledger shows manually entered receipts, issues and stock. Use the warehouse actions to post transactions, or edit this ledger and save your changes.",
   "ui.feedPilotReadOnly": "The new ledger is available for review at this farm.",
   "ui.feedRolloutUnavailable": "Could not determine which feed ledger is enabled.",

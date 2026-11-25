@@ -19,8 +19,7 @@ import { buildEgglogPayload } from '@/lib/egglog-payload';
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 }
 function shiftDays(s: string, n: number) {
   const [y, m, d] = s.split('-').map(Number);
@@ -97,7 +96,7 @@ function HouseCard({
   flock_no: string;
   entry: HouseEntry;
   onChange: (e: HouseEntry) => void;
-  existing: number;
+  existing?: number;
 }) {
   const {
     t
@@ -106,7 +105,7 @@ function HouseCard({
   const [open, setOpen] = useState(false);
   const hasQuality = entry.dirty > 0 || entry.broken > 0;
   const hasEnv = entry.temp !== '' || entry.humidity !== '';
-  const dirty = entry.eggs !== existing;
+  const dirty = entry.eggs !== (existing ?? 0);
   return <div style={{
     background: dirty ? 'var(--status-warning-bg-faint)' : t.cardBg,
     border: `1px solid ${dirty ? 'var(--status-warning-bg-strong)' : t.cardBorder}`,
@@ -147,7 +146,7 @@ function HouseCard({
           fontWeight: 600,
           color: t.text
         }}>{flock_no || house}</div>
-          {existing > 0 && <div style={{
+          {existing !== undefined && <div style={{
           fontSize: 11,
           color: t.textFaint
         }}>
@@ -327,6 +326,14 @@ export default function EggLogPage() {
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
   const [entries, setEntries] = useState<Record<string, HouseEntry>>({});
   const [existing, setExisting] = useState<Record<string, number>>({});
+  const [drafts, setDrafts] = useState<Record<string, Record<string, { entry: HouseEntry; reportZero: boolean }>>>({});
+  const scope = JSON.stringify([user?.userId ?? user?.username, date, shift]);
+  const activeDrafts = drafts[scope] ?? {};
+  const [loadedScope, setLoadedScope] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
+  const generation = useRef(0);
+  const submitting = useRef(false);
+  const [confirmation, setConfirmation] = useState<{ scope: string; houses: string[] }>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -353,12 +360,16 @@ export default function EggLogPage() {
   }, [loadFlocks]);
 
   // Load existing logs for date+shift
-  const loadExisting = useCallback(async (d: string, s: string) => {
+  const loadExisting = useCallback(async (d: string, s: string, keyScope: string) => {
+    const id = ++generation.current;
+    setLoadedScope('');
+    setLoadFailed(false);
     setLoading(true);
     setSaved(false);
     setError('');
     try {
       const res = await mobileApi.getFarmLogs(d);
+      if (id !== generation.current) return;
       const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
       const filtered = arr.filter((r: any) => !s || r.shift === s || !r.shift);
       const existMap: Record<string, number> = {};
@@ -378,61 +389,83 @@ export default function EggLogPage() {
       }
       setExisting(existMap);
       setEntries(entryMap);
+      setLoadedScope(keyScope);
     } catch {
+      if (id !== generation.current) return;
       setEntries({});
       setExisting({});
+      setLoadFailed(true);
     } finally {
-      lastLogLoadedAtRef.current = Date.now();
-      setLoading(false);
+      if (id === generation.current) {
+        lastLogLoadedAtRef.current = Date.now();
+        setLoading(false);
+      }
     }
   }, []);
   useEffect(() => {
-    loadExisting(date, shift);
-  }, [date, shift, loadExisting]);
+    loadExisting(date, shift, scope);
+    const invalidate = () => { generation.current++; };
+    return invalidate;
+  }, [date, shift, scope, loadExisting]);
   useEffect(() => registerEgglogVisibilityRefresh({
     refreshFlocks: loadFlocks,
-    refreshLogs: () => loadExisting(date, shift),
+    refreshLogs: () => submitting.current ? Promise.resolve() : loadExisting(date, shift, scope),
     getLastLogLoadedAt: () => lastLogLoadedAtRef.current,
-  }), [date, shift, loadExisting, loadFlocks]);
-  const {
-    pullHandlers
-  } = usePullToRefresh(() => Promise.all([loadExisting(date, shift), loadFlocks()]));
+  }), [date, shift, scope, loadExisting, loadFlocks]);
+  const { pullHandlers } = usePullToRefresh(() => submitting.current
+    ? Promise.resolve()
+    : Promise.all([loadExisting(date, shift, scope), loadFlocks()]));
   if (permLoading) return <MobilePageSkeleton title={tr('mob.brd.egg_entry', '产蛋录入')} onBack={() => router.back()} />;
   if (!allowed) return null;
-  const getEntry = (house: string) => entries[house] ?? emptyEntry();
-  const totalEggs = flocks.reduce((sum, f) => {
-    const key = f.house_code || f.flock_no;
-    return sum + (getEntry(key).eggs || 0);
-  }, 0);
+  const getEntry = (house: string) => activeDrafts[house]?.entry ?? (loadedScope === scope ? entries[house] : undefined) ?? emptyEntry();
+  const hasQuantity = (entry: HouseEntry) => entry.eggs > 0 || entry.dirty > 0 || entry.broken > 0;
+  const totalEggs = flocks.reduce((sum, flock) => sum + getEntry(flock.house_code || flock.flock_no).eggs, 0);
+  const toSave = flocks.filter(flock => {
+    const key = flock.house_code || flock.flock_no;
+    const draft = activeDrafts[key];
+    return draft && (draft.reportZero || hasQuantity(draft.entry));
+  });
+  const canSend = !readonly && !saving && !loading && loadedScope === scope && toSave.length > 0;
+
+  function changeDraft(house: string, entry: HouseEntry, reportZero: boolean) {
+    setDrafts(all => ({ ...all, [scope]: { ...all[scope], [house]: { entry, reportZero } } }));
+  }
+
   const handleSubmit = async () => {
-    const toSave = flocks.filter(f => {
-      const key = f.house_code || f.flock_no;
-      const e = getEntry(key);
-      return e.eggs > 0 || e.dirty > 0 || e.broken > 0;
-    });
-    if (toSave.length === 0) {
-      setError(tr('mob.brd.no_data_to_submit', '没有需要提交的数据'));
-      return;
-    }
+    if (!canSend || submitting.current) return;
+    submitting.current = true;
     setSaving(true);
     setError('');
-    const operator = user?.name || user?.username || 'SYS';
+    setSaved(false);
+    const token = sessionStorage.getItem('phoenix_token');
     const errors: string[] = [];
-    for (const f of toSave) {
-      const key = f.house_code || f.flock_no;
-      const e = getEntry(key);
+    const confirmed: string[] = [];
+    for (const flock of toSave) {
+      const key = flock.house_code || flock.flock_no;
+      const entry = activeDrafts[key].entry;
       try {
-        await mobileApi.submitDailyLog(buildEgglogPayload(e, {
-          house_code: f.house_code || key,
-          flock_no: f.flock_no,
-          log_date: date,
-          shift,
-          operator
+        if (sessionStorage.getItem('phoenix_token') !== token) throw new Error(tr('common.loginRequired', '请重新登录'));
+        await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
+          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift,
         }));
-      } catch (err: any) {
-        errors.push(`${key}: ${err?.message || tr('mob.brd.failed', '失败')}`);
+        confirmed.push(key);
+        setExisting(old => ({ ...old, [key]: entry.eggs }));
+        setEntries(old => ({ ...old, [key]: entry }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        const uncertain = error instanceof TypeError || /^HTTP 5\d\d$/.test(message);
+        errors.push(`${key} · ${uncertain ? tr('mob.brd.saveUnverified', '提交结果待核') : tr('mob.brd.failed', '失败')} ${message}`);
       }
     }
+    if (confirmed.length) {
+      setDrafts(all => {
+        const remaining = { ...all[scope] };
+        for (const key of confirmed) delete remaining[key];
+        return { ...all, [scope]: remaining };
+      });
+      setConfirmation({ scope, houses: confirmed });
+    }
+    submitting.current = false;
     setSaving(false);
     if (errors.length > 0) {
       haptic('error');
@@ -441,7 +474,6 @@ export default function EggLogPage() {
       haptic('success');
       toast.success(tr('mob.brd.egg_report_submit_ok', '产蛋日报提交成功'));
       setSaved(true);
-      await loadExisting(date, shift);
     }
   };
   return <div style={{
@@ -519,7 +551,7 @@ export default function EggLogPage() {
         justifyContent: 'center',
         gap: 12
       }}>
-          <button onClick={() => setDate(d => shiftDays(d, -1))} style={{
+          <button disabled={saving} onClick={() => setDate(d => shiftDays(d, -1))} style={{
           background: t.btnBg,
           border: `1px solid ${t.btnBorder}`,
           borderRadius: 8,
@@ -540,7 +572,7 @@ export default function EggLogPage() {
           </span>
           <button onClick={() => {
           if (date < todayStr()) setDate(d => shiftDays(d, 1));
-        }} disabled={date >= todayStr()} style={{
+        }} disabled={saving || date >= todayStr()} style={{
           background: t.btnBg,
           border: `1px solid ${t.btnBorder}`,
           borderRadius: 8,
@@ -558,7 +590,7 @@ export default function EggLogPage() {
         gap: 8,
         justifyContent: 'center'
       }}>
-          {SHIFTS.map(s => <button key={s.key} onClick={() => setShift(s.key)} style={{
+          {SHIFTS.map(s => <button key={s.key} disabled={saving} onClick={() => setShift(s.key)} style={{
           padding: '6px 20px',
           borderRadius: 20,
           border: `1px solid ${shift === s.key ? 'var(--status-warning)' : t.inputBorder}`,
@@ -589,13 +621,26 @@ export default function EggLogPage() {
             {tr('mob.brd.loading', '加载中…')}
           </div> : flocks.length === 0 ? <MobileEmptyState icon="🥚" title={tr('mob.brd.no_egg_data', '暂无产蛋数据')} desc={tr('mob.brd.no_record_today', '今日还没有记录')} /> : flocks.map(f => {
         const key = f.house_code || f.flock_no;
-        return <HouseCard key={key} house={f.house_code || key} flock_no={f.flock_no} entry={getEntry(key)} onChange={e => setEntries(prev => ({
-          ...prev,
-          [key]: e
-        }))} existing={existing[key] ?? 0} />;
+        const entry = getEntry(key);
+        return <fieldset key={key} disabled={saving || readonly || loadedScope !== scope} style={{ display: 'contents' }}>
+          <HouseCard house={f.house_code || key} flock_no={f.flock_no} entry={entry}
+            onChange={next => changeDraft(key, next, hasQuantity(next) ? false : activeDrafts[key]?.reportZero ?? false)}
+            existing={loadedScope === scope ? existing[key] : undefined} />
+          {!hasQuantity(entry) && <label>
+            <input type="checkbox" checked={activeDrafts[key]?.reportZero ?? false}
+              onChange={event => changeDraft(key, entry, event.target.checked)} />
+            {tr('mob.brd.reportZero', '本班确认零产蛋')}
+          </label>}
+        </fieldset>;
       })}
 
-        {error && <div style={{
+        {loadFailed && <p role="alert">{tr('ui.读取日报历史失败', '读取日报历史失败')} ·
+          <button type="button" onClick={() => void loadExisting(date, shift, scope)}>{tr('common.retry', '重试')}</button>
+        </p>}
+        {confirmation?.scope === scope && confirmation.houses.length > 0 && !saved && <p role="status">
+          {tr('mob.brd.recorded', '已录')} · {confirmation.houses.join('、')}
+        </p>}
+        {error && <div role="alert" style={{
         margin: '8px 0',
         padding: '12px 14px',
         borderRadius: 10,
@@ -634,14 +679,14 @@ export default function EggLogPage() {
       backdropFilter: 'blur(20px)',
       borderTop: `1px solid ${t.cardBorder}`
     }}>
-        <button onClick={handleSubmit} disabled={saving || totalEggs === 0} style={{
+        <button onClick={handleSubmit} disabled={!canSend} style={{
         width: '100%',
         height: 52,
         borderRadius: 14,
-        background: saving || totalEggs === 0 ? t.btnBg : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
+        background: !canSend ? t.btnBg : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
         border: 'none',
-        cursor: saving || totalEggs === 0 ? 'default' : 'pointer',
-        color: saving || totalEggs === 0 ? t.textFaint : 'white',
+        cursor: !canSend ? 'default' : 'pointer',
+        color: !canSend ? t.textFaint : 'white',
         fontSize: 16,
         fontWeight: 700,
         display: 'flex',
