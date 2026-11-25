@@ -260,6 +260,17 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect(await db.query('SELECT * FROM inv_ledger')).toEqual([]);
   });
 
+  it('marks a defects-only legacy report as missing grades for warehouse handover', async () => {
+    const date = '2026-10-17';
+    await db.query(`ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text;
+      INSERT INTO brd_daily_logs
+        (house_code, farm_code, company_code, log_date, shift, eggs_produced, dirty_eggs, eggs_by_grade, production_input_kind)
+      VALUES ('HOUSE-A', 'LPH_FARM_A', 'COMP-A', '2026-10-17', '早班', 0, 3, '{}', 'LEGACY_MOBILE_SUMMARY')`);
+    const breakdown = await request(app.getHttpServer()).get('/api/v3/farm/daily-logs/eggs-breakdown')
+      .query({ date, houseCode: 'HOUSE-A' }).auth(token(40105), { type: 'bearer' }).expect(200);
+    expect(breakdown.body).toMatchObject({ logs: 1, reportedEggs: 0, missingBreakdownLogs: 1, total: 0 });
+  });
+
   it('production archives count and find records beyond the old 100-row cutoff within the role scope', async () => {
     await db.query(`CREATE TABLE IF NOT EXISTS sys_dict (
         dict_type text,dict_code text,status text,dict_label_zh text,dict_label_en text,dict_label_lo text);
@@ -292,6 +303,13 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       await db.query("UPDATE brd_flocks SET current_qty=1 WHERE flock_no='ARCHIVE-101'");
       const conflict = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
       expect(conflict.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: null, archive_normal: false })]);
+      await db.query("UPDATE brd_flocks SET farm_code=NULL WHERE flock_no='ARCHIVE-101'");
+      const orphan = await get(40105, 'flocks', { search: 'ARCHIVE-101' }).expect(200);
+      expect(orphan.body.items).toEqual([expect.objectContaining({ flock_no: 'ARCHIVE-101', company_code: null })]);
+      const scoped = await get(40101, 'flocks', { search: 'ARCHIVE-101' }).expect(200);
+      expect(scoped.body.items).toEqual([]);
+      const unresolved = await get(40105, 'houses', { search: 'HOUSE-A', farmCode: 'LPH_FARM_A' }).expect(200);
+      expect(unresolved.body.items).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', archive_birds: null, archive_normal: false })]);
     } finally {
       await db.query(`DELETE FROM brd_flocks WHERE flock_no LIKE 'ARCHIVE-%';
         DELETE FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code='ARCHIVE-BREED';
