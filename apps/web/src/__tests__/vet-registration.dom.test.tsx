@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/api-client', () => ({ farmProductionApi:api }));
 vi.mock('@/hooks/usePermission', () => ({usePermission:()=>({canCreate:true,canEdit:true})}));
+vi.mock('@/contexts/DialogContext', () => ({useDialog:()=>({showConfirm:async()=>true})}));
 vi.mock('@/contexts/ToastContext', () => ({useToast:()=>({success:vi.fn(),error:vi.fn()})}));
 vi.mock('@/contexts/LanguageContext', () => {
   const t = (_key:string,label:string)=>label;

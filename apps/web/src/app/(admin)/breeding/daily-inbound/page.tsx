@@ -28,13 +28,16 @@ import u from "@/styles/uix-utils.module.css";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B 全局表格
 
 function today() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 }
 export default function DailyInboundPage() {
   const {user}=usePermission('MENU_PROD_INBOUND');
   return <DailyInboundForm key={String(user.userId??user.id??user.username??'')} />;
 }
+type ArrivalAvailability = ProductionInboundAvailability & {
+  priorInbound?: { batchNo: string; warehouseCode: string; locationCode: string; originalQty: number | null; currentQty: number }[];
+};
+
 function DailyInboundForm() {
   const { t } = useLanguage();
   const {
@@ -60,12 +63,12 @@ function DailyInboundForm() {
   const { profile: sourceProfile, loading: sourceProfileLoading, error: profileError } = useEggSourceProfile(houseCode, eggDate, companyCode, scopeRevision);
   const varietyShort = varietyShortLabel(sourceProfile);
   const rangeKey=JSON.stringify([companyCode,siteCode,houseCode,eggDate,scopeRevision]);
-  const [checkedScope,setCheckedScope]=useState<{key:string;value:ProductionInboundAvailability|null}|null>(null);
+  const [checkedScope,setCheckedScope]=useState<{key:string;value:ArrivalAvailability|null}|null>(null);
   const prefillGeneration=useRef(0), submitting=useRef(false);
   useEffect(()=>{
     if(!canView||!companyCode||!houseCode||!eggDate)return;
     const controller=new AbortController();
-    request<ProductionInboundAvailability>(`/v2/inventory/production-inbound/availability?${new URLSearchParams({houseCode})}`,{signal:controller.signal,silent:true})
+    request<ArrivalAvailability>(`/v2/inventory/production-inbound/availability?${new URLSearchParams({houseCode,eggDate})}`,{signal:controller.signal,silent:true})
       .then(value=>{
         if(controller.signal.aborted)return;
         const matches=value.houseCode===houseCode&&value.companyCode===companyCode&&value.siteCode===(siteCode||null);
@@ -78,13 +81,15 @@ function DailyInboundForm() {
   const loadingMode=!!companyCode&&!!houseCode&&!!eggDate&&checkedScope?.key!==rangeKey;
   const requiresFormal=scope?.state==='ACTIVE'||scope?.state==='SUSPENDED'||scope?.state==='FENCED';
   const isPackagingMode=scope?.state==='OFF'&&scope.mode==='PACKAGING_INBOUND';
-  const eligible=scope?.state==='OFF'&&scope.mode==='TEMP_PRODUCTION_INBOUND';
+  const priorInbound = scope?.priorInbound ?? [];
+  const eligible=scope?.state==='OFF'&&scope.mode==='TEMP_PRODUCTION_INBOUND'&&priorInbound.length===0;
   const archiveDate=requiresFormal&&scope.firstProductionDate&&eggDate<scope.firstProductionDate;
   const modeBasis=scope?.modeScope ? `${t('inventorySource.effectiveForHouse','该鸡舍生效模式')} · ${scope.houseCode} · ${scope.modeScope.code
     ? scope.modeScope.level+'/'+scope.modeScope.code : t('inventorySource.defaultMode','系统默认')}` : null;
   function blockedMessage(){
     if(!houseCode)return t('ui.请先选择鸡舍','请先选择鸡舍');
     if(loadingMode)return t('breeding.loadingSourceMode','加载库存来源模式...');
+    if(priorInbound.length)return t('breeding.legacyInboundExists', '本舍日已有旧入库，请核对原回执和当前实存。');
     if(scope?.state==='FENCED')return t('productionJobs.fenced');
     if(archiveDate)return t('productionJobs.archived');
     if(scope?.state==='SUSPENDED')return t('productionInstallments.suspended');
@@ -217,6 +222,14 @@ function DailyInboundForm() {
       <PageHeader title={t('breeding.inboundTitle', '日产蛋入库')} subtitle={t('breeding.inboundSubtitle', '临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）')} breadcrumb={[t('breeding.prodMgmt', '生产管理'), t('breeding.inboundTitle', '日产蛋入库')]} />
 
       <p><Link href="/breeding/production-inbound">{t('productionInstallments.title','正式分次生产入库')}</Link></p>
+      {priorInbound.length > 0 && <section aria-label={t('productionInstallments.postedReceipt', '原过账回执')}>
+        <ul>{priorInbound.map(batch => <li key={batch.batchNo}>
+          <strong>{batch.batchNo}</strong> · {batch.warehouseCode} / {batch.locationCode}
+          {' · '}{t('productionInstallments.original', '原单数量')} {batch.originalQty ?? t('productionJobs.unknown', '待核')}
+          {' · '}{t('productionInstallments.current', '当前实存')} {batch.currentQty}
+        </li>)}</ul>
+        <Link href="/breeding/daily-inbound-ledger">{t('breeding.inboundLedger', '查看入库台账')}</Link>
+      </section>}
       {/* 模式状态条 */}
       {!isPackagingMode&&!eligible ? <p role="status">{blockedMessage()}</p> : isPackagingMode ? <div style={{
       display: "flex",

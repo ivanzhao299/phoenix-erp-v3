@@ -161,6 +161,17 @@ const ALLOWED_DAILY_COLS = new Set([
   'occupancy_id', 'site_code', 'company_code', 'project_code',  // MDM-1 主数据回填
 ]);
 
+// Old handhelds send a saleable total and exactly the two observed defect counts.
+function isLegacyMobileSummary(input: Record<string, unknown>): boolean {
+  const grades = input.eggs_by_grade;
+  if (!grades || typeof grades !== 'object' || Array.isArray(grades)) return false;
+  const values = grades as Record<string, unknown>;
+  return ['早班', '晚班'].includes(String(input.shift))
+    && typeof input.eggs_produced === 'number' && Object.keys(values).length === 2
+    && typeof values.DIRTY === 'number' && typeof values.BROKEN === 'number'
+    && input.dirty_eggs === values.DIRTY && input.broken_eggs === values.BROKEN;
+}
+
 const MISSING_HOUSE_MESSAGE = '请先选择鸡舍后再提交';
 
 export function hasPositiveGradeBreakdown(value: unknown): boolean {
@@ -367,15 +378,15 @@ export class FarmService {
     }
   }
 
-  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
-    return this.saveDailyLog(body, scope);
+  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }, actor?: string) {
+    return this.saveDailyLog(body, scope, undefined, actor);
   }
 
-  async updateBreedingDailyLog(id: number, body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
-    return this.saveDailyLog(body, scope, id);
+  async updateBreedingDailyLog(id: number, body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }, actor?: string) {
+    return this.saveDailyLog(body, scope, id, actor);
   }
 
-  private async saveDailyLog(input: any, scope: OrgScope, id?: number) {
+  private async saveDailyLog(input: any, scope: OrgScope, id?: number, actor?: string) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BadRequestException(MISSING_HOUSE_MESSAGE);
     return this.entityManager.transaction(async manager => {
       // Read identity only, then acquire the same house -> flock -> report locks on both routes.
@@ -421,13 +432,40 @@ export class FarmService {
       }
       const body = { ...prior, ...input, ...owner, house_code: houseCode, flock_no: flock.flock_no,
         log_date: logDate, shift: prior?.shift ?? input.shift ?? 'DAILY', business_date: logDate };
+      if (actor !== undefined) body.operator = prior ? prior.operator : actor;
       delete body.updated_at; // Database timestamps cannot be supplied by a client.
       delete body.occupancy_id; // Source identity is resolved only by the server, never accepted from input/prior.
       // Normalise partial edits from persisted values, never treat an omitted count as zero.
       for (const field of ['mortality_qty','elimination_qty','eggs_produced']) {
         body[field] = birdCount(input[field] === null ? null : body[field] ?? 0, field);
       }
-      if (input.eggs_by_grade !== undefined) {
+      const legacySummary = isLegacyMobileSummary(input);
+      const priorSummary = prior?.production_input_kind === 'LEGACY_MOBILE_SUMMARY';
+      if (priorSummary && !legacySummary) {
+        throw new BadRequestException('旧手机汇总日报须以原口径录入，分级请办理独立更正');
+      }
+      if (legacySummary) {
+        const [schema] = await manager.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+        if (schema?.scopes && (await manager.query(`
+          SELECT id FROM production_cutover_scopes
+          WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' FOR SHARE`,
+          [house.companyCode, houseCode])).length) {
+          throw new BadRequestException('该鸡舍已进入正式切换，请使用正式生产日报');
+        }
+        // Summary rows carry explicit counters but no stock-producing allocations.
+        // Do not convert an existing classified report or pooled receipt in place.
+        if (flock.lifecycle_managed || (await manager.query(
+          "SELECT 1 FROM brd_daily_logs WHERE log_date=$1 AND house_code=$2 AND shift='DAILY' LIMIT 1",
+          [logDate, houseCode])).length) {
+          throw new BadRequestException('该舍已有正式占栏或全天日报，请核对原单及录入范围');
+        }
+        if (prior && !priorSummary) {
+          throw new BadRequestException('已有日报口径不同，请核对原单后办理更正');
+        }
+        body.dirty_eggs = birdCount(input.dirty_eggs, 'dirty_eggs');
+        body.broken_eggs = birdCount(input.broken_eggs, 'broken_eggs');
+        body.eggs_by_grade = JSON.stringify({});
+      } else if (input.eggs_by_grade !== undefined) {
         const grades = normalizeReportGrades(input.eggs_by_grade);
         const matchesConfirmed = prior?.occupancy_id && sameReportGrades(prior.eggs_by_grade, grades);
         if (!matchesConfirmed) {
@@ -479,6 +517,10 @@ export class FarmService {
       body.closing_qty = balance.closing;
       body.lay_rate = balance.closing == null ? null : balance.closing > 0 ? +(body.eggs_produced*100/balance.closing).toFixed(2) : 0;
       const { fields, values } = this.sanitize(body);
+      if (legacySummary) {
+        fields.push('production_input_kind');
+        values.push('LEGACY_MOBILE_SUMMARY');
+      }
       const updates = fields.filter(f => !['flock_no','log_date','house_code','shift'].includes(f))
         .map(f => `"${f}"=EXCLUDED."${f}"`).join(',');
       await manager.query(`INSERT INTO "brd_daily_logs" (${fields.map(f => `"${f}"`).join(',')})
@@ -494,7 +536,7 @@ export class FarmService {
       }
       let ledgerSkipped = false;
       const diff = body.eggs_produced - oldEggs;
-      if (!hasGrades && diff !== 0) {
+      if (!legacySummary && !hasGrades && diff !== 0) {
         // A legacy pooled batch cannot establish physical flock provenance. Keep the report and hold its posting.
         const [policy] = await manager.query("SELECT to_regprocedure('vet_egg_day_held(text,date)') AS withdrawal");
         if (policy?.withdrawal) {
@@ -666,13 +708,72 @@ export class FarmService {
     return reports.map((report:any)=>({...report,grade_status:storedGradeStatus(report.eggs_by_grade)}));
   }
 
+  async getProductionArchive(kind: 'houses' | 'flocks', query: Record<string, unknown>, scope: OrgScope) {
+    const page = Number(query.page ?? 1);
+    if (!Number.isSafeInteger(page) || page < 1 || page > 100000) throw new BadRequestException('页码无效');
+    const farm = String(query.farmCode ?? '').trim();
+    const status = String(query.status ?? '').trim();
+    const text = String(query.search ?? '').trim();
+    if ([farm, status, text].some(value => value.length > 100)) throw new BadRequestException('查询条件过长');
+    const params: unknown[] = [farm, status, '%' + text.replace(/[\\%_]/g, value => String.fromCharCode(92) + value) + '%', (page - 1) * 25];
+    const predicate = scopeWhere(scope, params, 'owner.') || 'TRUE';
+    const owners = `(SELECT farm_code, farm_name, company_code, mapped_site_code AS site_code,
+      to_jsonb(farm)->>'farm_name_zh' AS name_zh, to_jsonb(farm)->>'farm_name_en' AS name_en,
+      to_jsonb(farm)->>'farm_name_lo' AS name_lo FROM brd_farms farm)`;
+    const houseSearch = `h.house_code,h.house_name,to_jsonb(h)->>'house_name_zh',
+      to_jsonb(h)->>'house_name_en',to_jsonb(h)->>'house_name_lo',
+      owner.farm_code,owner.farm_name,owner.name_zh,owner.name_en,owner.name_lo`;
+    const house = kind === 'houses';
+    const source = house
+      ? `SELECT h.*, owner.farm_name AS scoped_farm_name, h.house_code AS archive_key,
+          CASE WHEN flock.count=0 THEN 0 WHEN flock.count=1 AND flock.conflicts=0 THEN flock.qty END AS archive_birds,
+          CASE WHEN flock.count=1 AND flock.conflicts=0 THEN flock.started END AS archive_start,
+          CASE WHEN flock.count=1 AND flock.conflicts=0 THEN flock.rate END AS archive_rate,
+          COALESCE(h.status='ACTIVE' AND flock.conflicts=0
+            AND (flock.count=0 OR (flock.count=1 AND flock.qty IS NOT NULL
+              AND (limit_qty.value IS NULL OR flock.qty <= limit_qty.value * 1.2))),false) AS archive_normal
+        FROM brd_houses h JOIN ${owners} owner ON owner.farm_code=h.farm_code
+        LEFT JOIN LATERAL (SELECT count(*) AS count,max(f.current_qty) AS qty,
+          count(*) FILTER (WHERE f.status IS NULL OR f.status NOT IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')) AS conflicts,
+          max(COALESCE(f.placement_date,f.start_date))::text AS started,max(f.current_lay_rate) AS rate
+          FROM brd_flocks f WHERE f.house_code=h.house_code AND f.farm_code=owner.farm_code
+          AND (f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING') OR COALESCE(f.current_qty,0)>0)) flock ON true
+        CROSS JOIN LATERAL (SELECT min(candidate) AS value FROM (VALUES (h.capacity),(h.max_capacity)) sizes(candidate)
+          WHERE candidate>0) limit_qty
+        WHERE ${predicate} AND ($1='' OR h.farm_code=$1) AND ($2='' OR h.status=$2)
+          AND concat_ws(' ',${houseSearch}) ILIKE $3`
+      : `SELECT f.*, f.flock_no AS archive_key, f.current_qty AS archive_birds, false AS archive_normal,
+          owner.company_code AS archive_company_code, owner.site_code AS archive_site_code
+        FROM brd_flocks f JOIN ${owners} owner ON owner.farm_code=f.farm_code
+        LEFT JOIN brd_houses h ON h.house_code=f.house_code AND h.farm_code=owner.farm_code
+        WHERE ${predicate} AND ($1='' OR f.farm_code=$1)
+          AND ($2='' OR f.status=$2 OR ($2='LAYING' AND f.status='ACTIVE'))
+          AND (concat_ws(' ',f.flock_no,f.house_code,to_jsonb(f)->>'farm_name',to_jsonb(f)->>'house_name',${houseSearch},
+            to_jsonb(f)->>'breed_code',to_jsonb(f)->>'breed_type',to_jsonb(f)->>'strain') ILIKE $3
+            OR EXISTS (SELECT 1 FROM sys_dict breed WHERE breed.dict_type='BRD_BREED' AND breed.status='ACTIVE'
+              AND breed.dict_code=to_jsonb(f)->>'breed_code'
+              AND concat_ws(' ',breed.dict_label_zh,breed.dict_label_en,breed.dict_label_lo) ILIKE $3))`;
+    const [result] = await this.entityManager.query(`WITH matches AS MATERIALIZED (${source}),
+      page_rows AS (SELECT * FROM matches ORDER BY archive_key LIMIT 25 OFFSET $4)
+      SELECT (SELECT COALESCE(jsonb_agg(to_jsonb(page_rows) ORDER BY archive_key),'[]'::jsonb) FROM page_rows) AS items,
+        count(*)::int AS total, COALESCE(sum(archive_birds),0)::numeric AS birds,
+        count(*) FILTER (WHERE archive_birds IS NULL)::int AS unknown,
+        count(*) FILTER (WHERE archive_normal)::int AS normal
+      FROM matches`, params);
+    const items = house ? result.items : (result.items as Array<Record<string, unknown>>).map(row => {
+      const { archive_company_code, archive_site_code, ...item } = row;
+      return { ...item, company_code: archive_company_code, site_code: archive_site_code };
+    });
+    return { ...result, items, birds: Number(result.birds), pageSize: 25 };
+  }
+
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)throw new BadRequestException('日报日期必须为真实YYYY-MM-DD');
     const businessToday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
     if(date>businessToday)throw new BadRequestException('未来日期没有实际存栏日报，请使用计划流程');
     const [schema]=await this.entityManager.query("SELECT to_regclass('brd_flock_balances') AS ledger");
     const flockParams:any[]=[date];const flockScope=scopeWhere(scope,flockParams,'owner.');
-    const legacy=await this.entityManager.query(`SELECT f.flock_no,f.house_code,h.house_name,f.current_qty,f.initial_qty,
+    const legacy=await this.entityManager.query(`SELECT f.flock_no,f.house_code,h.house_name,f.current_qty,f.initial_qty,owner.farm_code,
       COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status,
       (f.start_date IS NULL OR f.start_date<=$1::date) AS entry_candidate,
       f.start_date IS NOT NULL AND f.farm_code=h.farm_code AND f.status IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')
@@ -687,12 +788,14 @@ export class FarmService {
         ${flockScope?'AND '+flockScope:''} ORDER BY f.house_code`,flockParams);
     const managedParams:any[]=[date];const managedScope=scopeWhere(scope,managedParams,'o.');
     const managed=schema?.ledger?await this.entityManager.query(`SELECT f.flock_no,o.house_code,h.house_name,f.initial_qty,
-      COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status,o.id AS occupancy_id,
+      COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status,o.id AS occupancy_id,o.farm_code,
       (SELECT closing_qty FROM brd_flock_daily_balances d WHERE d.flock_no=f.flock_no AND d.balance_date<=$1 ORDER BY d.balance_date DESC LIMIT 1) AS current_qty
       FROM brd_flock_occupancies o JOIN brd_flocks f ON f.flock_no=o.flock_no JOIN brd_houses h ON h.house_code=o.house_code
       WHERE o.began_on<=$1 AND (o.ended_on IS NULL OR o.ended_on>$1) ${managedScope?'AND '+managedScope:''} ORDER BY o.house_code`,managedParams):[];
     const logParams:any[]=[date];const logScope=dailyLogScopeWhere(scope,logParams);
     const logs=await this.entityManager.query(`SELECT COALESCE(dl.house_code,dl.flock_no) AS house_code,dl.flock_no,dl.occupancy_id,
+      CASE WHEN count(DISTINCT NULLIF(dl.farm_code,''))=1 AND bool_and(NULLIF(dl.farm_code,'') IS NOT NULL)
+        THEN min(dl.farm_code) END AS farm_code,
       SUM(dl.eggs_produced)::int AS eggs,SUM(dl.mortality_qty)::int AS mortality,SUM(dl.elimination_qty)::int AS elimination,
       SUM(dl.dirty_eggs)::int AS dirty,SUM(dl.broken_eggs)::int AS broken,SUM(dl.feed_consumed)::numeric AS feed,
       SUM(dl.water_consumed)::numeric AS water,COUNT(*) FILTER (WHERE dl.has_production_report)::int AS log_count,
@@ -710,7 +813,10 @@ export class FarmService {
       const raw=f.occupancy_id?f.current_qty:date===businessToday?f.current_qty:log?.closing_qty;
       const quantity=raw==null?null:Number(raw);const eggs=Number(log?.eggs??0);
       const mortality=Number(log?.mortality??0),elimination=Number(log?.elimination??0);
-      return {entry_candidate:!!f.occupancy_id||f.entry_candidate,entry_verified:!!f.occupancy_id||f.entry_verified,house_code:log?.house_code??f.house_code,house_name:f.house_name||f.house_code,flock_no:f.flock_no,occupancy_id:f.occupancy_id??null,
+      const reportFarm = log?.farm_code ?? null;
+      const farm_code = f.occupancy_id ? f.farm_code
+        : log ? reportFarm : f.farm_code;
+      return {farm_code,entry_candidate:!!f.occupancy_id||f.entry_candidate,entry_verified:!!f.occupancy_id||f.entry_verified,house_code:log?.house_code??f.house_code,house_name:f.house_name||f.house_code,flock_no:f.flock_no,occupancy_id:f.occupancy_id??null,
         current_qty:quantity,initial_qty:f.initial_qty==null?null:Number(f.initial_qty),age_days:f.placement_date?Math.max(0,Math.floor((Date.parse(date)-Date.parse(f.placement_date))/86400000)):null,
         eggs,lay_rate:log?.log_count>0&&quantity!=null&&quantity>0?(eggs*100/quantity).toFixed(2):null,mortality,elimination,total_loss:mortality+elimination,
         dirty:Number(log?.dirty??0),broken:Number(log?.broken??0),culling_reason:log?.culling_reason??null,mortality_reason:log?.mortality_reason??null,
@@ -719,7 +825,7 @@ export class FarmService {
         balance_status:f.occupancy_id?'VERIFIED_EVENT_BALANCE':quantity==null?'UNKNOWN_HISTORICAL_BALANCE':'LEGACY_UNVERIFIED'};
     });
     // Keep explicit old report identities, never replace them with today's occupant after a changeover.
-    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({entry_candidate:false,entry_verified:false,house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:log.occupancy_id,
+    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({farm_code:log.farm_code??null,entry_candidate:false,entry_verified:false,house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:log.occupancy_id,
       current_qty:log.occupancy_id?0:log.closing_qty==null?null:Number(log.closing_qty),initial_qty:null,age_days:null,eggs:Number(log.eggs),lay_rate:null,
       mortality:Number(log.mortality),elimination:Number(log.elimination),total_loss:Number(log.mortality)+Number(log.elimination),dirty:Number(log.dirty),broken:Number(log.broken),
       culling_reason:log.culling_reason,mortality_reason:log.mortality_reason,feed:log.feed==null?null:Number(log.feed),water:log.water==null?null:Number(log.water),
@@ -729,7 +835,27 @@ export class FarmService {
     totals.lay_rate=totals.balance_complete&&totals.current_qty>0&&rows.every(r=>r.balance_status==='ENDED_OCCUPANCY'||r.has_daily_log)?(totals.eggs*100/totals.current_qty).toFixed(2):null;
     totals.feed=rows.some(r=>r.feed!=null)?Number(totals.feed.toFixed(2)):null;
     totals.water=rows.some(r=>r.water!=null)?Number(totals.water.toFixed(2)):null;
-    return {code:200,date,rows,totals,quantity_basis:'业务日有效占栏日末余额；未接续历史缺快照时未知，不用今天存栏回算',lay_rate_basis:'已报产蛋数量/同日末在栏羽数；缺报或未知余额不计算'};
+    // One row here describes one occupancy/day, after combining shifts and losses.
+    const grouped = new Map<string, typeof rows>();
+    let unattributed = false;
+    for (const row of rows) {
+      if (!row.has_daily_log && !row.entry_candidate && row.balance_status !== 'ENDED_OCCUPANCY') continue;
+      if (!row.farm_code) {
+        unattributed = true;
+        continue;
+      }
+      const sameFarm = grouped.get(row.farm_code) ?? [];
+      sameFarm.push(row);
+      grouped.set(row.farm_code, sameFarm);
+    }
+    const farm_totals = [...grouped].map(([farm_code, reportRows]) => {
+      const eggs = reportRows.reduce((total, row) => total + row.eggs, 0);
+      const birds = reportRows.reduce((total, row) => total + (row.current_qty ?? 0), 0);
+      const complete = !unattributed && reportRows.every(row => row.balance_status === 'ENDED_OCCUPANCY'
+        || row.has_daily_log && row.current_qty !== null);
+      return { farm_code, eggs, current_qty: birds, lay_rate: complete && birds > 0 ? eggs * 100 / birds : null };
+    });
+    return {code:200,date,rows,totals,farm_totals,quantity_basis:'业务日有效占栏日末余额；未接续历史缺快照时未知，不用今天存栏回算',lay_rate_basis:'已报产蛋数量/同日末在栏羽数；缺报或未知余额不计算'};
   }
 
   async getFarmTrend(days: number, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {

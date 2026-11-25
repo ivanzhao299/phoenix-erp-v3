@@ -20,6 +20,21 @@ async function mockBreedDictionary(page: Page, rows = BREED_DICT) {
   });
 }
 
+async function mockArchive(page: Page, kind: 'flocks' | 'houses', load: () => Record<string, unknown>[], aliases: string[] = []) {
+  await page.route('**/api/v3/farm/archive/' + kind + '?**', route => {
+    const params = new URL(route.request().url()).searchParams;
+    const search = (params.get('search') ?? '').toLowerCase();
+    const status = params.get('status');
+    const page = Number(params.get('page') ?? 1);
+    const matches = load().filter(row => {
+      if (status && row.status !== status && !(status === 'LAYING' && row.status === 'ACTIVE')) return false;
+      return [...Object.values(row), ...aliases].join(' ').toLowerCase().includes(search);
+    });
+    return route.fulfill({ json: { items: matches.slice((page - 1) * 25, page * 25),
+      total: matches.length, birds: 0, unknown: 0, normal: 0, pageSize: 25 } });
+  });
+}
+
 async function authenticate(page: Page, lang = 'zh') {
   await authenticateMockPage(page, USER, lang);
   await page.route('**/api/notifications/stream?**', route => route.abort());
@@ -82,7 +97,8 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
     house_code: 'PW-HOUSE', breed_code: BREED_CODE, breed_type: '海兰褐', source_farm: '', start_date: '2026-01-01',
     current_qty: quantity, placement_age: 1, cost: 1, target_weeks: targetWeeks, status: 'LAYING',
   });
-  await page.route('**/api/crud/brd_flocks**', async route => {
+  await mockArchive(page, 'flocks', () => [flock()]);
+  await page.route('**/api/crud/brd_flocks/**', async route => {
     if (route.request().method() === 'PUT') {
       const payload = route.request().postDataJSON();
       for (const unchanged of ['breed_code', 'breed_type', 'strain', 'start_date', 'current_qty', 'initial_qty']) {
@@ -91,7 +107,7 @@ test('Lao mode preserves readonly flock stock and Chinese restore keeps the late
       targetWeeks = Number(payload.target_weeks);
       expect(targetWeeks).toBe(90);
       await route.fulfill({ json: { ok: true } });
-    } else await route.fulfill({ json: [flock()] });
+    } else await route.fallback();
   });
   await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'PW-FARM', farmName: '测试养殖场' }] } }));
   await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'PW-HOUSE', farmCode: 'PW-FARM', houseName: '测试鸡舍' }] } }));
@@ -133,7 +149,11 @@ test('flock archive uses Singapore business days and keeps zero distinct from mi
   const identity = { farm_code: 'PW-FARM', farm_name: '测试养殖场', house_code: 'PW-HOUSE', house_name: '测试鸡舍',
     breed_code: BREED_CODE, status: 'LAYING', start_date: '2026-11-23' };
   let saved = false;
-  await page.route('**/api/crud/brd_flocks**', async route => {
+  await mockArchive(page, 'flocks', () => [
+    { ...identity, flock_no: 'CYCLE-118', placement_age: saved ? 0 : 118, current_qty: 0, current_lay_rate: '0.00', feed_conversion_ratio: '0.00' },
+    { ...identity, flock_no: 'CYCLE-NOT-KNOWN', placement_age: null, current_qty: null },
+  ]);
+  await page.route('**/api/crud/brd_flocks/**', async route => {
     if (route.request().method() === 'PUT') {
       const patch = route.request().postDataJSON();
       expect(patch).toHaveProperty('placement_age', 0);
@@ -141,10 +161,7 @@ test('flock archive uses Singapore business days and keeps zero distinct from mi
       saved = true;
       return route.fulfill({ json: { ok: true } });
     }
-    return route.fulfill({ json: [
-      { ...identity, flock_no: 'CYCLE-118', placement_age: saved ? 0 : 118, current_qty: 0, current_lay_rate: '0.00', feed_conversion_ratio: '0.00' },
-      { ...identity, flock_no: 'CYCLE-NOT-KNOWN', placement_age: null, current_qty: null },
-    ] });
+    return route.fallback();
   });
   await page.route('**/api/master-data/runtime/supplier/active**', route => route.fulfill({ json: [] }));
   await page.route('**/api/lookup/{farms,houses}**', route => route.fulfill({ json: { data: [] } }));
@@ -202,7 +219,12 @@ for (const scenario of [
   let breedCode = scenario.code;
   let planningSaves = 0;
   let confirmations = 0;
-  await page.route('**/api/crud/brd_flocks**', route => {
+  await mockArchive(page, 'flocks', () => [{
+    flock_no: 'PW-FLOCK-REVIEW-BREED', farm_code: 'PW-FARM', house_code: 'PW-HOUSE',
+    breed_code: breedCode, breed_type: '海兰褐', strain: '海兰褐', current_qty: 150,
+    start_date: '2026-01-01', status: 'LAYING',
+  }]);
+  await page.route('**/api/crud/brd_flocks/**', route => {
     if (route.request().method() === 'PUT') {
       planningSaves += 1;
       const payload = route.request().postDataJSON();
@@ -211,11 +233,7 @@ for (const scenario of [
       }
       return route.fulfill({ json: { ok: true } });
     }
-    return route.fulfill({ json: [{
-      flock_no: 'PW-FLOCK-REVIEW-BREED', farm_code: 'PW-FARM', house_code: 'PW-HOUSE',
-      breed_code: breedCode, breed_type: '海兰褐', strain: '海兰褐', current_qty: 150,
-      start_date: '2026-01-01', status: 'LAYING',
-    }] });
+    return route.fallback();
   });
   await page.route('**/api/v3/farm/flock-lifecycle/flocks/PW-FLOCK-REVIEW-BREED/breed-confirmation', route => {
     if (route.request().method() === 'POST') {
@@ -279,7 +297,7 @@ test('flock quantity unit follows an in-page language round trip without refresh
     house_code: 'PW-HOUSE', breed_code: BREED_CODE, breed_type: '海兰褐', source_farm: '', start_date: '2026-01-01',
     current_qty: 900, placement_age: 1, cost: 1, target_weeks: 80, status: 'LAYING',
   };
-  await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [flock] }));
+  await mockArchive(page, 'flocks', () => [flock]);
   await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'PW-FARM', farmName: '测试养殖场' }] } }));
   await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'PW-HOUSE', farmCode: 'PW-FARM', houseName: '测试鸡舍' }] } }));
   await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'PW-FARM', farm_name: '测试养殖场' }] }));
@@ -302,7 +320,8 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
   await authenticate(page);
   const farm = { farm_code: 'LPH_MENGSAI', farm_name: '孟赛蛋鸡场', status: 'ACTIVE', ...(translated ? { farmNameZh: '孟赛蛋鸡场', farmNameEn: 'Mengsai farm', farmNameLo: 'ຟາມເມັງໄຊ' } : {}) };
   const house = { farm_code: farm.farm_code, house_code: 'HOUSE_MS_02', house_name: '2号鸡舍', status: 'ACTIVE', ...(translated ? { house_name_en: 'House Two', house_name_lo: 'ເຮືອນສອງ' } : {}) };
-  await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [{ flock_no: 'ACCEPTANCE-FLOCK', farm_code: farm.farm_code, farm_name: farm.farm_code, house_code: house.house_code, breed_code: BREED_CODE, breed_type: '海兰褐', status: 'LAYING', current_qty: 100 }] }));
+  await mockArchive(page, 'flocks', () => [{ flock_no: 'ACCEPTANCE-FLOCK', farm_code: farm.farm_code, farm_name: farm.farm_code, house_code: house.house_code, breed_code: BREED_CODE, breed_type: '海兰褐', status: 'LAYING', current_qty: 100 }],
+    [farm.farm_name, house.house_name, 'Hy-Line Brown', ...(translated ? ['Mengsai farm', 'ເຮືອນສອງ'] : [])]);
   await page.route('**/api/lookup/farms**', async route => { await new Promise(resolve => setTimeout(resolve, 250)); await route.fulfill({ json: { data: [{ ...farm, farmCode: farm.farm_code, farmName: farm.farm_name }] } }); });
   await page.route('**/api/lookup/houses**', async route => { await new Promise(resolve => setTimeout(resolve, 350)); await route.fulfill({ json: { data: [{ ...house, houseCode: house.house_code, farmCode: farm.farm_code, houseName: house.house_name }] } }); });
   await mockBreedDictionary(page);
@@ -323,8 +342,14 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
     await expect(houseCell).toContainText(house.house_code);
   }
   const search = page.locator('input.phx-input').first();
-  for (const query of ['ACCEPTANCE-FLOCK', farm.farm_code, farm.farm_name, house.house_code, house.house_name, '海兰褐']) {
+  const aliases = translated ? ['Mengsai farm', 'ເຮືອນສອງ'] : [];
+  for (const query of ['ACCEPTANCE-FLOCK', farm.farm_code, farm.farm_name, house.house_code, house.house_name, '海兰褐', 'Hy-Line Brown', ...aliases]) {
+    const response = page.waitForResponse(result => {
+      const url = new URL(result.url());
+      return url.pathname === '/api/v3/farm/archive/flocks' && url.searchParams.get('search') === query;
+    });
     await search.fill(query);
+    expect((await response).ok()).toBe(true);
     await expect(row).toBeVisible();
   }
   await search.fill('UNMATCHED');
@@ -344,7 +369,7 @@ test('flock missing-name fallback displays each code once; henhouse keeps the re
   await authenticate(page);
   await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'EMPTY-FARM', farmName: '' }] } }));
   await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'EMPTY-HOUSE', farmCode: 'EMPTY-FARM', houseName: '' }] } }));
-  await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [{ flock_no: 'FALLBACK', farm_code: 'EMPTY-FARM', house_code: 'EMPTY-HOUSE', breed_code: BREED_CODE, status: 'LAYING' }] }));
+  await mockArchive(page, 'flocks', () => [{ flock_no: 'FALLBACK', farm_code: 'EMPTY-FARM', house_code: 'EMPTY-HOUSE', breed_code: BREED_CODE, status: 'LAYING' }]);
   await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'EMPTY-FARM', farm_name: '' }] }));
   await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'EMPTY-HOUSE', house_name: '', farm_code: 'EMPTY-FARM' }] }));
   await mockBreedDictionary(page);
@@ -352,6 +377,7 @@ test('flock missing-name fallback displays each code once; henhouse keeps the re
   const row = page.locator('tbody tr').filter({ hasText: 'FALLBACK' });
   await expect(row.locator('td').nth(1)).toHaveText('EMPTY-FARM');
   await expect(row.locator('td').nth(2)).toHaveText('EMPTY-HOUSE');
+  await mockArchive(page, 'houses', () => [{ house_code: 'HOUSE_MS_02', house_name: '2号鸡舍', farm_code: 'EMPTY-FARM', status: 'ACTIVE', archive_birds: 0 }]);
   await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'HOUSE_MS_02', house_name: '2号鸡舍', farm_code: 'EMPTY-FARM', status: 'ACTIVE' }] }));
   await page.goto('/breeding/henhouse');
   const houseCell = page.locator('tbody tr').filter({ hasText: 'HOUSE_MS_02' }).locator('td').first();

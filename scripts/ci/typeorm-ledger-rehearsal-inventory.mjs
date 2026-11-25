@@ -230,6 +230,24 @@ export const featureMigrations = Object.freeze([
     effective_name: 'ApprovedEggProductDomainExtension1795565000000',
     timestamp: 1795565000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795565100000-LegacyMobileProductionSummary.js',
+    class_name: 'LegacyMobileProductionSummary1795565100000',
+    effective_name: 'LegacyMobileProductionSummary1795565100000',
+    timestamp: 1795565100000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795565200000-FarmMedicineInboundReceipts.js',
+    class_name: 'FarmMedicineInboundReceipts1795565200000',
+    effective_name: 'FarmMedicineInboundReceipts1795565200000',
+    timestamp: 1795565200000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795565300000-ScopedFarmFeedLedger.js',
+    class_name: 'ScopedFarmFeedLedger1795565300000',
+    effective_name: 'ScopedFarmFeedLedger1795565300000',
+    timestamp: 1795565300000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

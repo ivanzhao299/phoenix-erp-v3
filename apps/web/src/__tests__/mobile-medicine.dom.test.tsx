@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
     { material_code: null, medication_code: 'MED-001', medication_name: '历史模板', unit: '瓶', qty: 1 },
   ]),
   warehouses: vi.fn(async () => [{ warehouse_code: 'W1', site_code: 'S1', company_code: 'C1' }]),
-  inbound: vi.fn(async () => undefined),
+  inbound: vi.fn(async (_date: string, _items: unknown[]) => ({ lines: [{batchNo: 'LOT-A', ledgerId: 1}] })),
   ledger: vi.fn(async () => []),
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn() }) }));
@@ -19,6 +19,12 @@ vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (_: stri
 vi.mock('@/contexts/MobileThemeContext', () => ({ useMobileTheme: () => ({ t: {} }) }));
 vi.mock('@/hooks/useMobilePermission', () => ({
   useMobilePermission: () => ({ allowed: true, readonly: state.readonly, loading: false }),
+}));
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: () => ({ canEdit: !state.readonly, user: { userId: 1 } }),
+}));
+vi.mock('@/hooks/useMedicineInbound', () => ({
+  useMedicineInbound: () => ({ submit: state.inbound }),
 }));
 vi.mock('@/lib/mobile-api', () => ({
   invalidateCache: vi.fn(),

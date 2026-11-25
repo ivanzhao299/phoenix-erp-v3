@@ -1,16 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import FeedLedgerRollout from '@/components/breeding/FeedLedgerRollout';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
+import { normalizeFeedLedgerHouses, unwrapFeedLedgerSaveResponse } from '@/lib/feed-ledger';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -40,11 +43,13 @@ function MaterialCard({
   row,
   houses,
   houseMap,
+  editable,
   onChange
 }: {
   row: FeedLedgerRow;
   houses: string[];
   houseMap: Record<string, string>;
+  editable: boolean;
   onChange: (updated: Partial<FeedLedgerRow>) => void;
 }) {
   const {
@@ -178,7 +183,7 @@ function MaterialCard({
             color: t.textFaint,
             marginBottom: 4
           }}>{tr('mob.brd.today_inbound', '今日入库')}</div>
-              <input type="number" inputMode="numeric" min="0" value={numInput(row.inbound_qty)} onChange={e => onChange({
+              <input disabled={!editable} type="number" inputMode="numeric" min="0" value={numInput(row.inbound_qty)} onChange={e => onChange({
             inbound_qty: Number(e.target.value) || 0
           })} placeholder="0" style={inputStyle} />
             </div>
@@ -188,7 +193,7 @@ function MaterialCard({
             color: t.textFaint,
             marginBottom: 4
           }}>{tr('mob.brd.daily_usage', '日用量')}</div>
-              <input type="number" inputMode="numeric" min="0" value={numInput(row.daily_usage)} onChange={e => onChange({
+              <input disabled={!editable} type="number" inputMode="numeric" min="0" value={numInput(row.daily_usage)} onChange={e => onChange({
             daily_usage: Number(e.target.value) || 0
           })} placeholder="0" style={inputStyle} />
             </div>
@@ -212,7 +217,7 @@ function MaterialCard({
             marginBottom: 3,
             textAlign: 'center'
           }}>{houseMap[house] || house}</div>
-                <input type="number" inputMode="numeric" min="0" value={numInput(row.outbound_detail[house] ?? 0)} onChange={e => setOutbound(house, e.target.value)} placeholder="0" style={{
+                <input disabled={!editable} type="number" inputMode="numeric" min="0" value={numInput(row.outbound_detail[house] ?? 0)} onChange={e => setOutbound(house, e.target.value)} placeholder="0" style={{
             ...inputStyle,
             textAlign: 'center'
           }} />
@@ -253,7 +258,7 @@ function MaterialCard({
           <div style={{
         marginTop: 8
       }}>
-            <input type="text" value={row.note} onChange={e => onChange({
+            <input disabled={!editable} type="text" value={row.note} onChange={e => onChange({
           note: e.target.value
         })} placeholder={tr('mob.brd.note_placeholder_purchase', '备注（如：建议采购）')} style={{
           ...inputStyle,
@@ -266,7 +271,7 @@ function MaterialCard({
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
-export default function FeedLedgerPage() {
+function LegacyFeedLedger() {
   const router = useRouter();
   const {
     isDark,
@@ -276,11 +281,11 @@ export default function FeedLedgerPage() {
   const { t: tr } = useLanguage();
   const {
     allowed,
-    loading: permLoading,
-    readonly
+    loading: permLoading
   } = useMobilePermission('feed');
+  const { canEdit } = usePermission('MENU_BREEDING');
   const toast = useToast();
-  const today = fmtDate(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
   const [date, setDate] = useState(today);
   const [rows, setRows] = useState<FeedLedgerRow[]>([]);
   const [houses, setHouses] = useState<string[]>([]);
@@ -289,30 +294,41 @@ export default function FeedLedgerPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [failureAction, setFailureAction] = useState<'read' | 'write'>('read');
   const isToday = date === today;
+  const requestId = useRef(0);
+  const [loadedDate, setLoadedDate] = useState('');
   const loadData = useCallback(async (d: string) => {
+    const id = ++requestId.current;
+    setLoadedDate('');
+    setRows([]);
     setLoading(true);
     setError('');
+    setFailureAction('read');
     setSaved(false);
     try {
       const [ledger, houseList] = await Promise.all([mobileApi.getFeedLedger(d), mobileApi.getFeedHousesDetail()]);
-      const arr = Array.isArray(ledger) ? ledger : (ledger as any)?.data ?? [];
-      setRows(arr);
-      const detail = Array.isArray(houseList) ? houseList : (houseList as any)?.data ?? [];
-      setHouses(detail.map((r: any) => r.house_code));
-      setHouseMap(Object.fromEntries(detail.map((r: any) => [r.house_code, r.house_name || r.house_code])));
-    } catch (e: any) {
-      setError(e.message || tr('mob.brd.load_fail', '加载失败'));
+      if (id !== requestId.current) return;
+      if (!Array.isArray(ledger)) throw new Error('饲料台账响应无效，请重新查询');
+      setRows(ledger);
+      const names = normalizeFeedLedgerHouses(houseList);
+      setHouses(Object.keys(names));
+      setHouseMap(names);
+      setLoadedDate(d);
+    } catch (error) {
+      if (id === requestId.current) setError(error instanceof Error ? error.message : '');
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, []);
   const {
     pullHandlers
-  } = usePullToRefresh(() => loadData(date));
+  } = usePullToRefresh(() => saving ? Promise.resolve() : loadData(date));
   useEffect(() => {
+    if (!allowed) return;
     loadData(date);
-  }, [date, loadData]);
+    return () => { requestId.current++; };
+  }, [allowed, date, loadData]);
   if (permLoading) return <MobilePageSkeleton title={tr('mob.brd.feed_ledger', '饲料台账')} onBack={() => router.back()} />;
   if (!allowed) return null;
 
@@ -336,20 +352,17 @@ export default function FeedLedgerPage() {
     setSaved(false);
   };
   const handleSave = async () => {
+    if (!canEdit || !date || loading || saving || loadedDate !== date) return;
     setSaving(true);
     setError('');
+    setFailureAction('write');
     try {
       const res = await mobileApi.saveFeedLedger(date, rows);
-      if (res?.code === 200 || Array.isArray(res?.data)) {
-        const arr = Array.isArray(res?.data) ? res.data : res;
-        if (Array.isArray(arr)) setRows(arr);
-        haptic('success');
-        toast.success(tr('mob.brd.feed_ledger_save_ok', '饲料台账保存成功'));
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      } else {
-        setError(res?.msg || tr('mob.brd.save_fail', '保存失败'));
-      }
+      setRows(unwrapFeedLedgerSaveResponse(res));
+      haptic('success');
+      toast.success(tr('mob.brd.feed_ledger_save_ok', '饲料台账保存成功'));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
       haptic('error');
       toast.error(e.message || tr('mob.brd.save_fail', '保存失败'));
@@ -358,9 +371,9 @@ export default function FeedLedgerPage() {
       setSaving(false);
     }
   };
-  const prevDay = () => setDate(d => fmtDate(addDays(toDate(d), -1)));
+  const prevDay = () => !saving && setDate(d => fmtDate(addDays(toDate(d), -1)));
   const nextDay = () => {
-    if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1)));
+    if (!isToday && !saving) setDate(d => fmtDate(addDays(toDate(d), 1)));
   };
   const alertRows = rows.filter(r => r.alert);
   const dateLabel = isToday ? tr('mob.brd.today', '今天') : date === fmtDate(addDays(toDate(today), -1)) ? tr('mob.brd.yesterday', '昨天') : date;
@@ -398,7 +411,7 @@ export default function FeedLedgerPage() {
         color: t.text,
         flex: 1
       }}>🌾 {tr('mob.brd.feed_ledger', '饲料台账')}</span>
-        <button onClick={() => loadData(date)} style={{
+        <button disabled={saving} onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
         color: t.textMuted,
@@ -418,7 +431,7 @@ export default function FeedLedgerPage() {
       }}>
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <button onClick={handleSave} disabled={saving || loading} style={{
+        {canEdit && <button onClick={handleSave} disabled={!date || saving || loading || loadedDate !== date} style={{
         display: 'flex',
         alignItems: 'center',
         gap: 5,
@@ -433,7 +446,7 @@ export default function FeedLedgerPage() {
       }}>
           <Save size={14} />
           {saving ? tr('mob.brd.saving', '保存中…') : saved ? tr('mob.brd.saved', '已保存') : tr('mob.brd.save', '保存')}
-        </button>
+        </button>}
       </div>
 
       {/* 日期选择 */}
@@ -522,7 +535,7 @@ export default function FeedLedgerPage() {
             </div>
           </div>}
 
-        {error && <div style={{
+        {error && <div role="alert" style={{
         marginBottom: 12,
         padding: 12,
         borderRadius: 10,
@@ -531,15 +544,19 @@ export default function FeedLedgerPage() {
         color: 'var(--status-danger)',
         fontSize: 13
       }}>
-            {error}
+            {failureAction === 'read' ? tr('ui.feed加载失败', '读取失败：') : tr('ui.feed保存失败', '保存失败：')}{error}
           </div>}
 
         {loading ? <div>
             {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} lines={3} />)}
           </div> : <>
-            {rows.map((row, idx) => <MaterialCard key={row.material_name} row={row} houses={houses} houseMap={houseMap} onChange={patch => updateRow(idx, patch)} />)}
-            {rows.length === 0 && <MobileEmptyState icon="🌾" title={tr('mob.brd.no_feed_data', '暂无饲料数据')} desc={tr('mob.brd.no_feed_record_today', '今日还没有饲料记录，可以尝试刷新')} />}
+            {rows.map((row, idx) => <MaterialCard key={row.material_name} row={row} houses={houses} houseMap={houseMap} editable={canEdit && !saving && loadedDate === date} onChange={patch => updateRow(idx, patch)} />)}
+            {rows.length === 0 && !error && <MobileEmptyState icon="🌾" title={tr('mob.brd.no_feed_data', '暂无饲料数据')} desc={tr('mob.brd.no_feed_record_today', '今日还没有饲料记录，可以尝试刷新')} />}
           </>}
       </div>
     </div>;
+}
+export default function MobileFeedLedger() {
+  const { allowed } = useMobilePermission('feed');
+  return allowed ? <FeedLedgerRollout legacy={<LegacyFeedLedger />} /> : null;
 }

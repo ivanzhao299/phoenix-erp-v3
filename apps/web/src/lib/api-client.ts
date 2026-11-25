@@ -99,7 +99,8 @@ function makeError(message: string, status?: number, code?: ApiError['code'], su
   return e;
 }
 
-async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number, signal?: AbortSignal): Promise<Response> {
+async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number, signal?: AbortSignal, boundToken?: string): Promise<Response> {
+  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const token = getToken();
   const headers: HeadersInit = {
@@ -114,7 +115,7 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
     // 网络层失败按 5xx 处理
     if (attempt < max5xxRetries) {
       await sleep(RETRY_DELAYS_MS[attempt] ?? 2000);
-      return rawFetch(path, options, attempt + 1, max5xxRetries, signal);
+      return rawFetch(path, options, attempt + 1, max5xxRetries, signal, boundToken);
     }
     throw makeError((netErr as Error).message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
   }
@@ -122,19 +123,20 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
 
 async function request<T = unknown>(
   path: string,
-  options: RequestInit & { signal?: AbortSignal; silent?: boolean } = {}
+  options: RequestInit & { signal?: AbortSignal; silent?: boolean; bindSession?: boolean } = {}
 ): Promise<T> {
-  const { signal, silent, ...fetchOptions } = options;
+  const { signal, silent, bindSession, ...fetchOptions } = options;
+  const boundToken = bindSession ? getToken() ?? '' : undefined;
   // 主动静默 refresh：若 token 即将到期就先续期再发请求（用户全程无感）
   // 跳过 refresh 端点自身避免递归
-  if (!path.startsWith('/auth/refresh')) {
+  if (!bindSession && !path.startsWith('/auth/refresh')) {
     await ensureFreshToken();
   }
 
-  let res = await rawFetch(path, fetchOptions, 0, 2, signal);
+  let res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
 
   // 收到 TOKEN_EXPIRED → 兜底再 refresh 一次重试（处理"刚好卡在边界过期"的场景）
-  if (res.status === 401 && !path.startsWith('/auth/refresh')) {
+  if (!bindSession && res.status === 401 && !path.startsWith('/auth/refresh')) {
     const body = await res.clone().json().catch(() => ({})) as { subcode?: AuthSubcode };
     if (body.subcode === 'TOKEN_EXPIRED') {
       const current = getToken();
@@ -142,7 +144,7 @@ async function request<T = unknown>(
         const newTok = await tryRefresh(current);
         if (newTok) {
           // 用新 token 重发原请求
-          res = await rawFetch(path, fetchOptions, 0, 2, signal);
+          res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
         }
       }
     }
@@ -151,14 +153,14 @@ async function request<T = unknown>(
   // 401 一次"伪 401"重试（网络抖动 / 后端 502 透传出 401 等）
   if (res.status === 401) {
     await sleep(800);
-    res = await rawFetch(path, fetchOptions, 0, 2, signal);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
   }
 
   // 5xx 指数退避
   let attempt = 0;
   while (res.status >= 500 && attempt < RETRY_DELAYS_MS.length) {
     await sleep(RETRY_DELAYS_MS[attempt]);
-    res = await rawFetch(path, fetchOptions, 0, 2, signal);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
     attempt++;
   }
 
@@ -205,6 +207,7 @@ async function request<T = unknown>(
   }
 
   const data = await res.json();
+  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
   // 审批提交后，后端经 ApprovalHintInterceptor 注入 __approvalHint（下一审批人）→ 派发全局事件，
   // 由 ToastContext 统一弹"已提交给 X 审批"。所有走审批的业务接口自动生效。
   if (data && typeof data === 'object' && (data as { __approvalHint?: unknown }).__approvalHint && typeof window !== 'undefined') {

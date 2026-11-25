@@ -60,9 +60,12 @@ jobs:
             sleep 1
           done
           for db in installments_fixture phoenix_temp_reversal_fixture phoenix_flock_review \
-            phoenix_flock_lifecycle phoenix_flock_http phoenix_flock_downstream; do
+            phoenix_flock_lifecycle phoenix_flock_http phoenix_flock_downstream scoped_feed_fixture medicine_inbound_fixture issue401_fixture; do
             docker exec "$CUTOVER_FIXTURE_CONTAINER" createdb -U postgres "$db"
           done
+          docker exec "$CUTOVER_FIXTURE_CONTAINER" psql -U postgres -d scoped_feed_fixture -c "CREATE TABLE feed_fixture_owner(owner_key text); INSERT INTO feed_fixture_owner VALUES ('production-ci')"
+          docker exec "$CUTOVER_FIXTURE_CONTAINER" psql -U postgres -d medicine_inbound_fixture -c "CREATE TABLE medicine_fixture_owner(owner_key text); INSERT INTO medicine_fixture_owner VALUES ('production-ci')"
+          docker exec "$CUTOVER_FIXTURE_CONTAINER" psql -U postgres -d issue401_fixture -c "CREATE TABLE issue401_fixture_owner(owner_key text); INSERT INTO issue401_fixture_owner VALUES ('production-ci')"
           port=$(docker port "$CUTOVER_FIXTURE_CONTAINER" 5432/tcp)
           prefix="postgresql://postgres@$port/"
           {
@@ -72,6 +75,12 @@ jobs:
             echo "FLOCK_LEDGER_PG_URL=${prefix}phoenix_flock_lifecycle"
             echo "FLOCK_HTTP_PG_URL=${prefix}phoenix_flock_http"
             echo "FLOCK_DOWNSTREAM_PG_URL=${prefix}phoenix_flock_downstream"
+            echo "SCOPED_FEED_FIXTURE_URL=${prefix}scoped_feed_fixture"
+            echo "SCOPED_FEED_FIXTURE_OWNER=production-ci"
+            echo "MEDICINE_INBOUND_FIXTURE_URL=${prefix}medicine_inbound_fixture"
+            echo "MEDICINE_INBOUND_FIXTURE_OWNER=production-ci"
+            echo "ISSUE401_PG_URL=${prefix}issue401_fixture"
+            echo "ISSUE401_FIXTURE_OWNER=production-ci"
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/production-acceptance"
           git rev-parse HEAD > "$RUNNER_TEMP/production-acceptance/tested-commit.txt"
@@ -93,6 +102,8 @@ jobs:
             src/modules/sales-v2/services/production-inbound-migrations.pg.spec.ts \
             src/modules/product-master/services/egg-source-change.pg.spec.ts \
             src/modules/wms/official-inventory.pg.spec.ts src/modules/wms/production-cutover-admission.pg.spec.ts
+          ./node_modules/.bin/jest --runInBand --testTimeout=60000 --runTestsByPath src/modules/farm/scoped-feed-ledger.pg.spec.ts src/modules/farm/farm-medicine-inbound.pg.spec.ts
+          ./node_modules/.bin/jest --runInBand --testTimeout=60000 --runTestsByPath src/modules/generic-crud/daily-log-visibility.pg.spec.ts -t 'preserves each quantity|production archives'
           OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" ./node_modules/.bin/jest --runInBand --testTimeout=60000 \
             --json --outputFile="$evidence/http.json" --runTestsByPath src/modules/sales-v2/services/production-inbound-http.pg.spec.ts
 
@@ -203,3 +214,54 @@ jobs:
           docker pull nginx:1.28-alpine
           node --test scripts/ops/production-remediation-{held-facts,handoff}.test.mjs scripts/ops/production-held-follow-up.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
           python3 scripts/ci/production-remediation-edge-hold.test.py
+          node --test scripts/ops/production-ui-schema-release.test.mjs
+
+  production-ui-upgrade:
+    name: Current production API and schema / PostgreSQL ${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Detect changes to production UI extension migrations
+        id: scope
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          before="${BEFORE:-b80d326812b011966b3d98580ad001e20ac1acb2}"
+          if git diff --quiet "$before" HEAD -- 'apps/api/src/database/migrations/1795565[123]00000-*.ts'; then
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.scope.outputs.required == 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        if: steps.scope.outputs.required == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+      - if: steps.scope.outputs.required == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Rehearse previous API, upgrade, rerun and cold installation
+        if: steps.scope.outputs.required == 'true'
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          POSTGRES_MAJOR: ${{ matrix.pg }}
+        run: |
+          set -euo pipefail
+          python3 scripts/test/production-remediation-release-compat.py \
+            "${BEFORE:-b80d326812b011966b3d98580ad001e20ac1acb2}" HEAD --postgres-major "$POSTGRES_MAJOR" \
+            | tee "$RUNNER_TEMP/production-ui-upgrade.log"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scope.outputs.required == 'true'
+        with:
+          name: production-ui-upgrade-pg${{ matrix.pg }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-ui-upgrade.log

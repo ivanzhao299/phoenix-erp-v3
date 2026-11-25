@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
@@ -228,14 +228,29 @@ export default function OutboundPage() {
     return ISSUE_TYPES.has(String(type || "")) ? canDeleteIssue : canDeleteInout;
   }, [canDeleteInout, canDeleteIssue]);
   const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
-  const openNew = useCallback(() => {
+  const openNewWithType = useCallback((requestedType?: string) => {
     if (!canCreateCurrent || !allowedBatchTypes.length) return;
-    const type = allowedBatchTypes[0];
+    const type = requestedType ? allowedBatchTypes.find(value => value === requestedType) : allowedBatchTypes[0];
+    if (!type) return;
     setEditing(null);
     setBatchHeader({ date: new Date().toISOString().slice(0, 10), type, warehouse_code: siteCode ?? "", destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? "" });
     setBatchItems([newBatchLine()]);
     setDrawerOpen(true);
   }, [canCreateCurrent, allowedBatchTypes, siteCode, setBatchHeader, setBatchItems]);
+  const openNew = useCallback(() => openNewWithType(), [openNewWithType]);
+  useEffect(() => {
+    const url = new URL(location.href);
+    const type = url.searchParams.get('type');
+    if (url.searchParams.get('action') !== 'create' || type !== 'FEED_DISTRIBUTION'
+      || !canCreateCurrent || !allowedBatchTypes.includes(type)) return;
+    const timer = setTimeout(() => {
+      url.searchParams.delete('action');
+      url.searchParams.delete('type');
+      history.replaceState(history.state, '', url);
+      openNewWithType(type);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [allowedBatchTypes, canCreateCurrent, openNewWithType]);
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row.quantity_snapshot ? { ...row, qty: (row.quantity_snapshot as { baseQty: number }).baseQty } : row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 

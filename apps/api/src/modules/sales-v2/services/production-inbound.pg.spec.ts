@@ -116,6 +116,15 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
+  it('replays the original inbound amount after current stock falls', async () => {
+    const first = await service.recordProductionInbound(payload());
+    await db.query('UPDATE inv_batches SET qty=3,qty_available=3 WHERE batch_no=$1', [first.batches[0].batchNo]);
+    const replay = await service.recordProductionInbound(payload());
+    expect(replay).toMatchObject({ totalInbound: 33, idempotent: true, batches: first.batches });
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
+    expect((await db.query('SELECT qty::int AS qty FROM inv_batches'))[0].qty).toBe(3);
+  });
+
   it('serializes simultaneous duplicate requests without creating extra batches or ledger events', async () => {
     const results = await Promise.all(Array.from({ length: 5 }, () => service.recordProductionInbound(payload())));
     expect(results.filter(row => !row.idempotent)).toHaveLength(1);

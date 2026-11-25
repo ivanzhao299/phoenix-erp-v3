@@ -49,7 +49,7 @@ const ALL_CARDS: QuickCard[] = [
   { key: 'feed_log',    title: '饲料消耗登记',     desc: '玉米 / 豆粕 / 预混料 · 按鸡舍分配',
     icon: Wheat,         href: '/breeding/feed?action=create&date=today',             accent: '#10B981', perm: 'MENU_BREEDING',           permOp: 'V' },
   { key: 'vet_record',  title: '兽药使用记录',     desc: '日常用药 / 治疗记录',
-    icon: Pill,          href: '/breeding/medicine?action=create&date=today',         accent: '#22C55E', perm: 'MENU_FARM_VET',           permOp: 'C' },
+    icon: Pill,          href: '/breeding/medicine?action=create&date=today',         accent: '#22C55E', perm: 'MENU_FARM_VET',           permOp: 'E' },
   { key: 'vaccine',     title: '免疫疫苗记录',     desc: '免疫计划 / 接种记录',
     icon: Syringe,       href: '/breeding/immune',                                    accent: '#84CC16', perm: 'MENU_FARM_VET',           permOp: 'V' },
   { key: 'med_stock',   title: '药品库存',          desc: '入库 / 出库 / 库存查询',

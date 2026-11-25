@@ -581,7 +581,7 @@ function FlockTask({ kind, context, mobile, owner, onClose, onSaved }: Props & {
             </div>
           </fieldset>
           {kind === "CLEAN_ACCEPT" && (house?.entry_readiness ?? house?.state) === "CLEANING"
-            && renderFacts([["cleaningDocument", str(house?.document_id) || "—"]])}
+            && renderFacts([["cleaningDocument", str(house?.cleaning_start_document_id) || "—"]])}
           {supplementShift && <p className={css.callout}>{t("flockForm.missingShiftAuthorization")}</p>}
           {missingShifts.error && <p role="alert">{t("flockForm.missingShiftUnavailable")} <button type="button" onClick={missingShifts.refresh}>{t("flockForm.reload")}</button></p>}
           {loading && <p className={css.callout} role="status">{t("flockForm.loading")}</p>}

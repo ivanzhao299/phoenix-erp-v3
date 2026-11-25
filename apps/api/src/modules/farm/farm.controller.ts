@@ -30,13 +30,18 @@ export class FarmController {
   @Post('daily-logs')
   @RequireMenu('MENU_FARM_DAILY', 'E')
   async submitBreedingDailyLog(@Body() body: any, @Req() req: any) {
-    return await this.farmService.submitBreedingDailyLog(body, this.getScope(req));
+    return await this.farmService.submitBreedingDailyLog(body, this.getScope(req), this.dailyActor(req));
   }
 
   @Put('daily-logs/:id')
   @RequireMenu('MENU_FARM_DAILY', 'E')
   async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any, @Req() req: any) {
-    return await this.farmService.updateBreedingDailyLog(id, body, this.getScope(req));
+    return await this.farmService.updateBreedingDailyLog(id, body, this.getScope(req), this.dailyActor(req));
+  }
+
+  private dailyActor(req: {user?: {username?: string; userId?: string | number; sub?: string | number}}): string {
+    const actor = req.user?.username ?? req.user?.userId ?? req.user?.sub;
+    return actor == null ? 'SYS' : String(actor);
   }
 
   /**
@@ -58,6 +63,18 @@ export class FarmController {
   @RequireMenu('MENU_FARM_DAILY','V')
   productionReports(@Query('date') date:string,@Query('houseCode') house:string,@Req() req:any) {
     return this.farmService.getProductionReports(date,house,this.getScope(req));
+  }
+
+  @Get('archive/houses')
+  @RequireMenu('MENU_FARM_MASTER', 'V')
+  houseArchive(@Query() query: Record<string, unknown>, @Req() req: any) {
+    return this.farmService.getProductionArchive('houses', query, this.getScope(req));
+  }
+
+  @Get('archive/flocks')
+  @RequireMenu('MENU_FARM_DATA', 'V')
+  flockArchive(@Query() query: Record<string, unknown>, @Req() req: any) {
+    return this.farmService.getProductionArchive('flocks', query, this.getScope(req));
   }
 
   @Get('daily-hen-report')

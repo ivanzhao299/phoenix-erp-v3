@@ -264,10 +264,14 @@ export class ProductionInboundDocumentsService {
     const actor=this.actor();if(!hasPerm((this.cls.get('user') as any)?.permissions,'MENU_PROD_INBOUND','E'))throw new ForbiddenException('缺少交接接收确认权限');
     return this.db.transaction(async m=>{
       if(before.payload.rawCollection)await m.query("SELECT pg_advisory_xact_lock(hashtextextended('packaging-chain:false',0))");
-      await this.lockDay(m,before);const reports=await this.reports(m,before);
+      await this.lockDay(m,before,false,false);
       const [d]=await m.query('SELECT *,production_date::text AS production_date FROM production_physical_handovers WHERE id=$1 FOR UPDATE',[id]);
-      this.authorize(d.company_code,d.payload.warehouseCode);this.version(d,version);
+      this.authorize(d.company_code,d.payload.warehouseCode);
+      if (d.state === 'CONFIRMED' && d.confirmed_by === actor && d.content_hash === contentHash && d.version === version + 1) return d;
+      this.version(d,version);
       if(d.state!=='DRAFT'||d.content_hash!==contentHash||d.created_by===actor)throw new ConflictException('交接须由另一名实名接收人确认原始分段摘要');
+      await this.lockDay(m,before);
+      const reports=await this.reports(m,before);
       if(d.payload.rawCollection){
         if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND handover_ref=$2 AND kind='INBOUND'
           AND state<>'CANCELLED' LIMIT 1`,[d.company_code,d.handover_ref])).length)throw new ConflictException('该交接已被库存单引用，不能按原始收蛋签认');
@@ -293,7 +297,7 @@ export class ProductionInboundDocumentsService {
         if(net<0||net<(posted?.ordinaryNet??0)+(posted?.rawUsedQty??0)||a.quantity>Number(report.eggs_by_grade[a.gradeCode]??0))throw new ConflictException('实物交接来源与已过账净量或该班次日报不一致');
       }
       const [result]=await m.query(`WITH changed AS (UPDATE production_physical_handovers SET state='CONFIRMED',version=version+1,
-        confirmed_by=$2,confirmed_at=now() WHERE id=$1 RETURNING *) SELECT * FROM changed`,[id,actor]);return result;
+        confirmed_by=$2,confirmed_at=now() WHERE id=$1 RETURNING *) SELECT *, production_date::text AS production_date FROM changed`,[id,actor]);return result;
     });
   }
   async handovers(company: string,house: string,day: string) {
@@ -426,7 +430,7 @@ export class ProductionInboundDocumentsService {
   async recover(company: string, intentKey?: string, handoverRef?: string) {
     this.authorize(company);
     if (!intentKey && !handoverRef) throw new BadRequestException('请提供原创建意图或实物交接号');
-    const rows = await this.db.query(`SELECT * FROM production_inbound_documents WHERE company_code=$1
+    const rows = await this.db.query(`SELECT *,production_date::text AS production_date FROM production_inbound_documents WHERE company_code=$1
       AND (($2::text IS NOT NULL AND intent_key=$2) OR ($3::text IS NOT NULL AND handover_ref=$3))
       ORDER BY created_at DESC`, [company,intentKey ?? null,handoverRef ?? null]);
     return rows.filter((d: Document) => { try { this.authorize(d.company_code,d.payload.warehouseCode); return true; } catch { return false; } });
@@ -533,9 +537,13 @@ export class ProductionInboundDocumentsService {
   async ready(id: string, version: number, submitKey: string) {
     text(submitKey,'提交键'); const before = await this.identity(id);
     return this.db.transaction(async m => {
-      const scope = await this.lockDay(m,before); const reports = await this.reports(m,before);
-      const d = await this.currentDocument(m,id); this.version(d,version);
+      await this.lockDay(m,before,false,false);
+      const d = await this.currentDocument(m,id);
+      if (d.state === 'READY' && d.version === version + 1 && d.submit_key === submitKey) return d;
+      this.version(d,version);
       if (d.state !== 'DRAFT') throw new ConflictException('仅草稿可冻结');
+      const scope = await this.lockDay(m,before);
+      const reports = await this.reports(m,before);
       if (d.kind === 'REVERSAL') return this.readyReversal(m,d,submitKey,scope);
       const postingDate = singaporeBusinessDate();
       const periodVersion=await this.inboundPeriodVersion(m,d.company_code,postingDate);

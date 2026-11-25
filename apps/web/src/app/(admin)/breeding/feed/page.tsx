@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import FeedLedgerRollout from '@/components/breeding/FeedLedgerRollout';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
@@ -13,6 +14,7 @@ import {
   createFeedLedgerSavePayload,
   FeedLedgerRow,
   normalizeFeedLedgerRows,
+  normalizeFeedLedgerHouses,
   unwrapFeedLedgerSaveResponse,
 } from '@/lib/feed-ledger';
 function tok() {
@@ -43,7 +45,7 @@ async function apiPost<T>(path: string, data: unknown): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
   dt.setDate(dt.getDate() + n);
@@ -53,7 +55,7 @@ const ALERT_COLOR: Record<string, string> = {
   CRITICAL: 'var(--status-danger)',
   WARN: 'var(--status-warning)'
 };
-export default function FeedLedgerPage() {
+function LegacyFeedLedger() {
   const {
     t
   } = useLanguage();
@@ -62,31 +64,46 @@ export default function FeedLedgerPage() {
   //   原 gate 用 MENU_FARM_FEED(仅 1 角色持有)→ 5 个持 MENU_BREEDING:E 的角色看不到保存按钮且后端会 403 漂移。
   //   对齐到 MENU_BREEDING 与端点守卫一致。
   const { canEdit } = usePermission('MENU_BREEDING');
+  const inout = usePermission('MENU_WMS_INOUT');
+  const issue = usePermission('MENU_WMS_ISSUE');
   const [date, setDate] = useState(today());
   const [rows, setRows] = useState<FeedLedgerRow[]>([]);
-  const [houses, setHouses] = useState<string[]>([]);
+  const [houseMap, setHouseMap] = useState<Record<string, string>>({});
+  const houses = Object.keys(houseMap);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [failureAction, setFailureAction] = useState<'read' | 'write'>('read');
   const isToday = date === today();
+  const requestId = useRef(0);
+  const [loadedDate, setLoadedDate] = useState('');
   const loadData = useCallback(async (d: string) => {
+    const id = ++requestId.current;
+    setLoadedDate('');
+    setRows([]);
     setLoading(true);
     setError('');
+    setFailureAction('read');
     setSaved(false);
+    if (!d) { setLoading(false); return; }
     try {
       const [ledger, housesPayload] = await Promise.all([apiFetch<unknown>(`/api/farm/feed/ledger?date=${d}`), apiFetch<unknown>('/api/farm/feed/houses')]);
+      if (id !== requestId.current) return;
+      if (!Array.isArray(ledger) || !Array.isArray(housesPayload)) throw new Error('饲料台账响应无效，请重新查询');
       setRows(normalizeFeedLedgerRows(ledger));
-      setHouses(Array.isArray(housesPayload) ? housesPayload.filter((house): house is string => typeof house === 'string') : []);
+      setHouseMap(normalizeFeedLedgerHouses(housesPayload));
+      setLoadedDate(d);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '请求失败');
+      if (id === requestId.current) setError(e instanceof Error ? e.message : '请求失败');
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- route/date changes intentionally start remote loading
     loadData(date);
+    return () => { requestId.current++; };
   }, [date, loadData]);
   const updateRow = (idx: number, patch: Partial<FeedLedgerRow>) => {
     setRows(prev => {
@@ -106,8 +123,10 @@ export default function FeedLedgerPage() {
     setSaved(false);
   };
   const handleSave = async () => {
+    if (!date || loading || saving || loadedDate !== date) return;
     setSaving(true);
     setError('');
+    setFailureAction('write');
     try {
       const response = await apiPost<unknown>(
         '/api/farm/feed/ledger',
@@ -130,19 +149,19 @@ export default function FeedLedgerPage() {
         breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.饲料台账', '饲料台账')]}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/warehouse/inbound?action=create&type=FEED" style={{ ...primaryActionButton, textDecoration: 'none' }}>
+            {inout.canCreate && <a href="/warehouse/inbound" style={{ ...primaryActionButton, textDecoration: 'none' }}>
               <Save size={14} />{t('ui.新建饲料入库', '+ 新建饲料入库')}
-            </a>
-            <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
+            </a>}
+            {issue.canCreate && <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
               {t('ui.新建饲料发放', '+ 新建饲料发放')}
-            </a>
+            </a>}
           </div>
         }
       />
       {/* G19-B 业务方使用指引 — 解决"涣散无登记入口"困惑 */}
       <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-muted)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
         💡 <strong>{t('ui.台账使用说明', '使用说明')}：</strong>
-        {t('ui.feed指引', '本页是「饲料日台账」— 自动汇总当日入库/出库/库存。要登记新的入库/发放，请点右上"+ 新建饲料入库 / 发放"按钮（走标准 WMS 流程）。已有物料的余量可直接在表格里调整后点"保存"。')}
+        {t('ui.legacyFeedGuide', '本页展示手工登记的入库、发放和库存。要登记新的入库/发放，请点右上"+ 新建饲料入库 / 发放"按钮（走标准 WMS 流程）。已有物料的余量可直接在表格里调整后点"保存"。')}
       </div>
 
       {/* 工具栏 */}
@@ -153,21 +172,21 @@ export default function FeedLedgerPage() {
       marginBottom: 20,
       flexWrap: 'wrap'
     }}>
-        <button onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
+        <button disabled={!date || saving} onClick={() => setDate(d => addDays(d, -1))} style={secondaryActionButton}>
           <ChevronLeft size={14} />{t('ui.前一天', '前一天')}
         </button>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
-        <button onClick={() => setDate(d => addDays(d, 1))} disabled={isToday} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
+        <input type="date" disabled={saving} value={date} onChange={e => setDate(e.target.value)} style={{ ...inputField, width: 160 }} />
+        <button onClick={() => setDate(d => addDays(d, 1))} disabled={!date || isToday || saving} style={{ ...secondaryActionButton, opacity: isToday ? 0.4 : 1 }}>
           {t('ui.后一天', '后一天')}<ChevronRight size={14} />
         </button>
-        <button onClick={() => loadData(date)} style={secondaryActionButton}>
+        <button disabled={!date || saving} onClick={() => loadData(date)} style={secondaryActionButton}>
           <RefreshCw size={13} />{t('common.refresh', '刷新')}
         </button>
         <div className={u.flex1} />
         {canEdit && (
           <button
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={!date || saving || loading || loadedDate !== date}
             aria-busy={saving}
             style={saved ? secondaryActionButton : primaryActionButton}
           >
@@ -218,7 +237,7 @@ export default function FeedLedgerPage() {
       color: 'var(--status-danger)',
       fontSize: 13
     }}>
-          {t('ui.feed保存失败', '保存失败：')}{error}
+          {failureAction === 'read' ? t('ui.feed加载失败', '读取失败：') : t('ui.feed保存失败', '保存失败：')}{error}
         </div>}
 
       {/* 主表格 */}
@@ -234,7 +253,7 @@ export default function FeedLedgerPage() {
               {houses.map(h => <th key={h} style={{
               textAlign: 'right',
               whiteSpace: 'nowrap'
-            }}>{h}</th>)}
+            }}>{houseMap[h]}</th>)}
               <th className={styles.alignRight}>{t('ui.出库合计', '出库合计')}</th>
               <th className={styles.alignRight}>{t('ui.当前库存', '当前库存')}</th>
               <th className={styles.alignCenter}>{t('ui.可用天', '可用天')}</th>
@@ -356,4 +375,8 @@ export default function FeedLedgerPage() {
         </table>
       </div>
     </div>;
+}
+
+export default function FeedLedgerPage() {
+  return <FeedLedgerRollout legacy={<LegacyFeedLedger />} />;
 }

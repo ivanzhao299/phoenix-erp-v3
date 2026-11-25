@@ -190,6 +190,12 @@ export class EggSourceChangeController {
     return { code:201,data:await this.history.recordDisposition(id,body,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user },this.actor(req)) };
   }
 
+  @Get('history/options')
+  @RequireMenu('MENU_PROD_INBOUND','V')
+  async historyOptions(@Query('houseCode') houseCode: string | undefined, @Req() req: any) {
+    return { code: 200, data: await this.history.options(houseCode, { scope: this.scope(req), dataScope: req.dataScope }) };
+  }
+
   @Get('history')
   @RequireMenu('MENU_PROD_INBOUND','V')
   async historyEvidence(@Query() query: Parameters<EggHistoryReviewService['read']>[0], @Req() req: any) {

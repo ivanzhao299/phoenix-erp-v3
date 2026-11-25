@@ -69,7 +69,7 @@ def compare_cold_inventory(rows, frozen, expected_ts, database):
         raise ValueError(f"{database}: TypeORM order at {i}: {typeorm[i]}, expected {expected_ts[i]}")
 
 
-def rehearsal(base, candidate, scratch):
+def rehearsal(base, candidate, scratch, postgres_major):
     git("merge-base", "--is-ancestor", base, candidate)
     for ref in (base, candidate):
         for filename in ("pnpm-lock.yaml", "apps/api/package.json"):
@@ -92,7 +92,7 @@ def rehearsal(base, candidate, scratch):
     target = compile_revision(candidate, scratch / "candidate", env)
     cidfile = scratch / "postgres.cid"
     run(["docker", "run", "-d", "--rm", "--cidfile", str(cidfile), "-p", "127.0.0.1::5432",
-                     "-e", "POSTGRES_PASSWORD", "postgres:18-alpine"], env={**env, "POSTGRES_PASSWORD": env["DB_PASSWORD"]})
+                     "-e", "POSTGRES_PASSWORD", f"postgres:{postgres_major}-alpine"], env={**env, "POSTGRES_PASSWORD": env["DB_PASSWORD"]})
     container = cidfile.read_text().strip()
     if not re.fullmatch(r"[0-9a-f]{64}", container):
         raise RuntimeError("Docker did not record the owned fixture container ID")
@@ -155,7 +155,7 @@ exec docker exec -i "$FIXTURE_CONTAINER" psql -X -U postgres -d "$DB_NAME" "${ar
                          cwd=api, env={**reader_env, "DB_NAME": database})
             return json.loads(output.splitlines()[-1])
 
-        print("Installing released schema in disposable PG18", flush=True)
+        print(f"Installing released schema in disposable PG{postgres_major}", flush=True)
         cold(released, "release_upgrade")
         install_previous_reader("release_upgrade")
         before = ledger("release_upgrade")
@@ -237,6 +237,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("released")
     parser.add_argument("candidate")
+    parser.add_argument("--postgres-major", type=int, choices=(16, 18), default=18)
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix=".release-compat-", dir=ROOT) as directory:
-        rehearsal(revision(args.released), revision(args.candidate), Path(directory))
+        rehearsal(revision(args.released), revision(args.candidate), Path(directory), args.postgres_major)

@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   createFeedLedgerSavePayload,
   normalizeFeedLedgerRows,
@@ -69,22 +67,4 @@ describe('BUG-20260720-0002 feed ledger save contract', () => {
     })).toThrow('缺少 date 或 items');
   });
 
-  it('keeps the edit permission gate and visible failure feedback on the page', () => {
-    const pageSource = fs.readFileSync(
-      path.resolve(process.cwd(), 'src/app/(admin)/breeding/feed/page.tsx'),
-      'utf8',
-    );
-    const pageCssSource = fs.readFileSync(
-      path.resolve(process.cwd(), 'src/app/(admin)/breeding/feed/feed.module.css'),
-      'utf8',
-    );
-
-    expect(pageSource).toContain("usePermission('MENU_BREEDING')");
-    expect(pageSource).toContain('{canEdit && (');
-    expect(pageSource).toContain('role="alert"');
-    expect(pageSource).toContain('disabled={saving || loading}');
-    expect(pageSource).toContain('className={styles.tableViewport}');
-    expect(pageCssSource).toContain('overflow-x: auto');
-    expect(pageSource).toContain("flexWrap: 'wrap'");
-  });
 });

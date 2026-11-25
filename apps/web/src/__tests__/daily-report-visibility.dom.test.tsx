@@ -78,7 +78,7 @@ it('does not hide an authorized report behind the entry form default house', asy
   await mount();
   expect((host.querySelectorAll('select')[0] as HTMLSelectElement).value).toBe('HOUSE-A');
   expect(historyRows().textContent).toContain('AUTHORIZED_B');
-  expect(fixtures.fetchReports).toHaveBeenCalledWith({limit:30});
+  expect(fixtures.fetchReports).toHaveBeenCalledWith({limit:31,offset:0});
 });
 
 it('queries the selected historical house and date before the page limit', async () => {
@@ -87,7 +87,7 @@ it('queries the selected historical house and date before the page limit', async
   await act(async () => { historyHouse.value='HOUSE-B'; historyHouse.dispatchEvent(new Event('change',{bubbles:true})); });
   const historyDate = host.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
   await setInput(historyDate, '2026-10-17');
-  expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-B',log_date:'2026-10-17',limit:30});
+  expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-B',log_date:'2026-10-17',limit:31,offset:0});
   expect(historyRows().textContent).toContain('AUTHORIZED_B');
 });
 
@@ -104,7 +104,7 @@ it('shows the saved business date immediately and remains visible on refresh and
   await act(async () => submit.click());
   expect(fixtures.saveReport).toHaveBeenCalledWith(expect.objectContaining({house_code:'HOUSE-A',log_date:'2026-10-17',flock_no:'FLOCK-ON-REPORT-DATE',mortality_qty:3}));
   expect(fixtures.toast.error).not.toHaveBeenCalled();
-  expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-A',log_date:'2026-10-17',limit:30});
+  expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-A',log_date:'2026-10-17',limit:31,offset:0});
   expect(historyRows().textContent).toContain('House A');
   expect(historyRows().textContent).toContain('3');
   expect(window.location.search).toContain('historyDate=2026-10-17');

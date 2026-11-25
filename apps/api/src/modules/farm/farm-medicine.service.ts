@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { assertStockWarehouse, stockQuantity } from './vet-stock';
-import { BadRequestException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -92,12 +93,13 @@ interface MedicineInboundItem {
 function normalizeItems(items: unknown): MedicineInboundItem[] {
   if (!Array.isArray(items)) throw new BadRequestException('items 必须为数组');
   const normalized: MedicineInboundItem[] = [];
-  for (const raw of items as RawMedItem[]) {
-    if (!raw || typeof raw !== 'object') continue;
+  for (const [index, raw] of (items as RawMedItem[]).entries()) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new BadRequestException('药品明细第 ' + (index + 1) + ' 行无效');
     const code = String(raw.material_code ?? '').trim();
-    const qty = Number(raw.qty ?? raw.quantity ?? 0);
-    if (!Number.isFinite(qty) || qty <= 0) continue;
-    if (!code) throw new BadRequestException('请选择实际库存物料 material_code');
+    const inputQty = raw.qty ?? raw.quantity;
+    const qty = typeof inputQty === 'number' || typeof inputQty === 'string' ? Number(inputQty) : NaN;
+    if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException('药品明细第 ' + (index + 1) + ' 行数量必须大于 0');
+    if (!code) throw new BadRequestException('药品明细第 ' + (index + 1) + ' 行请选择实际库存物料');
     normalized.push({
       material_code: code,
       qty: stockQuantity(qty),
@@ -115,6 +117,14 @@ function normalizeItems(items: unknown): MedicineInboundItem[] {
     throw new BadRequestException('至少提交一条数量大于 0 的药品明细');
   }
   return normalized;
+}
+
+export interface MedicineInboundReceipt {
+  date: string;
+  lines: {
+    batchNo: string; ledgerId: number; materialCode: string; qty: number; unit: string;
+    companyCode: string; siteCode: string; warehouseCode: string;
+  }[];
 }
 
 export interface MedStockRow {
@@ -256,8 +266,8 @@ export class FarmMedicineService {
    * 环境缺列，writer 仅在有值时写入（旧门控无值时同样不产生该列）。
    * 读侧 getLedger 的列门控保留，不受影响。
    */
-  private async insertLedger(queryable: Queryable, entry: LedgerWrite): Promise<void> {
-    await writeInvLedger(queryable, {
+  private insertLedger(queryable: Queryable, entry: LedgerWrite): Promise<number> {
+    return writeInvLedger(queryable, {
       batchNo: entry.batchNo,
       changeType: entry.changeType,
       unit: entry.unit, materialCode: entry.materialCode,
@@ -369,11 +379,34 @@ export class FarmMedicineService {
     logDate: string,
     items: unknown,
     operator: string,
-  ): Promise<void> {
-    const safeDate = normalizeDate(logDate);
+    actionKey?: string,
+    actor = operator,
+  ): Promise<MedicineInboundReceipt> {
+    const explicitDate = String(logDate ?? '').trim() || null;
+    const safeDate = normalizeDate(explicitDate);
     const safeItems = normalizeItems(items);
+    if (actionKey !== undefined && (typeof actionKey !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actionKey))) {
+      throw new BadRequestException('药品入库请求号无效');
+    }
+    const requestKey = actionKey?.toLowerCase();
+    const digest = createHash('sha256').update(JSON.stringify([explicitDate, safeItems])).digest('hex');
 
-    await this.ds.transaction(async manager => {
+    return this.ds.transaction(async manager => {
+      if (requestKey) {
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['medicine-inbound:' + requestKey]);
+        const [previous] = await manager.query(
+          'SELECT actor, request_hash, receipt FROM farm_medicine_inbound_receipts WHERE request_key=$1', [requestKey]);
+        if (previous) {
+          if (previous.actor !== actor || previous.request_hash !== digest) {
+            throw new ConflictException('请求号已用于其他药品入库');
+          }
+          const receipt = previous.receipt as MedicineInboundReceipt;
+          for (const line of receipt.lines) this.assertScopeIdentity(line.companyCode, line.siteCode, line.warehouseCode);
+          return receipt;
+        }
+      }
+      const receipt: MedicineInboundReceipt = { date: safeDate, lines: [] };
       // No quantity-pool acquisition follows this medicine-only path.
       await lockTempProductionReferences(manager, safeItems.map(item => item.batch_no));
       for (const item of safeItems) {
@@ -423,7 +456,7 @@ export class FarmMedicineService {
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.material_code} 、物料、药品仓或现有批次的身份/单位不匹配`);
         }
-        await this.insertLedger(manager, {
+        const ledgerId = await this.insertLedger(manager, {
           batchNo: bn,
           unit: rows[0].unit, materialCode: rows[0].material_code,
           changeType: INV_LEDGER_CHANGE_TYPE.MED_INBOUND,
@@ -436,7 +469,13 @@ export class FarmMedicineService {
           refNo: 'MED_INBOUND',
           note: item.note ?? '采购入库',
         });
+        receipt.lines.push({ ...identity, batchNo: bn, ledgerId, materialCode: rows[0].material_code, qty, unit: rows[0].unit });
       }
+      if (requestKey) {
+        await manager.query('INSERT INTO farm_medicine_inbound_receipts(request_key, actor, request_hash, receipt) VALUES($1,$2,$3,$4)',
+          [requestKey, actor, digest, JSON.stringify(receipt)]);
+      }
+      return receipt;
     });
   }
 

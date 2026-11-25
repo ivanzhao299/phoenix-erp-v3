@@ -253,7 +253,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(createProductionBatch).toHaveBeenCalledTimes(1);
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, original_qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound(dto);
     expect(second).toMatchObject({ totalInbound, idempotent: true });
     expect(second.batches).toEqual(first.batches);
@@ -314,7 +314,7 @@ describe('ProductionInboundService master-data resolution', () => {
     const first = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-aaaa' });
     expect(first).toMatchObject({ totalInbound: 5, idempotent: false });
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, original_qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-bbbb' });
     expect(second).toMatchObject({ totalInbound: 5, idempotent: true });
     expect(second.batches).toEqual(first.batches);
@@ -327,7 +327,7 @@ describe('ProductionInboundService master-data resolution', () => {
 
   it('replays an omitted-spec daily request from stored identities after master availability changes', async () => {
     const { service, managerQuery, createProductionBatch, existing } = buildRetryService();
-    existing.push({ batch_no: 'OLD-BATCH', quality_grade: 'GRADE_1', qty: 5, product_code: 'OLD-PRODUCT', sku_code: 'FROZEN-SKU', spec_code: 'LOOSE', egg_date: '2026-08-25', collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' });
+    existing.push({ batch_no: 'OLD-BATCH', quality_grade: 'GRADE_1', qty: 5, original_qty: 5, product_code: 'OLD-PRODUCT', sku_code: 'FROZEN-SKU', spec_code: 'LOOSE', egg_date: '2026-08-25', collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' });
     await expect(service.recordProductionInbound({ houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 5 }] })).resolves.toMatchObject({ idempotent: true, batches: [{ batchNo: 'OLD-BATCH', productCode: 'OLD-PRODUCT' }] });
     expect(managerQuery.mock.calls.some(([sql]) => sql.includes('product_skus'))).toBe(false);
     expect(createProductionBatch).not.toHaveBeenCalled();

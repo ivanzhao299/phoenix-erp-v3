@@ -28,6 +28,7 @@ interface DataTableProps<T extends object = Record<string, unknown>> {
   onRowClick?: (row: T) => void;
   emptyText?: string;
   exportFilename?: string;
+  server?: { query: string; onQueryChange: (value: string) => void; page: number; onPageChange: (page: number) => void; total: number };
 }
 
 const exportTableCsv = (columns: Column[], data: Record<string, unknown>[], filename: string) => {
@@ -46,23 +47,26 @@ const exportTableCsv = (columns: Column[], data: Record<string, unknown>[], file
 
 function DataTable<T extends object = Record<string, unknown>>({
   columns = [], data = [], searchPlaceholder, searchKeys = [],
-  pageSize = 12, filters, rowKey = 'id', onRowClick, emptyText, exportFilename,
+  pageSize = 12, filters, rowKey = 'id', onRowClick, emptyText, exportFilename, server,
 }: DataTableProps<T>) {
   const { t } = useLanguage() || { t: (k: string, f: string) => f || k };
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('ui.搜索...', '搜索...');
   const resolvedEmptyText = emptyText ?? t('ui.暂无数据', '暂无数据');
-  const [query, setQuery] = useState('');
+  const [localQuery, setQuery] = useState('');
+  const query = server?.query ?? localQuery;
   const [page, setPage]   = useState(1);
 
   const asMap = (row: T) => row as Record<string, unknown>;
 
-  const filtered = query && searchKeys.length > 0
+  const changePage = (value: number) => server ? server.onPageChange(value) : setPage(value);
+  const filtered = !server && query && searchKeys.length > 0
     ? data.filter(row => searchKeys.some(k => String(asMap(row)[k] ?? '').toLowerCase().includes(query.toLowerCase())))
     : data;
 
-  const totalPages  = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paged       = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const total = server?.total ?? filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(server?.page ?? page, totalPages);
+  const paged = server ? data : filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div style={{ backgroundColor:'var(--bg-card)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow-sm)', border:'1px solid var(--border)', overflow:'hidden' }}>
@@ -70,14 +74,14 @@ function DataTable<T extends object = Record<string, unknown>>({
       <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap' }}>
         <div style={{ position:'relative', flex:'1', minWidth:'200px', maxWidth:'300px' }}>
           <Search size={15} style={{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', color:'var(--text-secondary)' }} />
-          <input type="text" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }}
+          <input type="text" value={query} onChange={e => { if (server) server.onQueryChange(e.target.value); else { setQuery(e.target.value); setPage(1); } }}
             placeholder={resolvedSearchPlaceholder}
             className="phx-input"
             style={{ width:'100%', paddingLeft:'32px', paddingRight:'10px', height:'34px' }}
           />
         </div>
         {filters}
-        <span style={{ fontSize:'12px', color:'var(--text-secondary)', marginLeft:'auto' }}>{t('ui.共','共')} {filtered.length} {t('ui.条','条')}</span>
+        <span style={{ fontSize:'12px', color:'var(--text-secondary)', marginLeft:'auto' }}>{t('ui.共','共')} {total} {t('ui.条','条')}</span>
         {exportFilename && (
           <button type="button" onClick={() => exportTableCsv(columns as Column[], data as Record<string, unknown>[], exportFilename)}
             style={{ display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', fontSize:'12px', fontWeight:'600',
@@ -125,7 +129,7 @@ function DataTable<T extends object = Record<string, unknown>>({
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'8px' }}>
-          <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+          <button type="button" onClick={() => changePage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
             style={{ width:'30px', height:'30px', borderRadius:'var(--radius-sm)', border:'1px solid var(--border)', backgroundColor:'var(--bg-card)', cursor: currentPage===1?'not-allowed':'pointer', opacity: currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-primary)' }}>
             <ChevronLeft size={14} />
           </button>
@@ -136,12 +140,12 @@ function DataTable<T extends object = Record<string, unknown>>({
               acc.push(p); return acc;
             }, [])
             .map((p, i) => typeof p === 'number' ? (
-              <button type="button" key={i} onClick={() => setPage(p)} style={{ minWidth:'30px', height:'30px', borderRadius:'var(--radius-sm)', border:'1px solid', padding:'0 6px',
+              <button type="button" key={i} onClick={() => changePage(p)} style={{ minWidth:'30px', height:'30px', borderRadius:'var(--radius-sm)', border:'1px solid', padding:'0 6px',
                 borderColor: p===currentPage?'var(--color-primary)':'var(--border)', backgroundColor: p===currentPage?'var(--color-primary)':'var(--bg-card)',
                 color: p===currentPage?'white':'var(--text-primary)', cursor:'pointer', fontSize:'13px', fontWeight: p===currentPage?'600':'400' }}>{p}</button>
             ) : <span key={i} style={{ color:'var(--text-secondary)', fontSize:'13px' }}>...</span>)
           }
-          <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+          <button type="button" onClick={() => changePage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
             style={{ width:'30px', height:'30px', borderRadius:'var(--radius-sm)', border:'1px solid var(--border)', backgroundColor:'var(--bg-card)', cursor: currentPage===totalPages?'not-allowed':'pointer', opacity: currentPage===totalPages?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-primary)' }}>
             <ChevronRight size={14} />
           </button>

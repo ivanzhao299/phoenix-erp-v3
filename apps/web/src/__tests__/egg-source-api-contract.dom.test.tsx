@@ -10,21 +10,6 @@ vi.mock('@/hooks/useProductGrades', () => ({
   useProductGrades: () => ({ grades: [{ grade_code: 'GRADE_1', grade_name: '1号蛋' }] }),
 }));
 vi.mock('@/components/PageHeader', () => ({ default: ({ title }: { title: string }) => <h1>{title}</h1> }));
-vi.mock('@/components/shared-selectors/MasterDataSelectors', () => {
-  type Props = {
-    onChange: (value: string) => void;
-    onPick?: (option: { raw: { companyCode: string; siteCode: string } }) => void;
-    disabled?: boolean;
-  };
-  return {
-    HouseSelector: (p: Props) => <>{['H1','H2'].map(code => <button key={code} type="button" disabled={p.disabled} onClick={() => {
-      p.onChange(code);
-      p.onPick?.({ raw: { companyCode: 'CO', siteCode: 'SITE' } });
-    }}>{code}</button>)}</>,
-    WarehouseSelector: (p: Props) => <button type="button" disabled={p.disabled} onClick={() => p.onChange('WH')}>选择目标仓</button>,
-    SpecSelector: (p: Props) => <button type="button" onClick={() => p.onChange('SPEC')}>选择规格</button>,
-  };
-});
 vi.mock('@/components/design-system/forms/AttachmentUploader', () => ({
   AttachmentUploader: ({ onChange }: { onChange: (files: string[]) => void }) =>
     <button type="button" onClick={() => onChange(['EVIDENCE-1'])}>上传核认证据</button>,
@@ -76,6 +61,11 @@ it('submits a mixed batch without old quantity and distinguishes a saved review 
   let saved = false;
   fetchMock.mockImplementation(async (path, options) => {
     const url = new URL(path, location.origin);
+    if (url.pathname === endpoint + '/history/options') {
+      return url.searchParams.has('houseCode')
+        ? respond({ warehouses: [{ code: 'WH', name: '原仓', status: 'INACTIVE' }] })
+        : respond({ houses: [{ houseCode: 'H1', name: '原舍', status: 'INACTIVE', companyCode: 'CO', siteCode: 'SITE' }] });
+    }
     expect(url.pathname).toBe(endpoint+'/history');
     if (options.method === 'POST') {
       saved = true;
@@ -86,8 +76,9 @@ it('submits a mixed batch without old quantity and distinguishes a saved review 
     return respond(evidence(batch, batch === 'EXACT' ? 30 : null));
   });
   await act(async () => root.render(<EggSourceHistoryPage/>));
-  await click('H1');
-  await click('选择目标仓');
+  expect(host.textContent).toContain('历史鸡舍');
+  await change('select', 'H1');
+  await change('label:nth-child(2) select', 'WH');
   await change('input[type=date]', '2026-11-17');
   await change('input[maxlength="128"]', 'EXACT');
   await click('查询历史凭据');
