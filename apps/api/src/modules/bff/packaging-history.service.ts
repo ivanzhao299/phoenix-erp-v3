@@ -59,9 +59,12 @@ export class PackagingHistoryService {
     const sql=`SELECT p.code,p.batches_json,p.grading_code,p.grading_codes_json,p.total_eggs,p.total_boxes,p.status,p.void_reason,p.business_revision,p.workflow_contract_version,p.label_encoding_version, p.id::text id, p.shift_id::text shift_id, p.production_date::text production_date,
       ws.shift_code,ws.production_date::text shift_date,ws.status shift_status,ws.site_id,f.company_code,
       (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,
-      EXISTS(SELECT 1 FROM pkg_audit_logs audit WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
+      EXISTS(SELECT 1 FROM pkg_audit_logs audit
+        CROSS JOIN LATERAL (SELECT CASE WHEN pg_input_is_valid(audit.after_data::text,'jsonb')
+          THEN audit.after_data::text::jsonb END AS payload) evidence
+        WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
         AND audit.action='CROSS_SHIFT_GRADING_CONSUME' AND NULLIF(btrim(audit.reason),'') IS NOT NULL
-        AND audit.after_data->>'shiftId'=p.shift_id::text AND audit.after_data->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
+        AND evidence.payload->>'shiftId'=p.shift_id::text AND evidence.payload->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
       COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id

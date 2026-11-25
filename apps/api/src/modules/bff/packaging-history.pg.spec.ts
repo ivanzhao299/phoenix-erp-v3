@@ -87,6 +87,8 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
  await Promise.all([d.boxes[0].boxId,box.id].map(boxId=>ds.transaction(async db=>{await db.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,['packaging-chain:false']);await new PackagingBoxService().claim(db,[{code,boxId,kind:'ALIAS',eventId:boxId===box.id?otherEvent:eventId}]);})));
  expect((await ds.query('SELECT state,owner_box_id FROM pkg_packing_code_registry WHERE normalized_code=$1',[code]))[0]).toEqual({state:'AMBIGUOUS',owner_box_id:null});await expect(workflow.boxes.resolve(ds.manager,f.packingId,code)).rejects.toThrow('LABEL_UNRESOLVABLE');});
  it('reports prior-day eggs by shift date and keeps original dates in daily history',async()=>{
+   await ds.query(`INSERT INTO pkg_audit_logs(entity_type,entity_id,action,after_data,reason)
+     VALUES('PACKING_RECORD',$1,'CROSS_SHIFT_GRADING_CONSUME','not-json','legacy fixture')`,[f.prefix]);
    await ds.query(`UPDATE pkg_work_shifts SET production_date='2026-01-03' WHERE id=$1`,[f.shiftId]);
    const shiftReport=await history.summary({dateFrom:'2026-01-03',dateTo:'2026-01-03',aggregation:'SHIFT',shiftId:f.shiftId},f.req);
    expect(shiftReport).toMatchObject({totalEggs:50,totalBoxes:2,gradingEggs:50,days:[{date:'2026-01-03',totalEggs:50,totalBoxes:2}],
