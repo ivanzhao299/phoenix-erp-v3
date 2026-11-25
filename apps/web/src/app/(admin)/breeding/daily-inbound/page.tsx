@@ -80,6 +80,8 @@ function DailyInboundForm() {
   const isPackagingMode=scope?.state==='OFF'&&scope.mode==='PACKAGING_INBOUND';
   const eligible=scope?.state==='OFF'&&scope.mode==='TEMP_PRODUCTION_INBOUND';
   const archiveDate=requiresFormal&&scope.firstProductionDate&&eggDate<scope.firstProductionDate;
+  const modeBasis=scope?.modeScope ? `${t('inventorySource.effectiveForHouse','该鸡舍生效模式')} · ${scope.houseCode} · ${scope.modeScope.code
+    ? scope.modeScope.level+'/'+scope.modeScope.code : t('inventorySource.defaultMode','系统默认')}` : null;
   function blockedMessage(){
     if(!houseCode)return t('ui.请先选择鸡舍','请先选择鸡舍');
     if(loadingMode)return t('breeding.loadingSourceMode','加载库存来源模式...');
@@ -235,9 +237,7 @@ function DailyInboundForm() {
       }}>
             <strong>{t('breeding.packagingModeOn', '已启用包装入库模式（PACKAGING_INBOUND）')}</strong><br />
             {t('breeding.packagingModeDesc', '不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。')}
-            {scope?.modeScope&&<div>
-              {t('inventorySource.effectiveForHouse','该鸡舍生效模式')} · {scope.houseCode} · {scope.modeScope.level}/{scope.modeScope.code}
-            </div>}
+            {modeBasis&&<div>{modeBasis}</div>}
           </div>
           <Link href="/packaging" style={{
         padding: "7px 14px",
@@ -261,7 +261,9 @@ function DailyInboundForm() {
       color: "var(--status-success)",
       fontSize: 13
     }}>
-          <Egg size={16} /> {t('breeding.currentMode', '当前为')} <strong>{t('breeding.tempProdMode', '临时生产入库模式')}</strong>{t('breeding.tempProdModeDesc', '，录入即直接形成可销售库存。')}
+          <Egg size={16} /> <div>{t('breeding.currentMode', '当前为')} <strong>{t('breeding.tempProdMode', '临时生产入库模式')}</strong>
+            {t('breeding.tempProdModeDesc', '，录入即直接形成可销售库存。')}{modeBasis&&<div>{modeBasis}</div>}
+          </div>
         </div>}
 
           {/* 表单头部 */}

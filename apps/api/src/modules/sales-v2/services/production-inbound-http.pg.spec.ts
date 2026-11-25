@@ -381,6 +381,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       });
       await getMode().expect(200, {mode:'TEMP_PRODUCTION_INBOUND'});
       await getMode('?houseCode=HOUSE-B').expect(403);
+      await maker.get(stock+'/source/mode?houseCode=HOUSE-A2').auth(token(7),{type:'bearer'}).expect(200);
       await db.query(`UPDATE brd_farms SET mapped_site_code='SITE-OTHER' WHERE farm_code='FARM-A'`);
       try {
         await maker.get(stock+'/source/mode?houseCode=HOUSE-A2').auth(token(7),{type:'bearer'}).expect(403);
@@ -396,6 +397,23 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       companyCode:'COMP-A',siteCode:'SITE-A',farmCode:'FARM-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',modeScope:{level:'GROUP',code:'ALL'},
       state:'OFF',firstProductionDate:null,
     });
+    const getModeForCompany = () => maker.get(stock+'/source/mode?houseCode=HOUSE-A2').auth(token(1),{type:'bearer'});
+    await db.query(`INSERT INTO inv_source_mode VALUES('COMPANY','COMP-A','PACKAGING_INBOUND')`);
+    try {
+      expect((await getModeForCompany().expect(200)).body).toMatchObject({
+        mode:'PACKAGING_INBOUND',modeScope:{level:'COMPANY',code:'COMP-A'},
+      });
+    } finally {
+      await db.query(`DELETE FROM inv_source_mode WHERE scope_level='COMPANY' AND scope_code='COMP-A'`);
+    }
+    await db.query(`DELETE FROM inv_source_mode WHERE scope_level='GROUP' AND scope_code='ALL'`);
+    try {
+      expect((await getModeForCompany().expect(200)).body).toMatchObject({
+        mode:'TEMP_PRODUCTION_INBOUND',modeScope:{level:'DEFAULT',code:null},
+      });
+    } finally {
+      await db.query(`INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND')`);
+    }
     await db.query(`INSERT INTO sys_user VALUES(22,'global_inbound',1,'ROLE_ADMIN');
       INSERT INTO fixture_permissions VALUES('ROLE_ADMIN','MENU_PROD_INBOUND:V');`);
     try {

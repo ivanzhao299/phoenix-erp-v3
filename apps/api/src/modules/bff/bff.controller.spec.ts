@@ -336,7 +336,9 @@ describe('PackagingTerminalBffController', () => {
     const scopedCalls = em.query.mock.calls.filter(([sql]) =>
       /pkg_(source_batches|grading_records|handover_records)/.test(String(sql)) && !String(sql).includes('SELECT DISTINCT'),
     );
-    expect(scopedCalls.every(([, params]) => params?.[1] === 42)).toBe(true);
+    const exactShiftReads = scopedCalls.filter(([sql]) => !String(sql).includes('FROM pkg_exceptions'));
+    expect(exactShiftReads).toHaveLength(3);
+    expect(exactShiftReads.map(([,params]) => params)).toEqual([[42],[42],[42]]);
   });
 
   it('reports warehouse handover as committed only when handover and inventory evidence both exist', async () => {
