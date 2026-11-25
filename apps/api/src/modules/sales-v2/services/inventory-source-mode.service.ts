@@ -6,9 +6,10 @@ import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 export type InventorySourceMode = 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND';
 export type ScopeLevel = 'GROUP' | 'COMPANY' | 'SITE';
+export type ResolvedInventorySourceMode = { mode: InventorySourceMode; scopeLevel: ScopeLevel | 'DEFAULT'; scopeCode: string | null };
 
 const VALID_MODES: InventorySourceMode[] = ['TEMP_PRODUCTION_INBOUND', 'PACKAGING_INBOUND'];
-const DEFAULT_MODE: InventorySourceMode = 'TEMP_PRODUCTION_INBOUND';
+const DEFAULT_MODE: ResolvedInventorySourceMode = { mode: 'TEMP_PRODUCTION_INBOUND', scopeLevel: 'DEFAULT', scopeCode: null };
 
 /**
  * InventorySourceModeService — 库存来源模式治理 Phase P1A
@@ -40,6 +41,14 @@ export class InventorySourceModeService {
     mgr?: EntityManager,
     options?: { failClosed: boolean },
   ): Promise<InventorySourceMode> {
+    return (await this.resolveModeConfig(scope, mgr, options)).mode;
+  }
+
+  async resolveModeConfig(
+    scope: { siteCode?: string | null; companyCode?: string | null },
+    mgr?: EntityManager,
+    options?: { failClosed: boolean },
+  ): Promise<ResolvedInventorySourceMode> {
     try {
       // A new SITE override can supersede an existing COMPANY or GROUP row.
       // Hold the configuration stable until the strict posting transaction commits.
@@ -53,7 +62,8 @@ export class InventorySourceModeService {
           LIMIT 1`,
         [scope.siteCode ?? '__none__', scope.companyCode ?? '__none__'],
       );
-      const mode = rows[0]?.mode as InventorySourceMode | undefined;
+      const row = rows[0];
+      const mode = row?.mode as InventorySourceMode | undefined;
       if (scope.siteCode && rows[0]?.scope_level !== 'SITE') {
         this.logger.warn(
           `[InvSourceMode][CONFIG_FALLBACK] SITE/${scope.siteCode} 无精确模式配置，` +
@@ -63,7 +73,9 @@ export class InventorySourceModeService {
       if (rows.length && (!mode || !VALID_MODES.includes(mode)) && options?.failClosed) {
         throw new BadRequestException('当前鸡舍库存来源模式无效');
       }
-      return mode && VALID_MODES.includes(mode) ? mode : DEFAULT_MODE;
+      return mode && VALID_MODES.includes(mode)
+        ? { mode, scopeLevel: row.scope_level, scopeCode: row.scope_code }
+        : DEFAULT_MODE;
     } catch (error) {
       this.logger.error(
         `[InvSourceMode][CONFIG_ERROR] 模式解析失败 site=${scope.siteCode ?? '-'} company=${scope.companyCode ?? '-'}，禁止静默：${(error as Error).message}`,
@@ -122,15 +134,13 @@ export class InventorySourceModeService {
 
   /** 最近切换审计 */
   async listAudit(limit = 50): Promise<any[]> {
-    try {
-      return await this.ds.query(
-        `SELECT scope_level, scope_code, old_mode, new_mode, operator, remark, risk_snapshot, created_at
-           FROM inv_source_mode_audit
-          ORDER BY created_at DESC
-          LIMIT $1`,
-        [Math.min(Math.max(limit, 1), 200)],
-      );
-    } catch { return []; }
+    return this.ds.query(
+      `SELECT scope_level, scope_code, old_mode, new_mode, operator, remark, risk_snapshot, created_at
+         FROM inv_source_mode_audit
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [Math.min(Math.max(limit, 1), 200)],
+    );
   }
 
   /**

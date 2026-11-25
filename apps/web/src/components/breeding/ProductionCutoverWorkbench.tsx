@@ -34,6 +34,14 @@ interface Evidence {snapshotSha256:string;references:Array<{table:string;rowSha2
 interface Document {id:string;document_no:string;company_code:string;warehouse_code:string;intent_key:string;state:string;version:number;created_by:string;content_hash:string;snapshot_sha256:string;
   boundary:{houses:Form['houses'];productCodes:string[]};payload:{extension?:Extension;postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|string|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]};
   references?:Evidence['references'];signatures:Array<{signature_role:string;signed_by:string;evidence_file_id:string;signed_at:string}>;snapshot:Evidence['snapshot']|null}
+type InspectionBoundary = {companyCode:string;warehouseCode:string;houses:Form['houses'];productCodes:string[]};
+function readCutoverEvidence(boundary:InspectionBoundary, extension?:ExtensionSetup) {
+  const route = extension ? 'inspect-extension' : 'inspect';
+  const data = extension ? {companyCode:boundary.companyCode,warehouseCode:boundary.warehouseCode,
+    houseCode:boundary.houses[0]?.houseCode,productCode:boundary.productCodes[0],targetClass:extension.targetClass,
+    effectiveDate:extension.effectiveDate,requirements:extension.requirements} : boundary;
+  return request<Evidence>(endpoint+'/'+route,{method:'POST',body:JSON.stringify(data)});
+}
 const blank=():Form=>({companyCode:'',warehouseCode:'',intentKey:'',postingDate:today(),houses:[],products:[],openingLines:[],decisions:[],referenceDecisions:[],rawCounts:[],evidenceFileIds:[]});
 const emptyLine=():Line=>({skuCode:'',productCode:'',gradeCode:'',specCode:'',locationCode:'',quantity:'',stockStatus:'',productionDate:'',expireDate:'',costStatus:'',unitCost:'',qualityConfirmed:false});
 function fromDocument(d:Document):Form{return {companyCode:d.company_code,warehouseCode:d.warehouse_code,intentKey:d.intent_key,postingDate:d.payload.postingDate,
@@ -71,11 +79,7 @@ function ActorCutoverWorkbench(){
     if(selected?.state!=='DRAFT')return;
     // A draft has no frozen snapshot. Refresh its actual rows without replacing the measured input.
     const boundary=JSON.parse(evidenceBoundary);if(!boundary.houses.length||!boundary.productCodes.length)return;
-    const extension=selected.payload.extension;
-    const route=extension?'inspect-extension':'inspect';
-    const body=extension?JSON.stringify({companyCode:boundary.companyCode,warehouseCode:boundary.warehouseCode,
-      houseCode:boundary.houses[0]?.houseCode,productCode:boundary.productCodes[0],...extension}):evidenceBoundary;
-    request<Evidence>(endpoint+'/'+route,{method:'POST',body})
+    readCutoverEvidence(boundary,selected.payload.extension)
       .then(current=>{if(alive&&generation===evidenceRequest.current)setEvidence({...current,boundaryKey:evidenceBoundary});}).catch(e=>{if(alive&&generation===evidenceRequest.current)setError(String(e.message));});
     return()=>{alive=false;};
   },[selected,evidenceBoundary]);
@@ -181,7 +185,7 @@ function ActorCutoverWorkbench(){
         {editable&&<button type="button" onClick={()=>patch({products:form.products.filter((_,index)=>i!==index)})}>{t('productionCutover.remove','移除')}</button>}
       </div>)}
       {editable&&<ProductSelector value="" ariaLabel={t('productionCutover.addProduct','添加实盘产品')} onChange={productCode=>{if(productCode&&!form.products.some(p=>p.productCode===productCode))patch({extension:undefined,products:[...form.products,{productCode,quantity:''}]});}}/>}
-      <div className={s.actions}><button disabled={busy||!form.companyCode||!form.warehouseCode||!!selected&&selected.state!=='DRAFT'||extend&&(form.houses.length!==1||form.products.length!==1||!extensionSetup.effectiveDate||!extensionSetup.requirements.length)} onClick={()=>run(async()=>{if(extend&&!selected){await inspectExtension();return;}const generation=++evidenceRequest.current,e=await request<Evidence>(`${endpoint}/inspect`,{method:'POST',body:JSON.stringify(boundary())});if(generation!==evidenceRequest.current)return;setEvidence({...e,boundaryKey:evidenceBoundary});patch({rawCounts:(form.rawCounts??[]).filter(r=>(e.snapshot.processing?.rawBalances??[]).some(balance=>balance.rawSegmentId===r.rawSegmentId&&balance.warehouseCode===form.warehouseCode&&Number(balance.remainingQuantity)>0)),decisions:form.decisions.filter(d=>e.snapshot.batches.some(b=>b.batch_no===d.batchNo)),referenceDecisions:form.referenceDecisions.filter(d=>e.references.some(r=>r.table===d.table&&r.rowSha256===d.rowSha256))});})}>{t('productionCutover.inspect','读取实际库存及关联清单')}</button>
+      <div className={s.actions}><button disabled={busy||!form.companyCode||!form.warehouseCode||!!selected&&selected.state!=='DRAFT'||extend&&!selected&&(form.houses.length!==1||form.products.length!==1||!extensionSetup.effectiveDate||!extensionSetup.requirements.length)} onClick={()=>run(async()=>{if(extend&&!selected){await inspectExtension();return;}const generation=++evidenceRequest.current,e=await readCutoverEvidence(boundary(),selected?.payload.extension);if(generation!==evidenceRequest.current)return;setEvidence({...e,boundaryKey:evidenceBoundary});patch({rawCounts:(form.rawCounts??[]).filter(r=>(e.snapshot.processing?.rawBalances??[]).some(balance=>balance.rawSegmentId===r.rawSegmentId&&balance.warehouseCode===form.warehouseCode&&Number(balance.remainingQuantity)>0)),decisions:form.decisions.filter(d=>e.snapshot.batches.some(b=>b.batch_no===d.batchNo)),referenceDecisions:form.referenceDecisions.filter(d=>e.references.some(r=>r.table===d.table&&r.rowSha256===d.rowSha256))});})}>{t('productionCutover.inspect','读取实际库存及关联清单')}</button>
         <button disabled={busy||!form.companyCode||!form.warehouseCode} onClick={()=>run(async()=>setDocuments(await request<Document[]>(`${endpoint}?${new URLSearchParams({companyCode:form.companyCode,warehouseCode:form.warehouseCode})}`)))}>{t('productionCutover.recover','查找已有盘点')}</button></div>
       {evidence&&<p className={s.notice}>{t('productionCutover.evidenceOnly','清单仅供核验，不构成启用批准。')}{evidence.snapshot.missingTables.length>0&&t('productionCutover.missing',' 部分检查数据尚未齐备，启用前须补齐核验。')}{evidence.snapshot.warnings.length>0&&t('productionCutover.held',' 范围中存在待确认项，请处理后重新读取。')}</p>}
     </section>

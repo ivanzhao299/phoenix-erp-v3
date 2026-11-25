@@ -13,14 +13,7 @@ import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 const SALEABLE_PALETTE = ['var(--status-special)', 'var(--color-accent)', 'var(--status-success)', 'var(--status-warning)', 'var(--status-warning)', 'var(--status-special)', 'var(--status-success)'];
 const DEFECT_PALETTE = ['var(--status-warning)', 'var(--status-danger)', 'var(--text-secondary)', 'var(--color-accent)'];
 const POLL_MS = 5000;
-type GradingSnapshot = {
-  gradingCodes: string[];
-  eggDate?: string;
-  eggDates?: string[];
-  outputs: Record<string, number>;
-  packed: Record<string, number>;
-  remaining: Record<string, number>;
-};
+type GradingSnapshot = Awaited<ReturnType<typeof packagingApi.getActiveGrading>>;
 type PackingItem = {
   productCode?: string;
   skuCode?: string;
@@ -38,7 +31,7 @@ export default function PackingPage() {
   } = useLanguage();
   const {
     setPackingResult,
-    ctx
+    ctx, identityKey
   } = useTerminalContext();
 
   // ── 字典 ──────────────────────────────────────────────────────────────────
@@ -70,10 +63,25 @@ export default function PackingPage() {
     }
     try {
       const data = await packagingApi.getActiveGrading(shiftId, eggDate || undefined);
-      const ready = data.gradingCodes.length ? await packagingApi.getReadyCombinations(shiftId, data.gradingCodes) : [];
       if (current !== generation.current) return;
-      setSnap(data); setCombinations(ready);
-      setSnapError(!data.gradingCodes.length ? '本班次缺少分级来源，请先完成来源批次接收与分级' : !ready.length ? '本班次来源品种没有可用包装组合，请在主数据中心检查品种映射、公司/场站适用范围及SKU启用状态' : '');
+      if (!data.gradingCodes.length) {
+        setSnap(data);
+        setCombinations([]);
+        setSnapError('本班次缺少分级来源，请先完成来源批次接收与分级');
+        return;
+      }
+      try {
+        const ready = await packagingApi.getReadyCombinations(shiftId, data.gradingCodes);
+        if (current !== generation.current) return;
+        setSnap(data);
+        setCombinations(ready);
+        setSnapError(ready.length ? '' : '本班次来源品种没有可用包装组合，请在主数据中心检查品种映射、公司/场站适用范围及SKU启用状态');
+      } catch (error) {
+        if (current !== generation.current) return;
+        setSnap(data);
+        setCombinations([]);
+        setSnapError(error instanceof Error ? error.message : '读取失败');
+      }
     } catch (error) {
       if (current !== generation.current) return;
       setSnap(null); setCombinations([]); setSnapError(error instanceof Error ? error.message : '读取失败');
@@ -92,6 +100,10 @@ export default function PackingPage() {
 
   // ── 本端临时扣减（已添加但未提交的箱次） ─────────────────────────────────
   const [items, setItems] = useState<PackingItem[]>([]);
+  const [draftScope, setDraftScope] = useState<{shiftId:number;eggDate:string}|null>(null);
+  const matchesShift = !!snap && snap.shiftId === Number(ctx.currentShift?.id)
+    && snap.productionDate === ctx.currentShift?.productionDate && ctx.currentShift?.status === 'OPEN';
+  const matchesDraft = !items.length || (!!snap && draftScope?.shiftId === snap.shiftId && draftScope.eggDate === snap.eggDate);
   const [selectedSpec, setSelectedSpec] = useState<typeof SPECS[0] | null>(null);
   const [boxCount, setBoxCount] = useState('');
   const [numpadKey, setNumpadKey] = useState(0);
@@ -103,7 +115,7 @@ export default function PackingPage() {
   const boxes = parseInt(boxCount) || 0;
   const eggs = boxes * (selectedSpec?.qty || 0);
   const eggsAvailable = selectedGrade ? remaining[selectedGrade] ?? 0 : 0;
-  const canAdd = !snapError && !!selectedSpec && SPECS.some(s => s.skuCode === selectedSpec.skuCode) && canAddPacking({ grade: selectedGrade, specQty: selectedSpec?.qty, boxes, available: eggsAvailable });
+  const canAdd = matchesShift && matchesDraft && !snapError && !!selectedSpec && SPECS.some(s => s.skuCode === selectedSpec.skuCode) && canAddPacking({ grade: selectedGrade, specQty: selectedSpec?.qty, boxes, available: eggsAvailable });
   const handleSelectGrade = (code: string) => {
     setSelectedGrade(code);
     setSelectedSpec(null);
@@ -111,7 +123,14 @@ export default function PackingPage() {
     setNumpadKey(k => k + 1);
   };
   const handleAdd = () => {
-    if (!canAdd || !selectedGrade || !selectedSpec) return;
+    if (!canAdd || !snap || !selectedGrade || !selectedSpec) return;
+    if (!items.length) {
+      setDraftScope({ shiftId: snap.shiftId, eggDate: snap.eggDate });
+      if (eggDate !== snap.eggDate) {
+        ++generation.current;
+        setEggDate(snap.eggDate);
+      }
+    }
     setItems(prev => addPackingItem(prev, {
         productCode: selectedSpec.productCode,
         skuCode: selectedSpec.skuCode,
@@ -126,28 +145,28 @@ export default function PackingPage() {
   };
   const handleFinish = async () => {
     if (items.length === 0 || snapError || !snap) return;
-    if (!ctx.currentShift || ctx.currentShift.status !== 'OPEN') {
-      setSubmitError(t('ui.请先开班再提交包装记录', '请先开班再提交包装记录'));
+    if (!matchesShift || !matchesDraft) {
+      setSubmitError(t('eggSources.packingDraftMismatch','草稿的班次或产蛋日已变化，请返回原班次或清空本地草稿。'));
       return;
     }
     setSubmitting(true);
     setSubmitError('');
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      const identity = JSON.stringify({ shiftId: ctx.currentShift.id, gradingCodes, items });
-      const storageKey = `packaging-submit:${identity}`;
-      let idempotencyKey = sessionStorage.getItem(storageKey);
-      if (!idempotencyKey) {
-        idempotencyKey = `packing-${crypto.randomUUID()}`;
-        sessionStorage.setItem(storageKey, idempotencyKey);
-      }
+      const identity = JSON.stringify({ identityKey, shiftId: snap.shiftId, eggDate: snap.eggDate, items });
+      const storageKey = `packaging-submit:v2:${identity}`;
+      const prior = sessionStorage.getItem(storageKey);
+      const intent: { idempotencyKey:string; gradingCodes:string[] } = prior ? JSON.parse(prior) : {
+        idempotencyKey: `packing-${crypto.randomUUID()}`,
+        gradingCodes,
+      };
+      // If the response was lost, replay the submitted source set even after the polling data changes.
+      if (!prior) sessionStorage.setItem(storageKey, JSON.stringify(intent));
       const res = await packagingApi.submitPacking({
-        idempotencyKey,
-        gradingCodes: gradingCodes,
-        gradingCode: gradingCodes[0] ?? null,
-        productionDate: today,
+        ...intent,
+        gradingCode: intent.gradingCodes[0] ?? null,
+        eggDate: snap.eggDate,
         batches: items,
-        shiftId: ctx.currentShift?.id ?? null
+        shiftId: snap.shiftId
       });
       sessionStorage.removeItem(storageKey);
       setPackingResult(res.code, items);
@@ -160,6 +179,17 @@ export default function PackingPage() {
       setSubmitting(false);
     }
   };
+  function clearDraft() {
+    setItems([]);
+    setDraftScope(null);
+    setSubmitError('');
+    setSelectedSpec(null);
+    setBoxCount('');
+    if (eggDate) {
+      ++generation.current;
+      setEggDate('');
+    }
+  }
   const totalBoxes = items.reduce((a, b) => a + b.boxes, 0);
   const totalEggs = items.reduce((a, b) => a + b.eggs, 0);
 
@@ -243,8 +273,8 @@ export default function PackingPage() {
         }}>{t('terminal.packing', '包装作业')}</div>
           {!!snap?.eggDates?.length && <label>{t('eggSources.productionDate','产蛋日期')}{' '}
             <select disabled={items.length > 0 || submitting} value={snap.eggDate}
-              onChange={event=>{ setEggDate(event.target.value); setSnap(null); setCombinations([]); setSelectedSpec(null); }}>
-              {snap.eggDates.map(day=><option key={day} value={day}>{day}</option>)}
+              onChange={event=>{ ++generation.current; setEggDate(event.target.value); setSnap(null); setCombinations([]); setSelectedSpec(null); }}>
+              {[...new Set([snap.eggDate,...snap.eggDates])].sort().map(day=><option key={day} value={day}>{day}</option>)}
             </select>
           </label>}
           <div style={{
@@ -852,12 +882,15 @@ export default function PackingPage() {
         }}>
             {t('ui.合计', '合计')} {totalBoxes} {t('ui.箱', '箱')} · {totalEggs.toLocaleString()} {t('ui.枚', '枚')}
           </span>
-          {submitError && <span style={{
+          {(submitError || (items.length > 0 && !matchesDraft)) && <span style={{
           fontSize: 12,
           color: T.RED
-        }}>⚠ {submitError}</span>}
+        }}>⚠ {submitError || t('eggSources.packingDraftMismatch','草稿的班次或产蛋日已变化，请返回原班次或清空本地草稿。')}</span>}
         </div>
-        <button type="button" onClick={handleFinish} disabled={!!snapError || !snap || items.length === 0 || submitting || !ctx.currentShift || ctx.currentShift.status !== 'OPEN'} style={{
+        {items.length > 0 && <button type="button" onClick={clearDraft} disabled={submitting}>
+          {t('eggSources.clearPackingDraft','清空本地草稿')}
+        </button>}
+        <button type="button" onClick={handleFinish} disabled={!!snapError || !matchesShift || !matchesDraft || items.length === 0 || submitting} style={{
         padding: '9px 40px',
         borderRadius: 10,
         border: 'none',

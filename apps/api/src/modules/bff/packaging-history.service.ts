@@ -7,6 +7,7 @@ import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm } from '../../auth/permissions.util';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { packagingTestMode } from './packaging-protection';
+import { gradingSourceDayMatches, linkedGradingSources } from './packaging-readiness';
 
 export function historyDate(value: unknown): string {
   const v = String(value);
@@ -58,17 +59,21 @@ export class PackagingHistoryService {
     const sql=`SELECT p.code,p.batches_json,p.grading_code,p.grading_codes_json,p.total_eggs,p.total_boxes,p.status,p.void_reason,p.business_revision,p.workflow_contract_version,p.label_encoding_version, p.id::text id, p.shift_id::text shift_id, p.production_date::text production_date,
       ws.shift_code,ws.production_date::text shift_date,ws.status shift_status,ws.site_id,f.company_code,
       (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,
-      EXISTS(SELECT 1 FROM pkg_audit_logs audit WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
+      EXISTS(SELECT 1 FROM pkg_audit_logs audit
+        CROSS JOIN LATERAL (SELECT CASE WHEN pg_input_is_valid(audit.after_data::text,'jsonb')
+          THEN audit.after_data::text::jsonb END AS payload) evidence
+        WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
         AND audit.action='CROSS_SHIFT_GRADING_CONSUME' AND NULLIF(btrim(audit.reason),'') IS NOT NULL
-        AND audit.after_data->>'shiftId'=p.shift_id::text AND audit.after_data->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
+        AND evidence.payload->>'shiftId'=p.shift_id::text AND evidence.payload->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
       COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('gradingId',g.id::text,'gradingCode',g.code,
         'sourceBatchId',s.id::text,'sourceBatchCode',s.batch_code,'houseCode',s.house_code,'siteCode',sf.farm_code,
         'companyCode',sf.company_code,'sourceOriginalQty',s.received_qty,'allocationQty',NULL,'precision','RELATED_ONLY',
-        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',(CASE WHEN p.production_date=ws.production_date THEN s.production_date ELSE COALESCE(s.lay_date,s.production_date) END)::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
-        FROM pkg_grading_records g LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
+        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',(CASE WHEN ${gradingSourceDayMatches} THEN g.production_date END)::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
+        FROM pkg_grading_records g LEFT JOIN pkg_work_shifts ws ON ws.id=g.shift_id
+        LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
         LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id LEFT JOIN brd_houses sh ON sh.house_code=s.house_code
         LEFT JOIN ${OrgOwnershipService.FARM_TABLE} sf ON sf.farm_code=sh.farm_code WHERE g.code=ANY(ARRAY
         (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(p.grading_codes_json)='array' AND jsonb_array_length(p.grading_codes_json)>0
@@ -87,7 +92,8 @@ export class PackagingHistoryService {
     if(!page)return db.query(sql,params);
     const values=[...params];const bind=(v:any)=>{values.push(v??null);return '$'+values.length;};
     const q=page.q,conditions:string[]=[];
-    for(const [key,column] of [['dateFrom','production_date'],['dateTo','production_date'],['companyCode','company_code'],['siteCode','site_id'],['shiftId','shift_id'],['shiftStatus','shift_status'],['recordStatus','status'],['handoverState','posting_state'],['inventoryMode','inventory_mode']]){
+    const dateColumn=page.report && q.aggregation==='SHIFT' ? 'shift_date' : 'production_date';
+    for(const [key,column] of [['dateFrom',dateColumn],['dateTo',dateColumn],['companyCode','company_code'],['siteCode','site_id'],['shiftId','shift_id'],['shiftStatus','shift_status'],['recordStatus','status'],['handoverState','posting_state'],['inventoryMode','inventory_mode']]){
       if(q[key]&&q[key]!=='ALL')conditions.push(`${column} ${key==='dateFrom'?'>=':key==='dateTo'?'<=':'='} ${bind(q[key])}`);
     }
     if(page.report)return db.query(`WITH visible AS (${sql}) SELECT * FROM visible ${conditions.length?'WHERE '+conditions.join(' AND '):''} ORDER BY production_date,id::bigint`,values);
@@ -195,12 +201,13 @@ export class PackagingHistoryService {
     }).join(' OR ');
     const [grading]=await em.query(`SELECT COALESCE(sum(g.total_output),0)::bigint::text qty FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id WHERE NOT g.is_test AND NOT ws.is_test AND g.status='ACTIVE'
-      AND g.production_date BETWEEN $1::date AND $2::date AND ($3::bigint IS NULL OR ws.id=$3::bigint)
+      AND (CASE WHEN $3::bigint IS NOT NULL THEN ws.production_date ELSE g.production_date END) BETWEEN $1::date AND $2::date
+      AND ($3::bigint IS NULL OR (ws.id=$3::bigint AND ${linkedGradingSources}))
       AND ($4::text IS NULL OR f.company_code=$4) AND ($5::text IS NULL OR ws.site_id=$5) AND (${visibility})`,params);
     const active=selected.filter(r=>r.status==='ACTIVE'),days=[];
     const records=active.map(r=>{const evidence=packingEvidence(r,r.inventory,r.ledger,r.handovers,r.commit_receipt);if(r.inventory_mode==='TEMP_PRODUCTION_INBOUND'&&evidence.state==='PENDING'){evidence.quality='UNKNOWN';evidence.issues=['TEMP 来源仅场日汇总，精确原单交接未支持'];}return {code:r.code,shiftId:r.shift_id,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:{records:r.handovers,...evidence},inventoryMode:r.inventory_mode};});
     for(let date=from;date<=to;date=new Date(Date.parse(date)+86400000).toISOString().slice(0,10)){
-      const records=active.filter(r=>r.production_date===date);days.push({date,totalEggs:records.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:records.reduce((n,r)=>n+Number(r.total_boxes),0)});
+      const records=active.filter(r=>(q.aggregation==='SHIFT'?r.shift_date:r.production_date)===date);days.push({date,totalEggs:records.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:records.reduce((n,r)=>n+Number(r.total_boxes),0)});
     }
     return {basis:'TERMINAL_RECORDS',aggregation:q.aggregation,shiftId:q.aggregation==='SHIFT'?q.shiftId:null,dateFrom:from,dateTo:to,shiftIds:[...new Set(selected.map(r=>r.shift_id))],
       totalEggs:active.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:active.reduce((n,r)=>n+Number(r.total_boxes),0),voidCount:selected.length-active.length,

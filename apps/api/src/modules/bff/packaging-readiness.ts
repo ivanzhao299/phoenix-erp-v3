@@ -37,6 +37,17 @@ function one(rows: any[], kind: string, label: string) {
   return active[0];
 }
 
+// A linked grading order fixes the date. Legacy grading used its original shift date.
+export const gradingSourceDayMatches = `(CASE WHEN s.is_test THEN s.production_date=g.production_date
+  ELSE COALESCE(s.lay_date,s.production_date)=g.production_date
+    OR (s.production_date=g.production_date AND ws.production_date=g.production_date) END) IS TRUE`;
+
+// Exact shift views use the same provenance as the active grading workbench.
+export const linkedGradingSources = `g.production_date<=ws.production_date AND EXISTS (SELECT 1 FROM pkg_grading_source_links l WHERE l.grading_id=g.id)
+  AND NOT EXISTS (SELECT 1 FROM pkg_grading_source_links l LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id
+    WHERE l.grading_id=g.id AND (s.shift_id IS DISTINCT FROM g.shift_id OR s.is_test IS DISTINCT FROM g.is_test
+      OR s.batch_status='VOID' OR NOT (${gradingSourceDayMatches})))`;
+
 /** The shift owns the farm/date; grading links, never caller-supplied variety, own provenance. */
 export async function resolvePackagingSourceContext(db: Db, input: {
   packingCode?: string; shiftId?: number | string; gradingCodes?: string[];
@@ -66,9 +77,10 @@ export async function resolvePackagingSourceContext(db: Db, input: {
     await db.query(`SELECT s.id FROM pkg_source_batches s JOIN pkg_grading_source_links l ON l.source_batch_id=s.id
       JOIN pkg_grading_records g ON g.id=l.grading_id WHERE g.code=ANY($1::text[]) FOR SHARE OF s, l`, [gradingCodes]);
     houses = await db.query(`SELECT DISTINCT s.house_code,
-      (CASE WHEN s.is_test OR $2::boolean THEN s.production_date ELSE COALESCE(s.lay_date,s.production_date) END)::text AS egg_date, s.batch_status, s.is_test, g.is_test AS grading_is_test
+      (CASE WHEN ${gradingSourceDayMatches} THEN g.production_date END)::text AS egg_date, s.batch_status, s.is_test, g.is_test AS grading_is_test
       FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id
-      LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id WHERE g.code=ANY($1::text[])`, [gradingCodes,!!input.historical]);
+      JOIN pkg_work_shifts ws ON ws.id=g.shift_id
+      LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id WHERE g.code=ANY($1::text[])`, [gradingCodes]);
     const sourceDates = [...new Set(houses.map(h => h.egg_date))];
     if (sourceDates.length !== 1 || (eggDate && sourceDates[0] !== eggDate) ||
         grades.some(g => g.egg_date !== sourceDates[0]) ||

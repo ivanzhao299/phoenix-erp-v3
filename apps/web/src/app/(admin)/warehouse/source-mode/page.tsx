@@ -6,6 +6,8 @@ import { Settings2, RefreshCw, AlertTriangle, ArrowRightLeft, ShieldCheck, Histo
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
+import type { HouseInventorySourceMode } from "@/lib/inventory-source-mode";
+import { HouseSelector } from "@/components/shared-selectors/MasterDataSelectors";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
 
@@ -60,6 +62,14 @@ export default function SourceModePage() {
   const [configs, setConfigs] = useState<ModeConfig[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [configFailed, setConfigFailed] = useState(false);
+  const [auditFailed, setAuditFailed] = useState(false);
+  const [houseCode, setHouseCode] = useState('');
+  const [checkRevision, setCheckRevision] = useState(0);
+  const [houseCheck, setHouseCheck] = useState<{ key: string; result?: HouseInventorySourceMode; error?: string } | null>(null);
+  const checkKey = JSON.stringify([houseCode, checkRevision]);
+  const checkedHouse = houseCheck?.key === checkKey ? houseCheck : null;
+  const formatError = t('inventorySource.configLoadFailed', '库存来源模式暂时无法核实，请刷新重试。');
 
   // 切换表单
   const [scopeLevel, setScopeLevel] = useState("GROUP");
@@ -73,17 +83,35 @@ export default function SourceModePage() {
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const [c, a] = await Promise.all([request<ModeConfig[]>("/v2/inventory/source/configs"), request<AuditRow[]>("/v2/inventory/source/audit?limit=30")]);
-      setConfigs(Array.isArray(c) ? c : []);
-      setAudit(Array.isArray(a) ? a : []);
-    } catch {/* ignore */} finally {
-      setLoading(false);
-    }
+    const [configResult, auditResult] = await Promise.allSettled([
+      request<ModeConfig[]>("/v2/inventory/source/configs"),
+      request<AuditRow[]>("/v2/inventory/source/audit?limit=30"),
+    ]);
+    const configRows = configResult.status === 'fulfilled' && Array.isArray(configResult.value) ? configResult.value : null;
+    const auditRows = auditResult.status === 'fulfilled' && Array.isArray(auditResult.value) ? auditResult.value : null;
+    setConfigs(configRows ?? []);
+    setAudit(auditRows ?? []);
+    setConfigFailed(configRows === null);
+    setAuditFailed(auditRows === null);
+    setCheckRevision(revision => revision + 1);
+    setLoading(false);
   }, []);
   useEffect(() => {
-    if (canView) load();
+    if (canView) void load();
   }, [canView, load]);
+  useEffect(() => {
+    if (!canView || !houseCode) return;
+    const controller = new AbortController();
+    request<HouseInventorySourceMode>("/v2/inventory/source/mode?" + new URLSearchParams({houseCode}), { signal: controller.signal, silent: true })
+      .then(result => {
+        if (result?.houseCode !== houseCode || !result.modeScope || !MODE_LABEL[result.mode]) throw new Error(formatError);
+        if (!controller.signal.aborted) setHouseCheck({ key: checkKey, result });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setHouseCheck({ key: checkKey, error: error instanceof Error ? error.message : formatError });
+      });
+    return () => controller.abort();
+  }, [canView, checkKey, houseCode, formatError]);
   const assess = async () => {
     setError("");
     setMsg("");
@@ -160,6 +188,18 @@ export default function SourceModePage() {
         </button>
       </div>
 
+      <section className={u.mb24}>
+        <h2>{t('inventorySource.checkByHouse','按鸡舍核查生效模式')}</h2>
+        <p>{t('inventorySource.precedence','库存来源按场站（农场编码）、公司、集团依次匹配。下表各行显示该范围的配置，选舍可查看实际命中项。')}</p>
+        <HouseSelector value={houseCode} onChange={setHouseCode} />
+        {houseCode&&!checkedHouse&&<p role="status">{t('breeding.loadingSourceMode','加载库存来源模式...')}</p>}
+        {checkedHouse?.error&&<p role="alert">{checkedHouse.error}</p>}
+        {checkedHouse?.result&&<p role="status">
+          <strong>{MODE_LABEL[checkedHouse.result.mode]}</strong> · {checkedHouse.result.houseCode} · {checkedHouse.result.companyCode}
+          {' · '}{checkedHouse.result.modeScope.code ? checkedHouse.result.modeScope.level+'/'+checkedHouse.result.modeScope.code
+            : t('inventorySource.defaultMode','系统默认')}
+        </p>}
+      </section>
       {/* 当前模式配置 */}
       <div className={u.mb24}>
         <div style={{
@@ -208,7 +248,7 @@ export default function SourceModePage() {
               }}>{t('ui.备注','备注')}</th>
               </tr></thead>
               <tbody>
-                {configs.length === 0 ? <tr><td colSpan={5} style={{
+                {configFailed ? <tr><td colSpan={5} role="alert">{formatError}</td></tr> : configs.length === 0 ? <tr><td colSpan={5} style={{
                 padding: 30,
                 textAlign: "center",
                 color: "var(--text-secondary)"
@@ -300,7 +340,7 @@ export default function SourceModePage() {
             color: "var(--text-secondary)",
             marginBottom: 6
           }}>{t('ui.范围编码','范围编码')}</label>
-              <input value={scopeCode} onChange={e => setScopeCode(e.target.value)} placeholder={t('ui.ALL / 公司码 / 场站码','ALL / 公司码 / 场站码')} className="bg-bg-muted border border-border text-text" style={{
+              <input value={scopeCode} onChange={e => setScopeCode(e.target.value)} placeholder={t('inventorySource.scopeCode','ALL / 公司码 / 农场编码')} className="bg-bg-muted border border-border text-text" style={{
             padding: "7px 10px",
             borderRadius: 7,
             fontSize: 13,
@@ -477,7 +517,7 @@ export default function SourceModePage() {
               }}>{t('ui.备注','备注')}</th>
             </tr></thead>
             <tbody>
-              {audit.length === 0 ? <tr><td colSpan={6} style={{
+              {auditFailed ? <tr><td colSpan={6} role="alert">{formatError}</td></tr> : audit.length === 0 ? <tr><td colSpan={6} style={{
                 padding: 30,
                 textAlign: "center",
                 color: "var(--text-secondary)"

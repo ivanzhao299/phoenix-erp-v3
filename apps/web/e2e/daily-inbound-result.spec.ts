@@ -136,10 +136,13 @@ test('view-only inbound permission cannot confirm inventory', async ({ page }) =
 });
 
 test('packaging source mode forbids the direct inbound entry', async ({ page }) => {
-  await page.route('**'+availabilityPath+'?**', route => route.fulfill({ json: { ...scopedAvailability, mode: 'PACKAGING_INBOUND' } }));
+  await page.route('**'+availabilityPath+'?**', route => route.fulfill({ json: {
+    ...scopedAvailability, mode: 'PACKAGING_INBOUND', farmCode:'FIXTURE-FARM', modeScope:{level:'SITE',code:'FIXTURE-FARM'},
+  } }));
   await page.goto('/breeding/daily-inbound');
   await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
   await expect(page.getByText('已启用包装入库模式（PACKAGING_INBOUND）', { exact: true })).toBeVisible();
+  await expect(page.getByText('该鸡舍生效模式 · FIXTURE-H1 · SITE/FIXTURE-FARM', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: confirmation, exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '前往包装作业', exact: true })).toHaveAttribute('href', '/packaging');
 });
