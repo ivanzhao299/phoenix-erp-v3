@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { buildAccessTokenCookie, refreshAndPersistSession } from '@/lib/auth-session';
+import { BROWSER_LOGIN_KEY, SHARED_LOGIN_KEY, buildAccessTokenCookie, markBrowserLogin, readBrowserLogin, refreshAndPersistSession, adoptSharedAccessToken } from '@/lib/auth-session';
 import { invalidateCache } from '@/lib/request-cache';
 
 type AuthUser = {
@@ -44,6 +44,7 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
     const savedVersion = sessionStorage.getItem('phoenix_session_version');
     if (savedVersion !== SESSION_VERSION) {
       sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem(BROWSER_LOGIN_KEY);
       sessionStorage.removeItem('phoenix_user');
       sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
       // A new tab has its own sessionStorage (or receives a stale cloned copy),
@@ -52,7 +53,8 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
       // cross-tab session as logged out and redirect back to /login.
     }
     // 优先 sessionStorage，fallback localStorage（路由切换/刷新/新标签页时 sessionStorage 可能为空）
-    const storedToken = sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token');
+    const tabToken = sessionStorage.getItem('phoenix_token');
+    const storedToken = tabToken ? adoptSharedAccessToken(tabToken) : localStorage.getItem('phoenix_token');
     const storedUser  = sessionStorage.getItem('phoenix_user')  || localStorage.getItem('phoenix_user');
     if (!storedToken || !storedUser) return { user: null, token: null };
     // fallback 成功时同步回 sessionStorage，保证后续读取一致
@@ -67,9 +69,11 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
     const CLOCK_SKEW_MS = 10_000;
     if (payload.exp && payload.exp * 1000 + CLOCK_SKEW_MS < Date.now()) throw new Error('expired');
 
+    readBrowserLogin(storedToken);
     return { user: JSON.parse(storedUser) as AuthUser, token: storedToken };
   } catch {
     sessionStorage.removeItem('phoenix_token');
+    sessionStorage.removeItem(BROWSER_LOGIN_KEY);
     sessionStorage.removeItem('phoenix_user');
     return { user: null, token: null };
   }
@@ -152,6 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
         sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem(BROWSER_LOGIN_KEY);
         sessionStorage.removeItem('phoenix_user');
         const path = window.location.pathname;
         const isMobile = path.startsWith('/mobile');
@@ -179,6 +184,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>, cookieToken?: string) => {
     invalidateCache();
+    markBrowserLogin(tokenStr);
     // 同时写 sessionStorage + localStorage，保证刷新/路由切换/包装台标签页都能读到
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
@@ -189,10 +195,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // 瘦身 cookie token：多角色用户完整 JWT 超 4096B cookie 上限会被浏览器丢弃 →
     //   中间件读不到 token → 登录后弹回 /login。cookie 用瘦身版，API 仍用完整 token。
     const ck = cookieToken || tokenStr;
-    if (cookieToken) {
-      sessionStorage.setItem('phoenix_cookie_token', cookieToken);
-      localStorage.setItem('phoenix_cookie_token', cookieToken);
-    }
+    sessionStorage.setItem('phoenix_cookie_token', ck);
+    localStorage.setItem('phoenix_cookie_token', ck);
     _setCookieToken(ck);
     setToken(tokenStr);
     setUser(userInfo);
@@ -201,11 +205,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = useCallback((reason?: 'expired' | 'perms_changed' | 'logout') => {
     invalidateCache();
     sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem(BROWSER_LOGIN_KEY);
     sessionStorage.removeItem('phoenix_user');
     sessionStorage.removeItem('phoenix_cookie_token');
     localStorage.removeItem('phoenix_token');
     localStorage.removeItem('phoenix_user');
     localStorage.removeItem('phoenix_cookie_token');
+    localStorage.removeItem(SHARED_LOGIN_KEY);
     // Only terminal interaction caches; persisted production records are server-side.
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith('phoenix_terminal_context') || key.startsWith('phoenix_grading_wip')) localStorage.removeItem(key);
@@ -232,6 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const detail = (e as CustomEvent<{ reason?: 'expired' | 'perms_changed' }>).detail;
       const reason = detail?.reason || 'expired';
       sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem(BROWSER_LOGIN_KEY);
       sessionStorage.removeItem('phoenix_user');
       document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
       const isMobile = path.startsWith('/mobile');

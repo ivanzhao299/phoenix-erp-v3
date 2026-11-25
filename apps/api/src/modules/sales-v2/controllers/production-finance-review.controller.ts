@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
@@ -135,6 +136,25 @@ export class ProductionFinanceReviewController {
           : !signatures.some((s:any)=>s.role==='FINANCE'||s.signed_by===String(user.userId??user.id))) };
   }
 
+  @Get('cutover/:id/receipt')
+  async cutoverReceipt(@Param('id') id:string,@Query('contentHash') contentHash:string,
+    @Query('snapshotHash') snapshotHash:string,@Query('fileId') fileId:string,@Query('reasonHash') reasonHash:string) {
+    if (![contentHash,snapshotHash,reasonHash].every(hash=>typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash))
+      || typeof fileId!=='string'||!fileId||fileId.length>128) throw new BadRequestException('核签回执参数无效');
+    await loadReviewTask(this.db,'cutover',id,requireReviewScope(this.cls.get('dataScope')));
+    const user=this.cls.get('user');
+    const actor=String(user?.userId??user?.id??'');
+    if (!actor||user?.impersonatedBy) throw new NotFoundException('暂未查到本人核签回执');
+    const [receipt]=await this.db.query(`SELECT s.id,s.signed_at,s.reason,d.state FROM production_cutover_signatures s
+      JOIN production_cutover_manifests d ON d.id=s.manifest_id
+      WHERE s.manifest_id=$1 AND s.content_hash=$2 AND s.snapshot_sha256=$3 AND s.evidence_file_id=$4
+        AND s.signed_by=$5 AND s.signature_role='FINANCE'`,[id,contentHash,snapshotHash,fileId,actor]);
+    if (!receipt||createHash('sha256').update(receipt.reason).digest('hex')!==reasonHash) {
+      throw new NotFoundException('暂未查到本人核签回执');
+    }
+    return {id:receipt.id,signedAt:receipt.signed_at,state:receipt.state};
+  }
+
   @Get('reversal/:id/receipt')
   async receipt(@Param('id') id: string,@Query('reviewHash') reviewHash: string,@Query('fileId') fileId: string) {
     if (!/^[a-f0-9]{64}$/.test(reviewHash??'') || typeof fileId!=='string' || !fileId || fileId.length>128) {
@@ -143,6 +163,7 @@ export class ProductionFinanceReviewController {
     const task=await loadReviewTask(this.db,'reversal',id,requireReviewScope(this.cls.get('dataScope')));
     const user=this.cls.get('user');
     const actor=String(user?.userId??user?.id??'');
+    if (!actor||user?.impersonatedBy) throw new NotFoundException('暂未查到本人核签回执');
     const rows=await this.db.query(`SELECT id,signed_at,costs,period_versions FROM production_financial_clearances
       WHERE document_id=$1 AND content_hash=$2 AND signed_by=$3 AND evidence_file_id=$4`,
       [id,task.content_hash,actor,fileId]);

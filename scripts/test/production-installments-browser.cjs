@@ -41,6 +41,8 @@ try{
  const freezeButton=maker.page.getByRole('button',{name:'核对并冻结本单',exact:true});
  await freezeButton.waitFor();
  await quantity.fill('100');
+ await maker.page.reload({waitUntil:'domcontentloaded'});
+ await expect(quantity).toHaveValue('100');
  await expect(freezeButton).toBeDisabled();
  await maker.page.getByRole('button',{name:'保存草稿修改',exact:true}).click();
  await expect(freezeButton).toBeEnabled();
@@ -59,8 +61,12 @@ try{
  const posted=maker.page.waitForResponse(r=>r.url().endsWith('/post')&&r.request().method()==='POST');await maker.page.getByRole('button',{name:'过账本单',exact:true}).click();const receipt=await (await posted).json();assert.equal(receipt.totalInbound,100);assert.ok(dropped);checks.push('Committed posting response lost once: original key retries to the same receipt');
  await maker.page.getByRole('button',{name:'找回原过账回执',exact:true}).waitFor();
  await maker.page.screenshot({path:out+'/pc-posted.png',fullPage:true});checks.push('C/V/E-only maker selects controlled locations, freezes and posts one actual signed delivery');
- const viewer=await actor('view_only',true);await choose(viewer.page);await viewer.page.getByLabel('生产日期',{exact:true}).fill('2026-11-19');await viewer.page.getByLabel('实物交接编号',{exact:true}).fill(handover);
- await viewer.page.getByRole('button',{name:'按实物交接号找回（跨设备）',exact:true}).click();
+ const viewer=await actor('view_only',true);
+ await viewer.page.getByRole('link',{name:'分次入库及冲销历史',exact:true}).click();
+ await viewer.page.getByLabel('查询公司',{exact:true}).selectOption('COMP-A');
+ await viewer.page.getByLabel('单据类型',{exact:true}).selectOption('handoverRef');
+ await viewer.page.locator('#history').getByLabel('实物交接编号',{exact:true}).fill(handover);
+ await viewer.page.locator('#history').getByRole('button',{name:'搜索',exact:true}).click();
  await viewer.page.getByRole('button',{name:'查看原单',exact:true}).first().click();await viewer.page.getByRole('button',{name:'找回原过账回执',exact:true}).waitFor();
  const retry=viewer.page.waitForResponse(r=>r.url().endsWith('/post')&&r.request().method()==='POST');await viewer.page.getByRole('button',{name:'找回原过账回执',exact:true}).click();assert.deepEqual(await (await retry).json(),receipt);
  await viewer.page.screenshot({path:out+'/mobile-recovered.png',fullPage:true});checks.push('Fresh device with V-only access recovers by physical handover reference and receives the immutable original receipt');

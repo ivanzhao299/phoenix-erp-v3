@@ -34,9 +34,25 @@ try{
       await page.locator('input[type=file]').first().setInputFiles({name:'finance-proof.pdf',mimeType:'application/pdf',buffer:sample});
       assert.equal((await uploaded).status(),201);
       await page.getByLabel(finance('reason')).fill('Owned independent finance confirmation');
-      const response=page.waitForResponse(r=>r.url().endsWith('/sign')&&r.request().method()==='POST');
-      await page.getByRole('button',{name:finance('sign'),exact:true}).click();assert.equal((await response).status(),201);
-      await page.getByRole('status').filter({hasText:finance('signed')}).waitFor();
+      let originalReceipt, submissions=0;
+      await page.route('**/production-cutovers/*/sign',async route=>{
+        submissions++;
+        const committed=await route.fetch();
+        assert.equal(committed.status(),201);
+        originalReceipt=await committed.json();
+        await route.abort('failed');
+      });
+      const connectionLost=page.waitForEvent('requestfailed',request=>request.url().endsWith('/sign'));
+      await page.getByRole('button',{name:finance('sign'),exact:true}).click();
+      await connectionLost;
+      await page.getByRole('status').filter({hasText:finance('resultPending')}).waitFor();
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.getByRole('button',{name:new RegExp(finance('recoverReceipt'))}).click();
+      const recovered=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/receipt'));
+      await page.getByRole('button',{name:finance('recoverReceipt'),exact:true}).click();
+      assert.equal((await (await recovered).json()).id,originalReceipt.id);
+      await page.getByRole('status').filter({hasText:originalReceipt.id}).waitFor();
+      assert.equal(submissions,1);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
       await page.screenshot({path:output+'/en-independent-finance.png',fullPage:true});
       checks.push('Dedicated finance E-only reviewer reads original evidence and signs frozen count on mobile independently');
@@ -70,6 +86,18 @@ try{
       const response=page.waitForResponse(r=>r.url().includes('/production-cutovers')&&r.request().method()==='POST'&&r.status()===201&&!r.url().endsWith('/inspect'));
       await page.getByRole('button',{name:label('save'),exact:true}).click();documentId=(await(await response).json()).id;assert.ok(documentId);
       await page.waitForFunction(id=>new URL(location.href).searchParams.get('documentId')===id,documentId);
+      const counted=page.getByLabel(label('counted'),{exact:true});
+      await counted.fill('7');
+      const detailUrl='**/production-cutovers/'+documentId;
+      await page.route(detailUrl,route=>route.fulfill({status:503,body:'temporarily unavailable'}));
+      await page.reload({waitUntil:'domcontentloaded'});
+      const retry=page.getByRole('button',{name:dictionary['common.retry'],exact:true});
+      await retry.waitFor();
+      await page.unroute(detailUrl);
+      await retry.click();
+      await counted.waitFor();
+      assert.equal(await counted.inputValue(),'7','Failed initial read must retain the unsubmitted physical count');
+      await counted.fill('0');
       if(rawCount){
         await page.reload({waitUntil:'domcontentloaded'});await page.getByLabel(label('rawMeasured'),{exact:true}).waitFor();
         assert.equal(await page.getByLabel(label('rawMeasured'),{exact:true}).inputValue(),'99','Saved draft must recover measured RAW without hiding its editable original row');

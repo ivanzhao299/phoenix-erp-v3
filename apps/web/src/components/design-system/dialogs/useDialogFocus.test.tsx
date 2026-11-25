@@ -74,6 +74,21 @@ describe('shared dialog focus', () => {
     expect(document.activeElement?.id).toBe('launch');
   });
 
+  it('treats a native disclosure as a tab stop even while its content is collapsed', () => {
+    act(() => root.render(<Dialog close={vi.fn()}>
+      <details><summary id="evidence">Evidence</summary><button id="hidden">Open file</button></details>
+    </Dialog>));
+    key('Tab');
+    expect(document.activeElement?.id).toBe('evidence');
+    const next = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    document.activeElement?.dispatchEvent(next);
+    expect(next.defaultPrevented).toBe(false);
+    key('Tab', true);
+    expect(document.activeElement?.textContent).toBe('Close');
+    key('Tab');
+    expect(document.activeElement?.id).toBe('evidence');
+  });
+
   it('holds both layers open while the active confirmation is saving', () => {
     act(() => root.render(<Example busy />));
     activate('launch');

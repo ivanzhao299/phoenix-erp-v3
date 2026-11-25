@@ -12,11 +12,20 @@ export function useDialogPortalReady() {
 }
 
 const openDialogs: HTMLElement[] = [];
-const focusable = 'button, input, select, textarea, a[href], [tabindex], [contenteditable="true"]';
+const summary = 'details > summary:first-of-type';
+const focusable = `button, input, select, textarea, a[href], [tabindex], [contenteditable="true"], ${summary}`;
+
+function isVisibleInDetails(element: HTMLElement) {
+  for(let parent=element.parentElement;parent;parent=parent.parentElement) {
+    if(parent.matches('details:not([open])')&&!parent.querySelector(':scope > summary')?.contains(element)) return false;
+  }
+  return true;
+}
 
 function tabStops(dialog: HTMLElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(focusable)).filter(element =>
-    element.tabIndex >= 0 && !element.matches(':disabled, input[type="hidden"]') &&
+    (element.tabIndex >= 0 || (element.matches(summary)&&!element.hasAttribute('tabindex'))) &&
+    isVisibleInDetails(element) && !element.matches(':disabled, input[type="hidden"]') &&
     !element.closest('[hidden], [inert]') && element.getClientRects().length > 0);
 }
 
