@@ -1,0 +1,117 @@
+name: Flock Loss Cache Production Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_api_sha:
+        description: Exact deployed API revision inspected by the read-only plan
+        type: string
+        required: true
+      approval:
+        description: Type PLAN-ALL-HISTORY-BY-COMPANY
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cicd-refs/heads/main
+  cancel-in-progress: false
+
+jobs:
+  production-plan:
+    if: github.ref == 'refs/heads/main' && inputs.approval == 'PLAN-ALL-HISTORY-BY-COMPANY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Pin the read-only inventory program
+        id: program
+        env:
+          EXPECTED_API_SHA: ${{ inputs.expected_api_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_API_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --test scripts/ops/flock-loss-cache-production.test.cjs
+          program=scripts/ops/flock-loss-cache-production.cjs
+          {
+            printf 'sha256=%s\n' "$(sha256sum "$program" | cut -d' ' -f1)"
+            printf 'base64=%s\n' "$(base64 -w0 "$program")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Inventory all history through the running API image
+        uses: appleboy/ssh-action@v1
+        env:
+          API_SHA: ${{ inputs.expected_api_sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+          PLAN_RUN_ID: ${{ github.run_id }}
+          PLAN_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PROGRAM_SHA256: ${{ steps.program.outputs.sha256 }}
+          PROGRAM_BASE64: ${{ steps.program.outputs.base64 }}
+        with:
+          host: '47.236.122.224'
+          port: '22'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
+          envs: API_SHA,WORKFLOW_SHA,PLAN_RUN_ID,PLAN_RUN_ATTEMPT,PROGRAM_SHA256,PROGRAM_BASE64
+          script: |
+            set -eu
+            umask 077
+            fail() { echo 'FLOCK_CACHE_PRODUCTION_PLAN=HOLD'; exit 1; }
+            printf '%s\n' "$API_SHA" "$WORKFLOW_SHA" | grep -Eqv '^[0-9a-f]{40}$' && fail
+            printf '%s\n' "$PLAN_RUN_ID" "$PLAN_RUN_ATTEMPT" | grep -Eqv '^[1-9][0-9]{0,19}$' && fail
+            printf '%s\n' "$PROGRAM_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail
+            docker_local() { docker --host unix:///var/run/docker.sock "$@"; }
+            pin="$(docker_local inspect -f '{{.Id}} {{.Image}} {{.State.Health.Status}}' phoenix-v3-api 2>/dev/null)" || fail
+            printf '%s\n' "$pin" | grep -Eq '^[0-9a-f]{64} sha256:[0-9a-f]{64} healthy$' || fail
+            container_id="${pin%% *}"
+            image="${pin#* }"
+            image="${image% healthy}"
+            revision="$(docker_local image inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null)" || fail
+            test "$revision" = "$API_SHA" || fail
+
+            home_dir="$(cd -P "$HOME" && pwd -P)" || fail
+            test "$home_dir" = "$HOME" && test "$(stat -c %u "$home_dir")" = "$(id -u)" || fail
+            test -z "$(find "$home_dir" -maxdepth 0 -perm /022 -print)" || fail
+            evidence="$home_dir/.phoenix-flock-cache-plans"
+            test ! -L "$evidence" || fail
+            if [ ! -e "$evidence" ]; then mkdir -m 0700 "$evidence" || fail; fi
+            test -d "$evidence" && test "$(stat -c '%u:%a' "$evidence")" = "$(id -u):700" || fail
+            run="$evidence/${PLAN_RUN_ID}-${PLAN_RUN_ATTEMPT}"
+            mkdir -m 0700 "$run" || fail
+            printf '%s' "$PROGRAM_BASE64" | base64 -d > "$run/program.cjs" || fail
+            test "$(sha256sum "$run/program.cjs" | cut -d' ' -f1)" = "$PROGRAM_SHA256" || fail
+            docker_local exec --user phoenix --workdir /app -i "$container_id" node - \
+              "$API_SHA" "$WORKFLOW_SHA" "$PLAN_RUN_ID" "$PLAN_RUN_ATTEMPT" "$container_id" "$image" "$PROGRAM_SHA256" \
+              < "$run/program.cjs" > "$run/private-plan.json.tmp" 2> "$run/private-stderr.log" || fail
+            test "$(docker_local inspect -f '{{.Id}} {{.Image}} {{.State.Health.Status}}' phoenix-v3-api 2>/dev/null)" = "$pin" || fail
+            node - "$run/private-plan.json.tmp" "$API_SHA" "$WORKFLOW_SHA" "$PLAN_RUN_ID" "$PLAN_RUN_ATTEMPT" "$container_id" "$image" "$PROGRAM_SHA256" > "$run/public-receipt.txt" <<'NODE' 2>/dev/null || fail
+            const { readFileSync } = require('node:fs');
+            const { createHash } = require('node:crypto');
+            const record = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+            const { digest, ...receipt } = record.receipt;
+            record.receipt = receipt;
+            const authorityKeys = ['apiSha','workflowSha','runId','runAttempt','containerId','imageId','programSha256'];
+            if (record.schema !== 'phoenix.flock-loss-cache-production-plan/v1' ||
+                authorityKeys.some((key, index) => record.authority[key] !== process.argv[index + 3]) ||
+                createHash('sha256').update(JSON.stringify(record)).digest('hex') !== digest) throw Error('HOLD');
+            const keys = ['companies','scopesChecked','batchesWithDifferences','inventoried','inventoriedInScope','eligible','held'];
+            for (const key of keys) if (!Number.isSafeInteger(receipt[key]) || receipt[key] < 0) throw Error('HOLD');
+            const unclassified = Object.values(receipt.unclassified).reduce((sum, count) => sum + count, 0);
+            if (!Number.isSafeInteger(unclassified) || unclassified < 0 ||
+                receipt.inventoried !== receipt.inventoriedInScope + unclassified ||
+                receipt.eligible + receipt.held > receipt.inventoriedInScope) throw Error('HOLD');
+            let message = 'FLOCK_CACHE_PLAN_SHA256=' + digest;
+            for (const key of keys) message += ' ' + key + '=' + receipt[key];
+            process.stdout.write(message + ' unclassified=' + unclassified + '\n');
+            NODE
+            mv "$run/private-plan.json.tmp" "$run/private-plan.json" || fail
+            cat "$run/public-receipt.txt"
+            echo 'FLOCK_CACHE_PRODUCTION_PLAN=READY'
