@@ -214,6 +214,7 @@ jobs:
           docker pull nginx:1.28-alpine
           node --test scripts/ops/production-remediation-{held-facts,handoff}.test.mjs scripts/ops/production-held-follow-up.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
           python3 scripts/ci/production-remediation-edge-hold.test.py
+          node --test scripts/ops/production-ui-schema-release.test.mjs
 
   production-ui-upgrade:
     name: Current production API and schema / PostgreSQL ${{ matrix.pg }}

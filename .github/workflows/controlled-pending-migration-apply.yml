@@ -9,7 +9,7 @@ on:
         type: choice
         options: [inspect, apply]
       approve_production:
-        description: 'Use APPLY-PENDING-MIGRATIONS-20261103 or APPLY-EGG-SOURCE-20261125 for its exact named scope'
+        description: 'Use the exact approval token for the selected migration scope'
         required: true
         type: string
       expected_main_sha:
@@ -24,7 +24,7 @@ on:
       audit_scope:
         description: 'Choose the ordinary gate or the exact approved candidate scope'
         type: choice
-        options: [ordinary, vet-1124, egg-source-1125]
+        options: [ordinary, vet-1124, egg-source-1125, production-ui-1125]
         default: ordinary
       expected_vet_inspection_sha256:
         description: 'Scoped apply only: inspection SHA-256 from that exact candidate inspect'
@@ -45,7 +45,8 @@ jobs:
     if: >-
       inputs.phase == 'inspect' ||
       (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-1125' && inputs.approve_production == 'APPLY-EGG-SOURCE-20261125') ||
-      (inputs.phase == 'apply' && inputs.audit_scope != 'egg-source-1125' && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
+      (inputs.phase == 'apply' && inputs.audit_scope == 'production-ui-1125' && inputs.approve_production == 'APPLY-PRODUCTION-UI-20261125') ||
+      (inputs.phase == 'apply' && (inputs.audit_scope == 'ordinary' || inputs.audit_scope == 'vet-1124') && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
@@ -61,7 +62,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
       - name: Verify exact scoped candidate and official main CI
-        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125'
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -70,13 +71,15 @@ jobs:
           set -euo pipefail
           if [ "$AUDIT_SCOPE" = egg-source-1125 ]; then
             node scripts/ops/egg-source-release.mjs source
+          elif [ "$AUDIT_SCOPE" = production-ui-1125 ]; then
+            node scripts/ops/production-ui-schema-release.mjs source
           else
             node scripts/ops/vet-1124-migration.mjs source
           fi
-          node --test scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
+          node --test scripts/ops/production-ui-schema-release.test.mjs scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
           node scripts/ops/vet-1124-ci.mjs hosted-log-reader
       - name: Match the official API digest to every reviewed migration
-        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125'
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -122,7 +125,7 @@ jobs:
             set -Eeuo pipefail
             umask 077
             case "$PHASE" in inspect|apply) ;; *) exit 22 ;; esac
-            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125) ;; *) exit 22 ;; esac
+            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125|production-ui-1125) ;; *) exit 22 ;; esac
             cd /data/phoenix-erp
             export DEPLOY_REPO_ROOT=/data/phoenix-erp
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
@@ -166,10 +169,11 @@ jobs:
             done
 
             SCOPED_REVIEW_HELPER=
-            if [ "$AUDIT_SCOPE" = vet-1124 ] || [ "$AUDIT_SCOPE" = egg-source-1125 ]; then
+            if [ "$AUDIT_SCOPE" != ordinary ]; then
               case "$AUDIT_SCOPE" in
                 vet-1124) SCOPED_REVIEW_HELPER=vet-1124-migration.mjs ;;
                 egg-source-1125) SCOPED_REVIEW_HELPER=egg-source-release.mjs ;;
+                production-ui-1125) SCOPED_REVIEW_HELPER=production-ui-schema-release.mjs ;;
               esac
               for helper in "$SCOPED_REVIEW_HELPER" production-modern-schema-confirmed-scope.mjs production-legacy-egg-audit-evidence.mjs production-lossless-json.mjs production-maintenance-receipts.mjs; do
                 git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
@@ -302,7 +306,9 @@ jobs:
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
               if [ -n "$SCOPED_REVIEW_HELPER" ]; then
-                BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" node "$STAGE/$SCOPED_REVIEW_HELPER" after
+                RUNNING_CHECKOUT="$(git_safe rev-parse HEAD)" \
+                  BEFORE_LEDGER="$LEDGER_JSON_LINE" AFTER_LEDGER="$LEDGER_JSON_LINE_AFTER" \
+                  node "$STAGE/$SCOPED_REVIEW_HELPER" after
               fi
               # Re-derive pending from the fresh ledger.
               PENDING_AFTER=""
