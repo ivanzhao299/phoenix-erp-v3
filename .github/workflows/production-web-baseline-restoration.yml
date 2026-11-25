@@ -1,0 +1,117 @@
+name: Production Web Baseline Restoration
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Inspect, restore the paired baseline, retry or abort the owned transaction, or return to the Web hotfix
+        required: true
+        type: choice
+        options: [preflight, restore, resume, abort, fallback]
+      expected_main_sha:
+        description: Exact current main SHA of this reviewed release
+        required: true
+        type: string
+      operation_sha:
+        description: Original reviewed checkout SHA for resume, abort, or fallback
+        required: false
+        type: string
+      resume_owner:
+        description: Original GitHub run-attempt ID for resume or abort only
+        required: false
+        type: string
+      confirm:
+        description: Type RESTORE_WEB_BASELINE_45559680114 to authorize this operation
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  restore-web:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'RESTORE_WEB_BASELINE_45559680114'
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert reviewed main and load production lock bootstrap
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          PHASE: ${{ inputs.phase }}
+          OPERATION_SHA: ${{ inputs.operation_sha }}
+          RESUME_OWNER: ${{ inputs.resume_owner }}
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          case "$PHASE" in
+            preflight|restore) test -z "$RESUME_OWNER$OPERATION_SHA" ;;
+            fallback) test -z "$RESUME_OWNER" && [[ "$OPERATION_SHA" =~ ^[0-9a-f]{40}$ ]] ;;
+            resume|abort) [[ "$RESUME_OWNER" =~ ^[1-9][0-9]*-[1-9][0-9]*$ && "$OPERATION_SHA" =~ ^[0-9a-f]{40}$ ]] ;;
+            *) exit 2 ;;
+          esac
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+      - name: Verify the incident state machine on the reviewed checkout
+        run: node --test scripts/ops/production-web-baseline-restoration.test.mjs
+      - name: Verify and restore the pinned Web baseline
+        uses: appleboy/ssh-action@v1
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          WORKFLOW_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}
+          PHASE: ${{ inputs.phase }}
+          OPERATION_SHA: ${{ inputs.operation_sha }}
+          RESUME_OWNER: ${{ inputs.resume_owner }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+        with:
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          command_timeout: 12m
+          envs: TARGET_SHA,WORKFLOW_OWNER,PHASE,OPERATION_SHA,RESUME_OWNER,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          script: |
+            set -Eeuo pipefail
+            cd /data/phoenix-erp
+            export DEPLOY_REPO_ROOT=/data/phoenix-erp
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            git_safe() { git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false -c gc.auto=0 -c maintenance.auto=false "$@"; }
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+            case "$PHASE" in
+              preflight|restore)
+                node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
+                STAGE=$(mktemp -d "$STATE_DIR/web-baseline-restore.XXXXXXXX")
+                trap 'find "$STAGE" -depth -delete' EXIT
+                git_safe archive "$TARGET_SHA" scripts/ops | tar -x -C "$STAGE"
+                node "$STAGE/scripts/ops/production-web-baseline-restoration.mjs" preflight "$TARGET_SHA" "$WORKFLOW_OWNER"
+                if [ "$PHASE" = restore ]; then
+                  if [ "$(git_safe rev-parse HEAD)" != "$TARGET_SHA" ]; then
+                    git_safe merge --ff-only "$TARGET_SHA"
+                  fi
+                  node scripts/ops/production-web-baseline-restoration.mjs restore "$TARGET_SHA" "$WORKFLOW_OWNER"
+                fi
+                ;;
+              resume|abort|fallback)
+                test "$(git_safe rev-parse HEAD)" = "$OPERATION_SHA"
+                node scripts/ops/production-web-baseline-restoration.mjs "$PHASE" "$OPERATION_SHA" "$WORKFLOW_OWNER" "${RESUME_OWNER:-}"
+                ;;
+              *) exit 2 ;;
+            esac
