@@ -1,3 +1,4 @@
+import type { EgglogSummarySnapshot } from './egglog-payload';
 /**
  * mobile-api.ts — 手机端管理日报 API 客户端
  */
@@ -476,6 +477,7 @@ export const mobileApi = {
     temp?:         number | null;
     humidity?:     number | null;
     operator?:     string;
+    expectedSummary?: EgglogSummarySnapshot | null;
   }) => post<{ code: number; msg: string }>('/api/v3/farm/daily-logs', payload),
 };
 

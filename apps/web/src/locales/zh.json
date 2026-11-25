@@ -1,4 +1,6 @@
 {
+  "mob.brd.reportChanged": "日报已更新，请核对后重新录入",
+  "mob.brd.discardStaleReportDraft": "放弃本舍草稿并重读",
   "mob.brd.reportZero": "本班确认零产蛋",
   "mob.brd.saveUnverified": "提交结果待核",
   "common.loginRequired": "请重新登录",

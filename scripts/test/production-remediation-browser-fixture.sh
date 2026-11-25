@@ -18,11 +18,12 @@ cleanup() {
 trap cleanup EXIT
 for scenario in range installments reports cutover; do
   grain=0
+  receipt=
   case "$scenario" in
     range) browser_script=production-workbench-range-browser.cjs ;;
-    installments) browser_script=production-installments-browser.cjs ;;
-    reports) browser_script=production-reports-browser.cjs; grain=1 ;;
-    cutover) browser_script=production-cutover-browser.cjs ;;
+    installments) browser_script=production-installments-browser.cjs; receipt=browser ;;
+    reports) browser_script=production-reports-browser.cjs; receipt=browser-reports; grain=1 ;;
+    cutover) browser_script=production-cutover-browser.cjs; receipt=browser-cutover ;;
   esac
   (
     cd apps/api
@@ -38,7 +39,18 @@ for scenario in range installments reports cutover; do
   done
   grep -q 'Owned installment HTTP fixture ready' "$report_dir/$scenario-api.log"
   curl --retry 30 --retry-connrefused --retry-delay 1 -sS -o /dev/null "$INSTALLMENT_WEB_URL/favicon.ico"
+  if [[ -n "$receipt" ]]; then
+    receipt="$root/artifacts/production-inbound-installments-20261118/$receipt/receipt.json"
+    rm -f -- "$receipt"
+  fi
   node "$root/scripts/test/$browser_script" | tee "$report_dir/$scenario-browser.log"
+  if [[ -n "$receipt" ]]; then
+    node -e '
+      const { readFileSync } = require("node:fs");
+      const assert = require("node:assert/strict");
+      assert.equal(JSON.parse(readFileSync(process.argv[1], "utf8")).complete, true, process.argv[1]);
+    ' "$receipt"
+  fi
   curl --fail --silent --show-error -o /dev/null -H 'content-type: application/json' \
     --data '{"password":"owned-fixture"}' "$INSTALLMENT_HTTP_URL/api/auth/fixture-finish"
   wait "$api_pid"

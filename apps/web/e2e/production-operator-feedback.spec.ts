@@ -18,7 +18,7 @@ test('scoped feed ledger distinguishes issues and blocks writes after a failed d
     if (fail) return route.fulfill({ status: 503, json: { message: 'fixture' } });
     const date = new URL(route.request().url()).searchParams.get('date');
     return route.fulfill({ json: { code: 200, data: { date, company_code: 'CO', farm_code: 'A', version: 0,
-      warehouseCoverage: 'ALL', rows: [{ materialCode: 'CORN', name: '样料', unit: 'kg', issued: '7', movements: [] }],
+      warehouseCoverage: 'ALL', rows: [{ materialCode: 'CORN', name: '样料', unit: 'kg', canWrite: true, issued: '7', movements: [] }],
     } } });
   });
   await page.goto('/breeding/feed');

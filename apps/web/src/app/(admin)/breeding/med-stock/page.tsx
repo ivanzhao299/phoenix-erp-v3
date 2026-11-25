@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
@@ -46,7 +46,7 @@ interface MedLedger {
   note: string | null;
   operator: string;
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
   dt.setDate(dt.getDate() + n);
@@ -61,13 +61,14 @@ interface EntryRow {
   note: string;
 }
 export default function MedStockPage() {
-  const {
-    can
-  } = usePermission();
-  const { t, lang } = useLanguage();
-  // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
   const { canEdit, user } = usePermission('MENU_FARM_VET');
-  const inbound = useMedicineInbound(String(user.userId ?? user.id ?? user.username ?? ''), '/api/farm/medicine/inbound/receipted');
+  const actor = String(user.userId ?? user.id ?? user.username ?? '');
+  return <MedStockWorkbench key={actor} actor={actor} canEdit={canEdit} />;
+}
+
+function MedStockWorkbench({ actor, canEdit }: { actor: string; canEdit: boolean }) {
+  const { t, lang } = useLanguage();
+  const inbound = useMedicineInbound(actor, '/api/farm/medicine/inbound/receipted');
   const [tab, setTab] = useState<Tab>('stock');
   const [search, setSearch] = useState('');
   const [stock, setStock] = useState<MedStock[]>([]);
@@ -91,9 +92,11 @@ export default function MedStockPage() {
     return ()=>{active=false;};
   },[tab]);
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
+  const submitted = useRef<Record<string, EntryRow> | undefined>(undefined);
+  const entryLocked = saving || !canEdit || !inbound.ready || Boolean(inbound.pending);
   const [ledgerDate, setLedgerDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
+    const d = new Date(today() + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 7);
     return d.toISOString().slice(0, 10);
   });
   const [ledgerEnd, setLedgerEnd] = useState(today());
@@ -131,6 +134,7 @@ export default function MedStockPage() {
     note: ''
   };
   const setEntry = (code: string, patch: Partial<EntryRow>) => {
+    if (entryLocked) return;
     setEntries(p => ({
       ...p,
       [code]: {
@@ -141,31 +145,34 @@ export default function MedStockPage() {
     setSaved(false);
   };
   const hasChanges = Object.values(entries).some(e => e.qty > 0);
-  const handleSave = async () => {
-    if (!canEdit || saving || !inbound.pending && (!hasChanges || !warehouse)) return;
+  async function handleInbound(recovering: boolean) {
+    if (!canEdit || saving || !inbound.ready) return;
+    if (recovering ? !inbound.pending : entryLocked || !hasChanges || !warehouse || tab !== 'inbound') return;
+    if (!recovering) submitted.current = entries;
+    const submittedEntries = submitted.current;
     setSaving(true);
     setError('');
     try {
-      const items = inbound.pending || !warehouse ? [] : Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
+      const items = recovering || !warehouse ? [] : Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
         ...warehouse, material_code: code,
-        qty: e.qty, manufacturer_batch_no:e.manufacturerBatch || undefined, expire_date:e.expireDate || undefined,
-        house_code: undefined,
-        note: e.note || undefined
+        qty: e.qty, manufacturer_batch_no: e.manufacturerBatch || undefined, expire_date: e.expireDate || undefined,
+        note: e.note || undefined,
       }));
-      const receipt = await inbound.submit(today(), items);
+      const receipt = recovering ? await inbound.recover() : await inbound.submit(today(), items);
       if (!receipt) return;
       setReceiptLines(receipt.lines);
       setSaved(true);
-      setEntries({});
+      setEntries(current => current === submittedEntries ? {} : current);
+      submitted.current = undefined;
       setTimeout(() => setSaved(false), 3000);
       await loadStock();
       setTab('stock');
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : t('mob.brd.save_fail', '保存失败'));
     } finally {
       setSaving(false);
     }
-  };
+  }
   const filteredStock = stock.filter(m => !search || m.medication_name.includes(search) || m.medication_code.includes(search));
   const TABS: {
     key: Tab;
@@ -197,7 +204,7 @@ export default function MedStockPage() {
         ))}
         <div className={u.flex1} />
         {tab === 'inbound' && canEdit && (
-          <button onClick={handleSave} disabled={saving || !hasChanges || !warehouse} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
+          <button onClick={() => void handleInbound(false)} disabled={entryLocked || !hasChanges || !warehouse} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
             {saving ? t('ui.提交中', '提交中…') : saved ? t('ui.已保存', '已保存') : t('ui.提交', '提交')}
           </button>
         )}
@@ -213,9 +220,9 @@ export default function MedStockPage() {
       </p>}
       {inbound.pending && canEdit && <div role="status">
         {t('ui.药品入库结果待核', '药品入库结果待核')} · {inbound.pending.date}
-        <button type="button" disabled={saving} onClick={handleSave}>{t('ui.找回药品入库回执', '找回原入库回执')}</button>
+        <button type="button" disabled={saving} onClick={() => void handleInbound(true)}>{t('ui.找回药品入库回执', '找回原入库回执')}</button>
       </div>}
-      {error && <div style={{
+      {error && <div role="alert" style={{
       marginBottom: 14,
       padding: '10px 14px',
       borderRadius: 8,
@@ -298,7 +305,7 @@ export default function MedStockPage() {
         </>}
 
       {tab === 'inbound' && <label>入库药品仓
-        <select aria-label="入库药品仓" className={s.inp} value={warehouseCode} onChange={e=>setWarehouseCode(e.target.value)}>
+        <select aria-label="入库药品仓" className={s.inp} disabled={entryLocked} value={warehouseCode} onChange={e=>setWarehouseCode(e.target.value)}>
           <option value="">请选择所属场站的药品仓</option>
           {warehouses.map(w=><option key={w.warehouse_code} value={w.warehouse_code}>{w.site_code} · {w.warehouse_code}</option>)}
         </select>
@@ -333,7 +340,7 @@ export default function MedStockPage() {
                 color: 'var(--text-secondary)'
               }}>{m.qty} {m.unit}</td>
                     <td className={u.tac}>
-                      {canEdit ? <input type="number" min="0" value={e.qty || ''} onChange={ev => setEntry(m.medication_code, {
+                      {canEdit ? <input type="number" min="0" disabled={entryLocked} value={e.qty || ''} onChange={ev => setEntry(m.medication_code, {
                   qty: Math.max(0, Number(ev.target.value) || 0)
                 })} placeholder="0" style={{
                   width: 80,
@@ -346,10 +353,10 @@ export default function MedStockPage() {
                   fontSize: 13
                 }} /> : e.qty}
                     </td>
-                    <td><input aria-label="厂家批号" disabled={!canEdit} value={e.manufacturerBatch || ''} onChange={ev=>setEntry(m.medication_code,{manufacturerBatch:ev.target.value})}/></td>
-                    <td><input aria-label="有效期" type="date" disabled={!canEdit} value={e.expireDate || ''} onChange={ev=>setEntry(m.medication_code,{expireDate:ev.target.value})}/></td>
+                    <td><input aria-label="厂家批号" disabled={entryLocked} value={e.manufacturerBatch || ''} onChange={ev=>setEntry(m.medication_code,{manufacturerBatch:ev.target.value})}/></td>
+                    <td><input aria-label="有效期" type="date" disabled={entryLocked} value={e.expireDate || ''} onChange={ev=>setEntry(m.medication_code,{expireDate:ev.target.value})}/></td>
                     <td>
-                      {canEdit ? <input type="text" value={e.note} onChange={ev => setEntry(m.medication_code, {
+                      {canEdit ? <input type="text" disabled={entryLocked} value={e.note} onChange={ev => setEntry(m.medication_code, {
                   note: ev.target.value
                 })} placeholder={t('ui.备注','备注')} style={{
                   width: 180,

@@ -106,8 +106,12 @@ export const useCrud = (table: string) => {
     return success;
   }, [table, toast, t]);
 
-  const getRecords = useCallback(async (queryParams: Record<string, string | number> = {}) => {
-    const qs = Object.keys(queryParams).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))).toString()}` : '';
+  const getRecords = useCallback(async (queryParams: Record<string, string | number | string[]> = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(queryParams)) {
+      for (const item of Array.isArray(value) ? value : [value]) params.append(key, String(item));
+    }
+    const qs = params.size ? '?' + params.toString() : '';
     // CRUD list reads are commonly issued immediately after a successful mutation.
     // Do not let the browser reuse a stale HTTP response for that refresh.
     return listRequests.current.run(async signal => {

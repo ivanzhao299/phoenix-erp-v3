@@ -601,6 +601,9 @@ export default function DeviceAlertsPage() {
   const affectedHouses = useMemo(() => houses.filter(h => h.alarmCount > 0).sort((a, b) => b.alarmCount - a.alarmCount), [houses]);
   const criticalCount = useMemo(() => alarms.filter(a => a.severity === "critical").length, [alarms]);
   const warningCount = useMemo(() => alarms.filter(a => a.severity === "warning").length, [alarms]);
+  const unclassifiedCount = alarms.filter(alarm => alarm.severity === 'unclassified').length;
+  const severityFiltersAvailable = unclassifiedCount < alarms.length;
+  const activeFilter = !severityFiltersAvailable && (filterMode === 'critical' || filterMode === 'warning') ? 'all' : filterMode;
   const worstFreshness = useMemo(() => {
     const order = {
       stale: 0,
@@ -613,7 +616,7 @@ export default function DeviceAlertsPage() {
   }, [houses]);
   const filteredAlarms = useMemo(() => {
     let list = [...enrichedAlarms];
-    if (filterMode === "critical") list = list.filter(a => a.severity === "critical");else if (filterMode === "warning") list = list.filter(a => a.severity === "warning");
+    if (activeFilter === "critical") list = list.filter(a => a.severity === "critical");else if (activeFilter === "warning") list = list.filter(a => a.severity === "warning");
     if (sortMode === "severity") {
       list.sort((a, b) => {
         const order = {
@@ -634,11 +637,11 @@ export default function DeviceAlertsPage() {
       });
     }
     return list;
-  }, [enrichedAlarms, filterMode, sortMode]);
+  }, [enrichedAlarms, activeFilter, sortMode]);
 
-  // Group by house when filterMode === "byHouse"
+  // Group by house when activeFilter === "byHouse"
   const groupedByHouse = useMemo(() => {
-    if (filterMode !== "byHouse") return null;
+    if (activeFilter !== "byHouse") return null;
     const groups: Record<string, AlarmItem[]> = {};
     for (const a of filteredAlarms) {
       const key = a.erp_house_code || a.house_code || t('ui.未知', '未知');
@@ -646,7 +649,7 @@ export default function DeviceAlertsPage() {
       groups[key].push(a);
     }
     return groups;
-  }, [filteredAlarms, filterMode]);
+  }, [filteredAlarms, activeFilter]);
   const hasAlarm = (summary?.totalAlarms ?? 0) > 0 || alarms.length > 0;
   const knownHealthy = !loading && !error && summary?.diagnosticCode === 'OK'
     && houses.length > 0 && worstFreshness === 'normal' && !hasAlarm;
@@ -656,7 +659,7 @@ export default function DeviceAlertsPage() {
   const freshCfg = FRESH[worstFreshness];
   const KPI_CARDS: { label: string; val: string; sub: string; tone: Tone }[] = [
     { label: t('ui.活跃告警', '活跃告警'),   val: loading || error ? "—" : String(summary?.totalAlarms ?? "—"),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} ${t('ui.栋鸡舍受影响', '栋鸡舍受影响')}`,                                  tone: hasAlarm ? "danger" : knownHealthy ? "success" : "warning" },
-    { label: t('ui.紧急 / 预警', '紧急 / 预警'), val: loading || error ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: t('ui.最近告警按严重程度分类', '最近告警明细'),                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
+    { label: t('ui.紧急 / 预警', '紧急 / 预警'), val: loading || error || unclassifiedCount > 0 ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: unclassifiedCount > 0 ? `${t('ui.未分级', '未分级')} ${unclassifiedCount}` : t('ui.最近告警按严重程度分类', '最近告警明细'),                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
     { label: t('ui.在线传感器', '在线传感器'), val: loading || error ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `${t('ui.共', '共')} ${summary?.totalSensorCnt ?? 0} ${t('ui.个监测点', '个监测点')}`,                                                    tone: "info" },
     { label: t('ui.数据状态', '数据状态'),   val: loading || error ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `${t('ui.更新于', '更新于')} ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
   ];
@@ -764,7 +767,7 @@ export default function DeviceAlertsPage() {
               warning: `${t('ui.预警', '预警')} (${warningCount})`,
               byHouse: t('ui.按鸡舍', '按鸡舍')
             };
-            return <button key={mode} type="button" onClick={() => setFilterMode(mode)} style={toolbarFilterPill(filterMode === mode)}>
+            return <button key={mode} type="button" disabled={!severityFiltersAvailable && (mode === "critical" || mode === "warning")} onClick={() => setFilterMode(mode)} style={toolbarFilterPill(activeFilter === mode)}>
                   {labels[mode]}
                 </button>;
           })}
@@ -805,14 +808,14 @@ export default function DeviceAlertsPage() {
         padding: "60px 20px"
       }}>
             <Wifi size={40} style={{
-          color: knownHealthy && filterMode === "all" ? "var(--status-success)" : "var(--text-secondary)",
+          color: knownHealthy && activeFilter === "all" ? "var(--status-success)" : "var(--text-secondary)",
           opacity: 0.6
         }} />
             <div className={s.emptyStateText} style={{
-          color: knownHealthy && filterMode === "all" ? "var(--status-success)" : "var(--text-secondary)",
+          color: knownHealthy && activeFilter === "all" ? "var(--status-success)" : "var(--text-secondary)",
           fontWeight: 600
         }}>
-              {filterMode !== "all" ? t('ui.最近告警无筛选结果', '最近告警中无符合筛选条件的记录')
+              {activeFilter !== "all" ? t('ui.最近告警无筛选结果', '最近告警中无符合筛选条件的记录')
                 : knownHealthy ? t('ui.未返回告警', '本次查询未返回告警')
                 : t('ui.环境数据待核', '暂无可显示的告警，环境状态待核实')}
             </div>

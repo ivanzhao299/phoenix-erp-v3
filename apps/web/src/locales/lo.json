@@ -1,4 +1,6 @@
 {
+  "mob.brd.reportChanged": "ລາຍງານຖືກອັບເດດແລ້ວ. ກວດສອບກ່ອນປ້ອນຮ່າງໃໝ່.",
+  "mob.brd.discardStaleReportDraft": "ຍົກເລີກຮ່າງຂອງເລົ້ານີ້ ແລະ ໂຫຼດໃໝ່",
   "mob.brd.reportZero": "ຢືນຢັນວ່າກະນີ້ບໍ່ມີໄຂ່",
   "mob.brd.saveUnverified": "ຜົນການສົ່ງລໍການກວດສອບ",
   "common.loginRequired": "ກະລຸນາເຂົ້າລະບົບໃໝ່",

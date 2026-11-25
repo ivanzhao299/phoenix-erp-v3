@@ -55,6 +55,7 @@ export async function readFeedDay(db: EntityManager, scope: DataScopeContext, in
     UNION SELECT material_code,unit FROM farm_feed_day_items WHERE company_code=$1 AND farm_code=$2 AND ledger_date IN ($3::date,$3::date-1)
   )
   SELECT k.material_code AS "materialCode",COALESCE(m.material_name,k.material_code) AS name,k.unit,
+    COALESCE(m.status='ACTIVE' AND m.material_type='FEED_RAW' AND m.unit=k.unit,false) AS "canWrite",
     prior.counted AS opening,day.consumed,day.counted,COALESCE(day.note,'') AS note,
     CASE WHEN $4 OR cardinality($5::text[])>0 THEN COALESCE(i.issued,0) END AS issued,
     COALESCE(i.movements,'[]'::jsonb) AS movements

@@ -11,7 +11,7 @@ import styles from './ScopedFeedLedger.module.css';
 type Farm = { farm_code: string; farm_name: string; company_code: string; status: string; canWrite: boolean };
 type Movement = { houseCode: string; batchNo: string; outboundNo: string; quantity: number };
 type Item = {
-  materialCode: string; name: string; unit: string;
+  materialCode: string; name: string; unit: string; canWrite: boolean;
   opening: string | null; issued: string | null; consumed: string | null; counted: string | null;
   note: string; movements: Movement[];
 };
@@ -25,9 +25,9 @@ async function feedRequest<T>(path: string, options?: Parameters<typeof request>
   return response.data;
 }
 
-export default function ScopedFeedLedger() {
+export default function ScopedFeedLedger({ readonly = false }: { readonly?: boolean }) {
   const { user, canEdit } = usePermission('MENU_BREEDING');
-  return <FeedDayForm key={String(user.userId ?? user.id ?? user.username ?? '')} editable={canEdit} />;
+  return <FeedDayForm key={String(user.userId ?? user.id ?? user.username ?? '')} editable={canEdit && !readonly} />;
 }
 
 function FeedDayForm({ editable }: { editable: boolean }) {
@@ -166,6 +166,7 @@ function FeedDayForm({ editable }: { editable: boolean }) {
           <thead><tr>{['物料', '昨日盘余', '仓储发放', '实际耗用', '现场盘余', '备注'].map(label => <th key={label}>{t('ui.' + label,label)}</th>)}</tr></thead>
           <tbody>{day.rows.map(row => {
             const entry = draft[rowKey(row)] ?? row;
+            const canEditRow = writable && row.canWrite;
             return <tr key={rowKey(row)}>
               <th scope="row">{row.name}<small>{row.materialCode} · {row.unit}</small></th>
               <td>{row.opening ?? '—'}</td>
@@ -173,11 +174,11 @@ function FeedDayForm({ editable }: { editable: boolean }) {
                 <summary>{t('ui.查看发放分段','发放分段')}</summary>
                 <ul>{row.movements.map((move, index) => <li key={index}>{move.houseCode} · {move.outboundNo} · {move.batchNo} · {move.quantity} {row.unit}</li>)}</ul>
               </details>}</td>
-              <td>{writable ? <input type="number" min="0" step=".001" aria-label={row.name + ' · ' + t('ui.实际耗用','实际耗用')}
+              <td>{canEditRow ? <input type="number" min="0" step=".001" aria-label={row.name + ' · ' + t('ui.实际耗用','实际耗用')}
                 value={entry.consumed ?? ''} onChange={event => update(entry, { consumed: event.target.value })} /> : entry.consumed ?? '—'}</td>
-              <td>{writable ? <input type="number" min="0" step=".001" aria-label={row.name + ' · ' + t('ui.现场盘余','现场盘余')}
+              <td>{canEditRow ? <input type="number" min="0" step=".001" aria-label={row.name + ' · ' + t('ui.现场盘余','现场盘余')}
                 value={entry.counted ?? ''} onChange={event => update(entry, { counted: event.target.value })} /> : entry.counted ?? '—'}</td>
-              <td>{writable ? <input maxLength={200} aria-label={row.name + ' · ' + t('common.remark','备注')} value={entry.note}
+              <td>{canEditRow ? <input maxLength={200} aria-label={row.name + ' · ' + t('common.remark','备注')} value={entry.note}
                 onChange={event => update(entry, { note: event.target.value })} /> : entry.note}</td>
             </tr>;
           })}</tbody>

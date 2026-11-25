@@ -298,15 +298,19 @@ export default function HenHousePage() {
         </>}
       </div>
   }];
+  const hasData = !archive.loading && !!archive.result;
   const hasWarn = warnCount > 0;
+  const statusUnknown = archive.loading ? t('common.loading', '加载中…') : t('ui.读取失败', '读取失败');
   const KPI_CARDS: { label: string; val: string; sub: string; Icon: typeof Building2; tone: Tone }[] = [
-    { label: t('ui.鸡舍总数', '鸡舍总数'), val: `${total}`,             sub: t('ui.栋已登记', '栋已登记'),                                                                  Icon: Building2,    tone: 'brand'   },
-    { label: t('ui.总存栏',   '总存栏'),   val: archive.result?.unknown ? '—' : totalCurrent.toLocaleString(),       sub: t('ui.羽在栏',   '羽在栏'),                                                                    Icon: Users,        tone: 'info'    },
-    { label: t('ui.正常鸡舍', '正常鸡舍'), val: `${normalCount}`,                    sub: `${t('ui.共', '共')} ${total} ${t('ui.栋正常运行', '栋正常运行')}`,                Icon: CheckCircle,  tone: 'success' },
-    { label: t('ui.需关注',   '需关注'),   val: `${warnCount}`,                      sub: hasWarn ? t('ui.请检查超载鸡舍', '请检查超载鸡舍') : t('ui.全部正常', '全部正常'),             Icon: AlertTriangle, tone: hasWarn ? 'danger' : 'success' },
+    { label: t('ui.鸡舍总数', '鸡舍总数'), val: hasData ? String(total) : '—', sub: hasData ? t('ui.栋已登记', '栋已登记') : statusUnknown, Icon: Building2, tone: 'brand' },
+    { label: t('ui.总存栏', '总存栏'), val: !hasData || archive.result?.unknown ? '—' : totalCurrent.toLocaleString(), sub: hasData ? t('ui.羽在栏', '羽在栏') : statusUnknown, Icon: Users, tone: 'info' },
+    { label: t('ui.正常鸡舍', '正常鸡舍'), val: hasData ? String(normalCount) : '—', sub: hasData ? t('ui.栋正常运行', '栋正常运行') : statusUnknown, Icon: CheckCircle, tone: hasData && normalCount > 0 ? 'success' : 'info' },
+    { label: t('ui.需关注', '需关注'), val: hasData ? String(warnCount) : '—',
+      sub: !hasData ? statusUnknown : !total ? t('ui.暂无数据', '暂无数据') : hasWarn ? t('ui.请检查超载鸡舍', '请检查超载鸡舍') : t('ui.全部正常', '全部正常'),
+      Icon: AlertTriangle, tone: !hasData || !total ? 'info' : hasWarn ? 'danger' : 'success' },
   ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${total} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]}
+      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={hasData ? `${t('ui.共', '共')} ${total} ${t('ui.栋鸡舍', '栋鸡舍')}` : statusUnknown} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]}
         actions={canCreateHouse && (
           <button type="button" onClick={() => { setEditId(null); setEditRow(null); setForm({ ...emptyForm(), farmName: farmsList[0]?.farm_code || '' }); setShowDrawer(true); }} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增鸡舍', '新增鸡舍')}
@@ -328,7 +332,9 @@ export default function HenHousePage() {
         })}
       </div>
 
-      <DataTable columns={columns} data={archive.loading ? [] : housesList} pageSize={25} server={{ query: archive.search, onQueryChange: archive.setSearch, page: archive.page, onPageChange: archive.setPage, total: archive.result?.total ?? 0 }} emptyText={archive.error || (archive.loading ? t("common.loading", "加载中…") : undefined)} searchPlaceholder={t('ui.搜索鸡舍编码名称', '搜索鸡舍编码名称')} searchKeys={['code', 'name', 'farmLabel']} rowKey="id" filters={<div className={s.toolbar} style={{
+      {archive.error && <p role="alert">{archive.error} <button type="button" style={secondaryActionButton}
+        onClick={() => void archive.reload()}>{t('common.retry', '重试')}</button></p>}
+      <DataTable columns={columns} data={archive.loading ? [] : housesList} pageSize={25} server={{ query: archive.search, onQueryChange: archive.setSearch, page: archive.page, onPageChange: archive.setPage, total: archive.result?.total ?? 0 }} emptyText={archive.error ? t("ui.读取失败", "读取失败") : archive.loading ? t("common.loading", "加载中…") : undefined} searchPlaceholder={t('ui.搜索鸡舍编码名称', '搜索鸡舍编码名称')} searchKeys={['code', 'name', 'farmLabel']} rowKey="id" filters={<div className={s.toolbar} style={{
       gap: 6
     }}>
           <button type="button" onClick={() => { archive.setPage(1); setFarmFilter('all'); }} style={toolbarFilterPill(farmFilter === 'all')}>{t('ui.全部农场', '全部农场')}</button>

@@ -152,7 +152,7 @@ function LegacyFeedLedger() {
             {inout.canCreate && <a href="/warehouse/inbound" style={{ ...primaryActionButton, textDecoration: 'none' }}>
               <Save size={14} />{t('ui.新建饲料入库', '+ 新建饲料入库')}
             </a>}
-            {issue.canCreate && <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
+            {issue.canView && issue.canCreate && <a href="/warehouse/issues?action=create&type=FEED_DISTRIBUTION" style={{ ...secondaryActionButton, textDecoration: 'none' }}>
               {t('ui.新建饲料发放', '+ 新建饲料发放')}
             </a>}
           </div>

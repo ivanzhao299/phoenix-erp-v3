@@ -14,7 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadEgglogFlocks, registerEgglogVisibilityRefresh } from '@/lib/egglog-refresh';
-import { buildEgglogPayload } from '@/lib/egglog-payload';
+import { buildEgglogPayload, egglogSummarySnapshot, type EgglogSummarySnapshot } from '@/lib/egglog-payload';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +75,12 @@ interface HouseEntry {
   temp: string;
   humidity: string;
 }
+type HouseDraft = {
+  entry: HouseEntry;
+  reportZero: boolean;
+  expectedSummary: EgglogSummarySnapshot | null;
+  status?: 'unverified' | 'conflict';
+};
 const emptyEntry = (): HouseEntry => ({
   eggs: 0,
   dirty: 0,
@@ -326,7 +332,7 @@ export default function EggLogPage() {
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
   const [entries, setEntries] = useState<Record<string, HouseEntry>>({});
   const [existing, setExisting] = useState<Record<string, number>>({});
-  const [drafts, setDrafts] = useState<Record<string, Record<string, { entry: HouseEntry; reportZero: boolean }>>>({});
+  const [drafts, setDrafts] = useState<Record<string, Record<string, HouseDraft>>>({});
   const scope = JSON.stringify([user?.userId ?? user?.username, date, shift]);
   const activeDrafts = drafts[scope] ?? {};
   const [loadedScope, setLoadedScope] = useState('');
@@ -423,12 +429,17 @@ export default function EggLogPage() {
   const toSave = flocks.filter(flock => {
     const key = flock.house_code || flock.flock_no;
     const draft = activeDrafts[key];
-    return draft && (draft.reportZero || hasQuantity(draft.entry));
+    return draft && draft.status !== 'conflict' && (draft.reportZero || hasQuantity(draft.entry));
   });
   const canSend = !readonly && !saving && !loading && loadedScope === scope && toSave.length > 0;
 
   function changeDraft(house: string, entry: HouseEntry, reportZero: boolean) {
-    setDrafts(all => ({ ...all, [scope]: { ...all[scope], [house]: { entry, reportZero } } }));
+    setDrafts(all => {
+      const draft = all[scope]?.[house];
+      if (draft?.status) return all;
+      const expectedSummary = draft ? draft.expectedSummary : entries[house] ? egglogSummarySnapshot(entries[house]) : null;
+      return { ...all, [scope]: { ...all[scope], [house]: { entry, reportZero, expectedSummary } } };
+    });
   }
 
   const handleSubmit = async () => {
@@ -442,11 +453,12 @@ export default function EggLogPage() {
     const confirmed: string[] = [];
     for (const flock of toSave) {
       const key = flock.house_code || flock.flock_no;
-      const entry = activeDrafts[key].entry;
+      const draft = activeDrafts[key];
+      const entry = draft.entry;
       try {
         if (sessionStorage.getItem('phoenix_token') !== token) throw new Error(tr('common.loginRequired', '请重新登录'));
         await mobileApi.submitDailyLog(buildEgglogPayload(entry, {
-          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift,
+          house_code: flock.house_code || key, flock_no: flock.flock_no, log_date: date, shift, expectedSummary: draft.expectedSummary,
         }));
         confirmed.push(key);
         setExisting(old => ({ ...old, [key]: entry.eggs }));
@@ -454,7 +466,11 @@ export default function EggLogPage() {
       } catch (error) {
         const message = error instanceof Error ? error.message : '';
         const uncertain = error instanceof TypeError || /^HTTP 5\d\d$/.test(message);
-        errors.push(`${key} · ${uncertain ? tr('mob.brd.saveUnverified', '提交结果待核') : tr('mob.brd.failed', '失败')} ${message}`);
+        const conflict = message === 'HTTP 409';
+        const status = conflict ? 'conflict' : uncertain ? 'unverified' : undefined;
+        setDrafts(all => ({ ...all, [scope]: { ...all[scope], [key]: { ...draft, status } } }));
+        errors.push(`${key} · ${conflict ? tr('mob.brd.reportChanged', '日报已更新，请核对后重新录入')
+          : uncertain ? tr('mob.brd.saveUnverified', '提交结果待核') : tr('mob.brd.failed', '失败')} ${message}`);
       }
     }
     if (confirmed.length) {
@@ -622,7 +638,9 @@ export default function EggLogPage() {
           </div> : flocks.length === 0 ? <MobileEmptyState icon="🥚" title={tr('mob.brd.no_egg_data', '暂无产蛋数据')} desc={tr('mob.brd.no_record_today', '今日还没有记录')} /> : flocks.map(f => {
         const key = f.house_code || f.flock_no;
         const entry = getEntry(key);
-        return <fieldset key={key} disabled={saving || readonly || loadedScope !== scope} style={{ display: 'contents' }}>
+        const draft = activeDrafts[key];
+        return <div key={key}>
+          <fieldset disabled={saving || readonly || loadedScope !== scope || !!draft?.status} style={{ display: 'contents' }}>
           <HouseCard house={f.house_code || key} flock_no={f.flock_no} entry={entry}
             onChange={next => changeDraft(key, next, hasQuantity(next) ? false : activeDrafts[key]?.reportZero ?? false)}
             existing={loadedScope === scope ? existing[key] : undefined} />
@@ -631,7 +649,16 @@ export default function EggLogPage() {
               onChange={event => changeDraft(key, entry, event.target.checked)} />
             {tr('mob.brd.reportZero', '本班确认零产蛋')}
           </label>}
-        </fieldset>;
+          </fieldset>
+          {draft?.status === 'conflict' && <button type="button" disabled={saving || readonly} onClick={() => {
+            setDrafts(all => {
+              const remaining = { ...all[scope] };
+              delete remaining[key];
+              return { ...all, [scope]: remaining };
+            });
+            void loadExisting(date, shift, scope);
+          }}>{tr('mob.brd.discardStaleReportDraft', '放弃本舍草稿并重读')}</button>}
+        </div>;
       })}
 
         {loadFailed && <p role="alert">{tr('ui.读取日报历史失败', '读取日报历史失败')} ·

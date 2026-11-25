@@ -221,6 +221,45 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       .toEqual([{ production_input_kind: 'LEGACY_MOBILE_SUMMARY' }]);
   });
 
+  it.each(['DAILY', 'ALL'])('keeps day reports and shift reports exclusive in either write order (%s)', async shift => {
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+    await db.query('ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text');
+    const day = { house_code: 'HOUSE-A', log_date: date, shift, eggs_by_grade: { GRADE_1: 100 } };
+    const morning = { house_code: 'HOUSE-A', log_date: date, shift: '早班', eggs_produced: 100,
+      dirty_eggs: 2, broken_eggs: 1, eggs_by_grade: { DIRTY: 2, BROKEN: 1 } };
+    const submit = (body: Record<string, unknown>) => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
+      .auth(token(40101), { type: 'bearer' }).send(body);
+
+    await submit(morning).expect(201);
+    await submit({ ...morning, shift: '晚班' }).expect(201);
+    await submit(day).expect(400).expect(({ body }) => expect(body.message).toContain('不能同时登记'));
+    const savedShifts = await db.query('SELECT shift FROM brd_daily_logs ORDER BY id');
+    expect(savedShifts).toEqual([{ shift: '早班' }, { shift: '晚班' }]);
+
+    await db.query('DELETE FROM brd_daily_logs');
+    await submit(day).expect(201);
+    await submit(morning).expect(400).expect(({ body }) => expect(body.message).toContain('不能同时登记'));
+    expect(await db.query('SELECT shift FROM brd_daily_logs')).toEqual([{ shift }]);
+  });
+
+  it('rejects a stale legacy mobile retry after another operator changes the quantities', async () => {
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+    await db.query('ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS production_input_kind text');
+    const quantities = { eggs_produced: 100, dirty_eggs: 2, broken_eggs: 1, temp: null, humidity: null };
+    const original = { house_code: 'HOUSE-A', log_date: date, shift: '早班', ...quantities,
+      eggs_by_grade: { DIRTY: 2, BROKEN: 1 }, expectedSummary: null };
+    const submit = (body: Record<string, unknown>, id = 40101) => request(app.getHttpServer()).post('/api/v3/farm/daily-logs')
+      .auth(token(id), { type: 'bearer' }).send(body);
+    const fix = { ...original, eggs_produced: 120, expectedSummary: quantities };
+    await submit(original).expect(201);
+    await submit(fix, 40105).expect(201);
+    await submit(original).expect(409);
+    await submit(fix, 40105).expect(201);
+    expect(await db.query('SELECT eggs_produced,dirty_eggs,broken_eggs FROM brd_daily_logs'))
+      .toEqual([{ eggs_produced: 120, dirty_eggs: 2, broken_eggs: 1 }]);
+    expect(await db.query('SELECT * FROM inv_ledger')).toEqual([]);
+  });
+
   it('production archives count and find records beyond the old 100-row cutoff within the role scope', async () => {
     await db.query(`CREATE TABLE IF NOT EXISTS sys_dict (
         dict_type text,dict_code text,status text,dict_label_zh text,dict_label_en text,dict_label_lo text);
