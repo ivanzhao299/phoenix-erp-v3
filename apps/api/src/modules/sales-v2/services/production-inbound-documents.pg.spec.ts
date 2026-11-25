@@ -737,6 +737,39 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     await expect(db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
       VALUES($1,'COMP-A','WH-A','PRODUCTION_INBOUND_REVERSAL',-20,0,$2)`,[line.batch_no,r.document_no])).rejects.toThrow('COST_CLEARANCE_HOLD');
   });
+  it('invalidates an approved reversal when qualification changes with the same unit cost',async()=>{
+    const original=await ready();await post(original);
+    const [allocation]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[original.id]);
+    const [line]=await db.query('SELECT batch_no FROM production_inbound_lines WHERE document_id=$1',[original.id]);
+    const draft=await service.createReversal(original.id,{intentKey:randomUUID(),reason:'Synthetic qualification variation',
+      segments:[{allocationId:allocation.id,quantity:20}],evidenceFileIds:['FILE-HANDOVER']});
+    const frozen=await service.ready(draft.id,draft.version,randomUUID());
+    actor={userId:2,username:'approver',permissions:['MENU_PROD_INBOUND:V,C,E,A','MENU_FIN2_AR_LEDGER:E']};
+    const clearance=await service.recordFinancialClearance(frozen.id,{contentHash:frozen.content_hash,financialEvidenceFileId:'FILE-FINANCE',
+      periodStatus:'OPEN',costs:[{batchNo:line.batch_no,costStatus:'UNKNOWN',unitCost:0}]});
+    actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E,A']};
+    const approved=await service.approveReversal(frozen.id,frozen.version,frozen.content_hash,clearance.id);
+    const [trigger]=await db.query(`SELECT tgname FROM pg_trigger WHERE tgrelid='production_batch_qualifications'::regclass
+      AND NOT tgisinternal AND (tgtype & 16)<>0`);
+    expect(trigger.tgname).toMatch(/^[a-z_][a-z0-9_]*$/);
+    const [prior]=await db.query('SELECT cost_status FROM production_batch_qualifications WHERE batch_no=$1',[line.batch_no]);
+    const update=async(status:string)=>db.transaction(async m=>{
+      await m.query('ALTER TABLE production_batch_qualifications DISABLE TRIGGER '+trigger.tgname);
+      await m.query('UPDATE production_batch_qualifications SET cost_status=$1 WHERE batch_no=$2',[status,line.batch_no]);
+      await m.query('ALTER TABLE production_batch_qualifications ENABLE TRIGGER '+trigger.tgname);
+    });
+    await update(prior.cost_status==='UNKNOWN'?'CONFIRMED':'UNKNOWN');
+    try {
+      await expect(post(approved)).rejects.toThrow('原成本快照已变化');
+      await expect(service.cancel(approved.id,approved.version)).rejects.toThrow('请由系统管理员处置');
+      expect((await db.query('SELECT state FROM production_inbound_documents WHERE id=$1',[approved.id]))[0].state).toBe('APPROVED');
+      Reflect.set(actor,'role','ROLE_ADMIN');
+      expect((await service.cancel(approved.id,approved.version)).state).toBe('CANCELLED');
+    } finally {
+      await update(prior.cost_status);
+      Reflect.deleteProperty(actor,'role');
+    }
+  });
   it('uses exact decimal original costs and rejects duplicate or orphaned approved reversal ledgers',async()=>{
     const d=await ready();await post(d);const [a]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[d.id]);
     const [line]=await db.query('SELECT batch_no FROM production_inbound_lines WHERE document_id=$1',[d.id]);

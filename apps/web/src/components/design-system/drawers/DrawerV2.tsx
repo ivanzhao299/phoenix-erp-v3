@@ -18,9 +18,10 @@ export interface DrawerV2Props {
   footer?: React.ReactNode;
   closeOnBackdrop?: boolean;
   closeDisabled?: boolean;
+  zIndex?: number;
 }
 
-export function DrawerV2({ open, title, width = 560, onClose, children, footer, closeOnBackdrop = true, closeDisabled = false }: DrawerV2Props) {
+export function DrawerV2({ open, title, width = 560, onClose, children, footer, closeOnBackdrop = true, closeDisabled = false, zIndex = 1000 }: DrawerV2Props) {
   const { t } = useLanguage();
   const mounted = useDialogPortalReady();
   const titleId = useId();
@@ -30,7 +31,7 @@ export function DrawerV2({ open, title, width = 560, onClose, children, footer, 
     <div
       onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) requestClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
+        position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex,
         backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
         display: 'flex', justifyContent: 'flex-end', animation: 'phx-fade-in .15s ease',
       }}

@@ -17,6 +17,47 @@ export function financeSigningMenu(permissions: string[]): string {
   return hasPerm(permissions, LEGACY_FINANCE, 'E') ? LEGACY_FINANCE : FINANCE_REVIEW;
 }
 
+// d denotes the frozen reversal and c a candidate clearance. Screening is read-only;
+// approval and posting validate the same facts again under their transaction locks.
+export function currentReversalClearanceSql() {
+  return `c.document_id=d.id AND c.content_hash=d.content_hash
+    AND c.company_code=d.company_code AND c.house_code=d.house_code
+    AND c.original_content_hash=d.payload->>'originalContentHash'
+    AND c.posting_date=d.expected_posting_date AND c.period_status='OPEN'
+    AND c.signed_by<>d.created_by
+    AND EXISTS(SELECT 1 FROM file_metadata f JOIN sys_user u ON u.username=f.uploaded_by
+      WHERE f.file_id=c.evidence_file_id AND f.checksum=c.evidence_checksum
+        AND f.status='ACTIVE' AND f.deleted_at IS NULL AND f.module_code='PRODUCTION_INBOUND'
+        AND f.owner_type='HOUSE' AND f.owner_id=d.house_code AND f.company_code=d.company_code
+        AND f.visibility IN ('PROTECTED','PRIVATE') AND u.user_id::text=c.signed_by AND u.status::text IN ('1','ACTIVE'))
+    AND c.period_versions=(
+      SELECT jsonb_agg(jsonb_build_object('periodMonth',p.period_month,'version',p.version,
+        'evidenceChecksum',p.evidence_checksum) ORDER BY p.period_month)
+      FROM production_posting_periods p JOIN production_inbound_documents origin ON origin.id=d.original_document_id
+      JOIN file_metadata f ON f.file_id=p.evidence_file_id AND f.checksum=p.evidence_checksum
+        AND f.status='ACTIVE' AND f.deleted_at IS NULL AND f.company_code=p.company_code
+        AND f.module_code='PRODUCTION_INBOUND' AND f.owner_type='HOUSE' AND f.owner_id=p.owner_house_code
+        AND f.visibility IN ('PROTECTED','PRIVATE')
+      JOIN sys_user u ON u.user_id::text=p.signed_by AND u.username=f.uploaded_by AND u.status::text IN ('1','ACTIVE')
+      WHERE p.company_code=d.company_code AND p.state='OPEN' AND p.period_month IN (
+        to_char(d.expected_posting_date,'YYYY-MM'),left(origin.receipt->>'postingDate',7)))
+    AND jsonb_array_length(c.costs)=jsonb_array_length(d.payload->'items')
+    AND NOT EXISTS(
+      SELECT 1 FROM jsonb_array_elements(d.payload->'items') AS line
+      LEFT JOIN inv_batches b ON b.batch_no=line->>'batchNo' AND b.company_code=d.company_code AND b.warehouse_code=d.payload->>'warehouseCode'
+      LEFT JOIN production_batch_qualifications q ON q.batch_no=b.batch_no
+      WHERE b.batch_no IS NULL OR NOT EXISTS(
+        SELECT 1 FROM jsonb_array_elements(c.costs) AS cost
+        WHERE cost->>'batchNo'=b.batch_no AND cost->>'costStatus' IN ('UNKNOWN','CONFIRMED')
+          AND (cost->>'costStatus'<>'CONFIRMED' OR b.unit_cost IS NOT NULL)
+          AND CASE WHEN cost ? 'recordedUnitCostDecimal'
+            THEN cost->>'recordedUnitCostDecimal' IS NOT DISTINCT FROM b.unit_cost::text
+            ELSE (cost->>'recordedUnitCost')::double precision IS NOT DISTINCT FROM b.unit_cost::double precision END
+          AND CASE WHEN cost ? 'qualificationStatus' THEN cost->>'qualificationStatus'=COALESCE(q.cost_status,'UNKNOWN')
+            WHEN left(c.evidence_file_id,${FINANCE_PROOF_PREFIX.length})='${FINANCE_PROOF_PREFIX}' THEN cost->>'costStatus'=COALESCE(q.cost_status,'UNKNOWN')
+            ELSE true END))`;
+}
+
 export function requireReviewScope(scope?: DataScopeContext): DataScopeContext {
   if (!scope || typeof scope.isGlobal !== 'boolean') throw new ForbiddenException('缺少财务核签数据范围');
   return scope;

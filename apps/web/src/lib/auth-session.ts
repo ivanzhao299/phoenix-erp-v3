@@ -51,14 +51,20 @@ async function requestRefresh(apiBase: string, token: string): Promise<string | 
 /** Refreshes API and slim middleware tokens together, then commits all browser stores atomically. */
 export async function refreshAndPersistSession(currentToken: string, apiBase = ''): Promise<string | null> {
   if (typeof window === 'undefined') return null;
-  const currentCookieToken = sessionStorage.getItem(COOKIE_TOKEN_KEY)
-    || localStorage.getItem(COOKIE_TOKEN_KEY)
-    || currentToken;
+  const sessionAccess=sessionStorage.getItem(ACCESS_TOKEN_KEY);
+  const localAccess=localStorage.getItem(ACCESS_TOKEN_KEY);
+  const sessionCookie=sessionStorage.getItem(COOKIE_TOKEN_KEY);
+  const localCookie=localStorage.getItem(COOKIE_TOKEN_KEY);
+  // The local token and middleware cookie belong to the active shared login.
+  if (localAccess!==currentToken || (sessionAccess&&sessionAccess!==currentToken) ||
+    (sessionCookie&&localCookie!==sessionCookie)) return null;
+  const currentCookieToken=sessionCookie||localCookie||currentToken;
   const [accessToken, cookieToken] = await Promise.all([
     requestRefresh(apiBase, currentToken),
     currentCookieToken === currentToken ? Promise.resolve(null) : requestRefresh(apiBase, currentCookieToken),
   ]);
-  if (!accessToken) return null;
+  if (!accessToken || sessionStorage.getItem(ACCESS_TOKEN_KEY)!==sessionAccess || localStorage.getItem(ACCESS_TOKEN_KEY)!==localAccess ||
+    sessionStorage.getItem(COOKIE_TOKEN_KEY)!==sessionCookie || localStorage.getItem(COOKIE_TOKEN_KEY)!==localCookie) return null;
   const nextCookieToken = currentCookieToken === currentToken ? accessToken : cookieToken;
   if (!nextCookieToken) return null;
   persistRefreshedSession({

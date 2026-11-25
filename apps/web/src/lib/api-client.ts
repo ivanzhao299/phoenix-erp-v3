@@ -110,22 +110,23 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
   };
   try {
     return await fetch(`${API_BASE}${path}`, { ...options, headers, signal });
-  } catch (netErr: any) {
-    if (netErr?.name === 'AbortError') throw netErr; // propagate immediately — no retry
+  } catch (netErr) {
+    if (netErr instanceof Error && netErr.name === 'AbortError') throw netErr; // propagate immediately — no retry
     // 网络层失败按 5xx 处理
     if (attempt < max5xxRetries) {
       await sleep(RETRY_DELAYS_MS[attempt] ?? 2000);
       return rawFetch(path, options, attempt + 1, max5xxRetries, signal, boundToken);
     }
-    throw makeError((netErr as Error).message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
+    throw makeError(netErr instanceof Error && netErr.message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
   }
 }
 
 async function request<T = unknown>(
   path: string,
-  options: RequestInit & { signal?: AbortSignal; silent?: boolean; bindSession?: boolean } = {}
+  options: RequestInit & { signal?: AbortSignal; silent?: boolean; bindSession?: boolean; retry?: boolean } = {}
 ): Promise<T> {
-  const { signal, silent, bindSession, ...fetchOptions } = options;
+  const { signal, silent, bindSession, retry = true, ...fetchOptions } = options;
+  const transportRetries=retry?2:0;
   const boundToken = bindSession ? getToken() ?? '' : undefined;
   // 主动静默 refresh：若 token 即将到期就先续期再发请求（用户全程无感）
   // 跳过 refresh 端点自身避免递归
@@ -133,7 +134,7 @@ async function request<T = unknown>(
     await ensureFreshToken();
   }
 
-  let res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
+  let res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundToken);
 
   // 收到 TOKEN_EXPIRED → 兜底再 refresh 一次重试（处理"刚好卡在边界过期"的场景）
   if (!bindSession && res.status === 401 && !path.startsWith('/auth/refresh')) {
@@ -144,29 +145,31 @@ async function request<T = unknown>(
         const newTok = await tryRefresh(current);
         if (newTok) {
           // 用新 token 重发原请求
-          res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
+          res = await rawFetch(path, fetchOptions, 0, transportRetries, signal, boundToken);
         }
       }
     }
   }
 
   // 401 一次"伪 401"重试（网络抖动 / 后端 502 透传出 401 等）
-  if (res.status === 401) {
+  if (retry && res.status === 401) {
     await sleep(800);
     res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
   }
 
   // 5xx 指数退避
   let attempt = 0;
-  while (res.status >= 500 && attempt < RETRY_DELAYS_MS.length) {
+  while (retry && res.status >= 500 && attempt < RETRY_DELAYS_MS.length) {
     await sleep(RETRY_DELAYS_MS[attempt]);
     res = await rawFetch(path, fetchOptions, 0, 2, signal, boundToken);
     attempt++;
   }
 
+  if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
   if (res.status === 401) {
     // 读取后端标准化 subcode
     const errBody = await res.json().catch(() => ({})) as { subcode?: AuthSubcode; message?: string };
+    if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
     const subcode: AuthSubcode = errBody.subcode || 'INVALID_TOKEN';
     const message = errBody.message || '登录已过期，请重新登录';
 
@@ -187,6 +190,7 @@ async function request<T = unknown>(
       code?: unknown;
       [key: string]: unknown;
     };
+    if (boundToken !== undefined && (getToken() ?? '') !== boundToken) throw new DOMException('Session changed', 'AbortError');
     const validationErrors = Array.isArray(err?.errors)
       ? err.errors.map(item => String(item).trim()).filter(Boolean)
       : [];

@@ -190,6 +190,30 @@ export class EggSourceChangeController {
     return { code:201,data:await this.history.recordDisposition(id,body,{ scope:this.scope(req),dataScope:req.dataScope,user:req.user },this.actor(req)) };
   }
 
+  @Get('history/reviews')
+  @RequireMenu('MENU_PROD_INBOUND','V')
+  async historyReviews(@Query() query: Parameters<EggHistoryReviewService['listReviews']>[0], @Req() req: any) {
+    return {code:200,data:await this.history.listReviews(query,{scope:this.scope(req),dataScope:req.dataScope,user:req.user})};
+  }
+
+  @Get('history/reviews/:id')
+  @RequireMenu('MENU_PROD_INBOUND','V')
+  async historyReviewDetail(@Param('id') id: string, @Req() req: any) {
+    return {code:200,data:await this.history.getReview(id,{scope:this.scope(req),dataScope:req.dataScope,user:req.user})};
+  }
+
+  @Get('history/reviews/:id/action-receipt')
+  @RequireMenu('MENU_PROD_INBOUND','V')
+  async historyActionReceipt(@Param('id') id:string,@Query('kind') kind:string,@Query('ledgerId') ledgerId:string,@Req() req:any) {
+    return {code:200,data:await this.history.actionReceipt(id,kind,ledgerId,{scope:this.scope(req),dataScope:req.dataScope,user:req.user})};
+  }
+
+  @Get('history/requests/:key')
+  @RequireMenu('MENU_PROD_INBOUND','V')
+  async historySubmissionReceipt(@Param('key') key: string,@Query('companyCode') company: string,@Req() req: any) {
+    return {code:200,data:await this.history.submissionReceipt(key,company,{scope:this.scope(req),dataScope:req.dataScope,user:req.user})};
+  }
+
   @Get('history/options')
   @RequireMenu('MENU_PROD_INBOUND','V')
   async historyOptions(@Query('houseCode') houseCode: string | undefined, @Req() req: any) {

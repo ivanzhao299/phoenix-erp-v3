@@ -5,7 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireAnyMenu, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ProductionCutoverService } from './production-cutover.service';
-import { CutoverStateDto, CutoverStateReceiptParams, CreateCutoverDto, EditCutoverDto, CutoverBoundaryDto, CutoverIdDto, CutoverSignDto, CutoverVersionDto } from './production-cutover.dto';
+import { CutoverStateDto, CutoverStateReceiptParams, CreateCutoverDto, EditCutoverDto, CutoverBoundaryDto, CutoverIdDto, CutoverSignDto, CutoverVersionDto, CutoverFreezeDto } from './production-cutover.dto';
 
 const readers=[{menu:'MENU_PROD_INBOUND',perm:'V' as const},{menu:'MENU_PROD_INBOUND',perm:'A' as const},{menu:'MENU_FIN2_AR_LEDGER',perm:'E' as const}];
 @Controller('api/v2/inventory/production-cutovers')
@@ -21,6 +21,11 @@ export class ProductionCutoverController {
   }
   @Get() @RequireAnyMenu(readers)
   list(@Query('companyCode') company:string,@Query('warehouseCode') warehouse:string){return this.cutovers.list(company,warehouse);}
+  @Get('page') @RequireAnyMenu(readers)
+  page(@Query('companyCode') company:string,@Query('warehouseCode') warehouse:string,
+    @Query('cursor') cursor?:string,@Query('documentNo') documentNo?:string,@Query('state') state?:string) {
+    return this.cutovers.page(company,warehouse,{cursor,documentNo,state});
+  }
   @Get('locations') @RequireAnyMenu(readers)
   locations(@Query('companyCode') company:string,@Query('warehouseCode') warehouse:string){return this.cutovers.locations(company,warehouse);}
   @Get(':id') @RequireAnyMenu(readers)
@@ -36,9 +41,11 @@ export class ProductionCutoverController {
   @Patch(':id') @RequireMenu('MENU_PROD_INBOUND','E')
   @UseGuards(new StrictBodyGuard(EditCutoverDto))
   edit(@Param() p:CutoverIdDto,@Body() body:EditCutoverDto){return this.cutovers.edit(p.id,body.version,body);}
+  @Get(':id/freeze-preview') @RequireMenu('MENU_PROD_INBOUND','E')
+  freezePreview(@Param() p:CutoverIdDto){return this.cutovers.freezePreview(p.id);}
   @Post(':id/freeze') @RequireMenu('MENU_PROD_INBOUND','E')
-  @UseGuards(new StrictBodyGuard(CutoverVersionDto))
-  freeze(@Param() p:CutoverIdDto,@Body() body:CutoverVersionDto){return this.cutovers.freeze(p.id,body.version);}
+  @UseGuards(new StrictBodyGuard(CutoverFreezeDto))
+  freeze(@Param() p:CutoverIdDto,@Body() body:CutoverFreezeDto){return this.cutovers.freeze(p.id,body.version,body.previewToken);}
   @Post(':id/sign') @RequireAnyMenu([{menu:'MENU_PROD_INBOUND',perm:'A'},...financeReviewEditors])
   @UseGuards(new StrictBodyGuard(CutoverSignDto))
   sign(@Param() p:CutoverIdDto,@Body() body:CutoverSignDto){return this.cutovers.sign(p.id,body);}

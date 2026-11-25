@@ -38,8 +38,8 @@ export class ProductionInboundDocumentsController {
   }
   @Get('balance') @RequireMenu('MENU_PROD_INBOUND','V')
   balance(@Query('companyCode') company: string,@Query('houseCode') house: string,
-    @Query('eggDate') day: string,@Query('warehouseCode') warehouse: string) {
-    return this.documents.balance(company,house,day,warehouse);
+    @Query('eggDate') day: string,@Query('warehouseCode') warehouse: string,@Query('diagnostics') diagnostics?: string) {
+    return this.documents.balance(company,house,day,warehouse,diagnostics==='1');
   }
   @Get('stock-batches') @RequireMenu('MENU_PROD_INBOUND','V')
   stockBatches(@Query() q:StockBatchFilter & {companyCode:string;houseCode:string;eggDate:string;warehouseCode:string}) {
@@ -55,8 +55,8 @@ export class ProductionInboundDocumentsController {
     });
   }
   @Get('recover') @RequireMenu('MENU_PROD_INBOUND','V')
-  recover(@Query('companyCode') company: string,@Query('intentKey') intent?: string,@Query('handoverRef') handover?: string) {
-    return this.documents.recover(company,intent,handover);
+  recover(@Query('companyCode') company: string,@Query('intentKey') intent?: string,@Query('handoverRef') handover?: string,@Query('documentNo') documentNo?:string) {
+    return this.documents.recover(company,intent,handover,documentNo);
   }
   @Get('handovers') @RequireMenu('MENU_PROD_INBOUND','V')
   handovers(@Query('companyCode') company:string,@Query('houseCode') house:string,@Query('eggDate') day:string) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { AttachmentUploader } from '@/components/design-system/forms/AttachmentUploader';
 import { usePermission } from '@/hooks/usePermission';
@@ -15,12 +15,15 @@ type Evidence = { batchNo:string; productCode:string; skuCode:string|null; origi
 type Review = { id:string; state:string; submittedByMe?:boolean; source_line:string; quantity:number|null; target_class:string; reason:string; decision:string|null; disposition:string|null; attachments:Array<{file_id:string;checksum:string}>;
   dispositions:Array<{id?:string;ref_no?:string;log_date?:string;restricted?:boolean}> };
 type History = { evidence:Evidence; reviews:Review[] };
+type QueueRow = {id:string; state:string; house_code:string; warehouse_code:string; batch_no:string; production_date:string; quantity:number|null};
+type FrozenReview = Review & {houseCode:string;warehouseCode:string;batchNo:string;productionDate:string;evidenceState:string;frozenLine:Evidence['ledger'][number]};
 const endpoint=eggSourceEndpoint+'/history';
 
+type ReviewAction={id:string;kind:'review'|'disposition';state?:string;reason?:string;disposition?:string;ledgerId?:string};
 type ReviewSubmission = {
   houseCode: string; warehouseCode: string; productionDate: string; batchNo: string;
   ledgerId: string; targetClass: string; quantity: number | null; reason: string; evidenceIds: string[];
-  actionKey: string;
+  actionKey: string; companyCode?: string;
 };
 
 export default function EggSourceHistoryPage() {
@@ -34,6 +37,8 @@ function HistoryWorkbench({ actor }: { actor: string }) {
   const permission=usePermission('MENU_PROD_INBOUND');
   const storageKey = actor ? 'production:history-review:' + actor : '';
   const [pending, setPending] = useState<ReviewSubmission | null>(null);
+  const [parked,setParked]=useState<ReviewSubmission[]>([]);
+  const [actions,setActions]=useState<Record<string,ReviewAction>>({});
   useEffect(() => {
     if (!storageKey) return;
     let active = true;
@@ -42,6 +47,10 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       try {
         const saved: ReviewSubmission | null = JSON.parse(sessionStorage.getItem(storageKey) ?? 'null');
         if (saved?.actionKey && saved.batchNo) setPending(saved);
+        const storedParked: ReviewSubmission|ReviewSubmission[]|null=JSON.parse(sessionStorage.getItem(storageKey+':parked')??'null');
+        if(Array.isArray(storedParked)) setParked(storedParked);
+        else if(storedParked?.actionKey) setParked([storedParked]);
+        setActions(JSON.parse(sessionStorage.getItem(storageKey+':actions')??'{}'));
       } catch {
         sessionStorage.removeItem(storageKey);
       }
@@ -95,9 +104,58 @@ function HistoryWorkbench({ actor }: { actor: string }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [view,setView]=useState<'pending'|'mine'|'batch'>('batch');
+  const [queue,setQueue]=useState<QueueRow[]>([]);
+  const [nextCursor,setNextCursor]=useState<string|null>(null);
+  const [detail,setDetail]=useState<FrozenReview|null>(null);
+  const [queueLoading,setQueueLoading]=useState(false);
+  const queueRequest=useRef(0);
+  const detailButton=useRef<HTMLButtonElement|null>(null);
+
+  async function loadQueue(next: 'pending'|'mine', cursor?: string) {
+    const requestId=++queueRequest.current;
+    if (!cursor) setQueue([]);
+    setNextCursor(null);
+    setQueueLoading(true);
+    try {
+      const params=new URLSearchParams({view:next});
+      if (cursor) params.set('cursor',cursor);
+      const page=await requestEggSourceData<{rows:QueueRow[];nextCursor:string|null}>(endpoint+'/reviews?'+params,
+        value=>Array.isArray(value.rows) && (value.nextCursor===null || typeof value.nextCursor==='string'),
+        t('eggSources.invalidResponse','蛋品来源数据返回格式异常，请重试。'));
+      if (requestId!==queueRequest.current) return;
+      setQueue(previous=>cursor?[...previous,...page.rows]:page.rows);
+      setNextCursor(page.nextCursor);
+    } catch (failure) {
+      if (requestId===queueRequest.current) setError(failure instanceof Error?failure.message:String(failure));
+    } finally {
+      if (requestId===queueRequest.current) setQueueLoading(false);
+    }
+  }
+
+  async function openReview(id: string) {
+    const row=await requestEggSourceData<FrozenReview>(endpoint+'/reviews/'+encodeURIComponent(id),
+      value=>value.id===id && !!value.frozenLine && Array.isArray(value.attachments) && Array.isArray(value.dispositions),
+      t('eggSources.invalidResponse','蛋品来源数据返回格式异常，请重试。'));
+    setDetail(row);
+  }
+
+  function chooseView(next: typeof view) {
+    queueRequest.current++;
+    setView(next);
+    setDetail(null);
+    setError('');
+    if (next!=='batch') void loadQueue(next);
+  }
+
   const inFlight = useRef(false);
   const query={houseCode:house,warehouseCode:warehouse,productionDate:date,batchNo:batch.trim()};
   const canLoad=house&&warehouse&&date&&batch.trim();
+  const selectedLedger=result?.evidence.ledger.find(line=>line.id===ledger);
+  const quantityLimit=result?.evidence.exactQuantity!=null&&selectedLedger
+    ?Math.min(result.evidence.exactQuantity,Math.abs(Number(selectedLedger.qty_change))):undefined;
+  const shownReviews=view==='batch'?(result?.reviews??[]):detail?[detail]:[];
+
   const label=(value:string|null) => value==='STANDARD' ? t('eggSources.standard','普通蛋')
     : value==='RED' ? t('eggSources.red','红壳蛋') : value==='PINK' ? t('eggSources.pink','粉壳蛋')
     : t('eggSources.unknown','来源待核实');
@@ -114,7 +172,11 @@ function HistoryWorkbench({ actor }: { actor: string }) {
   }
   async function refreshAfterAction() {
     setNotice(t('eggSources.actionSaved','已记录操作与回执'));
-    await load();
+    if (view==='batch') await load();
+    else if (detail) {
+      await openReview(detail.id);
+      await loadQueue(view);
+    }
   }
   async function perform(work:()=>Promise<void>) {
     if (inFlight.current) return;
@@ -138,7 +200,7 @@ function HistoryWorkbench({ actor }: { actor: string }) {
     setPending(payload);
     try {
       const response = await request<{ code: number; data?: { id: string; state: string } }>(endpoint,
-        { method: 'POST', body: JSON.stringify(payload), bindSession: true });
+        { method: 'POST', body: JSON.stringify({...payload,companyCode:undefined}), bindSession: true });
       const receipt = response?.data;
       if (response?.code !== 201 || typeof receipt?.id !== 'string' || !receipt.id || typeof receipt.state !== 'string') {
         throw new Error(t('eggSources.invalidResponse', '蛋品来源数据返回格式异常，请重试。'));
@@ -148,7 +210,7 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       setNotice(t('eggSources.savedReview', '已记录操作与回执') + ' · ' + receipt.id);
     } catch (e) {
       const status = (e as {status?: number})?.status;
-      if (status === 400 || status === 409 || status === 422) {
+      if (!pending && (status === 400 || status === 409 || status === 422)) {
         if (storageKey) sessionStorage.removeItem(storageKey);
         setPending(null);
       }
@@ -163,26 +225,116 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       await load();
     }
   }
+  async function recoverSubmission(payload:ReviewSubmission, waiting: boolean) {
+    const companyCode=payload.companyCode??houses.find(item=>item.houseCode===payload.houseCode)?.companyCode;
+    if(!companyCode) throw Error(t('eggSources.historyHouseOptionsUnavailable'));
+    const receipt=await requestEggSourceData<{id:string;currentState:string}>(
+      endpoint+'/requests/'+encodeURIComponent(payload.actionKey)+'?'+new URLSearchParams({companyCode}),
+      value=>typeof value.id==='string'&&typeof value.currentState==='string',t('eggSources.invalidResponse'),{bindSession:true});
+    if(waiting){sessionStorage.removeItem(storageKey);setPending(null);}
+    else {
+      const remaining=parked.filter(item=>item.actionKey!==payload.actionKey);
+      sessionStorage.setItem(storageKey+':parked',JSON.stringify(remaining));setParked(remaining);
+    }
+    setNotice(t('eggSources.savedReview')+' · '+receipt.id+' · '+t(`eggSources.status.${receipt.currentState}`,receipt.currentState));
+    if(payload.houseCode===query.houseCode&&payload.warehouseCode===query.warehouseCode&&
+      payload.productionDate===query.productionDate&&payload.batchNo===query.batchNo) await load();
+  }
+  function rememberAction(action: ReviewAction, active:boolean) {
+    const key=action.id+':'+action.kind;
+    const saved=JSON.parse(sessionStorage.getItem(storageKey+':actions')??'{}') as Record<string,ReviewAction>;
+    if(active) saved[key]=action; else delete saved[key];
+    sessionStorage.setItem(storageKey+':actions',JSON.stringify(saved));
+    setActions(saved);
+  }
+  async function sendAction(action:ReviewAction) {
+    if(!actor||!permission.canApprove||actions[action.id+':'+action.kind])return;
+    rememberAction(action,true);
+    const url=endpoint+'/'+action.id+(action.kind==='review'?'/review':'/dispositions');
+    const body=action.kind==='review'?{decision:action.state,reason:action.reason,disposition:action.disposition}:{ledgerId:action.ledgerId};
+    try {
+      const response=await request<{code:number;data?:{linkedByAnother?:boolean}}>(url,
+        {method:'POST',body:JSON.stringify(body),bindSession:true,retry:false});
+      if(!response.data||![200,201].includes(response.code))throw Error(t('eggSources.invalidResponse'));
+      rememberAction(action,false);
+      if(response.data.linkedByAnother){setNotice(t('eggSources.historyLinkedByAnother'));return;}
+    } catch(error) {
+      const status=(error as {status?:number}).status;
+      if(status&&[400,403,404,409,422].includes(status)) rememberAction(action,false);
+      throw error;
+    }
+    await refreshAfterAction();
+  }
+  async function recoverAction(action:ReviewAction) {
+    const params=new URLSearchParams({kind:action.kind,...(action.ledgerId?{ledgerId:action.ledgerId}:{})});
+    const result=await requestEggSourceData<{id?:string;state?:string;reason?:string;disposition?:string|null;linkedByAnother?:boolean;receipt?:unknown}>(
+      endpoint+'/reviews/'+action.id+'/action-receipt?'+params,
+      value=>action.kind==='review'?value.id===action.id&&value.state===action.state&&
+        value.reason===action.reason&&(value.disposition??null)===(action.state==='APPROVED'?action.disposition:null)
+        :value.linkedByAnother===true||!!value.receipt,t('eggSources.invalidResponse'),{bindSession:true});
+    rememberAction(action,false);
+    if(result.linkedByAnother)setNotice(t('eggSources.historyLinkedByAnother'));
+    else await refreshAfterAction();
+  }
+
+  function recoverActionClick(event:MouseEvent<HTMLButtonElement>) {
+    const action=actions[event.currentTarget.dataset.actionKey??''];
+    if(action) void perform(()=>recoverAction(action));
+  }
+
   function submit(event:FormEvent) {
     event.preventDefault();
-    if(!result || pending || busy || uploading || !permission.canEdit) return;
+    if(!result || pending || busy || uploading || !permission.canEdit || qty&&quantityLimit!==undefined&&Number(qty)>quantityLimit) return;
     void perform(async()=>{
-      await confirmSubmission({ ...query,ledgerId:ledger,targetClass:target,
+      await confirmSubmission({ ...query,companyCode:owner?.companyCode,ledgerId:ledger,targetClass:target,
         quantity:result.evidence.exactQuantity!==null&&qty?Number(qty):null,
         reason:reason.trim(),evidenceIds:attachments,actionKey:crypto.randomUUID() });
     });
   }
   return <div className={s.page}>
     <PageHeader title={t('eggSources.history','历史蛋品来源核认')}/>
+    {permission.canView&&<nav className={s.actions} aria-label={t('eggSources.history','历史蛋品来源核认')}>
+      {permission.canApprove&&<button type="button" aria-pressed={view==='pending'} disabled={busy} onClick={()=>chooseView('pending')}>{t('eggSources.pendingReview','待我审核')}</button>}
+      <button type="button" aria-pressed={view==='mine'} disabled={busy} onClick={()=>chooseView('mine')}>{t('eggSources.myHistoryReviews','我的申请')}</button>
+      <button type="button" aria-pressed={view==='batch'} disabled={busy} onClick={()=>chooseView('batch')}>{t('eggSources.traceHistoryBatch','按批次追溯')}</button>
+    </nav>}
+    {view!=='batch'&&permission.canView&&<section className={s.card} aria-busy={queueLoading}>
+      {queueLoading&&<p role="status">{t('common.loading')}</p>}
+      {!queueLoading&&!queue.length&&!error&&<p>{t('financeReview.empty','当前范围暂无记录')}</p>}
+      <ul className={s.history}>{queue.map(row=><li key={row.id}><div>
+        <strong>{row.batch_no}</strong><p>{row.house_code} / {row.warehouse_code} · {row.production_date} · {t(`eggSources.status.${row.state}`,row.state)}</p>
+        <p>{t('eggSources.requestedHistoryQuantity','申请核认枚数')} {row.quantity??'—'}</p>
+      </div><button type="button" disabled={busy} onClick={event=>{detailButton.current=event.currentTarget;void perform(()=>openReview(row.id));}}>{t('productionInstallments.view','查看原单')}</button></li>)}</ul>
+      {nextCursor&&<button type="button" disabled={busy||queueLoading} onClick={()=>void loadQueue(view,nextCursor)}>{t('financeReview.next','下一页')}</button>}
+      {error&&!queueLoading&&<button type="button" onClick={()=>chooseView(view)}>{t('common.retry','重试')}</button>}
+    </section>}
+    {view!=='batch'&&detail&&<section className={s.card} aria-label={t('eggSources.frozenHistoryLine','冻结原流水')}>
+      <div className={s.actions}><button type="button" disabled={busy} onClick={()=>{setDetail(null);detailButton.current?.focus();}}>{t('common.close','关闭')}</button></div>
+      <h2>{detail.batchNo} · {detail.houseCode} / {detail.warehouseCode}</h2>
+      <p>{detail.productionDate} · {t('eggSources.frozenHistoryLine','冻结原流水')} #{detail.frozenLine.id} · {detail.frozenLine.change_type} · {detail.frozenLine.qty_change} {t('productionCutover.eggs','枚')}</p>
+      <p>{detail.frozenLine.ref_no??t('eggSources.originalRestricted','原业务单据需相应权限')}</p>
+      {detail.evidenceState==='NEEDS_REVIEW'&&<p role="status">{t('eggSources.historyEvidenceChanged','原据已变化，批准前须重新核实。')}</p>}
+    </section>}
+
     {error&&<p className={s.notice} role="alert">{error}</p>}
     {notice&&<p className={s.notice} role="status">{notice}</p>}
-    {pending&&permission.canEdit&&<div className={s.notice}>
+    {pending&&permission.canView&&<div className={s.notice}>
       <p>{t('eggSources.pendingReviewReceipt','申请结果待核')} · {pending.houseCode} · {pending.productionDate} · {pending.batchNo}</p>
-      <button type="button" disabled={busy} onClick={()=>void perform(()=>confirmSubmission(pending))}>
+      <button type="button" disabled={busy} onClick={()=>void perform(()=>recoverSubmission(pending,true))}>
         {t('eggSources.recoverReviewReceipt','找回原申请回执')}
       </button>
+      {permission.canEdit&&<button type="button" disabled={busy} onClick={()=>void perform(()=>confirmSubmission(pending))}>{t('pilotState.retry','按原操作号重试')}</button>}
+      <button type="button" disabled={busy} onClick={()=>{
+        const next=[...parked,pending];
+        sessionStorage.setItem(storageKey+':parked',JSON.stringify(next));sessionStorage.removeItem(storageKey);setParked(next);setPending(null);
+      }}>{t('eggSources.parkHistoryRequest','搁置待核申请')}</button>
     </div>}
-    {permission.canView&&<section className={s.card}>
+    {permission.canView&&parked.map(item=><p role="status" key={item.actionKey}>{t('eggSources.parkHistoryRequest')} · {item.batchNo}
+      <button disabled={busy} onClick={()=>void perform(()=>recoverSubmission(item,false))}>{t('eggSources.recoverReviewReceipt')}</button></p>)}
+    {permission.canView&&Object.values(actions).map(action=><p role="status" key={action.id+action.kind}>
+      {t('eggSources.actionPending')} · {action.id}
+      <button disabled={busy} data-action-key={action.id+':'+action.kind} onClick={recoverActionClick}>{t('eggSources.recoverActionReceipt')}</button></p>)}
+    {permission.canView&&view==='batch'&&<section className={s.card}>
       <div className={s.grid}>
         <label className={s.field}>{t('eggSources.house','鸡舍')}
           <select value={house} disabled={busy||uploading} onChange={event=>{
@@ -210,12 +362,12 @@ function HistoryWorkbench({ actor }: { actor: string }) {
       </div>
       <button disabled={!canLoad||busy||uploading} onClick={()=>void perform(load)}>{t('eggSources.loadEvidence','查询历史凭据')}</button>
     </section>}
-    {result&&<section className={s.card}>
+    {view==='batch'&&result&&<section className={s.card}>
       <p>{result.evidence.batchNo} · {result.evidence.productCode} · {result.evidence.skuCode||'—'} · {label(result.evidence.originalShell)}</p>
       <p>{t('eggSources.exactQuantity','可归属枚数')} {result.evidence.exactQuantity??t('eggSources.unknown','来源待核实')}</p>
       {permission.canEdit&&<form onSubmit={submit}>
         <div className={s.grid}>
-          <label className={s.field}>{t('eggSources.ledger','原库存流水')}<select required disabled={busy||!!pending} value={ledger} onChange={e=>setLedger(e.target.value)}>
+          <label className={s.field}>{t('eggSources.ledger','原库存流水')}<select required disabled={busy||!!pending} value={ledger} onChange={e=>{setLedger(e.target.value);setQty('');}}>
             <option value="">{t('eggSources.choose','请选择')}</option>
             {result.evidence.ledger.map(line=><option key={line.id} value={line.id}>#{line.id} · {line.ref_no??t('eggSources.originalRestricted','原业务单据需相应权限')} · {line.change_type} · {line.qty_change}</option>)}
           </select></label>
@@ -223,17 +375,19 @@ function HistoryWorkbench({ actor }: { actor: string }) {
             {['STANDARD','RED','PINK'].map(value=><option value={value} key={value}>{label(value)}</option>)}
           </select></label>
           <label className={s.field}>{t('eggSources.exactQuantity','可归属枚数')}<input type="number" min={1} step={1}
-            disabled={busy||!!pending||result.evidence.exactQuantity===null} max={result.evidence.exactQuantity??undefined} value={qty} onChange={e=>setQty(e.target.value)}/></label>
+            disabled={busy||!!pending||result.evidence.exactQuantity===null} max={quantityLimit} value={qty} onChange={e=>setQty(e.target.value)}/></label>
           <label className={s.field}>{t('eggSources.reason','依据')}<textarea required disabled={busy||!!pending} value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/></label>
         </div>
         {owner&&<AttachmentUploader readOnly={busy||!!pending} value={attachments} onChange={setAttachments} onUploadingChange={setUploading}
           ownership={{moduleCode:'PRODUCTION_INBOUND',ownerType:'HOUSE',ownerId:house,companyCode:owner.companyCode,storeCode:owner.siteCode}}/>}
         <button type="submit" disabled={busy||!!pending||uploading||!ledger||!reason.trim()||!attachments.length}>{t('eggSources.submit','提交审核')}</button>
       </form>}
+    </section>}
+    {(view==='batch'&&result||view!=='batch'&&detail)&&<section className={s.card}>
       <div className={s.scroll}><table className={s.table}><thead><tr>
         <th>{t('eggSources.ledger','原库存流水')}</th><th>{t('eggSources.shell','商品壳色')}</th>
         <th>{t('eggSources.status','状态')}</th><th>{t('eggSources.reason','依据')}</th>
-      </tr></thead><tbody>{result.reviews.map(row=><tr key={row.id}>
+      </tr></thead><tbody>{shownReviews.map(row=><tr key={row.id}>
         <td>#{row.source_line} · {row.quantity??'—'}</td><td>{label(row.target_class)}</td>
         <td>{t(`eggSources.status.${row.state}`,row.state)}</td><td>{row.reason}{row.decision ? ' · '+row.decision : ''}
           <ul>{row.attachments.map(file=><li key={file.file_id}>
@@ -241,13 +395,13 @@ function HistoryWorkbench({ actor }: { actor: string }) {
           </li>)}</ul>
           {row.disposition==='REFER_TO_ORIGINAL'&&<div>
             <p>{row.dispositions.length?t('eggSources.recorded','已关联原业务处置'):t('eggSources.referred','已转原业务，待办理')}</p>
+            {row.dispositions.some(receipt=>receipt.restricted)&&<p>{t('eggSources.originalRestricted')}</p>}
             {row.dispositions.filter(receipt=>!receipt.restricted).map(receipt=><p key={receipt.id}>{receipt.log_date} · {receipt.ref_no} · #{receipt.id}</p>)}
             {permission.canApprove&&<div className={s.actions}>
               <input inputMode="numeric" aria-label={t('eggSources.reversalLedger','正式冲销库存流水号')}
                 value={dispositionLedger[row.id]??''} onChange={e=>setDispositionLedger(old=>({...old,[row.id]:e.target.value}))}/>
-              <button type="button" disabled={busy||!/^\d+$/.test(dispositionLedger[row.id]??'')} onClick={()=>void perform(async()=>{
-                await request(endpoint+'/'+row.id+'/dispositions',{method:'POST',body:JSON.stringify({ledgerId:dispositionLedger[row.id]})});
-                await refreshAfterAction();
+              <button type="button" disabled={busy||!!actions[row.id+':disposition']||!/^\d+$/.test(dispositionLedger[row.id]??'')} onClick={()=>void perform(async()=>{
+                await sendAction({id:row.id,kind:'disposition',ledgerId:dispositionLedger[row.id]});
               })}>{t('eggSources.bindReversal','关联已过账冲销')}</button>
             </div>}
           </div>}
@@ -257,10 +411,10 @@ function HistoryWorkbench({ actor }: { actor: string }) {
               onChange={e=>setDecisionReason(reasons=>({...reasons,[row.id]:e.target.value}))} />
             <label><input type="checkbox" checked={referral[row.id]??false}
               onChange={e=>setReferral(old=>({...old,[row.id]:e.target.checked}))}/>{t('eggSources.referOriginal','需转原业务处置')}</label>
-            {['APPROVED','REJECTED'].map(decision=><button type="button" key={decision} disabled={busy||!decisionReason[row.id]?.trim()}
+            {['APPROVED','REJECTED'].map(decision=><button type="button" key={decision} disabled={busy||!!actions[row.id+':review']||!decisionReason[row.id]?.trim()||decision==='APPROVED'&&detail?.evidenceState==='NEEDS_REVIEW'}
               onClick={()=>void perform(async()=>{
-                await request(endpoint+'/'+row.id+'/review',{method:'POST',body:JSON.stringify({decision,reason:decisionReason[row.id].trim(),disposition:referral[row.id]?'REFER_TO_ORIGINAL':'ANNOTATION'})});
-                await refreshAfterAction();
+                await sendAction({id:row.id,kind:'review',state:decision,reason:decisionReason[row.id].trim(),
+                  disposition:referral[row.id]?'REFER_TO_ORIGINAL':'ANNOTATION'});
               })}>{decision==='APPROVED'?t('eggSources.approve','批准'):t('eggSources.reject','驳回')}</button>)}
           </div>}
         </td>
