@@ -64,14 +64,12 @@ export default function ShiftClosePage() {
     setLoadError('');
     Promise.all([
       packagingApi.getShiftSummary(productionDate, shiftId),
-      packagingApi.getActiveGrading(Number(shift?.id)),
       packingHistoryRequest(`reports/production-summary?${new URLSearchParams({dateFrom:productionDate!,dateTo:productionDate!,aggregation:'SHIFT',shiftId:shiftId!})}`),
-    ]).then(([data, grading, report]) => {
+    ]).then(([data, report]) => {
       if (!active()) return;
       if (String(data.shift?.id) !== shiftId || data.shift?.status !== 'OPEN'
-        || data.shift?.date_text !== productionDate || String(grading.shiftId) !== shiftId
-        || grading.productionDate !== productionDate||String(report.shiftId)!==shiftId||report.dateFrom!==productionDate) throw new Error('班次已关闭或读取结果不匹配，请重新选择');
-      const gradingOutputs = grading.outputs;
+        || data.shift?.date_text !== productionDate || String(report.shiftId)!==shiftId || report.dateFrom!==productionDate) throw new Error('班次已关闭或读取结果不匹配，请重新选择');
+      const gradingOutputs = data.gradingOutputs as Record<string, number>;
       const gradedQty = Object.values(gradingOutputs).reduce((sum, qty) => sum + Number(qty || 0), 0);
       const totalPacked = report.totalBoxes;
       const totalEggs = report.totalEggs;

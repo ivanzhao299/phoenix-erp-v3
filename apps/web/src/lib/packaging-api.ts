@@ -155,7 +155,9 @@ export const packagingApi = {
   closeShift: (id: string, body: Record<string, unknown>) => request<any>('POST', `/api/packaging/terminal/shifts/${id}/close`, body),
 
   // ── 来源批次 ────────────────────────────────────────────────────────────────
-  getTodaySourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/today'),
+  getTodaySourceBatches: (shiftId?: string | number) =>
+    request<any[]>('GET', '/api/packaging/terminal/source-batches/today' +
+      (shiftId === undefined ? '' : '?shiftId='+requireShiftId(shiftId))),
   getPendingSourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/pending'),
   getPendingGradingSourceBatches: (shiftId: number) =>
     request<any[]>('GET', `/api/packaging/terminal/grading/pending?shiftId=${requireShiftId(shiftId)}`),

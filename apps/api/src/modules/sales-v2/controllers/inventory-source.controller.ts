@@ -11,7 +11,7 @@ import { ProductionInboundService } from '../services/production-inbound.service
  * InventorySourceController — 库存来源模式治理 Phase P1A
  *
  * 路由前缀：/api/v2/inventory
- *   GET  source/mode        当前生效模式（按 site/company 解析）         — MENU_INV_SOURCE_MODE:V
+ *   GET  source/mode        当前生效模式（支持按鸡舍核对命中范围）         — MENU_INV_SOURCE_MODE:V
  *   GET  source/configs     全部模式配置                                — MENU_INV_SOURCE_MODE:V
  *   GET  source/audit       切换审计日志                                — MENU_INV_SOURCE_MODE:V
  *   POST source/assess-risk 切换前风险评估（只读，不切换）             — MENU_INV_SOURCE_MODE:V
@@ -29,7 +29,8 @@ export class InventorySourceController {
 
   @Get('source/mode')
   @RequireMenu('MENU_INV_SOURCE_MODE', 'V')
-  async getMode(@Query('siteCode') siteCode?: string, @Query('companyCode') companyCode?: string) {
+  async getMode(@Query('siteCode') siteCode?: string, @Query('companyCode') companyCode?: string, @Query('houseCode') houseCode?: string) {
+    if (houseCode !== undefined) return this.prodInbound.effectiveSourceMode(houseCode);
     const mode = await this.modeSvc.resolveMode({ siteCode, companyCode });
     return { mode };
   }

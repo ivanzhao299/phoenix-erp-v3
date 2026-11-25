@@ -32,6 +32,8 @@ interface CollectionRecord {
   batchCode: string;
   houseCode: string;
   houseName: string;
+  productionDate: string;
+  shiftId: string | number;
   totalQty: number;
   dirtyQty: number;
   crackedQty: number;
@@ -63,9 +65,10 @@ const FIELDS: {
 export default function EggCollectionPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
-  const {
-    ctx
-  } = useTerminalContext();
+  const { ctx, identityKey } = useTerminalContext();
+  const openShiftId = getOpenShiftId(ctx.currentShift);
+  const shiftKey = JSON.stringify([identityKey,openShiftId]);
+  const requests = useRef(0);
   const [houses, setHouses] = useState<House[]>([]);
   const [layDate, setLayDate] = useState('');
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
@@ -73,8 +76,9 @@ export default function EggCollectionPage() {
   const [dirtyQty, setDirtyQty] = useState('');
   const [crackedQty, setCrackedQty] = useState('');
   const [numPadField, setNumPadField] = useState<NumField>('total');
-  const [records, setRecords] = useState<CollectionRecord[]>([]);
-  const [totalGradedToday, setTotalGradedToday] = useState(0);
+  const [collection,setCollection] = useState<{key:string;records:CollectionRecord[];graded:number}|null>(null);
+  const records = collection?.key === shiftKey ? collection.records : [];
+  const totalGradedToday = collection?.key === shiftKey ? collection.graded : 0;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,14 +116,14 @@ export default function EggCollectionPage() {
     setCorrNumKey(k => k + 1);
   };
   const handleCorrect = async () => {
-    if (!corrTarget || !corrReason || corrBusy) return;
+    if (!corrTarget || !corrReason || corrBusy || corrTarget.shiftId !== openShiftId || !corrTarget.productionDate) return;
     setCorrBusy(true);
     setCorrError('');
     try {
       await packagingApi.correctBatch({
         sourceBatchId: corrTarget.batchId,
         houseCode: corrTarget.houseCode,
-        productionDate: new Date().toISOString().slice(0, 10),
+        productionDate: corrTarget.productionDate,
         totalQty: parseInt(corrTotal) || 0,
         dirtyQty: parseInt(corrDirty) || 0,
         crackedQty: parseInt(corrCracked) || 0,
@@ -134,11 +138,12 @@ export default function EggCollectionPage() {
     }
   };
   const fetchRecords = useCallback(async () => {
+    if (openShiftId === null) return;
+    const request = ++requests.current;
     try {
-      const rows = await packagingApi.getTodaySourceBatches();
-      if (!Array.isArray(rows)) return;
+      const rows = await packagingApi.getTodaySourceBatches(openShiftId);
+      if (request !== requests.current || !Array.isArray(rows)) return;
       const graded = Number((rows[0] as Record<string, unknown>)?.total_graded_today ?? 0);
-      setTotalGradedToday(graded);
       const sourceRows = (rows as Record<string, unknown>[]).map((r): CollectionRecord => {
         const houseCode = String(r.house_code ?? '');
         return {
@@ -146,6 +151,8 @@ export default function EggCollectionPage() {
           batchCode: String(r.batch_code ?? ''),
           houseCode,
           houseName: String(r.house_name ?? r.house_code ?? ''),
+          productionDate: String(r.production_day ?? ''),
+          shiftId: openShiftId,
           totalQty: Number(r.total_qty ?? r.expected_qty ?? 0),
           dirtyQty: Number(r.dirty_qty ?? 0),
           crackedQty: Number(r.cracked_qty ?? 0),
@@ -156,16 +163,19 @@ export default function EggCollectionPage() {
           }) : ''
         };
       });
-      setRecords(sourceRows);
-    } catch {/* 断网时保留上次数据 */}
-  }, []);
+      setCollection({ key: shiftKey, records: sourceRows, graded });
+    } catch {/* 断网时保留本班上次数据 */}
+  }, [openShiftId,shiftKey]);
   useEffect(() => {
     crudApi.list<House>('brd_houses', {
       limit: 50
     } as never).then(res => setHouses(res.data || [])).catch(() => {});
-    fetchRecords();
+  }, []);
+  useEffect(() => {
+    void fetchRecords();
     pollRef.current = setInterval(fetchRecords, POLL_MS);
     return () => {
+      ++requests.current;
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [fetchRecords]);
@@ -185,7 +195,6 @@ export default function EggCollectionPage() {
   }, []);
   const defectExceedsTotal = total > 0 && dirty + cracked > total;
   const hasPendingEntry = !!selectedHouse && total > 0 && !defectExceedsTotal;
-  const openShiftId = getOpenShiftId(ctx.currentShift);
   const canSubmit = hasPendingEntry && !!layDate && openShiftId !== null;
   const fieldValues: Record<NumField, string> = {
     total: totalQty,
@@ -383,7 +392,7 @@ export default function EggCollectionPage() {
                         </div>
                       </div>
                       {record?.batchCode && <div style={{ fontSize: 9, color: T.MUT }}>
-                        {record.batchCode}
+                        {record.batchCode} · {record.productionDate}
                       </div>}
                       {/* 主数字 */}
                       {isDone ? <>

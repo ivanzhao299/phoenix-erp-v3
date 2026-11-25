@@ -103,6 +103,16 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     expect(persisted.egg_date).toBe('2026-09-09');
     expect(persisted.inbound_date > persisted.egg_date).toBe(true);
     expect(persisted.log_date).toBe(persisted.inbound_date);
+    expect((await controller.confirmHandover(body,req)).data.code).toBe(receipt.data.code);
+    expect(await counts()).toEqual({batches:1,ledgers:1,handovers:1});
+  });
+  it('keeps old shift-dated grading visible when the source also has an earlier lay date',async()=>{
+    await ds.query(`UPDATE pkg_source_batches SET lay_date='2026-09-08'`);
+    const snapshot=await controller.getActiveGrading('1',req,'2026-09-09');
+    expect(snapshot.data).toMatchObject({eggDate:'2026-09-09',gradingCodes:['GR']});
+    await expect(resolvePackagingSourceContext(ds.manager,{packingCode:'PKG-LOCAL'})).resolves.toMatchObject({
+      eggDate:'2026-09-09',houseCodes:['HOUSE'],
+    });
   });
   it('resolves legacy grade/spec uniquely without guessing a product, confirms CLOSED original date and concurrent retries exactly once',async()=>{
     await ds.query("UPDATE pkg_work_shifts SET status='CLOSED'");
@@ -425,6 +435,40 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.query('UPDATE pkg_work_shifts SET is_test=true');await expect(controller.getShiftSummary('2026-09-09','1',req)).rejects.toThrow();
     await ds.query('UPDATE pkg_work_shifts SET is_test=false; ALTER TABLE pkg_exceptions RENAME COLUMN status TO unavailable_status');
     await expect(controller.getShiftSummary('2026-09-09','1',req)).rejects.toThrow();
+  });
+  it('includes prior-day receiving, grading and handover only in an exact shift summary',async()=>{
+    await ds.query(`ALTER TABLE pkg_work_shifts ADD COLUMN opened_at timestamp DEFAULT now();
+      CREATE TABLE pkg_exceptions(status text,created_at timestamp,related_batch_id text,batch_no text);
+      CREATE TABLE pkg_label_print_logs(printed_at timestamp,packaging_batch_id text);
+      ALTER TABLE brd_houses ADD COLUMN house_name text;
+      ALTER TABLE pkg_source_batches ADD COLUMN total_qty integer, ADD COLUMN dirty_qty integer,
+        ADD COLUMN cracked_qty integer, ADD COLUMN created_at timestamp DEFAULT now();
+      ALTER TABLE pkg_grading_records ADD COLUMN total_output integer;
+      UPDATE pkg_work_shifts SET production_date='2026-09-10';
+      UPDATE pkg_source_batches SET lay_date='2026-09-09';
+      UPDATE pkg_grading_records SET total_output=120;
+      INSERT INTO sys_dict(dict_code,dict_type,config_json) VALUES('GRADE_5','PKG_EGG_GRADE','{"terminalCode":"OLD_FIVE"}');
+      INSERT INTO pkg_source_batches(id,house_code,shift_id,production_date,lay_date,batch_status,is_test,received_qty,batch_code)
+        VALUES(2,'HOUSE',1,'2026-09-10','2026-09-10','RECEIVED',false,60,'SRC-LOCAL-2');
+      INSERT INTO pkg_grading_records(id,code,shift_id,production_date,status,is_test,outputs_json,total_output)
+        VALUES(2,'GR-2',1,'2026-09-10','ACTIVE',false,'{"GRADE_5":60}',60),
+          (3,'ORPHAN',1,'2026-09-09','ACTIVE',false,'{"GRADE_5":999}',999);
+      INSERT INTO pkg_grading_source_links VALUES(2,2);`);
+    await controller.confirmHandover(body,req);
+    await ds.query(`UPDATE pkg_grading_records SET outputs_json='{"OLD_FIVE":60,"GRADE_1":60}' WHERE code='GR'`);
+    const rows=await controller.getTodaySourceBatches(req,'1');
+    expect(rows.data).toHaveLength(2);
+    expect(rows.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ production_day:'2026-09-09',total_graded_today:180 }),
+      expect.objectContaining({ production_day:'2026-09-10',total_graded_today:180 }),
+    ]));
+    const result=await controller.getShiftSummary('2026-09-10','1',req);
+    expect(result.data).toMatchObject({receivedQty:180,gradedQty:180,gradingOutputs:{GRADE_5:120,GRADE_1:60},
+      shiftPackedBoxes:1,shiftWarehousedBoxes:1});
+    const legacy=await controller.getShiftSummary('2026-09-10',undefined as any,req);
+    expect(legacy.data).toMatchObject({receivedQty:60,gradedQty:60,shiftWarehousedBoxes:0});
+    scope.allowedFarmCodes=[];
+    await expect(controller.getTodaySourceBatches(req,'1')).rejects.toThrow('无权');
   });
   it('deducts an authorized later-shift consumption from the original grading remainder',async()=>{
     await ds.query(`INSERT INTO pkg_work_shifts VALUES(2,'LATER','FARM','2026-09-10','OPEN',false);

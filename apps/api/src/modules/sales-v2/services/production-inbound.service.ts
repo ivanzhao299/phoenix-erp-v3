@@ -191,19 +191,35 @@ export class ProductionInboundService {
     return this.resolveCompanyAndSite({ houseCode });
   }
 
+  private async describeSourceMode(houseCode: string, owner: { companyCode: string; siteCode?: string; farmCode?: string }) {
+    const { companyCode, siteCode, farmCode } = owner;
+    const mode = await this.modeSvc.resolveModeConfig({ siteCode: farmCode ?? siteCode, companyCode }, undefined, { failClosed: true });
+    return {
+      companyCode, siteCode: siteCode ?? null, farmCode: farmCode ?? null, houseCode, mode: mode.mode,
+      modeScope: { level: mode.scopeLevel, code: mode.scopeCode },
+    };
+  }
+
+  async effectiveSourceMode(houseCode: string) {
+    const owner = await this.temporaryHouseContext(houseCode);
+    const scope = this.cls.get('dataScope') as DataScopeContext;
+    if (!scope.isGlobal && !scope.allowedBreedingCompanyCodes?.includes(owner.companyCode) &&
+        !(owner.farmCode && scope.allowedBreedingFarmCodes?.includes(owner.farmCode)) &&
+        !(owner.siteCode && scope.allowedBreedingSiteCodes?.includes(owner.siteCode))) {
+      throw new ForbiddenException('鸡舍超出当前库存来源查询范围');
+    }
+    return this.describeSourceMode(houseCode, owner);
+  }
+
   async temporaryAvailability(houseCode: string) {
-    const { companyCode, siteCode, farmCode } = await this.temporaryHouseContext(houseCode);
+    const owner = await this.temporaryHouseContext(houseCode);
     const [mode, scopes] = await Promise.all([
-      this.modeSvc.resolveMode({ siteCode: farmCode ?? siteCode, companyCode }, undefined, { failClosed: true }),
+      this.describeSourceMode(houseCode, owner),
       this.ds.query(`SELECT state,first_production_date::text AS "firstProductionDate"
         FROM production_cutover_scopes
-        WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`, [companyCode, houseCode]),
+        WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`, [owner.companyCode, houseCode]),
     ]);
-    return {
-      companyCode, siteCode: siteCode ?? null, houseCode, mode,
-      state: scopes[0]?.state ?? 'OFF',
-      firstProductionDate: scopes[0]?.firstProductionDate ?? null,
-    };
+    return { ...mode, state: scopes[0]?.state ?? 'OFF', firstProductionDate: scopes[0]?.firstProductionDate ?? null };
   }
 
   async temporaryLocations(houseCode: string, warehouseCode: string) {

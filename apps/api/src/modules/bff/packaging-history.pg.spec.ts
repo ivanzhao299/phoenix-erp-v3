@@ -86,6 +86,14 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
  it('preserves conflicting cross-record alias claims and refuses scan',async()=>{await register();const other=await packingHistoryFixture(ds);const [box]=await ds.query(`INSERT INTO pkg_packing_boxes(id,packing_id,output_ordinal,box_ordinal,original_qty) VALUES($1,$2,0,1,30) RETURNING id`,[randomUUID(),other.packingId]);const d=await workflow.detail(f.prefix,f.req),eventId=d.events[0].id,code='TEST-ALIAS-'+randomUUID(),otherEvent=await foreignRegistration(other,box.id);
  await Promise.all([d.boxes[0].boxId,box.id].map(boxId=>ds.transaction(async db=>{await db.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,['packaging-chain:false']);await new PackagingBoxService().claim(db,[{code,boxId,kind:'ALIAS',eventId:boxId===box.id?otherEvent:eventId}]);})));
  expect((await ds.query('SELECT state,owner_box_id FROM pkg_packing_code_registry WHERE normalized_code=$1',[code]))[0]).toEqual({state:'AMBIGUOUS',owner_box_id:null});await expect(workflow.boxes.resolve(ds.manager,f.packingId,code)).rejects.toThrow('LABEL_UNRESOLVABLE');});
+ it('reports prior-day eggs by shift date and keeps original dates in daily history',async()=>{
+   await ds.query(`UPDATE pkg_work_shifts SET production_date='2026-01-03' WHERE id=$1`,[f.shiftId]);
+   const shiftReport=await history.summary({dateFrom:'2026-01-03',dateTo:'2026-01-03',aggregation:'SHIFT',shiftId:f.shiftId},f.req);
+   expect(shiftReport).toMatchObject({totalEggs:50,totalBoxes:2,gradingEggs:50,days:[{date:'2026-01-03',totalEggs:50,totalBoxes:2}],
+     records:[{productionDate:'2026-01-02'}]});
+   const daily=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-03',aggregation:'DAY'},f.req);
+   expect(daily.days).toMatchObject([{date:'2026-01-02',totalEggs:50},{date:'2026-01-03',totalEggs:0}]);
+ });
  it('reports exact original day quantities independently of current inventory',async()=>{const report=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'SHIFT',shiftId:f.shiftId},f.req);expect(report).toMatchObject({totalEggs:50,totalBoxes:2,basis:'TERMINAL_RECORDS'});});
  it('SQL list, detail and summary retain the same committed snapshot after current quantity evolution',async()=>{
    const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);

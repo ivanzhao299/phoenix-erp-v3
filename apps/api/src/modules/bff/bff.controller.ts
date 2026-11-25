@@ -7,7 +7,7 @@ import {DataScopeGuard} from '../org/guards/data-scope.guard';
 import {ProductionAnalyticsService} from '../analytics/services/production-analytics.service';
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
+import { linkedGradingSources, listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -1503,16 +1503,18 @@ export class PackagingTerminalBffController {
 
   // ── 来源批次 ───────────────────────────────────────────────────────────────
   @Get('source-batches/today')
-  async getTodaySourceBatches(@Req() req?: any) {
+  async getTodaySourceBatches(@Req() req?: any, @Query('shiftId') shiftId?: string) {
     const isTest = packagingTestMode(req);
-    const rows = await this.safe(
-      this.em.query(
+    const shift = shiftId === undefined ? null : await this.exactShift(shiftId, req);
+    const column = shift ? 'shift_id' : 'production_date';
+    const query = this.em.query(
         `WITH graded_sum AS (
-           SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
-           FROM pkg_grading_records
-           WHERE production_date = $1 AND status = 'ACTIVE' AND is_test = ${isTest}
+           SELECT COALESCE(SUM(g.total_output), 0)::int AS total_graded
+           FROM pkg_grading_records g ${shift ? 'JOIN pkg_work_shifts ws ON ws.id=g.shift_id' : ''}
+           WHERE g.${column} = $1 AND g.status = 'ACTIVE' AND g.is_test = ${isTest}
+             ${shift ? 'AND '+linkedGradingSources : ''}
          )
-         SELECT psb.*,
+         SELECT psb.*, psb.production_date::text AS production_day,
                 COALESCE(bh.house_name, psb.house_code) AS house_name,
                 GREATEST(
                   COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
@@ -1522,13 +1524,11 @@ export class PackagingTerminalBffController {
                 (SELECT total_graded FROM graded_sum) AS total_graded_today
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
-         WHERE psb.production_date = $1 AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
+         WHERE psb.${column} = $1 AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
          ORDER BY psb.created_at DESC`,
-        [this.today],
-      ),
-      [],
+        [shift?.id ?? this.today],
     );
-    return { code: 200, data: rows };
+    return { code: 200, data: shift ? await query : await this.safe(query, []) };
   }
 
   @Get('source-batches/pending')
@@ -2048,13 +2048,16 @@ export class PackagingTerminalBffController {
 
     if (shiftRow?.date_text) targetDate = shiftRow.date_text;
     const shiftIdNum = requestedShiftId ?? (shiftRow?.id ? Number(shiftRow.id) : null);
-    const shiftFilter = shiftIdNum ? ' AND shift_id = $2' : '';
-    const summaryParams = shiftIdNum ? [targetDate, shiftIdNum] : [targetDate];
+    const sourceFilter = requestedShiftId !== null
+      ? 'shift_id = $1'
+      : shiftIdNum ? 'production_date = $1 AND shift_id = $2' : 'production_date = $1';
+    const summaryParams = requestedShiftId !== null ? [requestedShiftId]
+      : shiftIdNum ? [targetDate, shiftIdNum] : [targetDate];
 
     const [recvRow] = await read(
       this.em.query(
         `SELECT COALESCE(SUM(received_qty),0)::int AS qty, COALESCE(SUM(received_weight),0)::float AS weight
-         FROM pkg_source_batches WHERE production_date=$1 AND is_test = ${isTest} AND batch_status <> 'VOID'${shiftFilter}`,
+         FROM pkg_source_batches WHERE ${sourceFilter} AND is_test = ${isTest} AND batch_status <> 'VOID'`,
         summaryParams,
       ),
       [{ qty: 0, weight: 0 }],
@@ -2077,20 +2080,20 @@ export class PackagingTerminalBffController {
       [{ open_count: 0, closed_count: 0 }],
     );
 
-    const gradingRows = await read(
-      this.em.query(
-        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1 AND status = 'ACTIVE' AND is_test = ${isTest}${shiftFilter}`,
-        summaryParams,
-      ),
-      [],
-    );
+    const gradingRows = requestedShiftId !== null
+      ? await this.em.query(`SELECT g.outputs_json FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
+          WHERE g.shift_id=$1 AND g.status='ACTIVE' AND g.is_test=${isTest} AND ${linkedGradingSources}`, [requestedShiftId])
+      : await this.em.query(`SELECT outputs_json FROM pkg_grading_records WHERE ${sourceFilter}
+          AND status='ACTIVE' AND is_test=${isTest}`, summaryParams);
+    const aliases = requestedShiftId !== null ? await this.gradingAliases() : {};
     const gradingOutputs: Record<string, number> = {};
     for (const row of gradingRows) {
       const outputs = typeof row.outputs_json === 'string' ? JSON.parse(row.outputs_json) : row.outputs_json;
       if (!outputs || typeof outputs !== 'object' || Array.isArray(outputs)) throw new ConflictException('分级产出记录格式无效');
       for (const [grade, qty] of Object.entries(outputs)) {
         if (!Number.isFinite(Number(qty)) || Number(qty) < 0) throw new ConflictException('分级产出数量无效');
-        gradingOutputs[grade] = (gradingOutputs[grade] || 0) + Number(qty);
+        const code = aliases[grade] || grade;
+        gradingOutputs[code] = (gradingOutputs[code] || 0) + Number(qty);
       }
     }
 
@@ -2124,7 +2127,7 @@ export class PackagingTerminalBffController {
       this.em.query(
         `SELECT COALESCE(SUM(box_count),0)::int AS boxes,
                 COUNT(DISTINCT NULLIF(pallet_code, ''))::int AS pallets
-         FROM pkg_handover_records WHERE production_date = $1 AND ${!isTest}${shiftFilter}`,
+         FROM pkg_handover_records WHERE ${sourceFilter} AND ${!isTest}`,
         summaryParams,
       ),
       [{ boxes: 0, pallets: 0 }],
@@ -2265,6 +2268,21 @@ export class PackagingTerminalBffController {
     });
   }
 
+  private async gradingAliases(): Promise<Record<string,string>> {
+    const dictRows = await this.em.query<Array<{dict_code:string;config_json:any}>>(
+      `SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`);
+    const keyMap: Record<string, string> = Object.create(null);
+    for (const {dict_code,config_json} of dictRows) {
+      keyMap[dict_code] = dict_code;
+      try {
+        const cfg = typeof config_json === 'string' ? JSON.parse(config_json) : config_json;
+        if (cfg?.code) keyMap[String(cfg.code)] = dict_code;
+        if (cfg?.terminalCode) keyMap[String(cfg.terminalCode)] = dict_code;
+      } catch { /* legacy dictionary row with invalid configuration */ }
+    }
+    return keyMap;
+  }
+
   /**
    * GET /grading/active?shiftId=<safe-positive-integer>
    * 按等级汇总当日所有分级批次的产出，减去当日所有包装记录已消耗量，
@@ -2277,46 +2295,16 @@ export class PackagingTerminalBffController {
     if (currentShift.status !== 'OPEN') throw new ConflictException('班次已关闭，不能加载作业余量');
     const shiftIdNum = Number(currentShift.id);
     const read = <T,>(promise: Promise<T>, _fallback: T): Promise<T> => promise;
-    // ── key 标准化映射：config_json.code / terminalCode → dict_code ────────────
-    const dictRows = await read(
-      this.em.query<any[]>(
-        `SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`,
-      ),
-      [] as any[],
-    );
-    const keyMap: Record<string, string> = {};
-    for (const d of (dictRows || [])) {
-      const dc = d.dict_code as string;
-      keyMap[dc] = dc;
-      try {
-        const cfg = typeof d.config_json === 'string' ? JSON.parse(d.config_json) : (d.config_json ?? {});
-        if (cfg.code)         keyMap[String(cfg.code)]         = dc;
-        if (cfg.terminalCode) keyMap[String(cfg.terminalCode)] = dc;
-      } catch { /* ignore */ }
-    }
-    const normalize = (k: string) => keyMap[k] ?? k;
+    const keyMap = await this.gradingAliases();
+    const normalize = (key: string) => keyMap[key] ?? key;
 
     // ── 合并当日所有分级批次产出（按等级累加） ──────────────────────────────────
-    const gradingRows = await read(
-      this.em.query<any[]>(
-        `SELECT DISTINCT gr.code, gr.outputs_json, gr.production_date::text AS egg_date
-           FROM pkg_grading_records gr
-           JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
-           JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-          WHERE gr.shift_id = $1 AND psb.shift_id = $1
-            AND gr.production_date <= (SELECT production_date FROM pkg_work_shifts WHERE id=$1)
-            AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest} AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
-            AND NOT EXISTS (SELECT 1 FROM pkg_grading_source_links links JOIN pkg_source_batches source ON source.id=links.source_batch_id
-              WHERE links.grading_id=gr.id AND (
-                source.shift_id IS DISTINCT FROM gr.shift_id OR source.is_test IS DISTINCT FROM gr.is_test
-                OR source.batch_status='VOID' OR (CASE WHEN gr.is_test THEN source.production_date
-                  ELSE COALESCE(source.lay_date,source.production_date) END) IS DISTINCT FROM gr.production_date))
-          ORDER BY gr.code`,
-        [shiftIdNum],
-      ),
-      [] as any[],
-    );
-
+    const gradingRows = await this.em.query<Array<{code:string;outputs_json:Record<string,number>|string;egg_date:string}>>(
+      `SELECT g.code, g.outputs_json, g.production_date::text AS egg_date
+       FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
+       WHERE g.shift_id=$1 AND g.status='ACTIVE' AND g.is_test=${isTest}
+         AND ${linkedGradingSources}
+       ORDER BY g.code`, [shiftIdNum]);
     const outputs: Record<string, number> = {};
     const gradingCodes: string[] = [];
     const eggDates = [...new Set<string>(gradingRows.map(row => row.egg_date))].sort();
@@ -2380,6 +2368,7 @@ export class PackagingTerminalBffController {
     const key = String(body.idempotencyKey || '').trim();
     if (!key || key.length > 160) throw new BadRequestException('idempotencyKey 必填且不能超过160字符');
     const reason = String(body.crossShiftReason || '').trim();
+    const requestedEggDate = body.eggDate === undefined ? null : sourceDate(body.eggDate);
     const hash = createHash('sha256').update(JSON.stringify({ shiftId, gradingCodes, batches, reason, isTest })).digest('hex');
     const totalBoxes = batches.reduce((sum, b) => sum + b.boxes, 0);
     const totalEggs = batches.reduce((sum, b) => sum + b.eggs, 0);
@@ -2389,11 +2378,12 @@ export class PackagingTerminalBffController {
       // Authorize the target before both creation and an idempotent response.
       await manager.query('SELECT id FROM pkg_work_shifts WHERE id=$1 FOR UPDATE', [shiftId]);
       const shift = await this.exactShift(shiftId, req, undefined, manager);
-      const [existing] = await manager.query(`SELECT * FROM pkg_packing_records WHERE idempotency_key=$1 FOR UPDATE`, [key]);
+      const [existing] = await manager.query(`SELECT *,production_date::text AS egg_date FROM pkg_packing_records WHERE idempotency_key=$1 FOR UPDATE`, [key]);
       if (existing) {
         assertPackagingMode(existing, isTest);
         if (existing.status !== 'ACTIVE') throw new ConflictException('作废包装不能幂等重放');
         if (existing.payload_hash !== hash) throw new ConflictException('幂等键已用于不同包装载荷');
+        if (requestedEggDate && requestedEggDate !== existing.egg_date) throw new ConflictException('包装产蛋日与原记录不一致');
         return { code: 200, data: { code: existing.code, totalBoxes: Number(existing.total_boxes), totalEggs: Number(existing.total_eggs), idempotentReplay: true } };
       }
       if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭，禁止包装');
@@ -2442,7 +2432,7 @@ export class PackagingTerminalBffController {
           throw new ConflictException('包装数量超过所选分级剩余量，请刷新后重试');
         }
       }
-      const sourceContext = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes });
+      const sourceContext = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes, eggDate: requestedEggDate ?? undefined });
       const readyBatches = [];
       for (const batch of batches) {
         const ready = await resolvePackagingIdentity(manager, { grade: aliases[batch.grade] || batch.grade,

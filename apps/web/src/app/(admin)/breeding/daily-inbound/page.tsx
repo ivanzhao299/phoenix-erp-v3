@@ -23,17 +23,10 @@ import { dailyReportInboundIdempotencyKey } from '@/lib/breeding-daily';
  * 等级来源：product_grades 主数据表（AA/A/B/C/DIRTY/CRACKED/BROKEN/DAMAGED）—
  * 与 inv_batches.grade_code_std / packaging.service 同源，杜绝多源漂移。
  */
+import type { ProductionInboundAvailability } from '@/lib/inventory-source-mode';
 import u from "@/styles/uix-utils.module.css";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B 全局表格
 
-interface Availability {
-  companyCode:string;
-  siteCode:string|null;
-  houseCode:string;
-  mode:'TEMP_PRODUCTION_INBOUND'|'PACKAGING_INBOUND';
-  state:'OFF'|'FENCED'|'ACTIVE'|'SUSPENDED';
-  firstProductionDate:string|null;
-}
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -67,12 +60,12 @@ function DailyInboundForm() {
   const { profile: sourceProfile, loading: sourceProfileLoading, error: profileError } = useEggSourceProfile(houseCode, eggDate, companyCode, scopeRevision);
   const varietyShort = varietyShortLabel(sourceProfile);
   const rangeKey=JSON.stringify([companyCode,siteCode,houseCode,eggDate,scopeRevision]);
-  const [checkedScope,setCheckedScope]=useState<{key:string;value:Availability|null}|null>(null);
+  const [checkedScope,setCheckedScope]=useState<{key:string;value:ProductionInboundAvailability|null}|null>(null);
   const prefillGeneration=useRef(0), submitting=useRef(false);
   useEffect(()=>{
     if(!canView||!companyCode||!houseCode||!eggDate)return;
     const controller=new AbortController();
-    request<Availability>(`/v2/inventory/production-inbound/availability?${new URLSearchParams({houseCode})}`,{signal:controller.signal,silent:true})
+    request<ProductionInboundAvailability>(`/v2/inventory/production-inbound/availability?${new URLSearchParams({houseCode})}`,{signal:controller.signal,silent:true})
       .then(value=>{
         if(controller.signal.aborted)return;
         const matches=value.houseCode===houseCode&&value.companyCode===companyCode&&value.siteCode===(siteCode||null);
@@ -242,6 +235,9 @@ function DailyInboundForm() {
       }}>
             <strong>{t('breeding.packagingModeOn', '已启用包装入库模式（PACKAGING_INBOUND）')}</strong><br />
             {t('breeding.packagingModeDesc', '不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。')}
+            {scope?.modeScope&&<div>
+              {t('inventorySource.effectiveForHouse','该鸡舍生效模式')} · {scope.houseCode} · {scope.modeScope.level}/{scope.modeScope.code}
+            </div>}
           </div>
           <Link href="/packaging" style={{
         padding: "7px 14px",

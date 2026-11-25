@@ -119,10 +119,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO sys_user VALUES(1,'maker',1,'MAKER'),(2,'reviewer',1,'REVIEWER'),(3,'receiver',1,'RECEIVER'),
         (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST'),(15,'cross_company_operator',1,'MAKER'),(16,'company_b_reviewer',1,'REVIEWER'),(17,'finance_a',1,'FIN_SIGN'),(18,'finance_b',1,'FIN_SIGN'),(19,'finance_wh2',1,'FIN_SIGN'),(20,'finance_view',1,'FIN_VIEW'),(21,'menu_operator',1,'MENU_OPERATOR');
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
-      INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
+      INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('MAKER','MENU_INV_SOURCE_MODE:V'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
         ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E'),('ANALYST','MENU_ANALYTICS:V');
       INSERT INTO fixture_permissions VALUES('MENU_OPERATOR','MENU_SETTINGS_MENU_REGISTRY:E'),('FIN_SIGN','MENU_PROD_FIN_REVIEW:E'),('FIN_VIEW','MENU_PROD_FIN_REVIEW:V'),('MAKER','MENU_SALES2_RETURN:V,C,E'),('RECEIVER','MENU_SALES2_RETURN:V,E'),('VIEWER','MENU_SALES2_RETURN:V');
-      INSERT INTO sys_menu VALUES('MENU_SETTINGS_MENU_REGISTRY'),('MENU_SALES2_RETURN'),('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
+      INSERT INTO sys_menu VALUES('MENU_SETTINGS_MENU_REGISTRY'),('MENU_INV_SOURCE_MODE'),('MENU_SALES2_RETURN'),('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
         ON o.org_code=CASE WHEN u.user_id IN (6,13,16,18) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13,15,16,17,18,20);
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 15,id,'COMPANY' FROM sys_organizations WHERE org_code='COMP-B';
@@ -358,7 +358,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       location_code:'LOC-A',warehouse_code:'WH-A',status:'ACTIVE',
     })]));
     await get('/production-inbound/availability?houseCode=HOUSE-A').expect(200, {
-      companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A',mode:'TEMP_PRODUCTION_INBOUND',
+      companyCode:'COMP-A',siteCode:'SITE-A',farmCode:'FARM-A',houseCode:'HOUSE-A',mode:'TEMP_PRODUCTION_INBOUND',modeScope:{level:'GROUP',code:'ALL'},
       state:'ACTIVE',firstProductionDate:'2026-11-17',
     });
     for (const eggDate of ['2026-11-16','2026-11-17']) {
@@ -369,17 +369,31 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     }
     await db.query("INSERT INTO inv_source_mode VALUES('SITE','FARM-A','PACKAGING_INBOUND')");
     try {
-      await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
-        companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'PACKAGING_INBOUND',
+      const expected = {
+        companyCode:'COMP-A',siteCode:'SITE-A',farmCode:'FARM-A',houseCode:'HOUSE-A2',mode:'PACKAGING_INBOUND',modeScope:{level:'SITE',code:'FARM-A'},
         state:'OFF',firstProductionDate:null,
+      };
+      await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, expected);
+      const getMode = (query = '') => maker.get(stock + '/source/mode' + query).auth(token(1), { type: 'bearer' });
+      await getMode('?houseCode=HOUSE-A2').expect(200, {
+        companyCode:'COMP-A',siteCode:'SITE-A',farmCode:'FARM-A',houseCode:'HOUSE-A2',
+        mode:'PACKAGING_INBOUND',modeScope:{level:'SITE',code:'FARM-A'},
       });
+      await getMode().expect(200, {mode:'TEMP_PRODUCTION_INBOUND'});
+      await getMode('?houseCode=HOUSE-B').expect(403);
+      await db.query(`UPDATE brd_farms SET mapped_site_code='SITE-OTHER' WHERE farm_code='FARM-A'`);
+      try {
+        await maker.get(stock+'/source/mode?houseCode=HOUSE-A2').auth(token(7),{type:'bearer'}).expect(403);
+      } finally {
+        await db.query(`UPDATE brd_farms SET mapped_site_code='SITE-A' WHERE farm_code='FARM-A'`);
+      }
       await db.query("UPDATE inv_source_mode SET mode='invalid' WHERE scope_level='SITE' AND scope_code='FARM-A'");
       await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(400);
     } finally {
       await db.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='FARM-A'");
     }
     await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
-      companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',
+      companyCode:'COMP-A',siteCode:'SITE-A',farmCode:'FARM-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',modeScope:{level:'GROUP',code:'ALL'},
       state:'OFF',firstProductionDate:null,
     });
     await db.query(`INSERT INTO sys_user VALUES(22,'global_inbound',1,'ROLE_ADMIN');
