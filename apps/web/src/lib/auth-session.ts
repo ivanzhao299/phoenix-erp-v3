@@ -58,7 +58,7 @@ export async function refreshAndPersistSession(currentToken: string, apiBase = '
     requestRefresh(apiBase, currentToken),
     currentCookieToken === currentToken ? Promise.resolve(null) : requestRefresh(apiBase, currentCookieToken),
   ]);
-  if (!accessToken) return null;
+  if (!accessToken || (sessionStorage.getItem(ACCESS_TOKEN_KEY) || localStorage.getItem(ACCESS_TOKEN_KEY)) !== currentToken) return null;
   const nextCookieToken = currentCookieToken === currentToken ? accessToken : cookieToken;
   if (!nextCookieToken) return null;
   persistRefreshedSession({

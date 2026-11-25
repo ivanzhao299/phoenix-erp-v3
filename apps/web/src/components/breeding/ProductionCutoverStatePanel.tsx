@@ -47,16 +47,21 @@ export default function ProductionCutoverStatePanel({id,actor,company,warehouse,
             pauseIntentKey:action==='ACTIVE'?members[0].scope_intent:undefined,evidenceFileId:files[0],reason:reason.trim()});
           sessionStorage.setItem(storage,intentKey);sessionStorage.setItem(storage+':pending',body);
         }
-        result=await request<Receipt>(base+'/state',{method:'POST',body});
+        result=await request<Receipt>(base+'/state',{method:'POST',body,bindSession:true});
         setFiles([]);setReason('');
       }
       sessionStorage.removeItem(storage+':pending');setReceipt(result);refresh(v=>v+1);
     }catch(e){
-      const status=(e as ApiError).status;
-      if(operation!=='recover'&&status&&[400,403,404,409,422].includes(status)){
+      const failure=e as ApiError;
+      const status=failure.status;
+      const code=failure.businessCode ?? failure.message;
+      const waiting=code==='CUTOVER_CONTROL_BUSY'||code==='CUTOVER_HOUSE_BUSY';
+      if(operation!=='recover'&&!waiting&&status&&[400,409,422].includes(status)){
         sessionStorage.removeItem(storage+':pending');refresh(v=>v+1);
       }
-      setError(e instanceof Error?e.message:String(e));
+      setError(waiting || (operation==='recover'&&status===404&&sessionStorage.getItem(storage+':pending'))
+        ?t('pilotState.pending','上次结果尚待核对。请查回回执或重试原操作。')
+        :e instanceof Error?e.message:String(e));
     }
     finally{inFlight.current=false;setBusy(false);}
   }

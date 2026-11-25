@@ -821,6 +821,33 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await cutoverApi(1,`/${d.id}`,'patch').send({...p,version:0}).expect(409);
     await cutoverApi(3,`/${d.id}/freeze`).send({version:edited.version}).expect(201);
   });
+  it('requires a current human preview for freeze and replays only the same frozen request',async()=>{
+    const file=(await cutoverUpload(1).expect(201)).body.fileId;
+    const d=(await cutoverApi(1).send(emptyCount(file)).expect(201)).body;
+    const setting=process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW;
+    process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW='true';
+    try {
+      const blocked=await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+      expect(blocked.body.code).toBe('CUTOVER_PREVIEW_REQUIRED');
+      const path=`/${d.id}/freeze-preview`;
+      const preview=(await cutoverApi(1,path,'get').expect(200)).body;
+      const original={version:preview.version,previewToken:preview.previewToken};
+      await cutoverApi(3,`/${d.id}/freeze`).send(original).expect(409);
+      const [metadata]=await db.query('SELECT checksum FROM file_metadata WHERE file_id=$1',[file]);
+      await db.query("UPDATE file_metadata SET checksum=repeat('f',64) WHERE file_id=$1",[file]);
+      const changed=await cutoverApi(1,`/${d.id}/freeze`).send(original).expect(409);
+      expect(changed.body.code).toBe('CUTOVER_PREVIEW_CHANGED');
+      await db.query('UPDATE file_metadata SET checksum=$1 WHERE file_id=$2',[metadata.checksum,file]);
+      const updated=(await cutoverApi(3,path,'get').expect(200)).body;
+      const request={version:updated.version,previewToken:updated.previewToken};
+      const frozen=(await cutoverApi(3,`/${d.id}/freeze`).send(request).expect(201)).body;
+      expect(frozen.state).toBe('READY');
+      expect((await cutoverApi(3,`/${d.id}/freeze`).send(request).expect(201)).body.content_hash).toBe(frozen.content_hash);
+    } finally {
+      if(setting===undefined) delete process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW;
+      else process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW=setting;
+    }
+  });
   it('cutover RAW count stays independent of zero stock opening and cannot be silently omitted or marked TEST',async()=>{
     await conversionDraft();const {inspected,payload}=await processingCount();expect(inspected.snapshot.processing.rawBalances).toHaveLength(1);
     expect(payload.rawCounts[0].quantity).toBe(100);expect(payload.physicalTotals[0].quantity).toBe(0);
@@ -1647,6 +1674,8 @@ await review(17,path+'/evidence/'+financeFile).expect(404);
     await api(4,'get',`/${r.id}/evidence/${proof}`).expect(404);
     await api(2,'get',`/${r.id}/evidence/${proof}`).expect(200);
     const approved=(await api(2,'post',`/${r.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash,financialClearanceId:c.id}).expect(201)).body;
+    const receiptQuery=new URLSearchParams({reviewHash:String(bound.reviewHash),fileId:proof});
+    expect((await review(17,path+'/receipt?'+receiptQuery).expect(200)).body).toMatchObject({id:c.id,state:'APPROVED'});
     await api(1,'post',`/${r.id}/post`).send({submitKey:approved.submit_key,contentHash:approved.content_hash}).expect(201);
     expect((await db.query('SELECT qty FROM inv_batches'))[0].qty).toBe('80');
   });

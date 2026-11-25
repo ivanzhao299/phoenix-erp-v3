@@ -56,7 +56,7 @@ export async function previewCutoverState(m:EntityManager, d:Manifest,houseCode?
 
 export async function changeCutoverState(m:EntityManager,d:Manifest,body:CutoverStateDto,actor:string,
   proof:()=>Promise<{checksum:string}>) {
-  if(!(await m.query('SELECT pg_try_advisory_xact_lock(17455,2) AS ok'))[0].ok)throw new ConflictException('CUTOVER_CONTROL_BUSY');
+  if(!(await m.query('SELECT pg_try_advisory_xact_lock(17455,2) AS ok'))[0].ok)throw new ConflictException({code:'CUTOVER_CONTROL_BUSY',message:'CUTOVER_CONTROL_BUSY'});
   const requestHash=cutoverEvidenceHash({manifestId:d.id,actor,...body});
   const [prior]=await m.query('SELECT request_hash,receipt FROM production_cutover_state_receipts WHERE intent_key=$1',[body.intentKey]);
   if(prior){
@@ -81,7 +81,7 @@ export async function changeCutoverState(m:EntityManager,d:Manifest,body:Cutover
   const domains=new Map(boundary.members.map(row=>[row.domain_id,row]));
   for(const house of houses){
     if(!(await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1)) AS ok",[house]))[0].ok)
-      throw new ConflictException('CUTOVER_HOUSE_BUSY');
+      throw new ConflictException({code:'CUTOVER_HOUSE_BUSY',message:'CUTOVER_HOUSE_BUSY'});
   }
   for(const id of body.houseCode?[]:[...domains.keys()].sort()){
     const row=domains.get(id)!;

@@ -58,7 +58,7 @@ export async function assertHandoverNotClaimedByRaw(m:Pick<EntityManager,'query'
 }
 
 /** Caller holds the same house/day locks used by posting and report correction. */
-export async function inspectProductionSourceReports(m:EntityManager,d:{companyCode:string;houseCode:string;productionDate:string},historical=false){
+export async function inspectProductionSourceReports(m:EntityManager,d:{companyCode:string;houseCode:string;productionDate:string},historical=false,diagnostics=false){
   const rows:any[]=await m.query(`SELECT d.id,d.house_code,d.flock_no,d.occupancy_id,d.eggs_by_grade,d.shift,
     d.log_date::text AS production_date,o.company_code,o.farm_code,o.site_code
     FROM brd_daily_logs d LEFT JOIN brd_flock_occupancies o ON o.id=d.occupancy_id
@@ -67,11 +67,18 @@ export async function inspectProductionSourceReports(m:EntityManager,d:{companyC
       AND o.began_on<=d.log_date AND (o.ended_on IS NULL OR o.ended_on>d.log_date)
     WHERE d.house_code=$2 AND d.log_date=$3 ORDER BY d.id FOR UPDATE OF d`,[d.companyCode,d.houseCode,d.productionDate,historical]);
   const reports=rows.filter(r=>r.company_code);
-  if(!reports.length||reports.some(r=>r.shift==='DAILY')&&reports.length>1)
+  if(!reports.length||reports.some(r=>r.shift==='DAILY')&&reports.length>1) {
+    if(diagnostics) return {reports:[],sourceReviewRequired:rows.length>0,noReport:rows.length===0};
     throw new ConflictException('缺少已确认且占栏明确的分级日报，或DAILY与班次日报重复覆盖');
-  for (const report of reports) assertStoredReportGrades(report.eggs_by_grade);
+  }
+  try {
+    for (const report of reports) assertStoredReportGrades(report.eggs_by_grade);
+  } catch (error) {
+    if(diagnostics && error instanceof ConflictException) return {reports:[],sourceReviewRequired:true,noReport:false};
+    throw error;
+  }
   return {reports:reports.map(r=>({...r,report_hash:productionContentHash(r)})),
-    sourceReviewRequired:rows.length!==reports.length || new Set(reports.map(r=>r.occupancy_id)).size!==1};
+    sourceReviewRequired:rows.length!==reports.length || new Set(reports.map(r=>r.occupancy_id)).size!==1,noReport:false};
 }
 
 export async function lockProductionSourceReports(m:EntityManager,d:{companyCode:string;houseCode:string;productionDate:string},historical=false) {

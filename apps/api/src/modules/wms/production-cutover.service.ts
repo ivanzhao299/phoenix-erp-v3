@@ -6,7 +6,7 @@ import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { FileAccessService } from '../file/file-access.service';
-import { randomUUID } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
@@ -48,14 +48,14 @@ export class ProductionCutoverService {
     const actor=String(user?.userId??user?.id??'');if(!actor||!user?.username)throw new ForbiddenException('缺少实名操作人');
     return {actor,username:String(user.username)};
   }
-  private async identity(id:string){
-    const [d]=await this.db.query('SELECT * FROM production_cutover_manifests WHERE id=$1',[id]);
+  private async identity(id:string,m: Pick<EntityManager,'query'>=this.db.manager){
+    const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1',[id]);
     if(!d)throw new NotFoundException('盘点交接单不存在');return d;
   }
-  private async boundaryAuthority(boundary:CutoverEvidenceBoundary){
-    this.authorize(boundary.companyCode,boundary.warehouseCode);
+  private async boundaryAuthority(boundary:CutoverEvidenceBoundary,m:EntityManager=this.db.manager,operation:PermCode='V'){
+    this.authorize(boundary.companyCode,boundary.warehouseCode,operation);
     if(!Array.isArray(boundary.houses)||!boundary.houses.length)throw new BadRequestException('缺少实际鸡舍边界');
-    for(const h of boundary.houses){const owner=await new OrgOwnershipService(this.db.manager).resolveHouseIdentity(h.houseCode);
+    for(const h of boundary.houses){const owner=await new OrgOwnershipService(m).resolveHouseIdentity(h.houseCode);
       if(owner.companyCode!==boundary.companyCode)throw new ForbiddenException('鸡舍与盘点公司权威归属不一致');}
   }
   private evidenceAuthority(snapshot:any,override?:DataScopeContext){
@@ -184,14 +184,21 @@ export class ProductionCutoverService {
     if(files.length!==new Set(ids).size||uploader&&files.some((f:any)=>f.uploaded_by!==uploader))throw new ConflictException('盘点原保护附件无效或不属于实名签认人');
     return files.sort((a:any,b:any)=>a.file_id.localeCompare(b.file_id));
   }
+  private async inspectEvidence(m:EntityManager,boundary:CutoverEvidenceBoundary,targetProductOnly=false,operation:PermCode='V'){
+    await this.boundaryAuthority(boundary,m,operation);
+    const e=await readProductionCutoverEvidence(m,boundary,{signer:this.provenanceSigner,targetProductOnly});
+    // A company-scoped preparer must never receive another company's descendant stock or operational documents.
+    if(e.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_')))
+      throw new ConflictException('存在跨公司来源后代，须先按独立授权范围核验；当前范围未返回他公司资料');
+    this.evidenceAuthority(e.snapshot);
+    return {...e,references:Object.entries({...e.snapshot.obligations,...e.snapshot.finance})
+      .flatMap(([table,rows])=>rows.map(fact=>({table,rowSha256:cutoverEvidenceHash(fact),fact})))};
+  }
+
   async inspect(boundary:CutoverEvidenceBoundary,targetProductOnly=false){
-    await this.boundaryAuthority(boundary);
     return this.db.transaction('REPEATABLE READ',async m=>{
-      await m.query('SET TRANSACTION READ ONLY');const e=await readProductionCutoverEvidence(m,boundary,{signer:this.provenanceSigner,targetProductOnly});
-      // A company-scoped preparer must never receive another company's descendant stock or operational documents.
-      if(e.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_')))
-        throw new ConflictException('存在跨公司来源后代，须先按独立授权范围核验；当前范围未返回他公司资料');
-      this.evidenceAuthority(e.snapshot);return {...e,references:Object.entries({...e.snapshot.obligations,...e.snapshot.finance}).flatMap(([table,rows])=>rows.map(fact=>({table,rowSha256:cutoverEvidenceHash(fact),fact})))};
+      await m.query('SET TRANSACTION READ ONLY');
+      return this.inspectEvidence(m,boundary,targetProductOnly);
     });
   }
   async inspectExtension(input:{companyCode:string;warehouseCode:string;houseCode:string;productCode:string;
@@ -199,7 +206,7 @@ export class ProductionCutoverService {
     const company=sourceText(input.companyCode,'公司',64),warehouse=sourceText(input.warehouseCode,'仓库',64);
     const house=sourceText(input.houseCode,'鸡舍',64),product=sourceText(input.productCode,'蛋品品目',64);
     this.authorize(company,warehouse);
-    const quote=await this.db.transaction(async m=>{
+    return this.db.transaction('REPEATABLE READ',async m=>{
       const [scope]=await m.query(`SELECT id,version,manifest_sha256,first_production_date::text FROM production_cutover_scopes
         WHERE state='ACTIVE' AND company_code=$1 AND warehouse_code=$2 AND house_code=$3`,[company,warehouse,house]);
       if(!scope)throw new ConflictException('目标鸡舍在该仓库没有有效正式范围');
@@ -213,9 +220,8 @@ export class ProductionCutoverService {
         ...(domain?{domainId:domain.id,domainVersion:domain.version,openingReceiptId:domain.opening_receipt_id}:{}),
         effectiveDate:sourceDate(input.effectiveDate),targetClass:input.targetClass,requirements:input.requirements},boundary);
       await verifyCutoverExtension(m,boundary,extension);
-      return {boundary,extension};
+      return {...await this.inspectEvidence(m,boundary,true),boundary,extension};
     });
-    return {...await this.inspect(quote.boundary,true),...quote};
   }
   async locations(company:string,warehouse:string){
     this.authorize(company,warehouse);return this.db.query(`SELECT l.location_code,l.warehouse_code,l.status,
@@ -226,6 +232,35 @@ export class ProductionCutoverService {
     this.authorize(company,warehouse);return this.db.query(`SELECT id,document_no,state,version,company_code,warehouse_code,
       created_by,created_at,content_hash,applied_at FROM production_cutover_manifests WHERE company_code=$1 AND warehouse_code=$2 ORDER BY created_at DESC LIMIT 100`,[company,warehouse]);
   }
+  async page(company:string,warehouse:string,filters:{cursor?:string;documentNo?:string;state?:string}){
+    this.authorize(company,warehouse);
+    const documentNo=filters.documentNo ? text(filters.documentNo,'单号') : null;
+    const state=filters.state || null;
+    if (state && !['DRAFT','READY','APPROVED','APPLIED','CANCELLED'].includes(state)) throw new BadRequestException('盘点状态无效');
+    const key=cutoverEvidenceHash({company,warehouse,documentNo,state});
+    let time: string|null=null,id:string|null=null;
+    if (filters.cursor) {
+      try {
+        if (!/^[a-zA-Z0-9_-]{1,256}$/.test(filters.cursor)) throw new Error();
+        const [cursorKey,stamp,documentId]=JSON.parse(Buffer.from(filters.cursor,'base64url').toString('utf8'));
+        if (cursorKey!==key || typeof stamp!=='string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(stamp) ||
+          !Number.isFinite(Date.parse(stamp)) || typeof documentId!=='string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(documentId)) throw new Error();
+        sourceDate(stamp.slice(0,10));time=stamp;id=documentId;
+      } catch {
+        throw new BadRequestException('盘点查询游标已失效，请重新查询');
+      }
+    }
+    const rows=await this.db.query(`SELECT id,document_no,state,version,company_code,warehouse_code,created_by,applied_at,
+      to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+      FROM production_cutover_manifests WHERE company_code=$1 AND warehouse_code=$2
+      AND ($3::text IS NULL OR document_no=$3) AND ($4::text IS NULL OR state=$4)
+      AND ($5::timestamptz IS NULL OR (created_at,id)<($5,$6::uuid))
+      ORDER BY created_at DESC,id DESC LIMIT 51`,[company,warehouse,documentNo,state,time,id]);
+    const last=rows[49];
+    return {rows:rows.slice(0,50),nextCursor:rows.length>50
+      ?Buffer.from(JSON.stringify([key,last.created_at,last.id])).toString('base64url'):null};
+  }
+
   async get(id:string){
     const d=await this.identity(id);this.authorize(d.company_code,d.warehouse_code);if(d.snapshot)this.evidenceAuthority(d.snapshot);
     const signatures=await this.db.query(`SELECT signature_role,content_hash,snapshot_sha256,signed_by,signed_at,evidence_file_id,evidence_checksum,reason
@@ -276,17 +311,53 @@ export class ProductionCutoverService {
         [id,JSON.stringify(e.snapshot.boundary),JSON.stringify(payload)]);return updated;
     });
   }
-  async freeze(id:string,version:number){
-    const identity=await this.identity(id);this.authorize(identity.company_code,identity.warehouse_code,'E');
+  private previewProof(d: any, actor: string, sha: string, expires: number) {
+    const key = this.provenanceSigner?.key ?? process.env.JWT_SECRET;
+    if (!key) throw new ConflictException({code:'CUTOVER_PREVIEW_UNAVAILABLE',message:'无法签发冻结预览，请联系系统管理员'});
+    return createHmac('sha256',key).update('phoenix:production-cutover-freeze:v1:')
+      .update(cutoverEvidenceHash({id:d.id,actor,version:d.version,boundary:d.boundary,payload:d.payload,sha,expires}))
+      .digest('hex');
+  }
+
+  private freezeProofFiles(payload: CutoverPreparation) {
+    return [...new Set([...payload.evidenceFileIds,...payload.decisions.map(row=>row.evidenceFileId),
+      ...payload.referenceDecisions.map(row=>row.evidenceFileId),...(payload.rawCounts??[]).map(row=>row.evidenceFileId)])];
+  }
+
+  async freezePreview(id: string) {
+    return this.db.transaction('REPEATABLE READ',async m=>{
+      const d=await this.identity(id,m);
+      const {actor}=this.authorize(d.company_code,d.warehouse_code,'E');
+      if(d.state!=='DRAFT')throw new ConflictException('只有已保存的盘点草稿可预览冻结');
+      const evidence=await this.inspectEvidence(m,d.boundary,!!d.payload.extension,'E');
+      const proofs=await this.proofs(m,d,this.freezeProofFiles(d.payload));
+      const extensionProof=d.payload.extension ? await verifyCutoverExtension(m,d.boundary,d.payload.extension) : null;
+      const expires=Math.floor(Date.now()/1000)+600;
+      const sha=cutoverEvidenceHash({snapshotSha256:evidence.snapshotSha256,proofs,extensionProof});
+      return {version:d.version,previewToken:expires+'.'+this.previewProof(d,actor,sha,expires),...evidence};
+    });
+  }
+
+  async freeze(id:string,version:number,previewToken?:string){
+    const identity=await this.identity(id);
+    const {actor}=this.authorize(identity.company_code,identity.warehouse_code,'E');
+    if (!previewToken && (process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW==='true' ||
+      (process.env.NODE_ENV==='production' && process.env.PRODUCTION_CUTOVER_REQUIRE_FREEZE_PREVIEW!=='false'))) {
+      throw new ConflictException({code:'CUTOVER_PREVIEW_REQUIRED',message:'请刷新页面并重新核对冻结预览'});
+    }
+    const confirmation=previewToken?cutoverEvidenceHash({id,version,actor,previewToken}):null;
+    if(confirmation&&identity.state!=='DRAFT'&&identity.payload.freezeConfirmation===confirmation)
+      return {...identity,releaseAdmission:false,activationAuthorized:false};
     const captured=await inspectProductionCutoverEvidence(this.db,identity.boundary,{signer:this.provenanceSigner,targetProductOnly:!!identity.payload.extension});
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
+      if(confirmation&&d.state!=='DRAFT'&&d.payload.freezeConfirmation===confirmation)
+        return {...d,releaseAdmission:false,activationAuthorized:false};
       if(d.version!==version||d.state!=='DRAFT')throw new ConflictException('盘点版本或状态已变化');
       const e=await this.verifyCurrentEvidence(m,d.boundary,captured.snapshot,captured.snapshotSha256,undefined,!!d.payload.extension);this.evidenceAuthority(e.snapshot);
       if(e.snapshot.missingTables.length)throw new ConflictException('必查资料尚未齐备，禁止冻结或签认空盘点');
       if(e.snapshot.warnings.length)throw new ConflictException({code:'CUTOVER_BOUNDARY_HOLD',warnings:e.snapshot.warnings});
-      const ids=[...new Set<string>([...d.payload.evidenceFileIds,...d.payload.decisions.map((r:any)=>r.evidenceFileId),...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId),...(d.payload.rawCounts??[]).map((r:any)=>r.evidenceFileId)])];
-      const proofs=await this.proofs(m,d,ids);
+      const proofs=await this.proofs(m,d,this.freezeProofFiles(d.payload));
       const batches=e.snapshot.batches,decisions=d.payload.decisions as CutoverPreparation['decisions'];
       if(batches.length!==decisions.length||batches.some(b=>!decisions.some(r=>r.batchNo===b.batch_no)))throw new ConflictException('须逐一确认范围内原批及全部后代的测试归档或合法接续');
       const q=new Map(e.snapshot.qualification.map(row=>[row.batch_no,row]));
@@ -351,8 +422,18 @@ export class ProductionCutoverService {
         if(decision.classification==='RESOLVED'&&!this.resolvedReference(table,row,e.snapshot.obligations))
           throw new ConflictException(`关联事实 ${table} 仍未实际终结，不能仅声明已处理`);
       }
-      const extensionProof=d.payload.extension ? await verifyCutoverExtension(m,d.boundary,d.payload.extension) : undefined;
-      const payload={...d.payload,proofs,...(extensionProof?{extensionProof}:{})},
+      const extensionProof=d.payload.extension ? await verifyCutoverExtension(m,d.boundary,d.payload.extension) : null;
+      if (previewToken) {
+        const [stamp,signature]=previewToken.split('.');
+        const expires=Number(stamp);
+        const sha=cutoverEvidenceHash({snapshotSha256:e.snapshotSha256,proofs,extensionProof});
+        const expected=this.previewProof(d,actor,sha,expires);
+        if (!Number.isSafeInteger(expires)||expires<Math.floor(Date.now()/1000)||
+          !/^[a-f0-9]{64}$/.test(signature??'')||!timingSafeEqual(Buffer.from(signature,'hex'),Buffer.from(expected,'hex'))) {
+          throw new ConflictException({code:'CUTOVER_PREVIEW_CHANGED',message:'实盘依据已变化或预览已过期，请重新核对'});
+        }
+      }
+      const payload={...d.payload,proofs,...(extensionProof?{extensionProof}:{}),...(confirmation?{freezeConfirmation:confirmation}:{})},
         contentHash=cutoverEvidenceHash({boundary:d.boundary,payload,snapshotSha256:e.snapshotSha256});
       const [frozen]=await m.query(`WITH changed AS(UPDATE production_cutover_manifests SET state='READY',version=version+1,payload=$2,snapshot=$3,snapshot_sha256=$4,content_hash=$5 WHERE id=$1 RETURNING *) SELECT * FROM changed`,
         [id,JSON.stringify(payload),JSON.stringify(e.snapshot),e.snapshotSha256,contentHash]);return {...frozen,releaseAdmission:false,activationAuthorized:false};

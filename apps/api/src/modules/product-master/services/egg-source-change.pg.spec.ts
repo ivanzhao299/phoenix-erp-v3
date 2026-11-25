@@ -75,12 +75,12 @@ suite('egg source change workspace on PostgreSQL',()=>{
     [{future}]=await db.query("SELECT ((now() AT TIME ZONE 'Asia/Vientiane')::date+2)::text AS future");
     changes=new EggSourceChangeService(db,new SkuAvailabilityService(db));
     const module=await Test.createTestingModule({ controllers:[EggSourceChangeController],
-      providers:[{provide:EggSourceChangeService,useValue:changes},{provide:EggHistoryReviewService,useValue:{}},
+      providers:[{provide:EggSourceChangeService,useValue:changes},{provide:EggHistoryReviewService,useValue:new EggHistoryReviewService(db,{} as any,{} as any)},
         {provide:DataScopeService,useValue:{resolve:async (actor:string)=>({isGlobal:false,
           allowedFarmCodes:[actor==='source-authorized'?'FARM-SOURCE':'FARM-A']})}}] })
       .overrideGuard(MenuGuard).useValue({canActivate: (context:ExecutionContext)=>{
         const req=context.switchToHttp().getRequest();
-        req.user={userId:req.headers['x-test-user']||'author',permissions:['MENU_MD_PRODUCT:V,E,A','MENU_FARM_DATA:V']};
+        req.user={userId:req.headers['x-test-user']||'author',permissions:['MENU_MD_PRODUCT:V,E,A','MENU_FARM_DATA:V','MENU_PROD_INBOUND:V,A']};
         return true;
       }})
       .overrideGuard(DataScopeGuard).useValue({canActivate: (context:ExecutionContext)=>{
@@ -97,6 +97,33 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await db.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await db.destroy();
     }
+  });
+
+  it('pages independent history reviews and still returns authorized frozen evidence when live lookup fails',async()=>{
+    const http=request(app.getHttpServer());
+    const rows=Array.from({length:54},()=>({id:randomUUID(),request_key:randomUUID()}));
+    for(const [index,row] of rows.entries()){
+      const warehouse=index===51?'WH-A2':'WH-SHARED';
+      const siteCode=index===52?'MANAGED-OUTSIDE':site;
+      const actor=index===53?'author':'maker';
+      await db.query(`INSERT INTO md_egg_history_reviews(id,request_key,company_code,farm_code,site_code,house_code,production_date,
+        batch_no,source_line,quantity,target_class,created_by,payload,created_at)
+        VALUES($1,$2,'COMP-A','FARM-A',$3,'HOUSE-A2','2026-11-18','SYNTHETIC-OLD-BATCH','8',5,'RED',$4,$5,'2026-11-21T00:00:00.000042Z')`,
+        [row.id,row.request_key,siteCode,actor,JSON.stringify({warehouse,reason:'Owned review',attachments:[],
+          selected:{id:'8',qty_change:'-8',change_type:'SALE_OUTBOUND',ref_no:'SALE-RESTRICTED',original_module:null}})]);
+    }
+    const first=(await http.get(base+'/history/reviews').query({view:'pending'}).expect(200)).body.data;
+    expect(first.rows).toHaveLength(50);
+    const next=(await http.get(base+'/history/reviews').query({view:'pending',cursor:first.nextCursor}).expect(200)).body.data;
+    expect(next.rows).toHaveLength(1);
+    expect(new Set([...first.rows,...next.rows].map(row=>row.id))).toEqual(new Set(rows.slice(0,51).map(row=>row.id)));
+    await http.get(base+'/history/reviews/'+rows[51].id).expect(404);
+    await http.get(base+'/history/reviews/'+rows[52].id).expect(404);
+    const frozen=(await http.get(base+'/history/reviews/'+rows[0].id).expect(200)).body.data;
+    expect(frozen).toMatchObject({quantity:5,evidenceState:'NEEDS_REVIEW',frozenLine:{id:'8',qty_change:'-8',ref_no:null}});
+    await http.get(base+'/history/requests/'+rows[0].request_key).query({companyCode:'COMP-A'}).expect(404);
+    const own=(await http.get(base+'/history/requests/'+rows[0].request_key).set('x-test-user','maker').query({companyCode:'COMP-A'}).expect(200)).body.data;
+    expect(own).toMatchObject({id:rows[0].id,submission:{state:'SUBMITTED'},currentState:'SUBMITTED'});
   });
 
   it('returns a shared operational warehouse only within the caller scope and verifies real grade/spec options',async()=>{

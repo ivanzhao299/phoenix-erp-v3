@@ -58,22 +58,53 @@ function ActorCutoverWorkbench(){
   const gradeName=(code:string)=>localizedMasterName(grades.find(g=>g.grade_code===code) as unknown as Fact|undefined,'grade_name',lang)||code;
   const [form,setForm]=useState<Form>(blank),[selected,setSelected]=useState<Document|null>(null),[evidenceState,setEvidence]=useState<(Evidence&{boundaryKey:string})|null>(null);
   const [documents,setDocuments]=useState<Document[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[restored,setRestored]=useState('');
+  const [query,setQuery]=useState({companyCode:'',warehouseCode:'',documentNo:'',state:''});
+  const [hasSearched,setHasSearched]=useState(false);
+  const [nextCursor,setNextCursor]=useState<string|null>(null);
+  const [freezePreview,setFreezePreview]=useState<(Evidence&{id:string;version:number;previewToken:string})|null>(null);
   const [extend,setExtend]=useState(false);
   const [extensionSetup,setExtensionSetup]=useState<ExtensionSetup>({targetClass:'STANDARD',effectiveDate:'',requirements:[]});
   const [selectedExtensionSku,setSelectedExtensionSku]=useState('');
   const [role,setRole]=useState(''),[signatureFiles,setSignatureFiles]=useState<string[]>([]),[reason,setReason]=useState('');
+  const documentRequest=useRef(0);
   const evidenceRequest=useRef(0),evidenceBoundary=JSON.stringify({companyCode:form.companyCode,warehouseCode:form.warehouseCode,houses:form.houses,productCodes:form.products.map(product=>product.productCode)});
-  const evidence=evidenceState?.boundaryKey===evidenceBoundary?evidenceState:null;
+  const confirmedPreview=freezePreview?.id===selected?.id&&freezePreview?.version===selected?.version?freezePreview:null;
+  const evidence=confirmedPreview??(evidenceState?.boundaryKey===evidenceBoundary?evidenceState:null);
   const actor=String(p.user.userId??p.user.id??''),storageKey=`production-cutover:v1:${actor}`;
   const editable=!busy&&(!selected&&p.canCreate||selected?.state==='DRAFT'&&p.canEdit&&selected.created_by===actor),queryBoundary=!busy&&!selected,ownership={moduleCode:'PRODUCTION_CUTOVER',ownerType:'WAREHOUSE',ownerId:form.warehouseCode,companyCode:form.companyCode};
-  const patch=(next:Partial<Form>)=>setForm(old=>({...old,...next}));
-  useEffect(()=>{let alive=true;Promise.resolve().then(()=>{
-    if(!alive)return;try{const saved=sessionStorage.getItem(storageKey),parsed=saved?JSON.parse(saved):null;setForm(parsed?.form??{...blank(),intentKey:crypto.randomUUID()});
-      const id=new URLSearchParams(location.search).get('documentId')??parsed?.documentId;
-      if(id)request<Document>(`${endpoint}/${encodeURIComponent(id)}`).then(d=>{if(alive){setSelected(d);setForm(fromDocument(d));}}).catch(e=>{if(alive)setError(String(e.message));});
-    }catch{setForm({...blank(),intentKey:crypto.randomUUID()});}setRestored(storageKey);
-  });return()=>{alive=false;};},[storageKey]);
-  useEffect(()=>{if(restored===storageKey)sessionStorage.setItem(storageKey,JSON.stringify({form,documentId:selected?.id}));},[restored,storageKey,form,selected]);
+  const patch=(next:Partial<Form>)=>{setFreezePreview(null);setForm(old=>({...old,...next}));};
+  const updateQuery=(change:Partial<typeof query>)=>{
+    setQuery(previous=>({...previous,...change}));setHasSearched(false);setDocuments([]);setNextCursor(null);
+  };
+  async function listDocuments(cursor?:string) {
+    const params=new URLSearchParams(query);
+    if(cursor) params.set('cursor',cursor);
+    const page=await request<{rows:Document[];nextCursor:string|null}>(endpoint+'/page?'+params);
+    setDocuments(previous=>cursor?[...previous,...page.rows]:page.rows);
+    setNextCursor(page.nextCursor);
+    setHasSearched(true);
+  }
+  useEffect(()=>{
+    const gate=new AbortController();
+    const generation=++documentRequest.current;
+    void Promise.resolve().then(async()=>{
+      try{
+        const parsed=JSON.parse(sessionStorage.getItem(storageKey)??'null');
+        const id=new URLSearchParams(location.search).get('documentId')??parsed?.documentId;
+        const d=id?await request<Document>(`${endpoint}/${encodeURIComponent(id)}`,{signal:gate.signal}):null;
+        if(gate.signal.aborted||generation!==documentRequest.current)return;
+        if(d)setSelected(d);
+        const resumable=d?.state==='DRAFT'&&parsed?.documentId===d.id&&parsed?.version===d.version;
+        setForm(d?(resumable&&parsed?.form?parsed.form:fromDocument(d)):(parsed?.form??{...blank(),intentKey:crypto.randomUUID()}));
+      }catch(error){
+        if(!gate.signal.aborted&&generation===documentRequest.current) setError(error instanceof Error?error.message:String(error));
+      }finally{
+        if(!gate.signal.aborted&&generation===documentRequest.current)setRestored(storageKey);
+      }
+    });
+    return ()=>gate.abort();
+  },[storageKey]);
+  useEffect(()=>{if(restored===storageKey)sessionStorage.setItem(storageKey,JSON.stringify({form,documentId:selected?.id,version:selected?.version}));},[restored,storageKey,form,selected]);
   useEffect(()=>{
     const generation=++evidenceRequest.current;let alive=true;
     if(selected?.state!=='DRAFT')return;
@@ -83,7 +114,10 @@ function ActorCutoverWorkbench(){
       .then(current=>{if(alive&&generation===evidenceRequest.current)setEvidence({...current,boundaryKey:evidenceBoundary});}).catch(e=>{if(alive&&generation===evidenceRequest.current)setError(String(e.message));});
     return()=>{alive=false;};
   },[selected,evidenceBoundary]);
-  const load=async(id:string)=>{const d=await request<Document>(`${endpoint}/${encodeURIComponent(id)}`);setSelected(d);setForm(fromDocument(d));setEvidence(null);setSignatureFiles([]);setRole('');setReason('');
+  const load=async(id:string)=>{const generation=++documentRequest.current;
+    const d=await request<Document>(`${endpoint}/${encodeURIComponent(id)}`);
+    if(generation!==documentRequest.current)return;
+    setRestored(storageKey);setSelected(d);setForm(fromDocument(d));setFreezePreview(null);setEvidence(null);setSignatureFiles([]);setRole('');setReason('');
     const url=new URL(location.href);url.searchParams.set('documentId',d.id);history.replaceState(null,'',url);};
   async function run(action:()=>Promise<void>){setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
   function boundary(){if(!form.companyCode||!form.warehouseCode||!form.houses.length||!form.products.length)throw Error(t('productionCutover.boundaryRequired','请先选择公司、仓库、全部相关鸡舍和产品。'));
@@ -129,6 +163,20 @@ function ActorCutoverWorkbench(){
     <PageHeader title={t('productionCutover.title','正式库存切换盘点')} subtitle={t('productionCutover.subtitle','按真实现场盘点准备交接，保留原始证据。')}/>
     <p className={s.notice}>{t('productionCutover.off','当前仅开放盘点准备和签认。签认不启用业务，也不代表发布批准。请按实际盘点填写；没有现场依据时保留草稿。')}</p>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}
+    <section className={s.card} aria-label={t('productionCutover.existing','已有盘点')}>
+      <h2>{t('productionCutover.existing','已有盘点')}</h2>
+      <div className={s.grid}>
+        <CompanySelector ariaLabel={t('productionCutover.queryCompany','查询公司')} value={query.companyCode} disabled={busy} onChange={companyCode=>updateQuery({companyCode,warehouseCode:''})}/>
+        <WarehouseSelector ariaLabel={t('productionCutover.queryWarehouse','查询仓库')} value={query.warehouseCode} companyCode={query.companyCode} disabled={busy||!query.companyCode} onChange={warehouseCode=>updateQuery({warehouseCode})}/>
+        <label className={s.field}>{t('productionCutover.documentNo','单号')}<input maxLength={128} disabled={busy} value={query.documentNo} onChange={e=>updateQuery({documentNo:e.target.value.trim()})}/></label>
+        <label className={s.field}>{t('financeReview.state','状态')}<DictSelect dictType="PRODUCTION_CUTOVER_STATE" value={query.state} disabled={busy} onChange={state=>updateQuery({state})}/></label>
+      </div>
+      <div className={s.actions}><button disabled={busy||!query.companyCode||!query.warehouseCode} onClick={()=>run(()=>listDocuments())}>{t('productionCutover.recover','查找已有盘点')}</button></div>
+      {hasSearched&&!documents.length&&<p role="status">{t('financeReview.empty','当前范围暂无记录')}</p>}
+      <ul className={s.history}>{documents.map(d=><li key={d.id}><div><strong>{d.document_no}</strong><p>{states[d.state]??d.state} · {d.created_by}</p></div>
+        <button disabled={busy} onClick={()=>run(()=>load(d.id))}>{t('productionInstallments.view','查看原单')}</button></li>)}</ul>
+      {nextCursor&&<button disabled={busy} onClick={()=>run(()=>listDocuments(nextCursor))}>{t('financeReview.next','下一页')}</button>}
+    </section>
     {transferProofs.length>0&&<section className={s.card} aria-label={t('productionCutover.transferProofs','已核验跨公司调拨')}>
       <h2>{t('productionCutover.transferProofs','已核验跨公司调拨')}</h2>
       <p>{t('productionCutover.transferProofHelp','按本公司实际调拨流水及原始来源核验；每次新增签认都会复核。')}</p>
@@ -186,7 +234,7 @@ function ActorCutoverWorkbench(){
       </div>)}
       {editable&&<ProductSelector value="" ariaLabel={t('productionCutover.addProduct','添加实盘产品')} onChange={productCode=>{if(productCode&&!form.products.some(p=>p.productCode===productCode))patch({extension:undefined,products:[...form.products,{productCode,quantity:''}]});}}/>}
       <div className={s.actions}><button disabled={busy||!form.companyCode||!form.warehouseCode||!!selected&&selected.state!=='DRAFT'||extend&&!selected&&(form.houses.length!==1||form.products.length!==1||!extensionSetup.effectiveDate||!extensionSetup.requirements.length)} onClick={()=>run(async()=>{if(extend&&!selected){await inspectExtension();return;}const generation=++evidenceRequest.current,e=await readCutoverEvidence(boundary(),selected?.payload.extension);if(generation!==evidenceRequest.current)return;setEvidence({...e,boundaryKey:evidenceBoundary});patch({rawCounts:(form.rawCounts??[]).filter(r=>(e.snapshot.processing?.rawBalances??[]).some(balance=>balance.rawSegmentId===r.rawSegmentId&&balance.warehouseCode===form.warehouseCode&&Number(balance.remainingQuantity)>0)),decisions:form.decisions.filter(d=>e.snapshot.batches.some(b=>b.batch_no===d.batchNo)),referenceDecisions:form.referenceDecisions.filter(d=>e.references.some(r=>r.table===d.table&&r.rowSha256===d.rowSha256))});})}>{t('productionCutover.inspect','读取实际库存及关联清单')}</button>
-        <button disabled={busy||!form.companyCode||!form.warehouseCode} onClick={()=>run(async()=>setDocuments(await request<Document[]>(`${endpoint}?${new URLSearchParams({companyCode:form.companyCode,warehouseCode:form.warehouseCode})}`)))}>{t('productionCutover.recover','查找已有盘点')}</button></div>
+      </div>
       {evidence&&<p className={s.notice}>{t('productionCutover.evidenceOnly','清单仅供核验，不构成启用批准。')}{evidence.snapshot.missingTables.length>0&&t('productionCutover.missing',' 部分检查数据尚未齐备，启用前须补齐核验。')}{evidence.snapshot.warnings.length>0&&t('productionCutover.held',' 范围中存在待确认项，请处理后重新读取。')}</p>}
     </section>
     <section className={s.card}>
@@ -232,12 +280,38 @@ function ActorCutoverWorkbench(){
       <div className={s.actions}>
         <button disabled={busy||!editable||(!selected&&!p.canCreate)||(!!selected&&!p.canEdit)} onClick={()=>run(async()=>{const data=payload();const d=await request<Document>(selected?`${endpoint}/${selected.id}`:endpoint,
           {method:selected?'PATCH':'POST',body:JSON.stringify(selected?{...data,version:selected.version}:data)});await load(d.id);})}>{t('productionCutover.save','保存盘点草稿')}</button>
-        {selected?.state==='DRAFT'&&p.canEdit&&<button disabled={busy} onClick={()=>run(async()=>{const saved=selected.created_by===actor?await request<Document>(`${endpoint}/${selected.id}`,{method:'PATCH',body:JSON.stringify({...payload(),version:selected.version})}):selected;
-          if(selected.created_by===actor)await load(saved.id);await request(`${endpoint}/${saved.id}/freeze`,{method:'POST',body:JSON.stringify({version:saved.version})});await load(saved.id);})}>{t('productionCutover.freeze','冻结已保存盘点，交业务及财务签认')}</button>}
+        {selected?.state==='DRAFT'&&p.canEdit&&<button disabled={busy} onClick={()=>run(async()=>{
+          setFreezePreview(null);
+          const saved=selected.created_by===actor && JSON.stringify(form)!==JSON.stringify(fromDocument(selected))
+            ?await request<Document>(`${endpoint}/${selected.id}`,{method:'PATCH',body:JSON.stringify({...payload(),version:selected.version}),bindSession:true})
+            :selected;
+          if(saved.version!==selected.version) await load(saved.id);
+          const preview=await request<Evidence&{version:number;previewToken:string}>(`${endpoint}/${saved.id}/freeze-preview`,{bindSession:true});
+          if(preview.version!==saved.version||!preview.previewToken) throw Error(t('productionCutover.previewChanged','盘点已变化，请重新核对。'));
+          ++evidenceRequest.current;
+          setEvidence({...preview,boundaryKey:evidenceBoundary});
+          setFreezePreview({...preview,id:saved.id});
+        })}>{t('productionCutover.previewFreeze','核对冻结预览')}</button>}
         {selected&&['DRAFT','READY','APPROVED'].includes(selected.state)&&p.canEdit&&<button disabled={busy} onClick={()=>run(async()=>{await request(`${endpoint}/${selected.id}/cancel`,{method:'POST',body:JSON.stringify({version:selected.version})});await load(selected.id);})}>{t('productionCutover.cancel','取消本单')}</button>}
-        <button disabled={busy} onClick={()=>{setSelected(null);setEvidence(null);setForm({...blank(),intentKey:crypto.randomUUID()});const url=new URL(location.href);url.searchParams.delete('documentId');history.replaceState(null,'',url);}}>{t('productionCutover.new','另建盘点')}</button>
+        <button disabled={busy||!p.canCreate} onClick={()=>{documentRequest.current++;setRestored(storageKey);setSelected(null);setFreezePreview(null);setEvidence(null);setForm({...blank(),intentKey:crypto.randomUUID()});const url=new URL(location.href);url.searchParams.delete('documentId');history.replaceState(null,'',url);}}>{t('productionCutover.new','另建盘点')}</button>
       </div>
     </section>
+    {freezePreview&&selected?.id===freezePreview.id&&selected.version===freezePreview.version&&<section className={s.card}>
+      <h2>{t('productionCutover.previewFreeze','核对冻结预览')} · {selected.document_no} · v{selected.version}</h2>
+      <p>{t('productionCutover.confirmPreviewHelp','请核对本页实盘、原批、原始收蛋、处置证据及期初明细，再确认冻结。')}</p>
+      {selected.payload.physicalTotals.map(row=><p key={row.productCode}>{row.productCode} · {row.quantity} {t('productionCutover.eggs','枚')}</p>)}
+      <p className={s.wide}>{freezePreview.snapshotSha256}</p>
+      <button disabled={busy} onClick={()=>run(async()=>{
+        const {id,version,previewToken}=freezePreview;
+        try {
+          await request(`${endpoint}/${id}/freeze`,{method:'POST',bindSession:true,body:JSON.stringify({version,previewToken})});
+          await load(id);
+        } catch (failure) {
+          if((failure as {status?:number}).status===409) setFreezePreview(null);
+          throw failure;
+        }
+      })}>{t('productionCutover.freeze','冻结已保存盘点，交业务及财务签认')}</button>
+    </section>}
     {selected&&<section className={s.card}><h2>{selected.document_no} · {selected.state==='APPLIED'?t('productionJobs.executionRecord'):states[selected.state]??selected.state}</h2>
       <CutoverExecutionReceipt key={selected.id+selected.version} document={selected} mobile={location.pathname.startsWith('/mobile/')}/>
       <p className={s.wide}>{t('productionCutover.hash','冻结内容摘要')}：{selected.content_hash||t('productionCutover.notFrozen','尚未冻结')}</p>
@@ -253,6 +327,5 @@ function ActorCutoverWorkbench(){
     </section>}
     {selected?.state==='APPLIED'&&<ProductionCutoverStatePanel key={selected.id+actor} id={selected.id} actor={actor}
       company={selected.company_code} warehouse={selected.warehouse_code} houses={selected.boundary.houses.map(h=>h.houseCode)}/>}
-    {documents.length>0&&<section className={s.card}><h2>{t('productionCutover.existing','已有盘点')}</h2>{documents.map(d=><p key={d.id}><button disabled={busy} onClick={()=>run(()=>load(d.id))}>{d.document_no} · {states[d.state]??d.state}</button></p>)}</section>}
   </main>;
 }

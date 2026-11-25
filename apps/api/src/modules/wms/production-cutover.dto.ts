@@ -81,6 +81,9 @@ export class CreateCutoverDto {
 }
 export class EditCutoverDto extends CreateCutoverDto { @IsInt() @Min(0) version!:number; }
 export class CutoverVersionDto { @IsInt() @Min(0) version!:number; }
+export class CutoverFreezeDto extends CutoverVersionDto {
+  @IsOptional() @Matches(/^\d{1,12}\.[a-f0-9]{64}$/) previewToken?:string;
+}
 export class CutoverIdDto { @IsUUID() id!:string; }
 export class CutoverSignDto {
   @IsIn(['BUSINESS','FINANCE']) role!:'BUSINESS'|'FINANCE';

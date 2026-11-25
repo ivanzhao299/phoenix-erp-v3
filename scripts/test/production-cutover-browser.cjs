@@ -21,7 +21,7 @@ try{
       await page.goto(web+'/breeding/production-finance-review',{waitUntil:'domcontentloaded',timeout:90000});
       await page.getByRole('heading',{name:dictionary['menu.production-finance-review'],level:1}).waitFor();
       await page.getByRole('button',{name:new RegExp(finance('cutover'))}).first().click();
-      const preview=page.waitForEvent('popup');
+      const preview=context.waitForEvent('page');
       const proofResponse=page.waitForResponse(r=>r.url().includes('/evidence/')&&r.request().method()==='GET');
       await page.getByRole('button',{name:/synthetic-count.pdf/}).first().click();const original=await proofResponse;assert.equal(original.status(),200);assert.match(original.headers()['content-type'],/application\/pdf/);
       const shown=await page.evaluate(async ({url,token})=>{
@@ -74,11 +74,13 @@ try{
         await page.reload({waitUntil:'domcontentloaded'});await page.getByLabel(label('rawMeasured'),{exact:true}).waitFor();
         assert.equal(await page.getByLabel(label('rawMeasured'),{exact:true}).inputValue(),'99','Saved draft must recover measured RAW without hiding its editable original row');
         const failed=page.waitForResponse(r=>r.url().endsWith('/freeze')&&r.request().method()==='POST');
+        await page.getByRole('button',{name:label('previewFreeze'),exact:true}).click();
         await page.getByRole('button',{name:label('freeze'),exact:true}).click();const mismatch=await failed;assert.equal(mismatch.status(),409);
         assert.ok((await mismatch.json()).message.includes('RAW'),'Mismatch must be the actual RAW physical check, not missing proof or stale version');
         await page.locator('p[role=alert]').waitFor();await page.getByLabel(label('rawMeasured'),{exact:true}).fill('100');
         checks.push('Actual API refuses mismatched synthetic RAW 99 before the measured 100 can freeze');
       }
+      await page.getByRole('button',{name:label('previewFreeze'),exact:true}).click();
       await page.getByRole('button',{name:label('freeze'),exact:true}).click();await page.getByText(dictionary['productionCutover.notFrozen'],{exact:false}).waitFor({state:'hidden'});
       await page.waitForFunction(()=>document.querySelector('h2')&&location.search.includes('documentId='));
       const original=await(await fetch(api+'/api/v2/inventory/production-cutovers/'+documentId,{headers:{Authorization:'Bearer '+auth.token}})).json();assert.equal(original.state,'READY');

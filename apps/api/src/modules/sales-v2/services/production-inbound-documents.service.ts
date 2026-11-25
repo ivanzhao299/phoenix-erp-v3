@@ -1,7 +1,7 @@
 import { assertApprovedEggSku, checkApprovedEggSource, requireEggProductDomain } from '../../product-master/services/egg-source-change-facts';
 import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
 import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
-import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile, reviewSnapshotHash } from '../../wms/production-finance-review';
+import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile, reviewSnapshotHash, currentReversalClearanceSql } from '../../wms/production-finance-review';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -419,20 +419,27 @@ export class ProductionInboundDocumentsService {
     const permissions=(this.cls.get('user') as any)?.permissions;
     const finance=hasPerm(permissions,'MENU_FIN2_AR_LEDGER','E');
     const owner=await new OrgOwnershipService(m).resolveHouseIdentity(d.house_code);
-    const clearances=finance||hasPerm(permissions,'MENU_PROD_INBOUND','A')?await m.query(`SELECT id,content_hash,posting_date,signed_by,
-      evidence_file_id,signed_at FROM production_financial_clearances WHERE document_id=$1 ORDER BY signed_at DESC`,[id]):[];
+    const clearances=finance||hasPerm(permissions,'MENU_PROD_INBOUND','A')?await m.query(`SELECT c.id,c.content_hash,c.posting_date,c.signed_by,
+      c.evidence_file_id,c.signed_at, (${currentReversalClearanceSql()}) IS TRUE AS current
+      FROM production_financial_clearances c JOIN production_inbound_documents d ON d.id=c.document_id
+      WHERE c.document_id=$1 ORDER BY c.signed_at DESC`,[id]):[];
+    const [approvedClearance]=d.kind==='REVERSAL'&&d.state==='APPROVED'?await m.query(`SELECT 1
+      FROM production_inbound_documents d JOIN production_financial_clearances c ON c.id::text=d.approval_evidence->>'clearanceId'
+      WHERE d.id=$1 AND ${currentReversalClearanceSql()}`,[id]):[];
+    const administratorRequired=d.kind==='REVERSAL'&&d.state==='APPROVED'&&!approvedClearance;
     const originalBatches=finance&&d.kind==='REVERSAL'?await m.query(`SELECT b.batch_no,b.unit_cost,q.cost_status FROM inv_batches b
       JOIN production_batch_qualifications q ON q.batch_no=b.batch_no WHERE b.batch_no=ANY($1::text[]) ORDER BY b.batch_no`,
       [d.payload.items.map((i:any)=>i.batchNo)]):[];
-    return { ...d,siteCode:owner.siteCode??'',clearances,originalBatches,lines:lines.map((line:any)=>({...line,allocations:allocations.filter((a:any)=>a.line_no===line.line_no)})) };
+    return { ...d,siteCode:owner.siteCode??'',clearances,administratorRequired,originalBatches,lines:lines.map((line:any)=>({...line,allocations:allocations.filter((a:any)=>a.line_no===line.line_no)})) };
     });
   }
-  async recover(company: string, intentKey?: string, handoverRef?: string) {
+  async recover(company: string, intentKey?: string, handoverRef?: string, documentNo?: string) {
     this.authorize(company);
-    if (!intentKey && !handoverRef) throw new BadRequestException('请提供原创建意图或实物交接号');
+    if (!intentKey && !handoverRef && !documentNo) throw new BadRequestException('请提供原创建意图、单号或实物交接号');
+    if (documentNo) text(documentNo,'单号');
     const rows = await this.db.query(`SELECT *,production_date::text AS production_date FROM production_inbound_documents WHERE company_code=$1
-      AND (($2::text IS NOT NULL AND intent_key=$2) OR ($3::text IS NOT NULL AND handover_ref=$3))
-      ORDER BY created_at DESC`, [company,intentKey ?? null,handoverRef ?? null]);
+      AND (($2::text IS NOT NULL AND intent_key=$2) OR ($3::text IS NOT NULL AND handover_ref=$3) OR ($4::text IS NOT NULL AND document_no=$4))
+      ORDER BY created_at DESC`, [company,intentKey ?? null,handoverRef ?? null,documentNo ?? null]);
     return rows.filter((d: Document) => { try { this.authorize(d.company_code,d.payload.warehouseCode); return true; } catch { return false; } });
   }
   async list(company: string, house: string, day: string) {
@@ -444,11 +451,17 @@ export class ProductionInboundDocumentsService {
   async edit(id: string, version: number, input: InboundDraftInput) {
     const p = this.normalize(input); const before = await this.identity(id);
     return this.db.transaction(async m => {
-      await this.lockDay(m,before,false); const d = await this.currentDocument(m,id); this.version(d,version);
+      const scope = await this.lockDay(m,before,false);
+      const d = await this.currentDocument(m,id);
+      this.version(d,version);
       if (d.state !== 'DRAFT'||d.kind!=='INBOUND') throw new ConflictException('仅入库草稿可编辑；冻结或冲销单请取消并另建新意图');
       if (d.company_code !== p.companyCode || d.house_code !== p.houseCode || d.production_date !== p.eggDate
         || d.intent_key !== p.intentKey || (d.handover_ref ?? null) !== p.handoverRef) throw new ConflictException('不能变更交接身份，请取消后另建单');
-      this.authorize(p.companyCode,p.warehouseCode);
+      if (p.warehouseCode !== d.payload.warehouseCode || p.warehouseCode !== scope.warehouse_code) {
+        throw new ConflictException({ code: 'PRODUCTION_DRAFT_WAREHOUSE_FIXED', message: '入库草稿须沿用原交接仓，换仓请重新办理交接' });
+      }
+      await this.master.resolveMasterContext({ companyCode: p.companyCode, houseCode: p.houseCode,
+        warehouseCode: p.warehouseCode, locationCode: p.payload.locationCode }, m);
       const [result] = await m.query(`WITH changed AS (UPDATE production_inbound_documents SET payload=$2,state='DRAFT',version=version+1,
         content_hash=NULL,submit_key=NULL,expected_posting_date=NULL,approved_by=NULL,approved_hash=NULL,ready_at=NULL
         WHERE id=$1 RETURNING *) SELECT * FROM changed`, [id,JSON.stringify(p.payload)]); return result;
@@ -556,11 +569,25 @@ export class ProductionInboundDocumentsService {
       [id,JSON.stringify(payload),digest,submitKey,postingDate]); return result;
     });
   }
+  private async authorizeApprovedReversalDisposition(m:EntityManager,d:Document) {
+    if (d.kind!=='REVERSAL'||d.state!=='APPROVED') return;
+    const user=this.cls.get('user');
+    if(user?.role==='ROLE_ADMIN'||user?.roles?.includes('ROLE_ADMIN'))return;
+    try {
+      const clearanceId=d.approval_evidence?.clearanceId;
+      if(typeof clearanceId!=='string')throw new ConflictException('审批凭据缺失');
+      await this.financialClearance(m,d,clearanceId);
+    } catch(error) {
+      if(!(error instanceof ConflictException))throw error;
+      throw new ForbiddenException({code:'PRODUCTION_REVERSAL_ADMIN_REQUIRED',message:'已审批的财务凭据失效，请由系统管理员处置'});
+    }
+  }
   async cancel(id: string, version: number) {
     const before = await this.identity(id);
     return this.db.transaction(async m => {
       await this.lockDay(m,before,false); const d = await this.currentDocument(m,id); this.version(d,version);
       if (['POSTED','CANCELLED'].includes(d.state)) throw new ConflictException('单据已过账或已取消');
+      await this.authorizeApprovedReversalDisposition(m,d);
       const [result] = await m.query("WITH changed AS (UPDATE production_inbound_documents SET state='CANCELLED',version=version+1 WHERE id=$1 RETURNING *) SELECT * FROM changed", [id]); return result;
     });
   }
@@ -591,6 +618,7 @@ export class ProductionInboundDocumentsService {
       }
       const [clock] = await m.query("SELECT (clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date::text AS today");
       if (old.expected_posting_date >= clock.today) throw new ConflictException('仅可续制已跨记账日的冻结单');
+      await this.authorizeApprovedReversalDisposition(m,old);
       let payload: Document;
       let hash: string;
       if (old.kind === 'INBOUND') {
@@ -862,10 +890,8 @@ export class ProductionInboundDocumentsService {
       if(exact)await requireReviewFile(m,'reversal',id,input.financialEvidenceFileId);
       const { batches }=await this.validateReversal(m,d);
       const periods=await this.postingPeriods(m,d);
+      const statuses = await this.financialCostQualifications(m, batches.map((b:any)=>b.batch_no));
       if(exact) {
-        const qualifications=await m.query('SELECT batch_no,cost_status FROM production_batch_qualifications WHERE batch_no=ANY($1::text[]) FOR SHARE',
-          [batches.map((b:any)=>b.batch_no)]);
-        const statuses=new Map(qualifications.map((q:any)=>[q.batch_no,q.cost_status]));
         const quantities=new Map(d.payload.items.map((item:any)=>[item.batchNo,String(item.quantity)]));
         const current=reviewSnapshotHash(d.content_hash,periods.map((p:any)=>({month:p.periodMonth,version:p.version,checksum:p.evidenceChecksum})),
           batches.map((b:any)=>({batch:b.batch_no,quantity:String(quantities.get(b.batch_no)),decimal:b.unit_cost==null?null:String(b.unit_cost),status:statuses.get(b.batch_no)??'UNKNOWN'})));
@@ -873,13 +899,13 @@ export class ProductionInboundDocumentsService {
           throw new ConflictException('成本或期间与所查看的核签摘要不一致，请重新核验');
       }
       if (!Array.isArray(input.costs)||input.costs.length!==batches.length||new Set(input.costs.map(c=>c.batchNo)).size!==batches.length) throw new BadRequestException('须逐批确认实际已核价或成本待核定状态');
-      const costs=batches.map((b:any) => {
+      const costs: Array<{batchNo:string;costStatus:string;recordedUnitCost:number|null;recordedUnitCostDecimal:string|null;qualificationStatus:string}> = batches.map((b:any) => {
         const c=input.costs.find(x=>x.batchNo===b.batch_no);
         const originalCost=recordedCost(b.unit_cost);
         if (!c||!['UNKNOWN','CONFIRMED'].includes(c.costStatus)
           || (exact?c.unitCostDecimal!==(b.unit_cost==null?null:String(b.unit_cost)):c.unitCost!==originalCost)||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
         return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:originalCost,
-          recordedUnitCostDecimal:b.unit_cost==null?null:String(b.unit_cost) };
+          recordedUnitCostDecimal:b.unit_cost==null?null:String(b.unit_cost), qualificationStatus:statuses.get(b.batch_no)??'UNKNOWN' };
       });
       const [reviewer]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[actor]);
       const [file]=await m.query(`SELECT file_id,checksum FROM file_metadata WHERE file_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
@@ -891,6 +917,14 @@ export class ProductionInboundDocumentsService {
         evidenceFileId:file.file_id,evidenceChecksum:file.checksum,signedBy:actor});
       const [prior]=await m.query('SELECT * FROM production_financial_clearances WHERE document_id=$1 AND signed_by=$2 AND clearance_hash=$3',[id,actor,clearanceHash]);
       if(prior)return prior;
+      const legacyCosts=costs.map(({batchNo,costStatus,recordedUnitCost,recordedUnitCostDecimal})=>
+        ({batchNo,costStatus,recordedUnitCost,recordedUnitCostDecimal}));
+      const legacyHash=productionContentHash({documentId:id,contentHash:d.content_hash,periods,costs:legacyCosts,
+        evidenceFileId:file.file_id,evidenceChecksum:file.checksum,signedBy:actor});
+      const [legacy]=await m.query(`SELECT c.* FROM production_financial_clearances c
+        JOIN production_inbound_documents d ON d.id=c.document_id
+        WHERE c.document_id=$1 AND c.signed_by=$2 AND c.clearance_hash=$3 AND ${currentReversalClearanceSql()}`,[id,actor,legacyHash]);
+      if(legacy)return legacy;
       const [clearance]=await m.query(`INSERT INTO production_financial_clearances(id,document_id,company_code,house_code,content_hash,
         original_content_hash,posting_date,period_status,costs,evidence_file_id,evidence_checksum,signed_by,period_versions,clearance_hash)
         VALUES($1,$2,$3,$4,$5,$6,$7,'OPEN',$8,$9,$10,$11,$12,$13) RETURNING *`, [randomUUID(),id,d.company_code,d.house_code,
@@ -898,6 +932,12 @@ export class ProductionInboundDocumentsService {
       return clearance;
     });
   }
+  private async financialCostQualifications(m: EntityManager, batchNos: string[]) {
+    const rows: { batch_no: string; cost_status: string }[] = await m.query(`SELECT batch_no, cost_status
+      FROM production_batch_qualifications WHERE batch_no=ANY($1::text[]) ORDER BY batch_no FOR SHARE`, [batchNos]);
+    return new Map(rows.map(row => [row.batch_no, row.cost_status]));
+  }
+
   private async financialClearance(m: EntityManager,d: Document,id: string) {
     const [clearance]=await m.query(`SELECT c.*,c.posting_date::text AS posting_date FROM production_financial_clearances c
       JOIN file_metadata f ON f.file_id=c.evidence_file_id AND f.checksum=c.evidence_checksum AND f.status='ACTIVE' AND f.deleted_at IS NULL
@@ -912,8 +952,11 @@ export class ProductionInboundDocumentsService {
     if(stableProductionJson(periods)!==stableProductionJson(clearance.period_versions))throw new ConflictException('审批后记账期间已变化，须重新财务核验');
     const batches=await m.query('SELECT batch_no,unit_cost FROM inv_batches WHERE batch_no=ANY($1::text[]) ORDER BY batch_no FOR UPDATE',
       [d.payload.items.map((i:any)=>i.batchNo)]);
+    const statuses = await this.financialCostQualifications(m, batches.map((batch: { batch_no: string }) => batch.batch_no));
+    const exactLegacy = clearance.evidence_file_id.startsWith(FINANCE_PROOF_PREFIX);
     if (clearance.costs.length!==batches.length||batches.some((b:any)=>!clearance.costs.some((c:any)=>c.batchNo===b.batch_no
       && c.recordedUnitCost===recordedCost(b.unit_cost)&&['UNKNOWN','CONFIRMED'].includes(c.costStatus)
+      && (c.qualificationStatus===undefined&&!exactLegacy || (c.qualificationStatus??c.costStatus)===(statuses.get(b.batch_no)??'UNKNOWN'))
       && (c.recordedUnitCostDecimal===undefined||c.recordedUnitCostDecimal===(b.unit_cost==null?null:String(b.unit_cost)))
       && (c.costStatus!=='CONFIRMED'||c.recordedUnitCost!==null)))) throw new ConflictException('原成本快照已变化，须重新财务核验');
     return clearance;
@@ -1031,12 +1074,12 @@ export class ProductionInboundDocumentsService {
     });
   }
 
-  async balance(company: string,house: string,day: string,warehouse: string) {
+  async balance(company: string,house: string,day: string,warehouse: string,diagnostics=false) {
     const stockScope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
       const scope = await this.lockDay(m,identity,false,false);
-      const {reports,sourceReviewRequired} = await inspectProductionSourceReports(m,{companyCode:company,houseCode:house,productionDate:day});
+      const {reports,sourceReviewRequired,noReport} = await inspectProductionSourceReports(m,{companyCode:company,houseCode:house,productionDate:day},false,diagnostics);
       const usage = await this.usage(m,identity);
       const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
       const sourceBalances = [];
@@ -1051,13 +1094,21 @@ export class ProductionInboundDocumentsService {
         item.posted+=quota.ordinaryNet+quota.rawUsedQty;
         item.remaining+=quota.remaining;
       }
-      if (usage.size) throw new ConflictException({code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED',
+      if (usage.size&&!diagnostics) throw new ConflictException({code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED',
         message:'存在无法核对日报或档位的已过账来源，请核对原单及补偿'});
       const stock = await stockByGrade(m,stockScope);
       for (const grade of Object.keys(grades)) {
         stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
       }
-      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,sourceReviewRequired,
+      let reviewRequired=sourceReviewRequired||usage.size>0;
+      const zeroProduction=reports.length>0&&sourceBalances.every(source=>source.confirmedQty===0);
+      if(diagnostics&&zeroProduction&&!reviewRequired){
+        try { await assertNewHandoverGrades(m,reports); }
+        catch(error){if(!(error instanceof ConflictException))throw error;reviewRequired=true;}
+      }
+      const sourceStatus=reviewRequired?'REVIEW_REQUIRED':noReport?'NO_REPORT':zeroProduction?'ZERO_PRODUCTION':'VERIFIED';
+      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,
+        sourceReviewRequired:reviewRequired,...(diagnostics?{sourceStatus}:{}) ,
         stockBasisVersion:2,stockByGrade:stock,
         currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
           .map(([grade,v])=>[grade,v.attributableQty])),

@@ -13,7 +13,7 @@ import {
 } from './egg-source-change-policy';
 
 type Context = { scope:OrgScope; dataScope:DataScopeContext; user?:{
-  userId?:string|number; permissions?:any; roles?:string[]; role?:string; perms_version?:number
+  userId?:string|number; permissions?:any; roles?:string[]; role?:string; perms_version?:number; impersonatedBy?:unknown
 } };
 type Input = { houseCode?:unknown; warehouseCode?:unknown; productionDate?:unknown; batchNo?:unknown;
   ledgerId?:unknown; actionKey?:unknown; targetClass?:unknown; quantity?:unknown; reason?:unknown; evidenceIds?:unknown };
@@ -47,6 +47,136 @@ export class EggHistoryReviewService {
       || context.scope.siteCodes?.includes(house.siteCode))) };
   }
 
+  private historyScope(context: Context) {
+    if (!context.scope || !context.dataScope) throw new ForbiddenException('缺少历史核认的数据范围');
+    const org = context.scope;
+    const data = context.dataScope;
+    return [
+      !!org.isGlobal, org.companyCodes ?? [], org.farmCodes ?? [], org.siteCodes ?? [],
+      !!data.isGlobal, data.allowedCompanyCodes ?? [], data.allowedWarehouseCodes ?? [],
+    ];
+  }
+
+  private readonly scopedHistory = `FROM md_egg_history_reviews r
+    JOIN brd_houses h ON h.house_code=r.house_code AND h.farm_code=r.farm_code
+    JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=h.farm_code AND f.company_code=r.company_code
+      AND ${OrgOwnershipService.FARM_SITE_SQL}=r.site_code
+    WHERE ($1::boolean OR r.company_code=ANY($2::text[]) OR r.farm_code=ANY($3::text[]) OR r.site_code=ANY($4::text[]))
+      AND ($5::boolean OR (r.company_code=ANY($6::text[]) AND r.payload->>'warehouse'=ANY($7::text[])))`;
+
+  async listReviews(query: {view?: string; houseCode?: string; warehouseCode?: string; productionDate?: string; cursor?: string}, context: Context) {
+    const view = query.view ?? 'all';
+    const actor = String(context.user?.userId ?? '');
+    if (!['pending', 'mine', 'all'].includes(view)) throw new BadRequestException('核认列表参数无效');
+    if (view !== 'all' && (!actor || context.user?.impersonatedBy)) throw new ForbiddenException('缺少实名凭据');
+    if (view === 'pending' && context.user?.role!=='ROLE_ADMIN' && !context.user?.roles?.includes('ROLE_ADMIN') && !hasPerm(context.user?.permissions, 'MENU_PROD_INBOUND', 'A')) throw new ForbiddenException('无历史核认审核权限');
+    const scope = this.historyScope(context);
+    const house = query.houseCode ? sourceText(query.houseCode, '鸡舍', 64) : null;
+    const warehouse = query.warehouseCode ? sourceText(query.warehouseCode, '仓库', 64) : null;
+    const date = query.productionDate ? sourceDate(query.productionDate) : null;
+    const fingerprint = sourceDigest({ view, actor, house, warehouse, date, scope });
+    let createdAt: string|null = null, id: string|null = null;
+    if (query.cursor) {
+      try {
+        if (query.cursor.length > 256 || !/^[a-zA-Z0-9_-]+$/.test(query.cursor)) throw new Error();
+        const [scopeKey, stamp, rowId] = JSON.parse(Buffer.from(query.cursor, 'base64url').toString('utf8'));
+        if (scopeKey !== fingerprint || typeof stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(stamp)
+          || !Number.isFinite(Date.parse(stamp))) throw new Error();
+        sourceDate(stamp.slice(0,10));
+        createdAt = stamp;
+        id = sourceUuid(rowId, '核认单');
+      } catch {
+        throw new BadRequestException('核认列表游标已失效，请重新查询');
+      }
+    }
+    const rows = await this.db.query(`SELECT r.id,r.state,r.house_code,r.batch_no,r.production_date::text,r.quantity,r.target_class,
+      r.payload->>'warehouse' AS warehouse_code,to_char(r.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at,
+      r.created_by=$9 AS "submittedByMe"
+      ${this.scopedHistory}
+      AND ($8='all' OR ($8='mine' AND r.created_by=$9) OR ($8='pending' AND r.state='SUBMITTED' AND r.created_by<>$9))
+      AND ($10::text IS NULL OR r.house_code=$10) AND ($11::text IS NULL OR r.payload->>'warehouse'=$11)
+      AND ($12::date IS NULL OR r.production_date=$12) AND ($13::timestamptz IS NULL OR (r.created_at,r.id)<($13,$14::uuid))
+      ORDER BY r.created_at DESC,r.id DESC LIMIT 51`, [...scope,view,actor,house,warehouse,date,createdAt,id]);
+    const last = rows[49];
+    return { rows: rows.slice(0,50), nextCursor: rows.length>50
+      ? Buffer.from(JSON.stringify([fingerprint,last.created_at,last.id])).toString('base64url') : null };
+  }
+
+  async getReview(idInput: string, context: Context) {
+    const id = sourceUuid(idInput, '历史核认单');
+    return this.db.transaction('REPEATABLE READ', async m => {
+      await m.query('SET TRANSACTION READ ONLY');
+      const [row] = await m.query(`SELECT r.*,r.production_date::text,
+        ARRAY(SELECT d.receipt FROM md_egg_history_dispositions d WHERE d.review_id=r.id ORDER BY d.recorded_at,d.inventory_ledger_id) AS dispositions
+        ${this.scopedHistory} AND r.id=$8`,
+        [...this.historyScope(context),id]);
+      if (!row) throw new NotFoundException('未找到有权查阅的历史核认单');
+      const warehouse = row.payload.warehouse;
+      const selected = row.payload.selected as HistoryLedger;
+      const visible = intake.includes(selected.change_type) || !!selected.original_module
+        && await this.canViewOriginal(context,selected.original_module,row.company_code,warehouse);
+      const actor = String(context.user?.userId ?? '');
+      const canReadReturn = row.dispositions.some((item: HistoryDisposition)=>item.kind==='POSTED_SALES_RETURN')
+        && await this.canViewOriginal(context,'MENU_SALES2_RETURN',row.company_code,warehouse);
+      let evidenceState = 'FROZEN';
+      if (row.state === 'SUBMITTED') {
+        try {
+          const owner = await readEggSourceOwner(m,row.house_code);
+          const fresh = await this.evidence(m,owner,warehouse,row.production_date,row.batch_no);
+          const current = fresh.ledger.find(line=>line.id===row.source_line);
+          const storedFiles = row.payload.attachments;
+          const currentFiles = await this.attachments(m,row.payload.evidenceIds,owner,row.created_by,false);
+          evidenceState = current && this.evidenceDigest(fresh,current)===row.payload.evidenceHash
+            && sourceDigest(currentFiles)===sourceDigest(storedFiles) ? 'VERIFIED' : 'NEEDS_REVIEW';
+        } catch (error) {
+          if (!(error instanceof NotFoundException || error instanceof ConflictException)) throw error;
+          evidenceState = 'NEEDS_REVIEW';
+        }
+      }
+      return { id, state:row.state, submittedByMe:row.created_by===actor, source_line:row.source_line,
+        quantity:row.quantity,target_class:row.target_class,reason:row.payload.reason,
+        decision:row.review?.reason??null,disposition:row.review?.disposition??null,
+        attachments:row.payload.attachments,dispositions:row.dispositions.map((item: HistoryDisposition)=>this.dispositionForActor(canReadReturn,item)),
+        houseCode:row.house_code,warehouseCode:warehouse,productionDate:row.production_date,batchNo:row.batch_no,
+        frozenLine:{id:selected.id,ref_no:visible?selected.ref_no:null,change_type:selected.change_type,qty_change:selected.qty_change},
+        evidenceState };
+    });
+  }
+
+  async actionReceipt(idInput:string, kind:string, rawLedgerId:unknown, context:Context) {
+    const id=sourceUuid(idInput,'历史核认单');
+    const actor=String(context.user?.userId??'');
+    if(!actor||context.user?.impersonatedBy) throw new ForbiddenException('缺少实名凭据');
+    if(kind!=='review'&&kind!=='disposition') throw new BadRequestException('核认操作类型无效');
+    const [row]=await this.db.query(`SELECT r.review,r.reviewed_by,r.company_code,r.payload->>'warehouse' AS warehouse
+      ${this.scopedHistory} AND r.id=$8`,[...this.historyScope(context),id]);
+    if(!row) throw new NotFoundException('未找到有权查阅的历史核认单');
+    if(kind==='review') {
+      if(!row.review||row.reviewed_by!==actor) throw new NotFoundException('暂未查到本人审核回执');
+      return row.review;
+    }
+    const ledgerId=sourceText(rawLedgerId,'处置库存流水号',20);
+    if(!/^\d+$/.test(ledgerId)||BigInt(ledgerId)>9223372036854775807n) throw new BadRequestException('处置库存流水号无效');
+    const [link]=await this.db.query(`SELECT item.receipt FROM md_egg_history_dispositions item
+      WHERE item.review_id=$1 AND item.inventory_ledger_id=$2`,[id,ledgerId]);
+    if(!link)throw new NotFoundException('暂未查到处置回执');
+    if(link.receipt.recordedBy!==actor)return {linkedByAnother:true};
+    const canReadReturn=link.receipt.kind==='POSTED_SALES_RETURN'&&
+      await this.canViewOriginal(context,'MENU_SALES2_RETURN',row.company_code,row.warehouse);
+    return {linkedByAnother:false,receipt:this.dispositionForActor(canReadReturn,link.receipt)};
+  }
+
+  async submissionReceipt(keyInput: string, companyInput: unknown, context: Context) {
+    const key = sourceUuid(keyInput, '创建请求号');
+    const company = sourceText(companyInput, '公司',64);
+    const actor = String(context.user?.userId ?? '');
+    if (!actor || context.user?.impersonatedBy) throw new ForbiddenException('缺少实名凭据');
+    const [row] = await this.db.query(`SELECT r.id,r.state,r.created_at ${this.scopedHistory}
+      AND r.request_key=$8 AND r.company_code=$9 AND r.created_by=$10`,[...this.historyScope(context),key,company,actor]);
+    if (!row) throw new NotFoundException('暂未查到本人申请回执');
+    return {id:row.id,state:row.state,submission:{state:'SUBMITTED',submittedAt:row.created_at},currentState:row.state};
+  }
+
   async read(input: Input, context: Context) {
     return this.db.transaction('REPEATABLE READ',async m => {
       await m.query('SET TRANSACTION READ ONLY');
@@ -63,7 +193,8 @@ export class EggHistoryReviewService {
         ARRAY(SELECT d.receipt FROM md_egg_history_dispositions d WHERE d.review_id=md_egg_history_reviews.id
           ORDER BY d.recorded_at,d.inventory_ledger_id) AS dispositions
         FROM md_egg_history_reviews WHERE company_code=$1 AND house_code=$2 AND production_date=$3
-          AND batch_no=$4 AND payload->>'warehouse'=$5 ORDER BY created_at`,[owner.companyCode,owner.houseCode,date,batch,warehouse,String(context.user?.userId ?? '')]);
+          AND batch_no=$4 AND payload->>'warehouse'=$5 AND farm_code=$7 AND site_code=$8 ORDER BY created_at`,
+        [owner.companyCode,owner.houseCode,date,batch,warehouse,String(context.user?.userId ?? ''),owner.farmCode,owner.siteCode]);
       const originalMenus=[...new Set(evidence.ledger.map(line=>line.original_module).filter((value):value is string=>!!value))];
       const visible=new Set((await Promise.all(originalMenus.map(async menu=>
         await this.canViewOriginal(context,menu,owner.companyCode,warehouse)?menu:null))).filter(Boolean));
@@ -183,7 +314,7 @@ export class EggHistoryReviewService {
           || row.state!=='APPROVED' || row.review?.disposition!=='REFER_TO_ORIGINAL') throw new ConflictException('须核对原归属及通过独立审批的历史核认');
       const [existing] = await m.query('SELECT receipt FROM md_egg_history_dispositions WHERE review_id=$1 AND inventory_ledger_id=$2',[id,ledgerId]);
       const canReadReturn=await this.canViewOriginal(context,'MENU_SALES2_RETURN',owner.companyCode,row.payload.warehouse);
-      if (existing) return this.dispositionForActor(canReadReturn,existing.receipt);
+      if (existing) return {...this.dispositionForActor(canReadReturn,existing.receipt),linkedByAnother:existing.receipt.recordedBy!==actor};
       const [official] = await m.query(`SELECT l.id::text,l.ref_no,d.original_document_id,origin.inventory_ledger_id::text AS original_ledger_id,
         l.qty_change,l.log_date::text FROM inv_ledger l
         JOIN production_inbound_lines reversed ON reversed.inventory_ledger_id=l.id AND reversed.batch_no=l.batch_no
@@ -258,13 +389,13 @@ export class EggHistoryReviewService {
       || !context.dataScope.allowedWarehouseCodes?.includes(warehouse))) throw new ForbiddenException('无权查看该公司及仓库凭证');
   }
 
-  private async attachments(m: EntityManager, ids: string[], owner: EggSourceOwner, actor: string) {
+  private async attachments(m: EntityManager, ids: string[], owner: EggSourceOwner, actor: string, lock = true) {
     const rows = await m.query(`SELECT f.file_id,f.checksum FROM file_metadata f JOIN sys_user u ON u.username=f.uploaded_by
       WHERE f.file_id=ANY($1::text[]) AND f.company_code=$2 AND u.user_id::text=$3 AND f.status='ACTIVE'
       AND f.deleted_at IS NULL AND f.visibility IN ('PRIVATE','PROTECTED') AND f.checksum ~ '^[a-f0-9]{64}$'
       AND f.module_code='PRODUCTION_INBOUND' AND f.owner_type='HOUSE' AND f.owner_id=$4 AND f.store_code=$5
       AND f.mime_type IN ('application/pdf','image/jpeg','image/png','image/webp')
-      ORDER BY f.file_id FOR SHARE OF f`,[ids,owner.companyCode,actor,owner.houseCode,owner.siteCode]);
+      ORDER BY f.file_id ${lock?'FOR SHARE OF f':''}`,[ids,owner.companyCode,actor,owner.houseCode,owner.siteCode]);
     if (rows.length !== ids.length) throw new ConflictException('缺少本人上传、归属正确且校验有效的受保护附件');
     return rows;
   }
