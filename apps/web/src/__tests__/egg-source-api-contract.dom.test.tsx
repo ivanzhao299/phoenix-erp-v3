@@ -168,3 +168,12 @@ it('submits a mixed batch without old quantity and distinguishes a saved review 
   expect(host.querySelector('[role=alert]')?.textContent).toContain('暂时无法查询历史凭据');
   expect(host.querySelector('select[required]')).toBeNull();
 });
+
+it('leaves the first-profile form available when a valid house has no archive or requests yet', async () => {
+  fetchMock.mockResolvedValueOnce(respond({ ...timeline('H1'), profiles: [] }));
+  await act(async () => root.render(<EggSourcesPage/>));
+  await click('H1');
+  await flushHouseLoad();
+  expect(host.textContent).toContain('首次建档或按日改色');
+  expect(host.querySelector('[role=alert]')).toBeNull();
+});
