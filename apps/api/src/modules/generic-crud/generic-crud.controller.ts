@@ -17,6 +17,7 @@ import {
   Header,
   GoneException,
   ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
@@ -36,7 +37,7 @@ export class GenericCrudController {
     private readonly dataScopeService: DataScopeService,
     private readonly wmsService: WmsService,
     private readonly cls: ClsService,
-    @InjectEntityManager() private readonly roleManager?:EntityManager,
+    @Optional() @InjectEntityManager() private readonly roleManager?:EntityManager,
   ) {}
 
   /**
