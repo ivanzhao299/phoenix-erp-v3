@@ -7,16 +7,24 @@ import {
 import { parseInspectionReceipt } from './egg-source-permissions-inspection-receipt.mjs';
 
 const base='2deff2c343eb012a16d6f0ac4e305533c96705f5';
-const target='a'.repeat(40), sealed='b'.repeat(40), reviewed='c'.repeat(40);
+const target='779d78aaec96f7a54b9f43c763d3c5a60c19b489', sealed='b'.repeat(40), reviewed='c'.repeat(40);
+const followup='a'.repeat(40), followupSeal='f'.repeat(40), followupReviewed='1'.repeat(40);
 const seal='scripts/ops/egg-source-house-reviewed-head';
 const migration='apps/api/src/database/migrations/'+unit+'.ts';
+const preflightSeal='scripts/ops/egg-source-house-preflight-reviewed-head';
+const preflightFiles=['.github/workflows/controlled-pending-migration-apply.yml','scripts/ops/egg-source-house-release.mjs','scripts/ops/egg-source-house-release.test.mjs',
+  'scripts/ops/vet-1124-migration.test.mjs',preflightSeal];
 
-function fixture({ migrationDiff='A\t'+migration,floor='',sealDiff='M\t'+seal,firstParent=base }={}) {
-  const parents=new Map([[target,firstParent+' '+sealed],[sealed,reviewed]]);
-  const seals=new Map([[target+':'+seal,reviewed],[reviewed+':'+seal,'PENDING']]);
+function fixture({ migrationDiff='A\t'+migration,floor='',sealDiff='M\t'+seal,firstParent=base,followupFiles=preflightFiles }={}) {
+  const parents=new Map([[target,firstParent+' '+sealed],[sealed,reviewed],[followup,target+' '+followupSeal],[followupSeal,followupReviewed]]);
+  const seals=new Map([[target+':'+seal,reviewed],[reviewed+':'+seal,'PENDING'],
+    [followup+':'+preflightSeal,followupReviewed],[followupReviewed+':'+preflightSeal,'PENDING']]);
   return (command,...args)=>{
     if(command==='show') return args.includes('--format=%P') ? parents.get(args.at(-1)) : seals.get(args[0]);
-    if(command==='diff') return args.includes('--name-only') ? floor : args.includes('--') ? migrationDiff : sealDiff;
+    if(command==='diff') {
+      if (args.includes('--name-only')) return args.includes('--') ? floor : followupFiles.join('\n');
+      return args.includes('--') ? migrationDiff : args.includes(followupSeal) ? 'M\t'+preflightSeal : sealDiff;
+    }
     if(command==='rev-parse') return 'd'.repeat(40);
     if(command==='merge-base') return '';
     if(command==='ls-tree') return '100644 blob '+'e'.repeat(40)+'\t'+migration;
@@ -30,6 +38,11 @@ test('the release accepts one migration and an unchanged protected configuration
   assert.throws(()=>verifySource(target,fixture({floor:'docker-compose.yml'})),/CONFIG_FLOOR/);
   assert.throws(()=>verifySource(target,fixture({sealDiff:'M\tother.ts'})),/REVIEWED_TREE/);
   assert.throws(()=>verifySource(target,fixture({firstParent:'2'.repeat(40)})),/EXACT_MAIN_MERGE/);
+});
+
+test('the preflight follow-up may only change the reviewed check and seal',()=>{
+  assert.equal(verifySource(followup,fixture()).reviewed,followupReviewed);
+  assert.throws(()=>verifySource(followup,fixture({followupFiles:[...preflightFiles,'apps/api/extra.ts']})),/PREFLIGHT_ONLY_DIFF/);
 });
 
 test('recovery reconstructs the original ledger with one precise addition',()=>{
