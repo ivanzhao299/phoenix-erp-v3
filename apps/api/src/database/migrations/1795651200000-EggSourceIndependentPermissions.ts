@@ -75,6 +75,8 @@ export class EggSourceIndependentPermissions1795651200000 implements MigrationIn
     await runner.query(`
       LOCK TABLE sys_menu IN SHARE ROW EXCLUSIVE MODE;
       LOCK TABLE md_egg_source_write_control IN SHARE ROW EXCLUSIVE MODE;
+      LOCK TABLE sys_role_menu_permission, sys_permission_set_item, sys_data_scopes
+        IN SHARE ROW EXCLUSIVE MODE;
       DO $$
       BEGIN
         IF EXISTS (SELECT 1 FROM md_egg_source_write_control WHERE ever_enabled OR writes_enabled OR changed_by IS NOT NULL)
