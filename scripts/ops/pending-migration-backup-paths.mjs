@@ -7,8 +7,8 @@ import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {assertRegularFile,assertRootIdentity,inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './production-trusted-paths.mjs';
 import {physicalParent,physicalPins,archiveEvidence} from './vet-1124-backup-volume.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126','egg-source-house-1126','egg-source-legacy-creation-1126'];
-const inspectionScopes=['egg-source-house-1126','egg-source-legacy-creation-1126'];
+const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126','egg-source-house-1126','egg-source-legacy-creation-1126','inventory-1127'];
+const inspectionScopes=['egg-source-house-1126','egg-source-legacy-creation-1126','inventory-1127'];
 const legacyParent='/opt/phoenix-erp-backups';
 const hold=reason=>{throw Error('BACKUP_PATH_HOLD='+reason);};
 function context(runId,dependencies){
