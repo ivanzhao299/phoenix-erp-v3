@@ -140,6 +140,43 @@ test('does not carry a late precheck into another color or save on lookup retry'
   await expect(page.getByRole('region',{name:'预检结果'}).getByText('红壳蛋',{exact:true})).toHaveCount(0);
 });
 
+test('opens a house-only draft without requesting or transmitting a warehouse',async({page})=>{
+  await page.setViewportSize({width:390,height:850});
+  await fixture(page);
+  await page.route(url=>url.pathname===api+'/workspace',route=>route.fulfill({
+    json:{code:200,data:{...workspace,createContractVersion:2,continuation:null}},
+  }));
+  let warehouses=0;
+  await page.route(url=>url.pathname===api+'/candidates/warehouses',route=>{
+    warehouses++;
+    return route.fulfill({status:403});
+  });
+  await page.route(url=>url.pathname===api+'/precheck',route=>{
+    const request=route.request().postDataJSON();
+    expect(request).toMatchObject({houseCode:'H1',contractVersion:2});
+    expect(request).not.toHaveProperty('warehouseCode');
+    return route.fulfill({json:{code:200,data:{status:'READY',targetClass:request.targetClass,effectiveDate:tomorrow,
+      houseCode:'H1',warehouseCode:null,problems:[],rows:[{gradeCode:'GRADE_1',specCode:'LOOSE',status:'PASSED',issues:[]}],
+      readiness:{status:'NOT_CUT_OVER'}}}});
+  });
+  await page.route(url=>url.pathname===api+'/changes' && !url.search,route=>{
+    expect(route.request().postDataJSON()).toMatchObject({houseCode:'H1',contractVersion:2});
+    expect(route.request().postDataJSON()).not.toHaveProperty('warehouseCode');
+    return route.fulfill({json:{code:200,data:{id,state:'DRAFT',version:1}}});
+  });
+  await page.goto(base+'/new?houseCode=H1');
+  await expect(page.getByLabel('目标仓库',{exact:true})).toHaveCount(0);
+  await page.getByLabel('等级',{exact:true}).selectOption('GRADE_1');
+  await page.getByLabel('规格',{exact:true}).selectOption('LOOSE');
+  await page.getByLabel('依据',{exact:true}).fill('Fixture change');
+  await page.getByRole('button',{name:'预检 SKU 与库存范围'}).click();
+  await expect(page.getByText('该舍尚未切入正式库存',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole('button',{name:'保存草稿'}).click();
+  await expect(page).toHaveURL(new RegExp('/changes/'+id));
+  expect(warehouses).toBe(0);
+});
+
 test('recovers a lost draft write after reload with a read-only receipt',async({page})=>{
   await fixture(page);
   let key='';

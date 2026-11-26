@@ -1,3 +1,4 @@
+/** @allow-data-dml: Schema-only migration. INSERT, UPDATE and DELETE references declare trigger events. No business data is written. */
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class EggSourceHouseContract1795654800000 implements MigrationInterface {
