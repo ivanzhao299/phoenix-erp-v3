@@ -449,8 +449,11 @@ export class ProductionCutoverService {
     if(table==='wms_transfer_discrepancies'){
       // A DAMAGE has real retained custody. SHORTAGE still needs a verifiable disposal document; a text reference cannot substitute.
       const item=(facts.wms_transfer_items??[]).find(i=>String(i.id)===String(row.transfer_item_id));
-      return row.discrepancy_type==='DAMAGE'&&!!row.resolved_at&&['LOSS','ADJUSTMENT'].includes(String(row.resolution_type))
-        &&typeof row.resolution_ref==='string'&&!!row.resolution_ref.trim()&&!!item?.damaged_batch_no
+      const ref=typeof row.resolution_ref==='string' ? row.resolution_ref.trim() : '';
+      const resolved=row.resolution_type==='CUSTODY'
+        ? ref===item?.damaged_batch_no
+        : ['LOSS','ADJUSTMENT'].includes(String(row.resolution_type));
+      return row.discrepancy_type==='DAMAGE'&&!!row.resolved_at&&resolved&&!!ref&&!!item?.damaged_batch_no
         &&Number(item.damaged_qty)===Number(row.qty)&&Number(row.qty)>0;
     }
     if(table==='wms_transfer_items'){

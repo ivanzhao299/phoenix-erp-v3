@@ -31,6 +31,12 @@ import {
 // V2 对应: StockTransfer.jsx (wms_stock_transfers) - 字段已对齐至 V3 schema
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_transfer";
+type TransferReceipt = {
+  transfer_no: string; can_dispatch: boolean; can_receive: boolean; store_replenishment: boolean;
+  can_resolve: boolean;
+  discrepancies: Array<{ id: string; discrepancy_type: string; qty: string; source_batch_no: string; damaged_batch_no: string | null }>;
+  items: Array<{ batch_no: string; expected_qty: string; unit: string | null }>;
+};
 type Row = Record<string, unknown>;
 export default function TransferPage() {
   const { t, lang } = useLanguage();
@@ -159,7 +165,7 @@ export default function TransferPage() {
     width: 110,
     align: "center",
     render: (_v, row) => {
-      const action = transferActionForStatus(row.status);
+      const action = row.status === "RECEIVED" ? "complete" : transferActionForStatus(row.status);
       if (!action || !canOperateTransfer) return <span>—</span>;
       return <button
         type="button"
@@ -169,7 +175,7 @@ export default function TransferPage() {
         {action === "dispatch" ? <Send size={13} /> : <PackageCheck size={13} />}
         {action === "dispatch"
           ? t("warehouse.transfer.action.dispatch", "发运")
-          : t("warehouse.transfer.action.receive", "签收")}
+          : action === "receive" ? t("warehouse.transfer.action.receive", "签收") : t("ui.核对差异", "核对差异")}
       </button>;
     }
   }];
@@ -213,30 +219,90 @@ export default function TransferPage() {
     }
   }, [refresh, t]);
 
-  async function handleLifecycleAction(row: Row, action: "dispatch" | "receive") {
-    if (!canOperateTransfer || transferActionForStatus(row.status) !== action) return;
+  const [receiptDraft, setReceiptDraft] = useState<TransferReceipt | null>(null);
+  const [differenceDraft, setDifferenceDraft] = useState<TransferReceipt | null>(null);
+  const [dispositionRefs, setDispositionRefs] = useState<Record<string, string>>({});
+  const [receivedByBatch, setReceivedByBatch] = useState<Record<string, { received_qty: string; damaged_qty: string }>>({});
+  const [transferError, setTransferError] = useState('');
+  const [posting, setPosting] = useState(false);
+
+  async function handleLifecycleAction(row: Row, action: "dispatch" | "receive" | "complete") {
+    if (!canOperateTransfer || posting) return;
     const transferNo = String(row.transfer_no || "");
     if (!transferNo) return;
-    await request(`/inventory/transfer/${encodeURIComponent(transferNo)}/${action}`, {
-      method: "POST",
-      body: JSON.stringify(action === "receive" ? { receive_all: true } : {}),
-    });
-    invalidateBatchLookups();
-    refresh();
+    const path = `/inventory/transfer/${encodeURIComponent(transferNo)}`;
+    setTransferError('');
+    setPosting(true);
+    try {
+      const { data } = await request<{ data: TransferReceipt }>(path);
+      if (data.store_replenishment) throw new Error(t('ui.请从门店补货流程处理此调拨', '请从门店补货流程处理此调拨'));
+      if (action === 'receive' && data.can_receive) {
+        setReceivedByBatch(Object.fromEntries(data.items.map(item => [item.batch_no,
+          { received_qty: item.expected_qty, damaged_qty: '0' }])));
+        setReceiptDraft(data);
+      } else if (action === 'complete' && data.can_resolve) {
+        setDispositionRefs({});
+        setDifferenceDraft(data);
+      } else if (action === 'dispatch' && data.can_dispatch) {
+        await request(path + '/dispatch', { method: 'POST', body: '{}' });
+        invalidateBatchLookups();
+        refresh();
+      } else {
+        throw new Error(t('ui.当前状态或仓库权限不允许此操作', '当前状态或仓库权限不允许此操作'));
+      }
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : t('ui.调拨失败', '调拨失败'));
+    } finally {
+      setPosting(false);
+    }
   }
 
-  // 扫码确认调入（快速更新单号对应记录状态）
-  const handleScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter" || !scanCode.trim()) return;
-    if (!canOperateTransfer) return;
-    await request(`/inventory/transfer/${encodeURIComponent(scanCode.trim())}/receive`, {
-      method: "POST",
-      body: JSON.stringify({ receive_all: true })
+  const receive = async () => {
+    if (!receiptDraft || posting) return;
+    const items = receiptDraft.items.map(item => ({ batch_no: item.batch_no, ...receivedByBatch[item.batch_no] }));
+    setTransferError('');
+    setPosting(true);
+    try {
+      await request(`/inventory/transfer/${encodeURIComponent(receiptDraft.transfer_no)}/receive`, {
+        method: 'POST', body: JSON.stringify({ items }),
+      });
+      setReceiptDraft(null);
+      setScanCode('');
+      invalidateBatchLookups();
+      refresh();
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : t('ui.签收失败', '签收失败'));
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const complete = async () => {
+    if (!differenceDraft || posting || !differenceDraft.discrepancies.length ||
+        differenceDraft.discrepancies.some(row => row.discrepancy_type !== 'DAMAGE' || !row.damaged_batch_no)) return;
+    const resolutions = differenceDraft.discrepancies.map(row => {
+      const ref = dispositionRefs[row.id]?.trim() ?? '';
+      return { id: row.id, resolution_type: !ref ? 'CUSTODY' : /^LR-/i.test(ref) ? 'LOSS' : 'ADJUSTMENT',
+        resolution_ref: ref || row.damaged_batch_no };
     });
-    invalidateBatchLookups();
-    refresh();
-    setScanCode("");
-  }, [scanCode, refresh, canOperateTransfer, setScanCode]);
+    setTransferError('');
+    setPosting(true);
+    try {
+      await request(`/inventory/transfer/${encodeURIComponent(differenceDraft.transfer_no)}/complete`, {
+        method: 'POST', body: JSON.stringify({ resolutions }),
+      });
+      setDifferenceDraft(null);
+      refresh();
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : t('ui.调拨失败', '调拨失败'));
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && scanCode.trim()) void handleLifecycleAction({ transfer_no: scanCode.trim() }, 'receive');
+  };
   return <div>
       <PageHeader
         title={t("ui.库存调拨", "库存调拨")}
@@ -286,6 +352,51 @@ export default function TransferPage() {
           {TRANSFER_DISPLAY_STATUSES.map(status => <option key={status} value={status}>{transferStatusLabel(status, t)}</option>)}
         </select>
       </div>
+
+      {transferError && !receiptDraft && !differenceDraft && <p role="alert">{transferError}</p>}
+      <RightDrawer open={Boolean(receiptDraft)} title={t('ui.调拨签收', '调拨签收')}
+        onClose={() => { if (!posting) setReceiptDraft(null); }}>
+        {receiptDraft && <div style={{ display: 'grid', gap: 12 }}>
+          <p>{receiptDraft.transfer_no}</p>
+          {receiptDraft.items.map(item => <fieldset key={item.batch_no}>
+            <legend>{item.batch_no} · {t('ui.应收', '应收')} {item.expected_qty} {item.unit}</legend>
+            {(['received_qty','damaged_qty'] as const).map(field => <label key={field}>
+              {field === 'received_qty' ? t('ui.实收', '实收') : t('ui.破损', '破损')}
+              <input inputMode="decimal" disabled={posting} style={inputField}
+                value={receivedByBatch[item.batch_no][field]}
+                onChange={event => { const value = event.target.value; setReceivedByBatch(prev => ({
+                  ...prev, [item.batch_no]: { ...prev[item.batch_no], [field]: value },
+                })); }} />
+            </label>)}
+          </fieldset>)}
+          {transferError && <p role="alert">{transferError}</p>}
+          <button type="button" style={primaryActionButton} disabled={posting || !receiptDraft.items.length}
+            onClick={receive}>{t('ui.确认签收', '确认签收')}</button>
+        </div>}
+      </RightDrawer>
+
+      <RightDrawer open={Boolean(differenceDraft)} title={t('ui.核对调拨差异', '核对调拨差异')}
+        onClose={() => { if (!posting) setDifferenceDraft(null); }}>
+        {differenceDraft && <div style={{ display: 'grid', gap: 12 }}>
+          <p>{differenceDraft.transfer_no}</p>
+          {differenceDraft.discrepancies.map(row => <fieldset key={row.id}>
+            <legend>{row.source_batch_no} · {row.discrepancy_type === 'DAMAGE' ? t('ui.破损', '破损') :
+              t('ui.在途短少', '在途短少')} {row.qty}</legend>
+            {row.damaged_batch_no ? <>
+              <p>{t('ui.对应破损批次', '对应破损批次')} {row.damaged_batch_no}</p>
+              <label>{t('ui.过账报损或调整单号', '已过账报损或调整单号')}
+                <input style={inputField} maxLength={128} disabled={posting} value={dispositionRefs[row.id] ?? ''}
+                  onChange={event => { const value = event.target.value; setDispositionRefs(prev => ({ ...prev, [row.id]: value })); }} />
+              </label>
+              <p>{t('ui.留空表示核对留存', '留空时按仍在仓的原破损数量核对并结案。')}</p>
+            </> : <p>{t('ui.短少等待财务', '在途短少等待财务核定。')}</p>}
+          </fieldset>)}
+          {transferError && <p role="alert">{transferError}</p>}
+          <button type="button" style={primaryActionButton} disabled={posting || !differenceDraft.discrepancies.length ||
+            differenceDraft.discrepancies.some(row => row.discrepancy_type !== 'DAMAGE' || !row.damaged_batch_no)}
+            onClick={complete}>{t('ui.确认差异结案', '确认差异结案')}</button>
+        </div>}
+      </RightDrawer>
 
       <DataTable table={TABLE} columns={COLUMNS} params={tableParams} refreshKey={refreshKey} emptyText={t("ui.暂无调拨记录", "暂无调拨记录")} pageSize={30} />
 

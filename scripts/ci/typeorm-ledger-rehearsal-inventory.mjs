@@ -266,6 +266,24 @@ export const featureMigrations = Object.freeze([
     effective_name: 'EggSourceLegacyCreationGate1795658400000',
     timestamp: 1795658400000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795658500000-InventoryStocktakeSubmissions.js',
+    class_name: 'InventoryStocktakeSubmissions1795658500000',
+    effective_name: 'InventoryStocktakeSubmissions1795658500000',
+    timestamp: 1795658500000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795658600000-WarehouseDailyCloseCapture.js',
+    class_name: 'WarehouseDailyCloseCapture1795658600000',
+    effective_name: 'WarehouseDailyCloseCapture1795658600000',
+    timestamp: 1795658600000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795658700000-TransferCostEvidence.js',
+    class_name: 'TransferCostEvidence1795658700000',
+    effective_name: 'TransferCostEvidence1795658700000',
+    timestamp: 1795658700000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

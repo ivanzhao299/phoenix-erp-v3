@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, GoneException, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { WmsService } from './wms.service';
 import { RequireMenu, MenuGuard } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -29,8 +29,8 @@ export class OutboundController {
 
   @Post('orders/:order_no/advance')
   @RequireMenu('MENU_WMS_INOUT', 'E')
-  async advanceOrder(@Param('order_no') orderNo: string, @Body() body: any, @Req() req: any) {
-    return await this.wmsService.advanceOutboundOrder(orderNo, body, req.user);
+  async advanceOrder(@Param('order_no') _orderNo: string) {
+    throw new GoneException('历史订单只读，请在仓储终端打开销售配送装车任务');
   }
 
   @Post('batch')

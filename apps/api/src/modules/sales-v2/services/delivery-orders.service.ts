@@ -1,10 +1,11 @@
-import { baseQuantity } from '../../product-master/services/quantity-contract';
+import { quantityTicks } from '../../wms/stock-quantity';
+import { assertBatchPool, baseQuantity, savedQuantity } from '../../product-master/services/quantity-contract';
 import {
   Injectable, NotFoundException, ForbiddenException,
   BadRequestException, ConflictException, Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
@@ -399,15 +400,14 @@ export class DeliveryOrdersService {
     const rec = await this.assertOwnership(id);
     if (rec.status !== 'PLANNED') throw new BadRequestException(`当前状态 ${rec.status} 不可开始装车`);
 
-    await this.ds.query(
-      `UPDATE sal_delivery_orders SET status='LOADING', loading_start_at=NOW(), updated_at=NOW() WHERE id=$1`,
-      [id],
-    );
-    // 明细 → LOADED（装车中）
-    await this.ds.query(
-      `UPDATE sal_delivery_order_items SET status='LOADED', updated_at=NOW() WHERE delivery_order_id=$1`,
-      [id],
-    );
+    await this.ds.transaction(async manager => {
+      const changed = await manager.query(
+        `WITH changed AS (UPDATE sal_delivery_orders SET status='LOADING', loading_start_at=now(), updated_at=now()
+            WHERE id=$1 AND status='PLANNED' RETURNING id) SELECT id FROM changed`, [id]);
+      if (changed.length !== 1) throw new ConflictException('配送单状态已变更，请刷新');
+      await manager.query(
+        `UPDATE sal_delivery_order_items SET status='LOADED',updated_at=now() WHERE delivery_order_id=$1`, [id]);
+    });
     this.logger.log(`配送单 ${rec.delivery_no} 开始装车`);
     return this.findById(id);
   }
@@ -416,58 +416,217 @@ export class DeliveryOrdersService {
   // 6. 装车完成  LOADING → LOADED
   // ─────────────────────────────────────────────────────────────────────────
 
+  private warehouseLoadingScope() {
+    const scope = this.cls.get<DataScopeContext>('dataScope');
+    if (!scope) throw new ForbiddenException('缺少装车数据范围');
+    return scope;
+  }
+
+  private assertWarehouseLoadingScope(delivery: any) {
+    const scope = this.warehouseLoadingScope();
+    if (!delivery.fulfillment_warehouse_code || !delivery.company_code ||
+      (!scope.isGlobal && (!scope.allowedCompanyCodes.includes(delivery.company_code)
+        || !scope.allowedWarehouseCodes.includes(delivery.fulfillment_warehouse_code)))) {
+      throw new ForbiddenException('配送单履约仓不在授权范围');
+    }
+  }
+
+  async warehouseLoadingTasks(deliveryNo?: string) {
+    const scope = this.warehouseLoadingScope();
+    const rows = await this.ds.query(
+      `SELECT d.id::text,d.delivery_no,d.fulfillment_warehouse_code,d.status,d.company_code
+       FROM sal_delivery_orders d
+       WHERE d.fulfillment_warehouse_code IS NOT NULL
+         AND ($1::boolean OR (d.company_code=ANY($2::text[]) AND d.fulfillment_warehouse_code=ANY($3::text[])))
+         AND ($4::text IS NULL AND d.status='LOADING' OR d.delivery_no=$4)
+       ORDER BY d.id DESC LIMIT 100`, [scope.isGlobal, scope.allowedCompanyCodes, scope.allowedWarehouseCodes, deliveryNo ?? null]);
+    if (!deliveryNo) return rows;
+    const [delivery] = rows;
+    if (!delivery) throw new NotFoundException('装车任务不存在');
+    const items = delivery.status === 'LOADING'
+      ? await this.warehouseLoadingPlan(this.ds.manager, delivery.id, delivery)
+      : await this.warehouseLoadingReceipt(this.ds.manager, delivery.id, delivery);
+    return { ...delivery, items };
+  }
+
+  private async warehouseLoadingPlan(manager: EntityManager, id: string, delivery: any) {
+    const rows = await manager.query(`
+      SELECT a.id::text AS allocation_id, oi.id::text AS order_line_id,so.order_no,oi.sku_code,
+        COALESCE(oi.quantity_snapshot->>'baseUnit',b.unit) AS unit,a.batch_no,
+        (a.reserved_qty-a.outbound_qty-a.released_qty)::text AS qty,
+        (COALESCE((oi.quantity_snapshot->>'baseQty')::numeric,oi.qty)-
+          SUM(COALESCE(a.outbound_qty,0)) OVER(PARTITION BY oi.id))::text AS line_remaining,
+        so.id::text AS order_id, doi.planned_qty::text, so.company_code, so.status AS order_status,
+        so.fulfillment_warehouse_code AS order_warehouse,so.warehouse_governance_pending,
+        doi.sales_order_no AS linked_order_no,doi.status AS linked_order_status,
+        oi.quantity_snapshot,oi.qty AS line_qty,b.product_code AS batch_product,b.sku_code AS batch_sku,b.grade_code_std AS batch_grade,b.material_code,b.legacy_source,b.base_quantity_version,
+        b.warehouse_code, b.company_code AS batch_company, b.unit AS batch_unit
+      FROM sal_delivery_order_items doi JOIN sal_sales_orders so ON so.id=doi.sales_order_id
+      JOIN sal_order_items oi ON oi.sales_order_id=so.id
+      LEFT JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id
+      LEFT JOIN inv_batches b ON b.batch_no=a.batch_no
+      WHERE doi.delivery_order_id=$1 ORDER BY so.id,oi.id,a.id`, [id]);
+    if (!rows.length) throw new ConflictException('配送单没有已保存的订单明细');
+    const sumsByOrder = new Map<string, number>();
+    const sumsByLine = new Map<string, number>();
+    for (const row of rows) {
+      if (row.company_code !== delivery.company_code || row.order_status !== 'ALLOCATED'
+        || row.warehouse_governance_pending || row.order_warehouse !== delivery.fulfillment_warehouse_code
+        || row.linked_order_no !== row.order_no || row.linked_order_status !== 'LOADED') {
+        throw new ConflictException('配送单包含其他公司或未分配订单');
+      }
+      if (row.quantity_snapshot) savedQuantity({ ...row, qty: row.line_qty });
+      const ticks = row.qty == null ? 0 : quantityTicks(row.qty, '已分配量');
+      if (ticks > 0 && (!row.unit || row.unit !== row.batch_unit
+        || row.warehouse_code !== delivery.fulfillment_warehouse_code || row.batch_company !== delivery.company_code
+        || (!row.quantity_snapshot && row.sku_code && row.batch_sku !== row.sku_code))) {
+        throw new ConflictException('装车批次的仓库、公司或库存单位与配送单不一致');
+      }
+      if (ticks > 0 && row.quantity_snapshot) {
+        assertBatchPool({
+          product_code: row.batch_product, grade_code_std: row.batch_grade, unit: row.batch_unit,
+          material_code: row.material_code, legacy_source: row.legacy_source, base_quantity_version: row.base_quantity_version,
+        }, row.quantity_snapshot);
+      }
+      sumsByOrder.set(row.order_id, (sumsByOrder.get(row.order_id) ?? 0) + ticks);
+      sumsByLine.set(row.order_line_id, (sumsByLine.get(row.order_line_id) ?? 0) + ticks);
+    }
+    for (const row of rows) {
+      if (sumsByOrder.get(row.order_id) !== quantityTicks(row.planned_qty, '计划装车量')
+        || sumsByLine.get(row.order_line_id) !== quantityTicks(row.line_remaining, '订单行待发量')) {
+        throw new ConflictException('装车任务存在漏分配或欠发明细，请在配送单核对');
+      }
+    }
+    const planned = rows.filter((row: any) => Number(row.qty) > 0);
+    if (!planned.length || planned.length > 500) throw new ConflictException('此配送单须在配送工作台处理');
+    return planned.map((row: any) => ({
+      allocation_id: row.allocation_id, order_line_id: row.order_line_id, order_no: row.order_no,
+      sku_code: row.sku_code, batch_no: row.batch_no, qty: row.qty, unit: row.unit,
+    }));
+  }
+
+  private async warehouseLoadingReceipt(manager: EntityManager, id: string, delivery: any) {
+    return manager.query(`
+      SELECT a.allocation_id::text, r.sales_order_item_id::text AS order_line_id, r.batch_no,
+             a.qty::text, a.ledger_id::text,l.unit
+      FROM sal_order_item_batch_allocation_actions a
+      JOIN sal_order_item_batch_allocations r ON r.id=a.allocation_id
+      JOIN inv_ledger l ON l.id=a.ledger_id AND l.batch_no=r.batch_no AND l.change_type='FIFO_OUT'
+      WHERE a.delivery_order_id=$1 AND a.action_type='OUTBOUND'
+        AND a.action_key='delivery:'||$1::text AND l.ref_no=$4 AND l.qty_change=-a.qty
+        AND l.company_code=$2 AND l.warehouse_code=$3
+      ORDER BY a.allocation_id`, [id, delivery.company_code, delivery.fulfillment_warehouse_code, delivery.delivery_no]);
+  }
+
+  async finishWarehouseLoading(id: string, body: any) {
+    if (!/^[1-9][0-9]{0,17}$/.test(id) || !Array.isArray(body?.items) || !body.items.length || body.items.length > 500) {
+      throw new BadRequestException('装车单号或扫描明细无效');
+    }
+    const proof = new Map<string, { line: string; batch: string; qty: number }>();
+    for (const item of body.items) {
+      if (!item || typeof item.allocation_id !== 'string' || typeof item.order_line_id !== 'string'
+        || typeof item.batch_no !== 'string' || proof.has(item.allocation_id)) {
+        throw new BadRequestException('装车明细标识无效或重复');
+      }
+      proof.set(item.allocation_id, { line: item.order_line_id, batch: item.batch_no, qty: quantityTicks(item.qty, '装车数量') });
+    }
+    const compare = (rows: any[]) => {
+      if (proof.size !== rows.length || rows.some(row => {
+        const entered = proof.get(row.allocation_id);
+        return !entered || entered.line !== row.order_line_id || entered.batch !== row.batch_no
+          || entered.qty !== quantityTicks(row.qty, '装车计划量');
+      })) throw new ConflictException('扫描明细、批次或数量与装车任务不一致');
+    };
+    return this.ds.transaction(async manager => {
+      const [delivery] = await manager.query('SELECT id,delivery_no,company_code,fulfillment_warehouse_code,status FROM sal_delivery_orders WHERE id=$1 FOR UPDATE', [id]);
+      if (!delivery) throw new NotFoundException('配送单不存在');
+      this.assertWarehouseLoadingScope(delivery);
+      if (delivery.status !== 'LOADING') {
+        if (!['LOADED','DEPARTED','ARRIVED','PARTIALLY_SIGNED','COMPLETED'].includes(delivery.status)) {
+          throw new ConflictException('配送单状态不允许核对装车回执');
+        }
+        const receipt = await this.warehouseLoadingReceipt(manager, id, delivery);
+        compare(receipt);
+        return { delivery_no: delivery.delivery_no, items: receipt };
+      }
+      await manager.query(`
+        SELECT so.id FROM sal_sales_orders so JOIN sal_delivery_order_items doi ON doi.sales_order_id=so.id
+        WHERE doi.delivery_order_id=$1 ORDER BY so.id FOR UPDATE OF so`, [id]);
+      await manager.query(`
+        SELECT a.id FROM sal_order_item_batch_allocations a
+        JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
+        JOIN sal_delivery_order_items doi ON doi.sales_order_id=oi.sales_order_id
+        WHERE doi.delivery_order_id=$1 ORDER BY a.id FOR UPDATE OF a,oi`, [id]);
+      compare(await this.warehouseLoadingPlan(manager, id, delivery));
+      await this.postLoading(manager, id);
+      const receipt = await this.warehouseLoadingReceipt(manager, id, delivery);
+      compare(receipt);
+      return { delivery_no: delivery.delivery_no, items: receipt };
+    });
+  }
+
   async finishLoading(id: string, _dto: LoadDeliveryDto) {
     const rec = await this.assertOwnership(id);
 
-    await this.ds.transaction(async (mgr) => {
-      const [locked] = await mgr.query(
-        `SELECT id,delivery_no,status FROM sal_delivery_orders WHERE id=$1 FOR UPDATE`, [id],
-      );
-      if (!locked) throw new NotFoundException(`配送单 ${id} 不存在`);
-      if (locked.status !== 'LOADING') {
-        throw new ConflictException(`配送单 ${locked.delivery_no} 状态已变为 ${locked.status}，不可重复完成装车`);
-      }
-      const changed = await mgr.query(
-        `WITH changed AS (
-           UPDATE sal_delivery_orders SET status='LOADED',loading_end_at=NOW(),updated_at=NOW()
-            WHERE id=$1 AND status='LOADING' RETURNING id
-         ) SELECT id FROM changed`,
-        [id],
-      );
-      if (changed.length !== 1) throw new ConflictException(`配送单 ${locked.delivery_no} 装车状态冲突`);
-      const soItems = await mgr.query(
-      `SELECT doi.id AS delivery_item_id,doi.sales_order_id,doi.planned_qty,so.order_no,so.company_code,so.status
-       FROM sal_delivery_order_items doi
-       JOIN sal_sales_orders so ON so.id = doi.sales_order_id
-       WHERE doi.delivery_order_id=$1`, [id],
-      );
-      for (const item of soItems) {
-        const outboundQty = await this.eggInventory.confirmOutbound(
-          String(item.sales_order_id),
-          String(item.order_no),
-          String(item.company_code ?? 'ALL'),
-          String(locked.delivery_no),
-          id,
-          Number(item.planned_qty),
-          mgr,
-        );
-        await mgr.query(
-          `UPDATE sal_delivery_order_items SET loaded_qty=$1,outbound_qty=$1,updated_at=NOW() WHERE id=$2`,
-          [outboundQty, item.delivery_item_id],
-        );
-        await this.lifecycle.appendEvent(mgr, {
-          salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
-          eventType: 'OUTBOUND_CONFIRMED', fromStatus: item.status, toStatus: item.status,
-          actorType: 'USER', actorUserId: this.currentUser().userId,
-          actorName: this.currentUser().userName, sourceModule: 'WMS',
-          sourceEndpoint: '/api/v2/sales/delivery/:id/finish-loading',
-          sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: locked.delivery_no,
-        });
-      }
-    });
+    await this.ds.transaction(mgr => this.postLoading(mgr, id));
     this.logger.log(`配送单 ${rec.delivery_no} 装车完成`);
 
     return this.findById(id);
+  }
+
+  private async postLoading(mgr: EntityManager, id: string) {
+    const [locked] = await mgr.query(
+      `SELECT id,delivery_no,status,company_code,fulfillment_warehouse_code FROM sal_delivery_orders WHERE id=$1 FOR UPDATE`, [id],
+    );
+    if (!locked) throw new NotFoundException(`配送单 ${id} 不存在`);
+    if (locked.status !== 'LOADING') {
+      throw new ConflictException(`配送单 ${locked.delivery_no} 状态已变为 ${locked.status}，不可重复完成装车`);
+    }
+    const changed = await mgr.query(
+      `WITH changed AS (
+         UPDATE sal_delivery_orders SET status='LOADED',loading_end_at=NOW(),updated_at=NOW()
+          WHERE id=$1 AND status='LOADING' RETURNING id
+       ) SELECT id FROM changed`,
+      [id],
+    );
+    if (changed.length !== 1) throw new ConflictException(`配送单 ${locked.delivery_no} 装车状态冲突`);
+    const soItems = await mgr.query(
+    `SELECT doi.id AS delivery_item_id,doi.sales_order_id,doi.planned_qty,doi.sales_order_no,doi.status AS link_status,
+      so.order_no,so.company_code,so.status,so.fulfillment_warehouse_code,so.warehouse_governance_pending
+     FROM sal_delivery_order_items doi
+     JOIN sal_sales_orders so ON so.id = doi.sales_order_id
+     WHERE doi.delivery_order_id=$1 ORDER BY so.id FOR UPDATE OF so,doi`, [id],
+    );
+    if (!soItems.length || soItems.some((item: any) =>
+      item.company_code !== locked.company_code || item.status !== 'ALLOCATED'
+      || item.sales_order_no !== item.order_no || item.link_status !== 'LOADED'
+      || (locked.fulfillment_warehouse_code && (item.warehouse_governance_pending
+        || item.fulfillment_warehouse_code !== locked.fulfillment_warehouse_code)))) {
+      throw new ConflictException('配送单明细与订单、公司或履约仓不一致');
+    }
+    for (const item of soItems) {
+      const outboundQty = await this.eggInventory.confirmOutbound(
+        String(item.sales_order_id),
+        String(item.order_no),
+        String(item.company_code ?? 'ALL'),
+        String(locked.delivery_no),
+        id,
+        Number(item.planned_qty),
+        mgr,
+      );
+      await mgr.query(
+        `UPDATE sal_delivery_order_items SET loaded_qty=$1,outbound_qty=$1,updated_at=NOW() WHERE id=$2`,
+        [outboundQty, item.delivery_item_id],
+      );
+      await this.lifecycle.appendEvent(mgr, {
+        salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
+        eventType: 'OUTBOUND_CONFIRMED', fromStatus: item.status, toStatus: item.status,
+        actorType: 'USER', actorUserId: this.currentUser().userId,
+        actorName: this.currentUser().userName, sourceModule: 'WMS',
+        sourceEndpoint: '/api/v2/sales/delivery/:id/finish-loading',
+        sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: locked.delivery_no,
+      });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -635,10 +794,12 @@ export class DeliveryOrdersService {
     const soIds = items.map((i: any) => Number(i.sales_order_id));
 
     await this.ds.transaction(async (mgr) => {
-      await mgr.query(
-        `UPDATE sal_delivery_orders SET status='CANCELLED', remark=COALESCE($2,remark), updated_at=NOW() WHERE id=$1`,
+      const changed = await mgr.query(
+        `WITH changed AS (UPDATE sal_delivery_orders SET status='CANCELLED', remark=COALESCE($2,remark), updated_at=now()
+          WHERE id=$1 AND status IN ('PLANNED','LOADING') RETURNING id) SELECT id FROM changed`,
         [id, dto.remark ?? null],
       );
+      if (changed.length !== 1) throw new ConflictException('配送单状态已变更，无法取消');
       await mgr.query(
         `UPDATE sal_delivery_order_items SET status='RETURNED', updated_at=NOW() WHERE delivery_order_id=$1`,
         [id],

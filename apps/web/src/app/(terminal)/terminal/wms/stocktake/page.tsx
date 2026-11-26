@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
@@ -29,6 +30,8 @@ const api = async (path: string, init?: RequestInit) => {
 
 interface Batch {
   batch_no: string;
+  batch_version: string;
+  unit?: string | null;
   product_code?: string | null;
   qty?: number | null;
   warehouse_code?: string | null;
@@ -46,10 +49,12 @@ interface Batch {
 }
 interface CountRow extends Batch { product_code: string; sys_qty: number; counted: string }
 
-const POLL_MS = 0; // 盘点期间不轮询，避免 sys 基数跳动
+
 
 export default function WmsStocktakeTerminalPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const pendingStocktakeKey = user?.username ? 'warehouse-stocktake-pending:' + user.username : '';
   const { t, lang } = useLanguage();
 
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -62,28 +67,42 @@ export default function WmsStocktakeTerminalPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [pendingRequest, setPendingRequest] = useState<string | null>(null);
+  useEffect(() => {
+    const pending = window.setTimeout(() => setPendingRequest(pendingStocktakeKey ? sessionStorage.getItem(pendingStocktakeKey) : null), 0);
+    return () => window.clearTimeout(pending);
+  }, [pendingStocktakeKey]);
 
   const fetchBatches = useCallback(async () => {
     setLoading(true);
     try {
-      const { ok, json } = await api('/api/inventory/batches');
+      const { ok, json } = await api('/api/inventory/stocktake/batches');
       if (ok && Array.isArray(json?.data)) setBatches(json.data as Batch[]);
     } catch { /* keep */ }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchBatches(); }, [fetchBatches]);
 
-  const addToCart = useCallback((batchNo: string) => {
+  const addToCart = useCallback(async (batchNo: string) => {
     const bn = batchNo.trim();
-    if (!bn) return;
-    const b = batches.find(x => x.batch_no === bn);
+    if (!bn || submitting || pendingRequest) return;
+    setError('');
+    let b = batches.find(x => x.batch_no === bn);
+    if (!b) {
+      try {
+        const { ok, json } = await api('/api/inventory/stocktake/batches?' + new URLSearchParams({ batch_no: bn }));
+        if (ok && Array.isArray(json?.data)) b = json.data[0];
+      } catch { /* report failure below */ }
+    }
+    if (!b) { setError(t('terminal.wms_batch_missing', '该批次不存在或无盘点权限')); return; }
+    const selected = b;
     setCart(prev => {
       if (prev.some(r => r.batch_no === bn)) return prev;  // 已在清单
-      return [...prev, { ...(b ?? { batch_no: bn }), batch_no: bn, product_code: b?.product_code || '', sys_qty: Math.trunc(Number(b?.qty) || 0), counted: '' }];
+      return [...prev, { ...selected, product_code: selected.product_code || '', sys_qty: Number(selected.qty), counted: '' }];
     });
     setActiveBatch(bn);
     setNumKey(k => k + 1);
-  }, [batches]);
+  }, [batches, submitting, pendingRequest, t]);
 
   const handleScan = () => {
     const v = scan.trim();
@@ -101,17 +120,34 @@ export default function WmsStocktakeTerminalPage() {
   };
 
   const submit = async () => {
-    if (submitting) return;
-    const lines = cart.filter(r => r.counted !== '').map(r => ({ batch_no: r.batch_no, counted_qty: parseInt(r.counted) || 0 }));
-    if (lines.length === 0) { setError(t('terminal.wms_no_count', '请至少录入一项盘点数')); return; }
+    if (submitting || !pendingStocktakeKey) return;
+    let requestBody = pendingRequest;
+    if (!requestBody) {
+      if (!cart.length || cart.some(row => !/^\d{1,11}(?:\.\d{1,3})?$/.test(row.counted))) {
+        setError(t('terminal.wms_count_invalid', '请为每个批次录入有效实盘数量'));
+        return;
+      }
+      const lines = cart.map(r => ({ batch_no: r.batch_no, batch_version: r.batch_version, counted_qty: r.counted }));
+      requestBody = JSON.stringify({ lines, request_key: crypto.randomUUID() });
+      sessionStorage.setItem(pendingStocktakeKey, requestBody);
+      setPendingRequest(requestBody);
+    }
     setSubmitting(true);
     setError('');
     try {
-      const { ok, json } = await api('/api/inventory/stocktake/pda-count', { method: 'POST', body: JSON.stringify({ lines }) });
-      if (!ok || (json?.code && json.code >= 400)) { setError(json?.msg || t('terminal.wms_count_fail', '盘点提交失败')); return; }
-      const applied = json?.applied ?? lines.length;
+      const { ok, status, json } = await api('/api/inventory/stocktake/pda-count', {
+        method: 'POST', body: requestBody,
+      });
+      if (!ok && [400,404,409,422].includes(status)) {
+        sessionStorage.removeItem(pendingStocktakeKey);
+        setPendingRequest(null);
+      }
+      if (!ok || (json?.code && json.code >= 400)) { setError(json?.message || json?.msg || t('terminal.wms_count_fail', '盘点提交失败')); return; }
+      const applied = json?.applied ?? 0;
       invalidateBatchLookups();
       setToast(`${t('terminal.wms_count_done', '盘点已入账')}：${applied} ${t('terminal.wms_lines', '项')}`);
+      sessionStorage.removeItem(pendingStocktakeKey);
+      setPendingRequest(null);
       setCart([]);
       setActiveBatch(null);
       void fetchBatches();
@@ -180,7 +216,7 @@ export default function WmsStocktakeTerminalPage() {
                   cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: inCart ? T.GRN : T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.batch_no}</div>
-                  <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(b as unknown as Record<string, unknown>, b.sku_code ? 'sku_name' : 'product_name', b.sku_code || b.product_code, lang)} · {t('terminal.wms_sys', '账面')} {Math.trunc(Number(b.qty) || 0)}{inCart ? ` · ${t('terminal.wms_in_list', '已加入')}` : ''}</div>
+                  <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(b as unknown as Record<string, unknown>, b.sku_code ? 'sku_name' : 'product_name', b.sku_code || b.product_code, lang)} · {t('terminal.wms_sys', '账面')} {Number(b.qty) || 0}{inCart ? ` · ${t('terminal.wms_in_list', '已加入')}` : ''}</div>
                   <div style={{ fontSize: 11, color: b.status === 'QUARANTINE' ? T.RED : T.MUT }}>{formatBusinessEnum('inventory', b.status, lang)} · {formatMasterData(b as unknown as Record<string, unknown>, 'warehouse_name', b.warehouse_code, lang)} / {formatMasterData(b as unknown as Record<string, unknown>, 'location_name', b.location_code, lang)}</div>
                 </button>
               );
@@ -201,28 +237,26 @@ export default function WmsStocktakeTerminalPage() {
           ) : (
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {cart.map(r => {
-                const counted = r.counted === '' ? null : (parseInt(r.counted) || 0);
-                const diff = counted == null ? null : counted - r.sys_qty;
+                const counted = r.counted === '' ? null : Number(r.counted);
+                const diff = counted == null ? null : Math.round((counted - r.sys_qty) * 1000) / 1000;
                 const active = activeBatch === r.batch_no;
                 const diffColor = diff == null ? T.MUT : diff === 0 ? T.MUT : diff > 0 ? T.GRN : T.RED;
                 return (
                   <div key={r.batch_no} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${active ? T.ACC : T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.batch_no}</div>
-                      <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(r as unknown as Record<string, unknown>, r.sku_code ? 'sku_name' : 'product_name', r.sku_code || r.product_code, lang)} · {t('terminal.wms_sys', '账面')} {r.sys_qty}
+                      <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(r as unknown as Record<string, unknown>, r.sku_code ? 'sku_name' : 'product_name', r.sku_code || r.product_code, lang)} · {t('terminal.wms_sys', '账面')} {r.sys_qty} {r.unit}
                         {diff != null && <span style={{ color: diffColor, marginLeft: 8, fontWeight: 700 }}>{t('terminal.wms_diff', '差')} {diff > 0 ? `+${diff}` : diff}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: r.status === 'QUARANTINE' ? T.RED : T.MUT }}>{formatBusinessEnum('inventory', r.status, lang)} · {formatMasterData(r as unknown as Record<string, unknown>, 'warehouse_name', r.warehouse_code, lang)} / {formatMasterData(r as unknown as Record<string, unknown>, 'location_name', r.location_code, lang)}</div>
                     </div>
-                    <button type="button" onClick={() => { setActiveBatch(r.batch_no); setNumKey(k => k + 1); }} style={{
-                      width: 120, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, padding: '8px 12px',
-                      borderRadius: 10, border: `1px solid ${active ? T.ACC : counted != null ? `${T.ACC}55` : T.BOR}`,
-                      background: active ? `${T.ACC}14` : T.CARD, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-                    }}>
-                      <span style={{ fontSize: 10, color: T.MUT, alignSelf: 'flex-start' }}>{t('terminal.wms_counted', '实盘数')}</span>
-                      <span style={{ fontSize: 24, fontWeight: 800, color: counted != null ? T.ACC : T.BOR, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{r.counted || (active ? '0' : '—')}</span>
-                    </button>
-                    <button type="button" onClick={() => removeRow(r.batch_no)} style={{ background: 'none', border: 'none', color: T.MUT, cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+                    <input aria-label={t('terminal.wms_counted', '实盘数') + ' ' + r.batch_no}
+                      inputMode="decimal" value={r.counted} disabled={submitting || Boolean(pendingRequest)}
+                      onFocus={() => { setActiveBatch(r.batch_no); setNumKey(k => k + 1); }}
+                      onChange={event => setCounted(r.batch_no, event.target.value)}
+                      style={{ width: 120, padding: 8, border: `1px solid ${active ? T.ACC : T.BOR}`,
+                        background: T.CARD, color: T.TXT, borderRadius: 10 }} />
+                    <button type="button" disabled={submitting || Boolean(pendingRequest)} onClick={() => removeRow(r.batch_no)} style={{ background: 'none', border: 'none', color: T.MUT, cursor: 'pointer', padding: 4, flexShrink: 0 }}>
                       <X size={18} />
                     </button>
                   </div>
@@ -241,7 +275,7 @@ export default function WmsStocktakeTerminalPage() {
           numpadKey={`${activeBatch ?? 'x'}-${numKey}`}
           numpadInitial={numInitial}
           onChange={val => { if (activeBatch) setCounted(activeBatch, val); }}
-          disabled={!activeBatch}
+          disabled={!activeBatch || submitting || Boolean(pendingRequest)}
           warning={cart.length === 0 ? `← ${t('terminal.wms_scan_to_count_short', '请先加入批次')}` : undefined}
         />
       </div>
@@ -252,14 +286,14 @@ export default function WmsStocktakeTerminalPage() {
           {t('common.back', '返回')}
         </button>
         <div style={{ flex: 1 }} />
-        <button type="button" onClick={submit} disabled={cart.length === 0 || submitting} style={{
+        <button type="button" onClick={submit} disabled={(!pendingRequest && cart.length === 0) || submitting || !pendingStocktakeKey} style={{
           padding: '11px 48px', borderRadius: 10, border: 'none',
-          background: cart.length > 0 ? T.ACC : T.BOR,
-          color: cart.length > 0 ? 'var(--bg-page)' : T.MUT,
-          fontSize: 16, fontWeight: 700, cursor: cart.length > 0 ? 'pointer' : 'not-allowed',
+          background: (cart.length > 0 || pendingRequest) ? T.ACC : T.BOR,
+          color: (cart.length > 0 || pendingRequest) ? 'var(--bg-page)' : T.MUT,
+          fontSize: 16, fontWeight: 700, cursor: (cart.length > 0 || pendingRequest) ? 'pointer' : 'not-allowed',
           opacity: submitting ? 0.7 : 1, minWidth: 200,
         }}>
-          {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('terminal.wms_confirm_count', '提交盘点')}`}
+          {pendingRequest && !submitting ? t('terminal.wms_count_retry', '核对上次提交') : submitting ? t('ui.提交中', '提交中...') : `✓ ${t('terminal.wms_confirm_count', '提交盘点')}`}
         </button>
       </div>
     </div>

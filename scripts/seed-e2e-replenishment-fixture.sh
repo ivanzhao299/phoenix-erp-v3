@@ -105,9 +105,9 @@ VALUES ('E2E-REPLENISH-SKU','E2E-REPLENISH-PRODUCT','E2E replenishment egg','E2E
 ON CONFLICT (sku_code) DO UPDATE SET status='ACTIVE';
 
 INSERT INTO inv_batches
-  (batch_no,product_code,sku_code,qty,qty_available,status,warehouse_code,store_code,company_code,expire_date)
-VALUES ('E2E-REPLENISH-BATCH','E2E-REPLENISH-PRODUCT','E2E-REPLENISH-SKU',100,100,'AVAILABLE','E2E-REPLENISH-SRC','E2E-REPLENISH-STORE','E2E-COMPANY',CURRENT_DATE+30)
-ON CONFLICT (batch_no) DO UPDATE SET sku_code='E2E-REPLENISH-SKU',qty=100,qty_available=100,status='AVAILABLE',warehouse_code='E2E-REPLENISH-SRC',store_code='E2E-REPLENISH-STORE',company_code='E2E-COMPANY';
+  (batch_no,product_code,sku_code,qty,qty_available,status,warehouse_code,store_code,company_code,expire_date,unit)
+VALUES ('E2E-REPLENISH-BATCH','E2E-REPLENISH-PRODUCT','E2E-REPLENISH-SKU',100,100,'AVAILABLE','E2E-REPLENISH-SRC','E2E-REPLENISH-STORE','E2E-COMPANY',CURRENT_DATE+30,'枚')
+ON CONFLICT (batch_no) DO UPDATE SET sku_code='E2E-REPLENISH-SKU',qty=100,qty_available=100,status='AVAILABLE',warehouse_code='E2E-REPLENISH-SRC',store_code='E2E-REPLENISH-STORE',company_code='E2E-COMPANY',unit=EXCLUDED.unit;
 COMMIT;
 SQL
 

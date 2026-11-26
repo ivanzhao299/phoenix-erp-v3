@@ -839,6 +839,14 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       const [locked] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [id]);
       if (locked.status === 'CANCELLED') return locked;
       if (NO_CANCEL_STATUSES.has(locked.status)) throw new BadRequestException(`状态 ${locked.status} 的订单不可取消`);
+      const loaded = await mgr.query(
+        `SELECT 1 FROM sal_order_item_batch_allocations allocation
+         JOIN sal_order_items item ON item.id=allocation.sales_order_item_id
+         WHERE item.sales_order_id=$1 AND (allocation.outbound_qty>0 OR EXISTS (
+           SELECT 1 FROM sal_order_item_batch_allocation_actions movement
+           WHERE movement.allocation_id=allocation.id AND movement.sales_order_id=item.sales_order_id
+             AND movement.action_type='OUTBOUND')) LIMIT 1`, [id]);
+      if (loaded.length) throw new ConflictException('订单已有出库过账，请通过退货或冲正处理');
       if (['APPROVED','ALLOCATED','PICKED','LOADED'].includes(locked.status)) {
         await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code, mgr);
       }

@@ -8,7 +8,7 @@ API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
 ADMIN_P="${ADMIN_PASS:-admin123}"
 PSQL=${PSQL:-$(which psql)}
-DB=phoenix_erp
+DB="${DB_NAME:-phoenix_erp}"
 
 PASS=0
 FAIL=0
@@ -34,22 +34,16 @@ TOKEN=$(curl -sf -X POST "$API/api/auth/login" -H 'Content-Type: application/jso
   -d "{\"username\":\"$ADMIN_U\",\"password\":\"$ADMIN_P\"}" \
   | grep -oE '"token":"[^"]*"' | cut -d'"' -f4) || { red "登录失败"; exit 99; }
 [ -n "$TOKEN" ] || { red "Token 空"; exit 99; }
-green "  ✓ token=${TOKEN:0:30}..."
+green "  ✓ 已登录"
 
 cyan ""
 cyan "▶ 1) Seed 测试数据"
-WH_A=WH-REGR-A
-WH_B=WH-REGR-B
+RUN="REGR-WMS-$(date +%s)-$$"
+WH_A="$RUN-A"
+WH_B="$RUN-B"
 MATERIAL_CODE=MAT-REGR-WMS
-BATCH_NO="REGR-BAT-$(date +%s | tail -c 6)"
-TASK_NO="REGR-INB-$(date +%s | tail -c 6)"
-
-# 清理上一轮残留
-$PSQL $DB -q -c "DELETE FROM inv_ledger WHERE ref_no LIKE 'REGR-%' OR batch_no LIKE 'REGR-%' OR batch_no LIKE '%-T-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'REGR-%' OR batch_no LIKE '%-T-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'REGR-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_transfer WHERE transfer_no LIKE 'WT-REGR-%' OR transfer_no LIKE 'TR-%REGR%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%' OR stocktake_no LIKE 'DC-%REGR%';" >/dev/null
+BATCH_NO="$RUN-BATCH"
+TASK_NO="$RUN-INB"
 
 # Seed: 仓库。PURCHASE 回归必须使用采购允许的 usage，避免测试夹具绕过生产规则。
 $PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, company_code, type, domain, status) VALUES ('$WH_A','回归测试仓A','COMP-REGR','PURCHASE_RECV','OPERATIONAL','ACTIVE'),('$WH_B','回归测试仓B','COMP-REGR','PURCHASE_RECV','OPERATIONAL','ACTIVE') ON CONFLICT (warehouse_code) DO UPDATE SET company_code=EXCLUDED.company_code, type=EXCLUDED.type, domain=EXCLUDED.domain, status=EXCLUDED.status;" >/dev/null
@@ -58,10 +52,13 @@ $PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, 
 $PSQL $DB -q -c "INSERT INTO mst_materials (material_code, material_name, material_type, unit, status, created_by) VALUES ('$MATERIAL_CODE','WMS回归测试物料','OTHER','件','ACTIVE','CI') ON CONFLICT (material_code) DO UPDATE SET status='ACTIVE', material_name=EXCLUDED.material_name, material_type=EXCLUDED.material_type, unit=EXCLUDED.unit;" >/dev/null
 
 # Seed: 一个 inv_batches 作为调拨/出库源
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, warehouse_code, location_code, store_code, company_code) VALUES ('$BATCH_NO','$MATERIAL_CODE','MATERIAL','OTHER','件',1000,'$WH_A','LOC-01','ALL','COMP-REGR');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, qty_available, warehouse_code, location_code, store_code, company_code) VALUES ('$BATCH_NO','$MATERIAL_CODE','MATERIAL','OTHER','件',1000,1000,'$WH_A','LOC-01','ALL','COMP-REGR');" >/dev/null
 
 # Seed: 一个 wms_inbound task 用于 A3 测试
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty) VALUES ('$TASK_NO','PENDING','$WH_A','PURCHASE','REGR测试品',500);" >/dev/null
+$PSQL $DB -q -c "INSERT INTO wms_inbound_items(task_no,batch_no,warehouse_code,item_type,material_code,unit,qty,expected_qty)
+ VALUES ('$TASK_NO','$BATCH_NO','$WH_A','MATERIAL','$MATERIAL_CODE','件',500,500);" >/dev/null
+
 
 green "  ✓ seed 完成 (WH=$WH_A/$WH_B, batch=$BATCH_NO, task=$TASK_NO)"
 
@@ -99,7 +96,7 @@ cyan ""
 cyan "▶ T2: A4 confirmTransfer — 调拨原子事务"
 R2=$(curl -s -o /tmp/r2.json -w '%{http_code}' -X POST "$API/api/inventory/transfer/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"from_warehouse\":\"$WH_A\",\"to_warehouse\":\"$WH_B\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"qty\":300}]}")
+  -d "{\"transfer_no\":\"$RUN-TR\",\"from_warehouse\":\"$WH_A\",\"to_warehouse\":\"$WH_B\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"qty\":300}]}")
 assert_ok "T2.1 confirmTransfer 200" "$R2"
 
 # 源 batch 减 300: 1500 - 300 = 1200
@@ -128,7 +125,7 @@ cyan ""
 cyan "▶ T3: A4 余量不足 → 整笔事务回滚"
 R3=$(curl -s -o /tmp/r3.json -w '%{http_code}' -X POST "$API/api/inventory/transfer/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"from_warehouse\":\"$WH_A\",\"to_warehouse\":\"$WH_B\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"qty\":99999}]}")
+  -d "{\"transfer_no\":\"$RUN-TR-INVALID\",\"from_warehouse\":\"$WH_A\",\"to_warehouse\":\"$WH_B\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"qty\":99999}]}")
 case "$R3" in 5*|4*) green "  ✓ T3.1 余量不足返非 2xx (HTTP $R3)"; PASS=$((PASS+1)) ;;
   *) red "  ✗ T3.1 应失败但返 $R3"; FAIL=$((FAIL+1)); FAILURES+=("T3.1 expected non-2xx got $R3") ;;
 esac
@@ -139,8 +136,8 @@ assert_eq "T3.2 源 batch 未变 (仍 1200)" "1200" "$SRC_UNCHANGED"
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ T4: A5 approveStocktake — 差额入账"
-STK_NO="REGR-STK-$(date +%s | tail -c 5)"
-$PSQL $DB -q -c "INSERT INTO wms_stocktake (stocktake_no, warehouse_code, item, sys_qty, act_qty, diff_qty, status) VALUES ('$STK_NO','$WH_A','REGR-PROD','1200','1198','-2','DONE');" >/dev/null
+STK_NO="ST-$RUN"
+$PSQL $DB -q -c "INSERT INTO wms_stocktake (stocktake_no, warehouse_code, batch_no, item, book_qty, actual_qty, status) VALUES ('$STK_NO','$WH_A','$BATCH_NO','$MATERIAL_CODE',1200,1198,'DONE');" >/dev/null
 
 R4=$(curl -s -o /tmp/r4.json -w '%{http_code}' -X POST "$API/api/inventory/stocktake/approve" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -159,8 +156,8 @@ assert_eq "T4.4 stocktake.status → APPROVED" "APPROVED" "$STK_STATUS"
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ T5: A5 approveLoss — 损耗扣减"
-LR_NO="REGR-LR-$(date +%s | tail -c 5)"
-$PSQL $DB -q -c "INSERT INTO wms_stocktake (stocktake_no, warehouse_code, item, status) VALUES ('$LR_NO','$WH_A','REGR-PROD','DONE');" >/dev/null
+LR_NO="LR-$RUN"
+$PSQL $DB -q -c "INSERT INTO wms_stocktake (stocktake_no, warehouse_code, batch_no, item, quantity_delta, reason, status) VALUES ('$LR_NO','$WH_A','$BATCH_NO','$MATERIAL_CODE',-50,'过期报损','DONE');" >/dev/null
 
 R5=$(curl -s -o /tmp/r5.json -w '%{http_code}' -X POST "$API/api/inventory/loss/approve" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -175,13 +172,19 @@ assert_eq "T5.3 LOSS 流水 +1" "1" "$LOSS_LEDGER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T6: A6 日结端点 GET/POST"
-R6=$(curl -s -o /tmp/r6.json -w '%{http_code}' -X GET "$API/api/stocktake/daily-close?date=$(date +%Y-%m-%d)" \
+cyan "▶ T6: 仓级日结的采集首日与影子核对"
+CAPTURE_DAY=$($PSQL $DB -tA -c "SELECT (initialized_at AT TIME ZONE 'Asia/Singapore')::date FROM wms_close_capture_epoch;")
+CLOSE_DAY=$($PSQL $DB -tA -c "SELECT (initialized_at AT TIME ZONE 'Asia/Singapore')::date+1 FROM wms_close_capture_epoch;")
+R6=$(curl -s -o /tmp/r6.json -w '%{http_code}' "$API/api/stocktake/daily-close?warehouse_code=$WH_A&date=$CLOSE_DAY" \
   -H "Authorization: Bearer $TOKEN")
 assert_ok "T6.1 GET daily-close summary 200" "$R6"
-# 应含 inbound_qty / outbound_qty / current_stock
-INB_IN_BODY=$(cat /tmp/r6.json | grep -c "inbound_qty")
-assert_eq "T6.2 响应含 inbound_qty 字段" "1" "$INB_IN_BODY"
+CLOSE_SUMMARY=$(node -pe "const {data}=JSON.parse(require('node:fs').readFileSync('/tmp/r6.json','utf8')); Array.isArray(data?.totals?.units) && data.eligible===false")
+assert_eq "T6.2 仓库返回业务日实物汇总，影子核对禁止封账" "true" "$CLOSE_SUMMARY"
+R6_HISTORY=$(curl -s -o /tmp/r6_history.json -w '%{http_code}' "$API/api/stocktake/daily-close?warehouse_code=$WH_A&date=$CAPTURE_DAY" \
+  -H "Authorization: Bearer $TOKEN")
+assert_ok "T6.3 GET 采集未满一日的历史状态" "$R6_HISTORY"
+CLOSE_HISTORY=$(node -pe "const {data}=JSON.parse(require('node:fs').readFileSync('/tmp/r6_history.json','utf8')); data?.historical===true && data.totals===null")
+assert_eq "T6.4 采集未满一日时明确待核且无快照" "true" "$CLOSE_HISTORY"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -197,9 +200,12 @@ cyan ""
 cyan "▶ Phase V2-WMS V2 fidelity — 收货严格校验 / 锁批 / PDA 幂等"
 
 # 准备一个新批次的入库单
-TASK_V2="REGR-V2-IB-$(date +%s | tail -c 6)"
-BATCH_V2="REGR-V2-BAT-$(date +%s | tail -c 6)"
+TASK_V2="$RUN-V2-IB"
+BATCH_V2="$RUN-V2-BATCH"
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code) VALUES ('$TASK_V2','PENDING','$WH_A','PURCHASE','REGR测试品',100,'ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO wms_inbound_items(task_no,batch_no,warehouse_code,item_type,material_code,unit,qty,expected_qty)
+ VALUES ('$TASK_V2','$BATCH_V2','$WH_A','MATERIAL','$MATERIAL_CODE','件',100,100);" >/dev/null
+
 
 # T8-V2.1 严格校验 — actual=80 broken=15 expected=100 → 失败 (80+15≠100)
 R_V2_1=$(curl -s -o /tmp/v2_ib1.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
@@ -242,10 +248,13 @@ case "$R_V2_3" in 4*) green "  ✓ T8-V2.3 重复确认拒绝 (HTTP $R_V2_3)"; P
 esac
 
 # T8-V2.4 EXPIRED 批次拦截 — 准备一个 LOCKED 批次后尝试入库
-LOCKED_BATCH="REGR-V2-LOCKED-$(date +%s | tail -c 6)"
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, qty_available, status, warehouse_code, location_code, store_code) VALUES ('$LOCKED_BATCH','$MATERIAL_CODE','MATERIAL','OTHER','件',50,50,'LOCKED','$WH_A','LOC-01','ALL');" >/dev/null
-TASK_V2_LK="REGR-V2-IB-LK-$(date +%s | tail -c 6)"
+LOCKED_BATCH="$RUN-LOCKED"
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code) VALUES ('$LOCKED_BATCH','$MATERIAL_CODE','MATERIAL','OTHER','件',50,0,'FROZEN','$WH_A','LOC-01','ALL','COMP-REGR');" >/dev/null
+TASK_V2_LK="$RUN-LOCKED-IB"
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code) VALUES ('$TASK_V2_LK','PENDING','$WH_A','PURCHASE','REGR测试品',30,'ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO wms_inbound_items(task_no,batch_no,warehouse_code,item_type,material_code,unit,qty,expected_qty)
+ VALUES ('$TASK_V2_LK','$LOCKED_BATCH','$WH_A','MATERIAL','$MATERIAL_CODE','件',30,30);" >/dev/null
+
 R_V2_4=$(curl -s -o /tmp/v2_ib4.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"task_no\":\"$TASK_V2_LK\",\"items\":[{\"batch_no\":\"$LOCKED_BATCH\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":30,\"expected_qty\":30,\"warehouse_code\":\"$WH_A\"}]}")
@@ -253,23 +262,25 @@ case "$R_V2_4" in 5*|4*) green "  ✓ T8-V2.4 LOCKED 批次入库拦截 (HTTP $R
 LOCKED_QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$LOCKED_BATCH';")
 assert_eq "T8-V2.4.1 LOCKED batch qty 未变 (仍 50)" "50" "$LOCKED_QTY_AFTER"
 
-# T8-V2.5 PDA 同步幂等 — 两次推送同 op_id 应只处理一次
-PDA_OP="REGR-V2-OP-$(date +%s | tail -c 6)"
-R_PDA1=$(curl -s -o /tmp/v2_pda1.json -w '%{http_code}' -X POST "$API/api/inventory/sync-pda" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"pda_id\":\"REGR-PDA-1\",\"entries\":[{\"op_id\":\"$PDA_OP\",\"task_no\":\"$TASK_V2\",\"actual_qty\":80}]}")
-assert_ok "T8-V2.5 PDA sync 首次 200" "$R_PDA1"
-ACC1=$(cat /tmp/v2_pda1.json | grep -oE '"accepted":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T8-V2.5.1 accepted=1" "1" "$ACC1"
-
-R_PDA2=$(curl -s -o /tmp/v2_pda2.json -w '%{http_code}' -X POST "$API/api/inventory/sync-pda" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"pda_id\":\"REGR-PDA-1\",\"entries\":[{\"op_id\":\"$PDA_OP\",\"task_no\":\"$TASK_V2\",\"actual_qty\":80}]}")
-assert_ok "T8-V2.5.2 PDA sync 重发 200" "$R_PDA2"
-DUP2=$(cat /tmp/v2_pda2.json | grep -oE '"duplicates":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T8-V2.5.3 重发后 duplicates=1" "1" "$DUP2"
-ACC2=$(cat /tmp/v2_pda2.json | grep -oE '"accepted":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T8-V2.5.4 重发后 accepted=0" "0" "$ACC2"
+# T8-V2.5 旧日志入口退役，由真正盘点过账提供回执。
+assert_eq "T8-V2.5 旧 PDA 同步已退役" "410" "$(curl -s -o /tmp/wms_sync_retired.json -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' "$API/api/inventory/sync-pda")"
+PDA_KEY=$(node -p "require('node:crypto').randomUUID()")
+BATCH_VERSION=$($PSQL $DB -tA -c "SELECT xmin::text FROM inv_batches WHERE batch_no='$BATCH_NO';")
+PDA_PAYLOAD=$(node -pe 'const [request_key,batch_no,batch_version]=process.argv.slice(1); JSON.stringify({request_key,lines:[{batch_no,batch_version,counted_qty:1147}]})' \
+  "$PDA_KEY" "$BATCH_NO" "$BATCH_VERSION")
+for attempt in 1 2; do
+  PDA_STATUS=$(curl -s -o "/tmp/wms_pda_count_$attempt.json" -w '%{http_code}' \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$PDA_PAYLOAD" "$API/api/inventory/stocktake/pda-count")
+  assert_ok "T8-V2.6 盘点请求第 $attempt 次返回回执" "$PDA_STATUS"
+done
+PDA_STK_NO=$(node -pe "JSON.parse(require('node:fs').readFileSync('/tmp/wms_pda_count_1.json','utf8')).results?.[0]?.stocktake_no ?? ''")
+receipts_equal=$(node -pe 'const fs=require("node:fs");
+  const [first,second]=process.argv.slice(1).map(file=>JSON.parse(fs.readFileSync(file,"utf8")));
+  require("node:util").isDeepStrictEqual(first,second)' /tmp/wms_pda_count_1.json /tmp/wms_pda_count_2.json)
+assert_eq "T8-V2.7 重试仍返回原回执" "true" "$receipts_equal"
+PDA_FACT=$($PSQL $DB -tA -c "SELECT count(*) FROM inv_ledger WHERE ref_no='$PDA_STK_NO' AND batch_no='$BATCH_NO' AND qty_change=-1;")
+assert_eq "T8-V2.8 PDA 重试仅有一次实物过账" "1" "$PDA_FACT"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -295,13 +306,20 @@ assert_eq "E-02 库存守恒 (seed 1000 + Σledger = 总库存)" "$EXPECTED" "$T
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ Cleanup"
-$PSQL $DB -q -c "DELETE FROM inv_ledger WHERE ref_no LIKE 'REGR-%' OR ref_no LIKE 'WT-REGR-%' OR batch_no LIKE 'REGR-%' OR batch_no LIKE '%-T-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'REGR-%' OR batch_no LIKE '%-T-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'REGR-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM wms_warehouses WHERE warehouse_code IN ('$WH_A','$WH_B');" >/dev/null
-$PSQL $DB -q -c "DELETE FROM mst_materials WHERE material_code='$MATERIAL_CODE' AND created_by='CI';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pda_sync_log WHERE pda_id='REGR-PDA-1' OR op_id LIKE 'REGR-V2-OP-%';" >/dev/null
+$PSQL $DB -v ON_ERROR_STOP=1 -q -c "
+  DELETE FROM wms_stocktake_submissions WHERE request_key='$PDA_KEY';
+  DELETE FROM wms_stocktake WHERE stocktake_no IN ('$STK_NO','$LR_NO','$PDA_STK_NO');
+  DELETE FROM wms_inbound_confirmation_receipts WHERE task_no IN ('$TASK_NO','$TASK_V2','$TASK_V2_LK');
+  DELETE FROM wms_inbound_items WHERE task_no IN ('$TASK_NO','$TASK_V2','$TASK_V2_LK');
+  DELETE FROM wms_inbound WHERE task_no IN ('$TASK_NO','$TASK_V2','$TASK_V2_LK');
+  DELETE FROM wms_atomic_transfer_receipts WHERE transfer_no='$RUN-TR';
+  DELETE FROM wms_transfer_items WHERE transfer_no='$RUN-TR';
+  DELETE FROM wms_transfer WHERE transfer_no='$RUN-TR';
+  DELETE FROM inv_ledger WHERE warehouse_code IN ('$WH_A','$WH_B');
+  DELETE FROM inv_batches WHERE warehouse_code IN ('$WH_A','$WH_B');
+  DELETE FROM wms_close_capture WHERE warehouse_code IN ('$WH_A','$WH_B');
+  DELETE FROM wms_warehouses WHERE warehouse_code IN ('$WH_A','$WH_B');
+" >/dev/null || { red "清理本次数据失败"; exit 1; }
 green "  ✓ test data 清理完毕"
 
 echo ""

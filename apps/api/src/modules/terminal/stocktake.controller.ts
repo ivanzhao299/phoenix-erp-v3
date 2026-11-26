@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, GoneException, Req, UseGuards } from '@nestjs/common';
 import { TerminalService } from './terminal.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -12,8 +12,8 @@ export class StocktakeController {
   constructor(private readonly terminalService: TerminalService) {}
 
   @Get('tasks')
-  async getStocktakeTasks() {
-    return await this.terminalService.getStocktakeTasks();
+  async getStocktakeTasks(@Req() req: any) {
+    return await this.terminalService.getStocktakeTasks(req.dataScope);
   }
 }
 
@@ -22,11 +22,8 @@ export class StocktakeController {
 @UseGuards(MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_PKG_MGR', 'E')
 export class DailyCloseController {
-  constructor(private readonly terminalService: TerminalService) {}
-
   @Post('submit')
-  async submitDailyClose(@Body() body: any, @Req() req: any) {
-    const userId = req.user?.userId || 1;
-    return await this.terminalService.submitDailyClose(body.warehouse_code, body.date, userId);
+  submitDailyClose() {
+    throw new GoneException('请升级到仓库日结工作台，提交仓库、业务日期和预览版本');
   }
 }

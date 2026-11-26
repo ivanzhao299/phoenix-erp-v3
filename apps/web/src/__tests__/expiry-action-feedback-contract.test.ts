@@ -2,25 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const source = readFileSync(
-  join(process.cwd(), 'src/app/(admin)/warehouse/expiry/page.tsx'),
-  'utf8',
-);
+const warehouseRoot = join(process.cwd(),'src/app/(admin)/warehouse');
+const source = readFileSync(join(warehouseRoot,'expiry/page.tsx'), 'utf8');
+const outbound = readFileSync(join(warehouseRoot,'outbound/page.tsx'), 'utf8');
 
 describe('expiry alert action feedback contract', () => {
-  it('keeps the alert visible and exposes a business error when outbound creation fails', () => {
-    expect(source).toContain('const [actionError, setActionError] = useState<string | null>(null);');
-    expect(source).toContain('setActionError(err instanceof Error && err.message ? err.message');
+  it('reads paged physical stock, displays its unit and provides a load error', () => {
+    expect(source).toContain('/inventory/batches/query?');
+    expect(source).toContain('{row.qty} {row.unit}');
     expect(source).toContain('role="alert"');
-    expect(source).not.toContain('.catch(() => {});');
   });
 
-  it('removes the alert only after the outbound request succeeds', () => {
-    const createStart = source.indexOf('await crudApi.create("wms_outbound"');
-    const removeAlert = source.indexOf('setAlerts(prev => prev.filter(a => a.id !== confirm.item!.id));');
-    const actionCatch = source.indexOf('} catch (err) {', createStart);
-    expect(createStart).toBeGreaterThanOrEqual(0);
-    expect(removeAlert).toBeGreaterThan(createStart);
-    expect(actionCatch).toBeGreaterThan(removeAlert);
+  it('links to a normal outbound draft scoped to the current warehouse and batch', () => {
+    expect(source).toContain('expiryBatch: row.batch_no, warehouse: row.warehouse_code');
+    expect(source).not.toContain('crudApi.create');
+    expect(outbound).toContain("batch_no: expiryBatch, warehouse_code: warehouse, expiry: 'UPCOMING'");
+    expect(outbound).toContain('expiry_batch_no: row.batch_no');
   });
 });

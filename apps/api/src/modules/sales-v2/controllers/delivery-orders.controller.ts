@@ -33,6 +33,18 @@ export class DeliveryOrdersController {
   // ── 配送单 ────────────────────────────────────────────────────────────────
 
   /** GET /api/v2/sales/delivery — 配送单列表 */
+  @Get('warehouse-loading')
+  @RequireMenu('MENU_WMS_INOUT', 'V')
+  warehouseLoading(@Query('delivery_no') deliveryNo?: string) {
+    return this.svc.warehouseLoadingTasks(deliveryNo);
+  }
+
+  @Post('warehouse-loading/:id')
+  @RequireMenu('MENU_WMS_INOUT', 'E')
+  finishWarehouseLoading(@Param('id') id: string, @Body() body: any) {
+    return this.svc.finishWarehouseLoading(id, body);
+  }
+
   @Get()
   list(@Query() q: QueryDeliveryOrderDto) {
     return this.svc.listOrders(q);

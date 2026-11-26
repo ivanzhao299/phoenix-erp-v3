@@ -58,7 +58,7 @@ export default function StocktakePage() {
     type: "batch",
     onPickKeys: { item: "inventory_item_code", warehouse_code: "warehouse_code" }
   }, {
-    key: "count_type",
+    key: "inventory_count_type",
     label: t("ui.盘点类型", "盘点类型"),
     type: "dict",
     dictType: "INV_COUNT_TYPE",
@@ -93,16 +93,14 @@ export default function StocktakePage() {
       grade_code: "grade_code"
     }
   }, {
-    key: "sys_qty",
+    key: "book_qty",
+    step: 0.001,
     label: t("ui.账面数量", "账面数量"),
     type: "number"
   }, {
-    key: "act_qty",
+    key: "actual_qty",
+    step: 0.001,
     label: t("ui.实际数量", "实际数量"),
-    type: "number"
-  }, {
-    key: "diff_qty",
-    label: t("ui.差异数量", "差异数量"),
     type: "number"
   }, {
     key: "operator",
@@ -145,6 +143,7 @@ export default function StocktakePage() {
   // KPI 数据：独立拉取（DataTable 分页显示，KPI 需全量）
   useEffect(() => {
     crudApi.list<Row>(TABLE, {
+      document_kind: "STOCKTAKE",
       limit: 500
     }).then(res => setAllRows(res.data ?? [])).catch(() => {});
   }, [refreshKey]);
@@ -168,9 +167,9 @@ export default function StocktakePage() {
   function exportCSV(rows: Row[]) {
     const headers = [t("ui.盘点单号", "盘点单号"), t("ui.仓库", "仓库"), t("ui.库区", "库区"), t("ui.账面量", "账面量"), t("ui.实际量", "实际量"), t("ui.差异量", "差异量"), t("ui.差异率%", "差异率%"), t("common.status", "状态"), t("ui.盘点员", "盘点员")];
     const lines = rows.map(r => {
-      const book = Number(r.sys_qty ?? 0);
-      const actual = Number(r.act_qty ?? 0);
-      const diff = Number(r.diff_qty ?? 0);
+      const book = Number(r.book_qty ?? r.sys_qty ?? 0);
+      const actual = Number(r.actual_qty ?? r.act_qty ?? 0);
+      const diff = Number(r.quantity_delta ?? r.diff_qty ?? 0);
       const rate = book > 0 ? (Math.abs(diff) / book * 100).toFixed(2) : "0.00";
       const status = STATUS_BADGE[String(r.status)]?.label ?? String(r.status ?? "");
       return [r.stocktake_no, r.warehouse_code, r.item ?? "", book, actual, diff, rate, status, r.auditor ?? ""].join(",");
@@ -189,15 +188,13 @@ export default function StocktakePage() {
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
     try {
-      const diffQty = Number(values.act_qty ?? 0) - Number(values.sys_qty ?? 0);
+
       const payload = editing?.id ? {
-        ...values,
-        diff_qty: String(diffQty)
+        ...values
       } : {
         ...values,
         stocktake_no: values.stocktake_no || "ST-" + Date.now().toString().slice(-6),
         status: values.status || "DRAFT",
-        diff_qty: String(diffQty),
         date: new Date().toISOString().slice(0, 10)
       };
       editing?.id ? await crudApi.update(TABLE, editing.id as number, payload) : await crudApi.create(TABLE, payload);
@@ -229,9 +226,6 @@ export default function StocktakePage() {
       method: "POST",
       body: JSON.stringify({
         stocktake_no: approveTarget.stocktake_no,
-        batch_no: approveTarget.batch_no,
-        diff_qty: approveTarget.diff_qty,
-        item: approveTarget.item,
       }),
     });
     invalidateBatchLookups();
@@ -242,10 +236,10 @@ export default function StocktakePage() {
   // 统计 KPI（按 wms_stocktake 真实列 sys_qty/act_qty/diff_qty）
   const pending = allRows.filter(r => r.status === "DONE").length;
   const highRisk = allRows.filter(r => {
-    const b = Number(r.sys_qty ?? 0);
-    return b > 0 && Math.abs(Number(r.diff_qty ?? 0)) / b > 0.05;
+    const b = Number(r.book_qty ?? r.sys_qty ?? 0);
+    return b > 0 && Math.abs(Number(r.quantity_delta ?? r.diff_qty ?? 0)) / b > 0.05;
   }).length;
-  const totalDiff = allRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
+  const totalDiff = allRows.reduce((s, r) => s + Math.abs(Number(r.quantity_delta ?? r.diff_qty ?? 0)), 0);
   const COLUMNS: Column<Row>[] = [{
     key: "stocktake_no",
     title: t("ui.盘点单号", "盘点单号"),
@@ -263,11 +257,13 @@ export default function StocktakePage() {
   }, {
     key: "sys_qty",
     title: t("ui.账面量", "账面量"),
+    render: (value, row) => String(row.book_qty ?? value ?? "—"),
     width: 80,
     align: "right"
   }, {
     key: "act_qty",
     title: t("ui.实际量", "实际量"),
+    render: (value, row) => String(row.actual_qty ?? value ?? "—"),
     width: 80,
     align: "right"
   }, {
@@ -275,8 +271,8 @@ export default function StocktakePage() {
     title: t("ui.差异量", "差异量"),
     width: 80,
     align: "right",
-    render: v => {
-      const n = Number(v ?? 0);
+    render: (v, row) => {
+      const n = Number(row.quantity_delta ?? v ?? 0);
       const moneyTone: "default" | "success" | "warning" | "danger" = n === 0 ? "success" : n > 0 ? "default" : "danger";
       return <span style={moneyCell(moneyTone, "md")}>{n === 0 ? "—" : n > 0 ? `+${n}` : String(n)}</span>;
     }
@@ -286,8 +282,8 @@ export default function StocktakePage() {
     width: 100,
     align: "center",
     render: (_, row) => {
-      const book = Number(row.sys_qty ?? 0);
-      const diff = Number(row.diff_qty ?? 0);
+      const book = Number(row.book_qty ?? row.sys_qty ?? 0);
+      const diff = Number(row.quantity_delta ?? row.diff_qty ?? 0);
       const rate = book > 0 ? Math.abs(diff) / book * 100 : 0;
       const isHigh = rate > 5;
       const tone: Tone = rate === 0 ? "success" : isHigh ? "danger" : "warning";
@@ -373,7 +369,7 @@ export default function StocktakePage() {
         ))}
       </div>
 
-      <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
+      <DataTable table={TABLE} columns={COLUMNS} params={{ document_kind: "STOCKTAKE" }} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />

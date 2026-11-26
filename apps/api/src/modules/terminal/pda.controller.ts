@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { TerminalService } from './terminal.service';
 import { PdaTerminalsService } from './pda-terminals.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -16,13 +16,13 @@ export class PdaController {
   ) {}
 
   @Get('inventory/:warehouse_code')
-  async syncInventory(@Param('warehouse_code') warehouseCode: string) {
-    return await this.terminalService.pdaSyncInventory(warehouseCode);
+  async syncInventory(@Param('warehouse_code') warehouseCode: string, @Req() req: any) {
+    return await this.terminalService.pdaSyncInventory(warehouseCode, req.dataScope);
   }
 
   @Post('scan')
-  async scanBarcode(@Body('barcode') barcode: string) {
-    return await this.terminalService.pdaScanBarcode(barcode);
+  async scanBarcode(@Body('barcode') barcode: string, @Req() req: any) {
+    return await this.terminalService.pdaScanBarcode(barcode, req.dataScope);
   }
 
   // ═══ V2 fidelity: 终端 CRUD ═══════════════════════════════════════════

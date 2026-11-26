@@ -12,7 +12,7 @@ const checks = [
       'this.assertWritableWarehouse(warehouseCode, `入库明细',
       'this.assertWritableWarehouse(warehouseCode, `采购收货',
       'this.assertWritableWarehouse(batch.warehouse_code, `出库批次',
-      'this.assertWritableWarehouse(rows[0].warehouse_code || null, `收货单',
+      'this.confirmInbound({ task_no: orderNo, items: body?.items }, user, undefined, true)',
       'this.assertWritableWarehouse(from_warehouse,',
       'this.assertWritableWarehouse(to_warehouse,',
       'this.assertWritableWarehouse(src.warehouse_code, `调拨源批次',

@@ -13,8 +13,8 @@ const cases = [
   ['finance2/ap', 'company_code'], ['finance2/ap', 'project_code'],
   ['finance2/reports', 'companyCode'], ['packaging/inbound', 'house'],
   ['packaging/inbound', 'warehouse'], ['packaging', 'house_code'],
-  ['quality/backward', 'warehouse_name'], ['quality/backward', 'location_name'],
-  ['quality/farm', 'house'], ['quality/forward', 'customer_code'], ['quality/product', 'sku'],
+  ['quality/backward', 'warehouse_name', 'quality/QualityInventoryTrace.tsx'], ['quality/backward', 'location_name', 'quality/QualityInventoryTrace.tsx'],
+  ['quality/farm', 'house'], ['quality/forward', 'customer_code', 'quality/QualityInventoryTrace.tsx'], ['quality/product', 'sku'],
   ['sales2/orders', 'fulfillment_warehouse_code'], ['sales2/delivery', 'fulfillment_warehouse_code'],
   ['sales2/delivery', 'company_code'], ['sales2/pricing', 'customer_code'],
   ['sales2/pricing', 'company_code'], ['store/losses', 'store'], ['store/losses', 'sku'],
@@ -22,8 +22,8 @@ const cases = [
 ] as const;
 
 describe('same-class business master display contracts', () => {
-  it.each(cases)('%s binds %s to an authoritative name/code formatter', (page, field) => {
-    const source = ts.createSourceFile(page, readFileSync(join(process.cwd(), 'src/app/(admin)', page, 'page.tsx'), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  it.each(cases)('%s binds %s to an authoritative name/code formatter', (page, field, component?: string) => {
+    const source = ts.createSourceFile(page, readFileSync(join(process.cwd(), 'src/app/(admin)', component ?? join(page, 'page.tsx')), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const calls: string[] = [];
     const visit = (node: ts.Node) => {
       if (ts.isCallExpression(node) && ['formatMasterData', 'masterDisplayLabel'].includes(node.expression.getText(source))) calls.push(node.getText(source));

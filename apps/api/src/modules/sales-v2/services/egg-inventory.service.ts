@@ -1,3 +1,4 @@
+import { quantityTicks } from '../../wms/stock-quantity';
 import { eggSourceWarehouse } from '../../product-master/services/egg-source-change-policy';
 import { assertApprovedEggSku, checkApprovedEggSource } from '../../product-master/services/egg-source-change-facts';
 import { officialInventoryPredicate, officialInventoryWritablePredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
@@ -373,6 +374,7 @@ export class EggInventoryService {
       logDate?:        string | null;
       warehouseCode?:  string | null;
       locationCode?:   string | null;
+      unit?:           string | null;
       /**
        * INV-401 出库结转金额（qty_change × 批次 unit_cost，带符号）。
        * undefined = 省列（入库/历史语义）；数值 = 写入 cost_change；
@@ -402,6 +404,7 @@ export class EggInventoryService {
       logDate: params.logDate ?? null,
       warehouseCode: params.warehouseCode ?? null,
       locationCode: params.locationCode ?? null,
+      unit: params.unit,
       // INV-401：costChange 为"省列语义"参数——undefined 时保持省列
       // （不得 `?? null` 归一，否则历史调用方会显式写 NULL 改变列集合）。
       costChange: params.costChange,
@@ -1251,10 +1254,12 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
     const q = mgr.query.bind(mgr);
     positiveQuantity(requestedQty,'出库基础数量');
+    const requestedTicks = quantityTicks(requestedQty, '出库基础数量');
     const orderAuthority=await this.verifiedSalesStock(mgr,orderId,orderNo,companyCode);
 
     const allocations = await q(
-      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost
+      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost,
+                (COALESCE(b.source_type,'') IN ('TRANSFER','TRANSFER_DAMAGE') AND to_jsonb(b)->>'transfer_cost_currency' IS NULL) AS transfer_cost_pending
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -1273,7 +1278,8 @@ export class EggInventoryService {
     let outboundAvailable = 0;
     const allocationAuthorities=new Map<unknown,VerifiedSalesStock>();
     for (const allocation of allocations) {
-      const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      const available = quantityTicks(allocation.reserved_qty, '订单预留')
+        - quantityTicks(allocation.outbound_qty, '已出库') - quantityTicks(allocation.released_qty, '已释放');
       if (available <= 0) continue;
       const allocationAuthority=allocation.quantity_snapshot&&authority&&allocation.warehouse_code===authority.warehouseCode
         &&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],allocation.quantity_snapshot)?authority:undefined;
@@ -1284,13 +1290,15 @@ export class EggInventoryService {
       }
       outboundAvailable += available;
     }
-    if (outboundAvailable < requestedQty) throw new ConflictException(`订单 ${orderNo} 剩余预留不足，本次需出库 ${requestedQty}`);
+    if (outboundAvailable < requestedTicks) throw new ConflictException(`订单 ${orderNo} 剩余预留不足，本次需出库 ${requestedQty}`);
 
-    let remaining = requestedQty;
+    let remaining = requestedTicks;
     for (const allocation of allocations) {
       if (remaining <= 0) break;
-      const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
-      const outQty = Math.min(available, remaining);
+      const available = quantityTicks(allocation.reserved_qty, '订单预留')
+        - quantityTicks(allocation.outbound_qty, '已出库') - quantityTicks(allocation.released_qty, '已释放');
+      const outTicks = Math.min(available, remaining);
+      const outQty = outTicks / 1000;
       if (outQty <= 0) continue;
       if (allocation.quantity_snapshot) {
         await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code??allocation.quantity_snapshot.skuCode, 'sale-stock',allocationAuthorities.get(allocation.id)?.companyCode);
@@ -1320,10 +1328,10 @@ export class EggInventoryService {
           batchExpireDate: allocation.expire_date ?? null,
           qualityGrade:    allocation.quality_grade ?? null,
           skuCode:         allocation.sku_code ?? null,
-          warehouseCode: allocation.warehouse_code, locationCode: allocation.location_code,
+          warehouseCode: allocation.warehouse_code, locationCode: allocation.location_code, unit: allocation.unit,
           // INV-401：出库结转 = -outQty × 批次 unit_cost（批次成本法；历史
           // 批次 unit_cost=0 → 结转 0，F2 挂账口径）
-          costChange:      -(outQty * Number(allocation.unit_cost ?? 0)),
+          costChange:      allocation.transfer_cost_pending ? null : -(outQty * Number(allocation.unit_cost ?? 0)),
         }, mgr);
 
       await q(
@@ -1342,7 +1350,7 @@ export class EggInventoryService {
         [outQty, allocation.id],
       );
       if (updated.length !== 1) throw new ConflictException(`出库 allocation ${allocation.id} 数量已变化`);
-      remaining -= outQty;
+      remaining -= outTicks;
     }
 
     if (remaining > 0) throw new ConflictException(`订单 ${orderNo} 剩余预留不足，本次需出库 ${requestedQty}`);

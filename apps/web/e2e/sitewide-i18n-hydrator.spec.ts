@@ -392,7 +392,6 @@ test('flock missing-name fallback displays each code once; henhouse keeps the re
 
 for (const c of [
   { route: '/quality/farm', table: 'qa_inspections', row: { inspect_no: 'QA-1', house_code: 'H-1' }, labels: ['House One（H-1）'] },
-  { route: '/quality/backward', table: 'inv_batches', row: { batch_no: 'B-1', warehouse_code: 'WH-1', warehouse_name: 'Warehouse One', warehouse_name_en: 'Warehouse One', location_code: 'LOC-1', location_name: 'Location One' }, labels: ['Warehouse One（WH-1）', 'Location One（LOC-1）'] },
   { route: '/quality/product', table: 'qa_product_inspections', row: { inspect_no: 'QA-P1', sku_code: 'SKU-1' }, labels: ['Egg One（SKU-1）'] },
   { route: '/packaging/inbound', table: 'wms_inbound', row: { inbound_no: 'IN-1', house_code: 'H-1', warehouse: 'WH-1', status: 'PENDING' }, labels: ['House One（H-1）', 'Warehouse One（WH-1）'] },
   { route: '/warehouse/loss-report', table: 'wms_stocktake', row: { stocktake_no: 'LR-1', warehouse_code: 'WH-1', warehouse_name: 'Warehouse One', warehouse_name_en: 'Warehouse One', zone_code: 'ZONE-1', status: 'DRAFT' }, labels: ['Warehouse One（WH-1）', 'Zone One（ZONE-1）'] },
@@ -408,6 +407,26 @@ for (const c of [
   await page.route('**/api/crud/wms_zones**', route => route.fulfill({ json: { data: [{ zone_code: 'ZONE-1', zone_name: 'Zone One' }] } }));
   await page.goto(c.route);
   for (const label of c.labels) await expect(page.locator('tbody')).toContainText(label);
+});
+
+test('backward quality trace resolves localized names from the scoped batch result', async ({ page }) => {
+  await authenticate(page, 'en');
+  await page.route('**/api/**', route => route.fulfill({ json: { data: [], total: 0 } }));
+  await page.route('**/api/quality/trace/backward?**', route => {
+    expect(new URL(route.request().url()).searchParams.get('batch_no')).toBe('B-1');
+    return route.fulfill({ json: {
+      traces: [{ batch_detail: { batch_no: 'B-1', warehouse_code: 'WH-1', warehouse_name: 'Warehouse One',
+        warehouse_name_en: 'Warehouse One', location_code: 'LOC-1', location_name: 'Location One',
+        qty: '12', unit: 'EA', status: 'AVAILABLE' } }],
+      shipments: [], lineage: [], allocations: [], allocationPage: null,
+    } });
+  });
+  await page.goto('/quality/backward');
+  await page.getByRole('textbox', { name: 'Batch No.' }).fill('B-1');
+  await page.getByRole('button', { name: 'Traceability', exact: true }).click();
+  const row = page.getByRole('row').filter({ hasText: 'B-1' });
+  await expect(row).toContainText('Warehouse One（WH-1）');
+  await expect(row).toContainText('Location One（LOC-1）');
 });
 
 test('breeding alerts distinguish a house code from a historical name without duplicate labels', async ({ page }) => {

@@ -27,6 +27,7 @@ import { ReturnOrdersService } from './return-orders.service';
 import { SalesReturnsController } from '../controllers/sales-returns.controller';
 import { FinanceCreditNoteAdapter } from '../adapters/finance-credit-note.adapter';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { TransferCostEvidence1795658700000 } from '../../../database/migrations/1795658700000-TransferCostEvidence';
 import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
 import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
 import { CUTOVER_PROVENANCE_SIGNER } from '../../wms/cutover-cross-company-proof';
@@ -165,9 +166,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     // Replace only the empty closure contracts with the real owned transfer schema for actual handovers.
     await db.query('DROP TABLE wms_transfer_items;DROP TABLE wms_transfer');
     const transfers=db.createQueryRunner();await transfers.connect();
-    try{await new AlignWmsTransactionForms1787731200000().up(transfers);await new UpgradeWmsTransferLifecycle1787965200000().up(transfers);}finally{await transfers.release();}
+    try{await new AlignWmsTransactionForms1787731200000().up(transfers);await new UpgradeWmsTransferLifecycle1787965200000().up(transfers);await new TransferCostEvidence1795658700000().up(transfers);}finally{await transfers.release();}
     await db.query(`ALTER TABLE sal_sales_orders ADD COLUMN company_code text,ADD COLUMN currency_code text,ADD COLUMN total_amount numeric,
-        ADD COLUMN customer_code text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN project_code text;
+        ADD COLUMN customer_code text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN project_code text,
+        ADD COLUMN warehouse_governance_pending boolean NOT NULL DEFAULT false;
       ALTER TABLE sal_order_items ADD COLUMN qty numeric,ADD COLUMN amount numeric,ADD COLUMN quantity_snapshot jsonb,ADD COLUMN allocated_qty numeric;
       CREATE TABLE fin_cash_accounts(company_code text,current_balance numeric,status text);
       CREATE TABLE fin_ar_invoices(company_code text,balance_amount_original numeric,collection_status text);
@@ -793,7 +795,13 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const fake=(await cutoverApi(1).send(masked).expect(201)).body;await cutoverApi(1,`/${fake.id}/freeze`).send({version:0}).expect(409);
     const pending=(await cutoverApi(1).send({...payload,intentKey:randomUUID()}).expect(201)).body;await cutoverApi(1,`/${pending.id}/freeze`).send({version:0}).expect(409);
     const [difference]=await db.query('SELECT id FROM wms_transfer_discrepancies WHERE transfer_no=$1',[transfer]);
-    await asInventoryActor(1,cls=>new WmsService(db.manager,cls).completeTransfer(transfer,{resolutions:[{id:difference.id,resolution_type:'ADJUSTMENT',resolution_ref:'SYNTHETIC-RETAINED-DAMAGE-CUSTODY'}]},{username:'maker'}));
+    await asInventoryActor(1,async cls=>{
+      const wms=new WmsService(db.manager,cls);
+      const resolution={id:difference.id,resolution_type:'CUSTODY',resolution_ref:'SYNTHETIC-UNVERIFIED-CUSTODY'};
+      await expect(wms.completeTransfer(transfer,{resolutions:[resolution]},{username:'maker'})).rejects.toThrow('处置凭证');
+      await wms.completeTransfer(transfer,{resolutions:[{...resolution,resolution_ref:line.damaged_batch_no}]},{username:'maker'});
+      expect((await db.query('SELECT qty::int AS qty FROM inv_batches WHERE batch_no=$1',[line.damaged_batch_no]))[0].qty).toBe(5);
+    });
     const final=await processingCount('WH-A2','HOUSE-A2'),valid=(await cutoverApi(1).send(final.payload).expect(201)).body;
     await cutoverApi(1,`/${valid.id}/freeze`).send({version:0}).expect(201);
     await cutoverApi(7,`/${valid.id}`,'get').expect(409);await cutoverApi(7).send(final.payload).expect(409);
@@ -1366,7 +1374,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       const deliveries=new DeliveryOrdersService(db,cls,inventory,new SalesOrderLifecycleService(db));
       expect((await deliveries.startLoading('1',{})).status).toBe('LOADING');
       expect((await db.query('SELECT status FROM sal_delivery_order_items WHERE id=1'))[0].status).toBe('LOADED');
-      await expect(deliveries.finishLoading('1',{})).rejects.toThrow('旧销售出库禁止');
+      await expect(deliveries.finishLoading('1',{})).rejects.toThrow('履约仓不一致');
       await db.query("UPDATE sal_delivery_orders SET fulfillment_warehouse_code='WH-A' WHERE id=1");
       expect((await deliveries.finishLoading('1',{})).status).toBe('LOADED');
       expect((await db.query('SELECT loaded_qty,outbound_qty FROM sal_delivery_order_items WHERE id=1'))[0]).toEqual({loaded_qty:'40',outbound_qty:'40'});

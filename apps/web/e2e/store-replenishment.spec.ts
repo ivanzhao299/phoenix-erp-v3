@@ -38,35 +38,56 @@ async function requestRow(api: Awaited<ReturnType<typeof apiFor>>, id: number) {
 }
 
 test.describe.serial('store replenishment manager + warehouse lifecycle', () => {
-  test('create, submit, inventory rejection, approve, dispatch and receive branches', async ({ baseURL }) => {
-    const { fixture, manager, warehouse } = requiredConfig();
-    const managerApi = await apiFor(baseURL!, manager);
-    const warehouseApi = await apiFor(baseURL!, warehouse);
-    const create = await managerApi.post('/api/v2/store-replenishments', { data: { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, urgency: 'NORMAL', reason: 'Playwright lifecycle', lines: [{ skuCode: fixture.skuCode, qty: fixture.qty }] } });
-    const createBody = await create.text();
-    expect(create.ok(), `create replenishment status=${create.status()} body=${createBody}`).toBeTruthy();
-    const row = await bodyOf(create) as { id: number; request_no: string };
-    expect(row.request_no).toMatch(/^SR-/);
-    expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/submit`)).ok()).toBeTruthy();
-    const approval = await warehouseApi.post(`/api/v2/store-replenishments/${row.id}/approve`, { data: { sourceWarehouseCode: fixture.sourceWarehouseCode } });
-    if (!approval.ok()) {
-      expect((await approval.text()).toLowerCase()).toMatch(/库存|stock|available/);
-      expect((await requestRow(managerApi, row.id))?.status).toBe('SUBMITTED');
-      return;
-    }
-    expect((await warehouseApi.post(`/api/v2/store-replenishments/${row.id}/dispatch`)).ok()).toBeTruthy();
-    const transferResponse = await managerApi.get(`/api/v2/store-replenishments/${row.id}/transfer`);
-    expect(transferResponse.ok()).toBeTruthy();
-    const transfer = await bodyOf(transferResponse) as { items: Array<{ source_batch_no: string; expected_qty: number }> };
-    expect(transfer.items.length).toBeGreaterThan(0);
-    const partial = transfer.items.map((item, index) => ({ batch_no: item.source_batch_no, received_qty: index ? Number(item.expected_qty) : Math.max(0, Number(item.expected_qty) - 1), damaged_qty: 0, note: 'Playwright short receive' }));
-    expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/receive`, { data: { items: partial } })).ok()).toBeTruthy();
-    const after = await bodyOf(await managerApi.get(`/api/v2/store-replenishments/${row.id}/transfer`));
-    const discrepancies = (after as { discrepancies: Array<{ id: number; resolved_at?: string | null }> }).discrepancies;
-    const pending = discrepancies.filter(x => !x.resolved_at);
-    if (pending.length) expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/close`, { data: { resolutions: pending.map(x => ({ id: x.id, resolution_type: 'ADJUSTMENT', resolution_ref: `PW-ADJ-${row.id}-${x.id}` })) } })).ok()).toBeTruthy();
-    expect((await requestRow(managerApi, row.id))?.status).toBe('CLOSED');
-  });
+  for (const scenario of ['full', 'shortage'] as const) {
+    test(`create, approve, dispatch and receive replenishment: ${scenario}`, async ({ baseURL }) => {
+      const { fixture, manager, warehouse } = requiredConfig();
+      const managerApi = await apiFor(baseURL!, manager);
+      const warehouseApi = await apiFor(baseURL!, warehouse);
+      try {
+        const create = await managerApi.post('/api/v2/store-replenishments', { data: {
+          storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode,
+          urgency: 'NORMAL', reason: `Playwright receipt: ${scenario}`, lines: [{ skuCode: fixture.skuCode, qty: fixture.qty }],
+        } });
+        expect(create.ok(), `create replenishment status=${create.status()} body=${await create.text()}`).toBeTruthy();
+        const row = await bodyOf(create) as { id: number; request_no: string };
+        const requestPath = `/api/v2/store-replenishments/${row.id}`;
+        expect(row.request_no).toMatch(/^SR-/);
+        expect((await managerApi.post(`${requestPath}/submit`)).ok()).toBeTruthy();
+        const approval = await warehouseApi.post(`${requestPath}/approve`, { data: { sourceWarehouseCode: fixture.sourceWarehouseCode } });
+        expect(approval.ok(), `approve status=${approval.status()} body=${await approval.text()}`).toBeTruthy();
+        const dispatch = await warehouseApi.post(`${requestPath}/dispatch`);
+        expect(dispatch.ok(), `dispatch status=${dispatch.status()} body=${await dispatch.text()}`).toBeTruthy();
+        const transferResponse = await managerApi.get(`${requestPath}/transfer`);
+        expect(transferResponse.ok()).toBeTruthy();
+        const transfer = await bodyOf(transferResponse) as { items: Array<{ source_batch_no: string; expected_qty: number }> };
+        expect(transfer.items.length).toBeGreaterThan(0);
+        const items = transfer.items.map((item, index) => ({
+          batch_no: item.source_batch_no,
+          received_qty: scenario === 'shortage' && index === 0 ? 0 : Number(item.expected_qty),
+          damaged_qty: 0,
+          note: `Playwright receipt: ${scenario}`,
+        }));
+        const receive = await managerApi.post(`${requestPath}/receive`, { data: { items } });
+        expect(receive.ok(), `receive status=${receive.status()} body=${await receive.text()}`).toBeTruthy();
+        if (scenario === 'full') {
+          expect((await requestRow(managerApi, row.id))?.status).toBe('CLOSED');
+        } else {
+          const detail = await bodyOf(await managerApi.get(`${requestPath}/transfer`)) as {
+            discrepancies: Array<{ id: string; discrepancy_type: string; resolved_at?: string | null }>;
+          };
+          const pending = detail.discrepancies.filter(discrepancy => !discrepancy.resolved_at);
+          expect(pending.map(discrepancy => discrepancy.discrepancy_type)).toEqual(['SHORTAGE']);
+          const close = await managerApi.post(`${requestPath}/close`, { data: {
+            resolutions: pending.map(({ id }) => ({ id, resolution_type: 'ADJUSTMENT', resolution_ref: `PW-ADJ-${row.id}-${id}` })),
+          } });
+          expect(close.status()).toBe(409);
+          expect((await requestRow(managerApi, row.id))?.status).toBe('RECEIVED');
+        }
+      } finally {
+        await Promise.all([managerApi.dispose(), warehouseApi.dispose()]);
+      }
+    });
+  }
 
   test('manager UI exposes the safe orchestration workbench on desktop and mobile', async ({ page }) => {
     const { manager } = requiredConfig();

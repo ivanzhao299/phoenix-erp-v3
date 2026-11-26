@@ -1,4 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { readInventoryLineage, readOutboundTrace } from '../traceability/inventory-lineage';
+import { readPosAllocationTrace, TracePagination } from '../traceability/pos-allocation-trace';
+import { DataScopeContext } from '../org/services/data-scope.service';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { lockTempProductionReferences } from '../wms/temp-production-reversal';
@@ -25,178 +28,73 @@ export class QualityService {
   // ═════════════════════════════════════════════════════════════════════
   // 正向追溯（批次 → 流向）
   // ═════════════════════════════════════════════════════════════════════
-  async traceForward(batchNo: string) {
-    if (!batchNo) throw new BadRequestException('batch_no 必填');
-
-    const batch = (await this.em.query(
-      `SELECT b.*, p.product_name_lo, p.price_retail
-         FROM inv_batches b
-         LEFT JOIN mst_products p ON b.product_code = p.product_code
-        WHERE b.batch_no = $1 LIMIT 1`,
-      [batchNo],
-    ).catch(() => []))[0] || null;
-    if (!batch) return { code: 404, msg: `批次 ${batchNo} 不存在`, batch: null };
-
-    const ledger = await this.em.query(
-      `SELECT change_type, qty_change, operator, store_code, ref_no, note, created_at
-         FROM inv_ledger WHERE batch_no = $1 ORDER BY created_at ASC`,
-      [batchNo],
-    ).catch(() => []);
-
-    const sales = await this.em.query(
-      `SELECT s.sale_no, s.store_code, s.cashier, s.net_amount, s.pay_method,
-              si.qty, si.subtotal, s.created_at
-         FROM pos_sale_items si
-         JOIN pos_sales s ON si.sale_no = s.sale_no
-        WHERE si.batch_no = $1
-        ORDER BY s.created_at DESC LIMIT 50`,
-      [batchNo],
-    ).catch(() => []);
-
-    const receiving = await this.em.query(
-      `SELECT r.order_no, r.store_code, r.status, r.created_at,
-              i.qty_expected, i.qty_actual, i.qty_damaged
-         FROM store_receiving_items i
-         JOIN store_receiving r ON i.order_no = r.order_no
-        WHERE i.batch_no = $1`,
-      [batchNo],
-    ).catch(() => []);
-
-    const inspections = await this.em.query(
-      `SELECT inspect_no, "checkType", inspector, result, "checkTime", remark
-         FROM qa_inspections
-        WHERE items_json LIKE $1
-        LIMIT 10`,
-      [`%${batchNo}%`],
-    ).catch(() => []);
-
-    // 汇总流向门店
-    const storeFlow: Record<string, { in: number; out: number }> = {};
-    for (const l of ledger) {
-      const sc = l.store_code || 'UNKNOWN';
-      if (!storeFlow[sc]) storeFlow[sc] = { in: 0, out: 0 };
-      const qty = Number(l.qty_change) || 0;
-      if (qty > 0) storeFlow[sc].in += qty;
-      else storeFlow[sc].out += Math.abs(qty);
-    }
-
-    return {
-      code: 200,
-      trace_type: 'FORWARD',
-      batch,
-      summary: {
-        total_distributed: ledger
-          .filter((l: any) => Number(l.qty_change) < 0)
-          .reduce((a: number, l: any) => a + Math.abs(Number(l.qty_change)), 0),
-        total_sold: sales.reduce((a: number, s: any) => a + Number(s.qty || 0), 0),
-        store_count: Object.keys(storeFlow).length,
-        sale_count: sales.length,
-      },
-      store_flow: Object.entries(storeFlow).map(([store, v]) => ({ store_code: store, ...v })),
-      ledger,
-      sales,
-      receiving,
-      inspections,
-    };
+  private async traceBatches(scope: DataScopeContext | undefined, batchNos: string[] | null, keyword?: string) {
+    if (!scope) throw new ForbiddenException('缺少追溯权限范围');
+    return this.em.query(
+      `SELECT b.batch_no,b.product_code,b.sku_code,b.qty,b.qty_available,b.unit,b.status,
+              b.warehouse_code,w.warehouse_name,w.warehouse_name_zh,w.warehouse_name_en,w.warehouse_name_lo,
+              b.location_code,loc.location_name,b.company_code,b.expire_date,b.egg_date,b.source_type,b.source_no,p.product_name_zh
+       FROM inv_batches b LEFT JOIN mst_products p ON p.product_code=b.product_code
+       LEFT JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+       LEFT JOIN wms_locations loc ON loc.location_code=b.location_code AND loc.warehouse_code=b.warehouse_code
+       WHERE ($1::boolean OR (b.company_code=ANY($2::text[]) AND b.warehouse_code=ANY($3::text[])))
+         AND ($4::text[] IS NULL OR b.batch_no=ANY($4))
+         AND ($5::text IS NULL OR strpos(lower(concat_ws(' ',b.batch_no,b.product_code,p.product_name_zh)),lower($5))>0)
+       ORDER BY b.batch_no LIMIT 200`,
+      [scope.isGlobal === true, scope.allowedCompanyCodes, scope.allowedWarehouseCodes, batchNos, keyword ?? null],
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════
-  // 逆向追溯（销售 → 批次 → 来源 + 召回评估）
-  // ═════════════════════════════════════════════════════════════════════
-  async traceBackward(query: { sale_no?: string; batch_no?: string; keyword?: string }) {
+  async traceForward(batchNo: string, scope?: DataScopeContext, page?: TracePagination) {
+    if (!scope) throw new ForbiddenException('缺少追溯权限范围');
+    const [batch] = await this.traceBatches(scope, [batchNo]);
+    if (!batch) throw new NotFoundException('批次不存在');
+    const lineage = await readInventoryLineage(this.em, batchNo, scope);
+    const batches = [...new Set<string>([batchNo, ...lineage
+      .filter((edge: { downstream: boolean }) => edge.downstream)
+      .map((edge: { child_batch_no: string }) => edge.child_batch_no)])];
+    const [salesPage, shipments] = await Promise.all([
+      readPosAllocationTrace(this.em, 'batch', batchNo, scope, page, batches),
+      readOutboundTrace(this.em, scope, { batches }),
+    ]);
+    return { code: 200, trace_type: 'FORWARD', batch, sales: salesPage.rows, salesPage, shipments, lineage,
+      completeness: salesPage.completeness };
+  }
+
+  async traceBackward(query: { sale_no?: string; batch_no?: string; keyword?: string },
+    scope?: DataScopeContext, page?: TracePagination) {
+    if (!scope) throw new ForbiddenException('缺少追溯权限范围');
     const { sale_no, batch_no, keyword } = query;
-    if (!sale_no && !batch_no && !keyword) {
-      throw new BadRequestException('请提供 sale_no / batch_no / keyword 之一');
+    if ([sale_no, batch_no, keyword].filter(value => typeof value === 'string' && value.trim()).length !== 1) {
+      throw new BadRequestException('请提供一个销售单号、批次号或关键词');
     }
-
-    let batches: Array<{ batch_no: string; product_name_zh?: string; product_code?: string }> = [];
-
-    if (sale_no) {
-      batches = await this.em.query(
-        `SELECT DISTINCT si.batch_no, si.product_name_zh, si.product_code
-           FROM pos_sale_items si WHERE si.sale_no = $1 AND si.batch_no IS NOT NULL`,
-        [sale_no],
-      ).catch(() => []);
-    } else if (batch_no) {
-      batches = [{ batch_no }];
-    } else if (keyword) {
-      batches = await this.em.query(
-        `SELECT batch_no, product_name_zh, product_code
-           FROM inv_batches WHERE product_name_zh LIKE $1 OR product_code LIKE $1 LIMIT 20`,
-        [`%${keyword}%`],
-      ).catch(() => []);
-    }
-
-    const traces = await Promise.all(batches.map(async (b) => {
-      const batchDetail = (await this.em.query(
-        `SELECT b.*, p.product_name_lo, p.price_retail
-           FROM inv_batches b
-           LEFT JOIN mst_products p ON b.product_code = p.product_code
-          WHERE b.batch_no = $1 LIMIT 1`,
-        [b.batch_no],
-      ).catch(() => []))[0] || null;
-
-      const purchaseSource = (await this.em.query(
-        `SELECT receipt_no, po_no, supplier, arrival_date, conclusion, actual_qty
-           FROM prc_receipts WHERE receipt_no LIKE $1 LIMIT 1`,
-        [`%${b.batch_no}%`],
-      ).catch(() => []))[0] || null;
-
-      const wmsSource = await this.em.query(
-        `SELECT change_type, qty_change, operator, ref_no, note, created_at
-           FROM inv_ledger
-          WHERE batch_no = $1
-            AND change_type IN ('PURCHASE_IN','STORE_IN','RECV_IN','INBOUND','PACK_DONE','EGG_GRADED')
-          ORDER BY created_at ASC LIMIT 5`,
-        [b.batch_no],
-      ).catch(() => []);
-
-      const qaRecords = await this.em.query(
-        `SELECT inspect_no, "checkType", inspector, result, "checkTime", remark
-           FROM qa_inspections WHERE items_json LIKE $1 LIMIT 5`,
-        [`%${b.batch_no}%`],
-      ).catch(() => []);
-
-      const ncRecords = await this.em.query(
-        `SELECT nc_no, issue_type, severity, batch_no, store_code, action_taken, status, created_at
-           FROM qa_non_conformance WHERE batch_no = $1`,
-        [b.batch_no],
-      ).catch(() => []);
-
-      const remaining = (await this.em.query(
-        `SELECT COALESCE(qty_available, qty) AS qty_available, status, store_code
-           FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
-        [b.batch_no],
-      ).catch(() => []))[0] || null;
-
-      return {
-        batch_no: b.batch_no,
-        batch_detail: batchDetail,
-        purchase_source: purchaseSource,
-        wms_inbound: wmsSource,
-        qa_inspections: qaRecords,
-        non_conformances: ncRecords,
-        current_stock: remaining,
-        recall_assessment: {
-          can_recall: !!(remaining && Number(remaining.qty_available) > 0),
-          qty_at_risk: Number(remaining?.qty_available) || 0,
-          status: remaining?.status || 'UNKNOWN',
-        },
-      };
+    const [allocationPage, shipments] = await Promise.all([
+      sale_no ? readPosAllocationTrace(this.em, 'sale', sale_no, scope, page) : null,
+      sale_no ? readOutboundTrace(this.em, scope, { orderNo: sale_no }) : [],
+    ]);
+    const roots = allocationPage ? [...new Set<string>([...allocationPage.rows, ...shipments].map((row: { batch_no: string }) => row.batch_no))]
+      : batch_no ? [batch_no] : null;
+    const lineage = roots ? (await readInventoryLineage(this.em, roots, scope)).filter((edge: { upstream: boolean }) => edge.upstream) : [];
+    const selected = roots ? [...new Set<string>([...roots, ...lineage
+      .filter((edge: { kind: string }) => edge.kind !== 'RAW_RECEIPT')
+      .map((edge: { parent_batch_no: string }) => edge.parent_batch_no)])] : null;
+    const batches = await this.traceBatches(scope, selected, keyword);
+    const [schema] = await this.em.query("SELECT to_regclass('qa_non_conformance') AS ncr");
+    const reports = !schema?.ncr || !batches.length ? [] : await this.em.query(
+      `SELECT n.nc_no,n.batch_no,n.issue_type,n.status,n.severity
+       FROM qa_non_conformance n JOIN inv_batches b ON b.batch_no=n.batch_no
+       WHERE n.batch_no=ANY($1::text[])
+         AND (to_jsonb(n)->>'company_code' IS NULL OR to_jsonb(n)->>'company_code'=b.company_code)
+       ORDER BY n.nc_no`, [batches.map((batch: { batch_no: string }) => batch.batch_no)]);
+    const traces = batches.map((batch: any) => ({
+      batch_no: batch.batch_no, batch_detail: batch, current_stock: batch,
+      non_conformances: reports.filter((row: { batch_no: string }) => row.batch_no === batch.batch_no),
+      recall_assessment: { can_recall: null, qty_at_risk: null, status: batch.status },
     }));
-
-    return {
-      code: 200,
-      trace_type: 'BACKWARD',
-      query,
-      batch_count: batches.length,
-      traces,
-    };
+    return { code: 200, trace_type: 'BACKWARD', batch_count: traces.length, traces,
+      allocations: allocationPage?.rows ?? [], allocationPage, shipments, lineage, completeness: 'VERIFIED_FACTS_ONLY' };
   }
 
-  // ═════════════════════════════════════════════════════════════════════
-  // 质检记录 CRUD
-  // ═════════════════════════════════════════════════════════════════════
   async listInspections(query: any) {
     const { checkType, result, start_date, end_date } = query || {};
     const where: string[] = ['1=1'];

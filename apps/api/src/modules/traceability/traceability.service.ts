@@ -1,3 +1,5 @@
+import { readInventoryLineage, readOutboundTrace } from './inventory-lineage';
+import { readPosAllocationTrace, TracePagination } from './pos-allocation-trace';
 import { deriveOrgScope,OrgScope } from '../farm/farm.service';
 import { PackagingHistoryService } from '../bff/packaging-history.service';
 import { DataScopeContext } from '../org/services/data-scope.service';
@@ -34,19 +36,20 @@ export class TraceabilityService {
   }
 
   // ── 入口 1：按库存批次（EGG-YYYYMMDD-NNNNN）──────────────────────────────────
-  async traceByBatch(batchNo: string, companyScope?: string[], dataScope?: DataScopeContext): Promise<any> {
-    const [batch] = await this.q(
+  async traceByBatch(batchNo: string, companyScope?: string[], dataScope?: DataScopeContext, query?: TracePagination): Promise<any> {
+    const [batch] = await this.ds.query(
       `SELECT batch_no, product_code, sku_code, grade_code_std, quality_grade, spec_code, packaging_spec,
               qty, qty_available, egg_date::text AS egg_date, expire_date::text AS expire_date, company_code, source_type, source_no,
               packaging_batch_ref, collection_batch_ref, status, created_at
-         FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
-      [batchNo],
+         FROM inv_batches WHERE batch_no = $1
+           AND ($2::boolean OR (company_code=ANY($3::text[]) AND warehouse_code=ANY($4::text[]))) LIMIT 1`,
+      [batchNo, dataScope?.isGlobal === true, dataScope?.allowedCompanyCodes ?? [], dataScope?.allowedWarehouseCodes ?? []],
     );
     if (!batch) return { found: false, entry: 'batch', key: batchNo };
     if (companyScope && !companyScope.includes(batch.company_code)) {
       return { found: false, denied: true, reason: '无权查看该公司数据', entry: 'batch', key: batchNo };
     }
-    return this.assembleTree(batch,companyScope,dataScope);
+    return this.assembleTree(batch,companyScope,dataScope,query);
   }
 
   // ── 入口 2：按包装批次（PKG-YYYYMMDD-XXXX）──────────────────────────────────
@@ -88,26 +91,15 @@ export class TraceabilityService {
     if (companyScope && !companyScope.includes(order.company_code)) {
       return { found: false, denied: true, reason: '无权查看该公司数据', entry: 'sales-order', key: orderNo };
     }
-    const items = await this.q(
-      `SELECT product_code, grade_code, sku_code, qty, allocated_batch_no, allocated_qty
-         FROM sal_order_items WHERE sales_order_id = $1`,
-      [order.id],
-    );
-    // 反向追溯：allocated_batch_no 可能是逗号分隔多批次
-    const batchNos = new Set<string>();
-    for (const it of items) {
-      (it.allocated_batch_no ? String(it.allocated_batch_no).split(',') : [])
-        .map(s => s.trim()).filter(Boolean).forEach(b => batchNos.add(b));
-    }
-    // P1-3 性能快修：N+1 串行 → Promise.all 并行
-    const traces = await Promise.all(
-      Array.from(batchNos).map(b => this.traceByBatch(b, companyScope,dataScope))
-    );
-    return { found: true, entry: 'sales-order', key: orderNo, order, items, traces };
+    if (!dataScope) throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
+    const items = await readOutboundTrace(this.ds, dataScope, { orderNo });
+    const batchNos = [...new Set<string>(items.map((item: any) => item.batch_no))];
+    const traces = await Promise.all(batchNos.slice(0, 50).map(no => this.traceByBatch(no, companyScope, dataScope)));
+    return { found: true, entry: 'sales-order', key: orderNo, order, items, traces, traceCount: batchNos.length };
   }
 
   // ── 入口 5：按客户（customer_code）→ 历史购买批次 ──────────────────────────
-  async traceByCustomer(customerCode: string, companyScope?: string[]): Promise<any> {
+  async traceByCustomer(customerCode: string, companyScope?: string[], scope?: DataScopeContext, query?: TracePagination): Promise<any> {
     if(companyScope && !companyScope.length)return {found:false,denied:true,entry:'customer',key:customerCode};
     const orders = await this.q(
       `SELECT order_no, company_code, status, total_amount, created_at
@@ -116,19 +108,13 @@ export class TraceabilityService {
          ORDER BY created_at DESC LIMIT 50`,
       companyScope && companyScope.length ? [customerCode, companyScope] : [customerCode],
     );
-    // 历史购买批次（按门店 POS）
-    const storeBatches = await this.q(
-      `SELECT DISTINCT i.batch_no, i.product_code, i.grade_code, i.sku_code, s.sale_no, s.completed_at
-         FROM sal_store_sale_items i JOIN sal_store_sales s ON s.id = i.sale_id
-        WHERE s.customer_code = $1 AND i.batch_no IS NOT NULL ${companyScope?'AND s.company_code=ANY($2)':''}
-        ORDER BY s.completed_at DESC LIMIT 50`,
-      companyScope?[customerCode,companyScope]:[customerCode],
-    );
-    return { found: orders.length > 0 || storeBatches.length > 0, entry: 'customer', key: customerCode, orders, storeBatches };
+    const pos = await readPosAllocationTrace(this.ds, 'customer', customerCode, scope, query);
+    return { found: orders.length > 0 || pos.total > 0, entry: 'customer', key: customerCode,
+      orders, storeBatches: pos.rows, storeBatchesPage: pos };
   }
 
   // ── 核心：从库存批次组装完整追溯树 ─────────────────────────────────────────
-  private async assembleTree(batch: any,companyScope?: string[],dataScope?: DataScopeContext): Promise<any> {
+  private async assembleTree(batch: any,companyScope?: string[],dataScope?: DataScopeContext, query?: TracePagination): Promise<any> {
     const packingCode = batch.packaging_batch_ref as string | null;
 
     // 包装段
@@ -210,24 +196,13 @@ export class TraceabilityService {
       [batch.batch_no],
     );
 
-    // 销售去向：销售订单（allocated_batch_no 含本批次）
-    const salesOrders = await this.q(
-      `SELECT DISTINCT o.order_no, o.customer_code, o.customer_name, o.company_code, o.status,
-              o.delivered_at, o.received_at, o.ar_invoice_id, i.allocated_qty
-         FROM sal_order_items i JOIN sal_sales_orders o ON o.id = i.sales_order_id
-        WHERE EXISTS(SELECT 1 FROM regexp_split_to_table(COALESCE(i.allocated_batch_no,''),E'\\s*,\\s*') AS exact_batch WHERE exact_batch=$1)
-          AND ($2::text[] IS NULL OR o.company_code=ANY($2))
-        ORDER BY o.order_no DESC LIMIT 50`,
-      [batch.batch_no,companyScope??null],
-    );
-    // 门店 POS 去向
-    const storeSales = await this.q(
-      `SELECT DISTINCT s.sale_no, s.store_code, s.customer_code, s.company_code, s.total_amount,
-              s.payment_method, s.ar_invoice_id, s.cash_account_id, s.completed_at, i.qty
-         FROM sal_store_sale_items i JOIN sal_store_sales s ON s.id = i.sale_id
-        WHERE i.batch_no = $1 AND ($2::text[] IS NULL OR s.company_code=ANY($2)) ORDER BY s.completed_at DESC LIMIT 50`,
-      [batch.batch_no,companyScope??null],
-    );
+    if (!dataScope) throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
+    const lineage: Array<{ child_batch_no: string; downstream: boolean; mixed: boolean }> =
+      await readInventoryLineage(this.ds, batch.batch_no, dataScope);
+    const destinationBatches = [...new Set([batch.batch_no, ...lineage.filter(edge => edge.downstream).map(edge => edge.child_batch_no)])];
+    const salesOrders = await readOutboundTrace(this.ds, dataScope, { batches: destinationBatches });
+    const storeSalesPage = await readPosAllocationTrace(this.ds, 'batch', batch.batch_no, dataScope, query, destinationBatches);
+    const storeSales = storeSalesPage.rows;
 
     // 财务：AR + 现金（按销售单/门店单 source_no）
     const sourceNos = [
@@ -275,7 +250,8 @@ export class TraceabilityService {
         sourceType: batch.source_type, status: batch.status, createdAt: batch.created_at,
         ledger,
       },
-      sales: { salesOrders, storeSales },
+      sales: { salesOrders, storeSales, storeSalesPage },
+      lineage,
       finance: { ar, cash },
       returns,
     };
