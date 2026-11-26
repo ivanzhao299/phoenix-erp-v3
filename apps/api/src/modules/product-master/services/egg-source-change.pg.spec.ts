@@ -465,8 +465,8 @@ suite('egg source change workspace on PostgreSQL',()=>{
       const userManager=await token(23,{permissions:['MENU_SETTINGS_USER:E']});
       await http.put('/api/users/23/role').auth(userManager,{type:'bearer'}).send({role:'ROLE_EGG_APPLY'}).expect(403);
       await http.put('/api/system/users/23/role').auth(userManager,{type:'bearer'}).send({role:'ROLE_EGG_APPLY'}).expect(403);
-      await http.put('/api/users/26/password').auth(userManager,{type:'bearer'}).send({password:'Fixture-only-forbidden'}).expect(403);
-      await http.put('/api/system/users/26/password').auth(userManager,{type:'bearer'}).send({password:'Fixture-only-forbidden'}).expect(403);
+      await http.put('/api/users/26/password').auth(userManager,{type:'bearer'}).send({password:'FixtureOnly2026!'}).expect(403);
+      await http.put('/api/system/users/26/password').auth(userManager,{type:'bearer'}).send({password:'FixtureOnly2026!'}).expect(403);
 
       expect(makerSession.user_info.permissions.find((permission:string)=>permission.startsWith('MENU_MD_EGG_SOURCE:'))?.split(':')[1].split(',')).toEqual(expect.arrayContaining(['V','C','E']));
       expect(reviewerSession.user_info.permissions.some((permission:string)=>permission.startsWith('MENU_MD_EGG_SOURCE:'))).toBe(true);

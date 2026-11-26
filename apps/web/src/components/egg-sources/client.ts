@@ -25,6 +25,11 @@ export class EggError extends Error {
   constructor(readonly status:number,readonly subcode?:string) { super(String(status)); }
 }
 
+export function sourceCreationProblem(code:unknown): code is string {
+  return typeof code==='string' && ['SOURCE_CONTRACT_CHANGED','HOUSE_NOT_OPEN','HOUSE_PAUSED','WRITES_PAUSED',
+    'NO_CALENDAR','NOT_ENROLLED'].includes(code);
+}
+
 export async function eggRequest<T>(account:string,path:string,validate:(data:T)=>boolean,options?:RequestInit) {
   if (!account || account!==sessionIdentity()) throw new EggError(401);
   const token = sessionStorage.getItem('phoenix_token');

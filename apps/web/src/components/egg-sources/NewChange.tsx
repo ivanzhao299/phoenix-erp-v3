@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState, MasterDataTemplate } from '@/components/design-system';
 import { inputField, primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { colors, isOptionList, isPlanList, isWorkspace, query, root, type Input, type Option, type Options, type PlanOption, type Requirement, type Shell, type Workspace } from './contracts';
-import { useEggIdentity, useEggRead, useEggWrite } from './client';
+import { sourceCreationProblem, useEggIdentity, useEggRead, useEggWrite } from './client';
 import { Back, Busy, Field, OwnerMeta, ReadFailure, SelectOption, WriteFeedback, useSourceText } from './parts';
 import { PrecheckPanel } from './PrecheckPanel';
 import s from './EggSources.module.css';
@@ -51,14 +51,14 @@ export default function NewChange() {
     router.push(root+'/changes/'+receipt.id+'?saved=1');
   });
   const formReady=!!(workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data);
-  const changed = write.problem && ['SOURCE_CONTRACT_CHANGED','HOUSE_NOT_OPEN','HOUSE_PAUSED','WRITES_PAUSED'].includes(write.problem);
+  const changed=sourceCreationProblem(write.problem);
   return <MasterDataTemplate responsive title={label('newChange')} breadcrumb={crumb} content={<div className={s.stack}>
     <div className={s.actions}><Back href={root+query({houseCode:house,tab:'changes'})}/></div>
     {!house&&<EmptyState title={label('chooseHouse')}/>}
     {(workspace.loading||warehouses.loading||options.loading)&&<Busy/>}
     {workspace.error&&<ReadFailure error={workspace.error} retry={workspace.reload}/>}
-    {warehouses.error&&<ReadFailure error={warehouses.error} retry={warehouses.reload}/>}
-    {options.error&&<ReadFailure error={options.error} retry={options.reload}/>}
+    {warehouses.error&&<ReadFailure error={warehouses.error} retry={()=>{workspace.reload();warehouses.reload();}}/>}
+    {options.error&&<ReadFailure error={options.error} retry={()=>{workspace.reload();options.reload();}}/>}
     {workspace.data&&<section className={s.section}><OwnerMeta owner={workspace.data.owner} day={workspace.data.businessDay} zone={workspace.data.zone}/></section>}
     {workspace.data?.createBlocker&&<p className={s.notice}>{label('problem.'+workspace.data.createBlocker)}</p>}
     {changed&&<p role="alert" className={s.notice}>{label('problem.'+write.problem)}{' '}
@@ -67,13 +67,13 @@ export default function NewChange() {
     {workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data&&
       <NewForm key={JSON.stringify([account,house])} account={account} house={house}
         earliest={nextDay(workspace.data.businessDay)} warehouses={warehouses.data??[]} options={options.data}
-        houseContract={houseContract} continuation={workspace.data.continuation} write={write} draft={draft} updateDraft={updateDraft}/>}
+        houseContract={houseContract} continuation={workspace.data.continuation} write={write} draft={draft} updateDraft={updateDraft} refreshWorkspace={workspace.reload}/>}
   </div>}/>;
 }
 
-function NewForm({account,house,earliest,warehouses,options,houseContract,continuation,write,draft,updateDraft}:{
+function NewForm({account,house,earliest,warehouses,options,houseContract,continuation,write,draft,updateDraft,refreshWorkspace}:{
   account:string;house:string;earliest:string;warehouses:Option[];options:Options;houseContract:boolean;
-  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>;draft:FormDraft;updateDraft:(values:Partial<FormDraft>)=>void
+  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>;draft:FormDraft;updateDraft:(values:Partial<FormDraft>)=>void;refreshWorkspace:()=>void
 }) {
   const {label,shell}=useSourceText();
   const {color,warehouse,reason,linked,items,nextId,continueOld}=draft;
@@ -175,7 +175,7 @@ function NewForm({account,house,earliest,warehouses,options,houseContract,contin
         {attrs=><textarea {...attrs} required style={inputField} value={reason} maxLength={2000} disabled={locked} onChange={e=>updateDraft({reason:e.target.value})}/>}
       </Field></section>
       <div className={s.actions}>
-        <PrecheckPanel placement="button" account={account} input={input} grades={options.grades} specs={options.specs} validate={validate} disabled={locked}/>
+        <PrecheckPanel placement="button" account={account} input={input} grades={options.grades} specs={options.specs} validate={validate} disabled={locked} refreshWorkspace={refreshWorkspace}/>
         <button type="submit" style={primaryActionButton} disabled={locked}>{label('save')}</button>
       </div>
       <p className={s.hint}>{label(complete?'draftHelp':houseContract?'completeHouseFields':'completeFields')}</p>
