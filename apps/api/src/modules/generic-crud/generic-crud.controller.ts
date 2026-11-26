@@ -585,6 +585,16 @@ export class GenericCrudController {
     return { code: 200, data };
   }
 
+  private eggSourceConfigError(error: unknown): never {
+    if (error instanceof Error && error.message === 'EGG_SOURCE_MENU_MANAGED') {
+      throw new ForbiddenException('蛋品来源权限目录由受控迁移管理');
+    }
+    if (error instanceof Error && error.message === 'EGG_SOURCE_ROLE_CONFIG_REQUIRED') {
+      throw new ForbiddenException('请通过角色与权限配置蛋品来源档案');
+    }
+    throw error;
+  }
+
   @Post(':table')
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
@@ -644,7 +654,7 @@ export class GenericCrudController {
       throw new BadRequestException('Security Violation: Invalid field names detected');
     }
 
-    const result = await this.crudService.create(table, body);
+    const result = await this.crudService.create(table, body).catch(this.eggSourceConfigError);
     if (table === 'brd_houses' && 'houseCode' in result && typeof result.houseCode === 'string') {
       return { code: 200, msg: result.msg, houseCode: result.houseCode };
     }
@@ -734,7 +744,7 @@ export class GenericCrudController {
       return await this.wmsService.updateStandaloneOutbound(outboundNo, safeBody, req.user);
     }
 
-    const result = await this.crudService.update(table, idColumn, id, safeBody);
+    const result = await this.crudService.update(table, idColumn, id, safeBody).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };
   }
 
@@ -769,7 +779,7 @@ export class GenericCrudController {
     if (table === 'wms_transfer') {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
     }
-    const result = await this.crudService.remove(table, idColumn, id);
+    const result = await this.crudService.remove(table, idColumn, id).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };
   }
 

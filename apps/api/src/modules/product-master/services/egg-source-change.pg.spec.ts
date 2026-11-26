@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import request = require('supertest');
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { getEntityManagerToken } from '@nestjs/typeorm';
 import { ClsModule, ClsServiceManager } from 'nestjs-cls';
 import { sign } from 'jsonwebtoken';
 import { JwtStrategy } from '../../../auth/jwt.strategy';
@@ -28,6 +29,7 @@ import { MenuGuard } from '../../../common/guards/menu.guard';
 import { DataScopeService } from '../../org/services/data-scope.service';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { installProductionInboundFixture } from '../../sales-v2/services/production-inbound.pg-fixture';
+import { MenuAdminController } from '../controllers/menu-admin.controller';
 import { EggSourceChangeController } from '../controllers/egg-source-change.controller';
 import { EggHistoryReviewService } from './egg-history-review.service';
 import { EggSourceChangeService, type ChangeScope } from './egg-source-change.service';
@@ -75,10 +77,12 @@ suite('egg source change workspace on PostgreSQL',()=>{
       CREATE TABLE sys_menu(menu_id bigserial PRIMARY KEY,menu_code text UNIQUE NOT NULL,menu_name_zh text NOT NULL,
         menu_name_lo text,domain text,parent_code text,sort_order int,icon text,route text);
       INSERT INTO sys_menu(menu_code,menu_name_zh) VALUES ('MENU_MASTER_DATA','Master data'),
-        ('MENU_MD_PRODUCT','Legacy products'),('MENU_FARM_DATA','Flock plan'),('MENU_PROD_INBOUND','History');
+        ('MENU_MD_PRODUCT','Legacy products'),('MENU_FARM_DATA','Flock plan'),('MENU_PROD_INBOUND','History'),
+        ('MENU_SETTINGS_MENU_REGISTRY','Menu registry');
       CREATE TABLE sys_role(role_id bigint PRIMARY KEY,role_code text UNIQUE,status text,approval_level int);
       CREATE TABLE sys_user_role(user_id bigint,role_id bigint,is_visible boolean);
-      CREATE TABLE sys_role_menu_permission(role_id bigint,menu_id bigint,perm_codes text NOT NULL,deny_codes text,
+      CREATE TABLE sys_role_menu_permission(role_id bigint REFERENCES sys_role(role_id) ON DELETE CASCADE,
+        menu_id bigint,perm_codes text NOT NULL,deny_codes text,
         scope_type text,scope_value text,UNIQUE(role_id,menu_id));
       CREATE TABLE sys_permission_set(set_id bigint PRIMARY KEY,set_code text UNIQUE);
       CREATE TABLE sys_permission_set_item(set_id bigint,menu_id bigint,perm_codes text NOT NULL,deny_codes text,
@@ -297,7 +301,8 @@ suite('egg source change workspace on PostgreSQL',()=>{
     const sets=new PermissionSetsService(db);
     const permsMenu='MENU_MD_EGG_SOURCE';
     const testApp=(await Test.createTestingModule({imports:[ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[EggSourceChangeController],providers:[
+      controllers:[EggSourceChangeController,MenuAdminController],providers:[
+        {provide:getEntityManagerToken(),useValue:db.manager},
         {provide:JwtStrategy,useValue:new JwtStrategy(new ConfigService({JWT_SECRET:secret}),db.manager)},
         {provide:DataScopeService,useValue:resolver},
         {provide:EggSourceAccessService,useValue:new EggSourceAccessService(db,resolver)},
@@ -307,11 +312,15 @@ suite('egg source change workspace on PostgreSQL',()=>{
     try {
       await testApp.init();
       await hydrateMenuRegistry(db.manager);
-      await db.query(`INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-RBAC','FARM-A','ACTIVE','LAYER');
-        INSERT INTO sys_user(user_id,real_name) VALUES (21,'Applicant'),(22,'Reviewer'),(23,'Legacy'),(24,'Review only');
+      const fixtureGrantConfig = (sql:string, args?: unknown[])=>db.transaction(async manager=>{
+        await manager.query("SELECT set_config('phoenix.egg_source_role_editor','1',true)");
+        return manager.query(sql,args);
+      });
+      await fixtureGrantConfig(`INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-RBAC','FARM-A','ACTIVE','LAYER');
+        INSERT INTO sys_user(user_id,real_name) VALUES (21,'Applicant'),(22,'Reviewer'),(23,'Legacy'),(24,'Review only'),(26,'Current system administrator');
         INSERT INTO sys_role VALUES (21,'ROLE_EGG_APPLY','ACTIVE',1),(22,'ROLE_EGG_REVIEW','ACTIVE',1),
-          (23,'ROLE_LEGACY_PRODUCT','ACTIVE',1),(24,'ROLE_ONLY_REVIEW','ACTIVE',1),(25,'ROLE_OLD_DENY','DEPRECATED',0);
-        INSERT INTO sys_user_role VALUES (21,21,true),(22,22,true),(23,23,true),(24,24,true),(22,25,true);
+          (23,'ROLE_LEGACY_PRODUCT','ACTIVE',1),(24,'ROLE_ONLY_REVIEW','ACTIVE',1),(25,'ROLE_OLD_DENY','DEPRECATED',0),(26,'ROLE_ADMIN','ACTIVE',100);
+        INSERT INTO sys_user_role VALUES (21,21,true),(22,22,true),(23,23,true),(24,24,true),(22,25,true),(26,26,true);
         INSERT INTO sys_user_orgs(user_id,org_id,is_primary,data_scope_level)
           SELECT applicant.id,o.id,true,'COMPANY' FROM sys_organizations o CROSS JOIN (VALUES(21),(22),(23),(24)) applicant(id) WHERE o.org_code='COMP-A';
         INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code)
@@ -328,6 +337,10 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await sets.setItems('PSET_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}]);
       await rolePermissions.setRolePermissions('ROLE_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'V'}]);
       await sets.setItems('PSET_ONLY_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}]);
+      await expect(db.query("UPDATE sys_menu SET menu_name_zh='Unmanaged' WHERE menu_code=$1",[permsMenu]))
+        .rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_MENU_MANAGED'}});
+      await expect(db.query("UPDATE sys_role_menu_permission SET perm_codes='*' WHERE role_id=21"))
+        .rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_ROLE_CONFIG_REQUIRED'}});
       const token=async (user:number, overrides:Record<string,unknown>={})=>{
         const [account]=await db.query('SELECT perms_version FROM sys_user WHERE user_id=$1',[user]);
         return sign({sub:user,username:'fixture-'+user,perms_version:Number(account.perms_version),roles:[],
@@ -335,6 +348,10 @@ suite('egg source change workspace on PostgreSQL',()=>{
       };
       const applicant=await token(21), reviewer=await token(22), legacy=await token(23), reviewOnly=await token(24);
       const http=request(testApp.getHttpServer());
+      const admin=await token(26,{roles:['ROLE_ADMIN'],permissions:['*']});
+      const nonAdminWithMenu=await token(22,{permissions:['MENU_SETTINGS_MENU_REGISTRY:E']});
+      const control=(auth:string,expectedEnabled:boolean,enabled:boolean)=>http.post('/api/sys/menu-registry/egg-source-write-control')
+        .auth(auth,{type:'bearer'}).send({expectedEnabled,enabled,reason:'Verified technical cutover'});
       const requestKey=randomUUID();
       const create=(auth:string,warehouseCode='WH-SHARED')=>http.post(base+'/changes').auth(auth,{type:'bearer'})
         .send({...input(),houseCode:'HOUSE-RBAC',warehouseCode,actionKey:requestKey});
@@ -343,7 +360,10 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await create(reviewer).expect(403);
       await create(await token(21,{perms_version:undefined})).expect(401);
       await create(await token(21,{impersonatedBy:'99'})).expect(403);
-      await db.query('UPDATE md_egg_source_write_control SET writes_enabled=true WHERE id=1');
+      await control(nonAdminWithMenu,false,true).expect(403);
+      const reopened=await control(admin,false,true).expect(201);
+      expect(reopened.body.data).toMatchObject({writes_enabled:true,changed_by:'26',change_reason:'Verified technical cutover'});
+      await control(admin,false,true).expect(409);
       // Even after reopening, legacy code without the transaction marker cannot write.
       await expect(db.query("UPDATE md_egg_source_changes SET version=version+1"))
         .rejects.toMatchObject({driverError:{code:'42501'}});
@@ -360,20 +380,22 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await db.query("UPDATE sys_role SET status='DEPRECATED' WHERE role_id=22");
       await http.get(doc).auth(reviewer,{type:'bearer'}).expect(403);
       await db.query("UPDATE sys_role SET status='ACTIVE' WHERE role_id=22");
-      await db.query(`UPDATE sys_role_menu_permission SET deny_codes='V' WHERE role_id=22
+      await fixtureGrantConfig(`UPDATE sys_role_menu_permission SET deny_codes='V' WHERE role_id=22
         AND menu_id=(SELECT menu_id FROM sys_menu WHERE menu_code=$1)`, [permsMenu]);
       await http.post(doc+'/reviews/reject').auth(reviewer,{type:'bearer'})
         .send({version:2,actionKey:randomUUID(),reason:'Review'}).expect(403);
       const [saved]=await db.query(`SELECT item.perm_codes,item.scope_type,item.scope_value
         FROM sys_permission_set_item item JOIN sys_menu m USING(menu_id) WHERE item.set_id=22 AND m.menu_code=$1`, [permsMenu]);
       expect(saved).toEqual({perm_codes:'A',scope_type:'WAREHOUSE',scope_value:'WH-SHARED'});
-      await db.query("UPDATE sys_role_menu_permission SET deny_codes=NULL WHERE role_id=22");
+      await fixtureGrantConfig("UPDATE sys_role_menu_permission SET deny_codes=NULL WHERE role_id=22");
       const actionKey=randomUUID();
       await http.post(doc+'/reviews/approve').auth(reviewer,{type:'bearer'})
         .send({version:2,planDigest:submitted.body.data.change.approval.planDigest,actionKey}).expect(201);
-      await db.query('UPDATE md_egg_source_write_control SET writes_enabled=false WHERE id=1');
+      await control(admin,true,false).expect(201);
       await http.get(doc+'/action-requests/'+actionKey).auth(reviewer,{type:'bearer'}).expect(200);
       await http.get(doc+'/action-requests/'+actionKey).auth(applicant,{type:'bearer'}).expect(404);
+      await db.query('DELETE FROM sys_role WHERE role_id=21');
+      expect(await db.query('SELECT 1 FROM sys_role_menu_permission WHERE role_id=21')).toEqual([]);
     } finally { await testApp.close(); }
   },60000);
 

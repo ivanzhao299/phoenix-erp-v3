@@ -38,6 +38,7 @@ export async function saveMenuGrants(manager: EntityManager, kind: 'role' | 'set
   const table = kind === 'role' ? 'sys_role_menu_permission' : 'sys_permission_set_item';
   const key = kind === 'role' ? 'role_id' : 'set_id';
   const ids = grants.map(grant => grant.menu_id);
+  if (kind === 'role') await manager.query("SELECT set_config('phoenix.egg_source_role_editor', '1', true)");
   await manager.query(`DELETE FROM ${table} WHERE ${key}=$1 AND NOT (menu_id=ANY($2::bigint[]))
     AND NULLIF(deny_codes,'') IS NULL AND NULLIF(scope_type,'') IS NULL AND NULLIF(scope_value,'') IS NULL`, [id, ids]);
   await manager.query(`UPDATE ${table} SET perm_codes='' WHERE ${key}=$1 AND NOT (menu_id=ANY($2::bigint[]))
