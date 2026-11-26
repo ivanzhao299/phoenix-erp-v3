@@ -110,7 +110,7 @@ export class OfficialInventoryConversionService {
     const [product]=await m.query("SELECT * FROM mst_products WHERE product_code=$1 AND status='ACTIVE' FOR SHARE",[d.product_code]);
     if(!product)throw new ConflictException('实际品目未启用');
     const inputs:Fact[]=[];
-    const approvedOutputSets:Array<{scopeId:string;houseCode:string;items:Fact[]}> = [];
+    const approvedOutputSets:Array<{scopeId:string;houseCode:string;items:Fact[];sourceContractVersion:1|2}> = [];
     for(const line of request.inputs){
       if(line.rawSegmentId){
         const [r]=await m.query(`SELECT s.*,receipt.state,receipt.company_code,receipt.warehouse_code,receipt.scope_id,receipt.payload->'profile' AS profile,
@@ -123,6 +123,10 @@ export class OfficialInventoryConversionService {
         if(r.state!=='POSTED'||scope?.state!=='ACTIVE'||r.company_code!==d.company_code||r.warehouse_code!==d.warehouse_code
           ||r.profile?.varietyCode!==product.variety_code||r.production_date>d.operation_date||r.expire_date<postingDate
           ||Number(used)+line.quantity>Number(r.quantity))throw new ConflictException('原始分段归属、品种、效期、来源状态或实际剩余数量不符');
+        const sourceContractVersion = r.profile?.sourceContractVersion ?? 1;
+        if (sourceContractVersion!==1 && sourceContractVersion!==2 || sourceContractVersion===2 && !r.profile?.approvalId) {
+          throw new ConflictException('无法确认原始收蛋的来源批准口径');
+        }
         if (r.profile?.approvalId) {
           const admissible = r.profile.outputs?.filter((item: Fact) =>
             item.gradeCode === r.grade_code && item.productCode === d.product_code);
@@ -131,7 +135,7 @@ export class OfficialInventoryConversionService {
           if (!admissible?.some((item: Fact) => item.domainId === actualDomain) || !Array.isArray(r.profile.approvedSkus)) {
             throw new ConflictException('实际收蛋分段未按该品目和产品域签认');
           }
-          approvedOutputSets.push({ scopeId:r.scope_id,houseCode:r.profile.houseCode,items:r.profile.approvedSkus });
+          approvedOutputSets.push({ scopeId:r.scope_id,houseCode:r.profile.houseCode,items:r.profile.approvedSkus,sourceContractVersion });
         }
         inputs.push({rawSegmentId:r.id,parentBatchNo:null,rawReceiptId:r.receipt_id,companyCode:d.company_code,warehouseCode:d.warehouse_code,
           quantity:line.quantity,gradeCode:r.grade_code,productionDate:r.production_date,expireDate:r.expire_date,sourceKey:r.source_key,
@@ -178,7 +182,7 @@ export class OfficialInventoryConversionService {
           const domainId=await requireEggProductDomain(m,{companyCode:d.company_code,houseCode:approval.houseCode},
             approval.scopeId,d.warehouse_code,d.product_code);
           if (!approval.items.some(item => item.skuCode===line.skuCode && item.productCode===d.product_code &&
-            item.gradeCode===line.gradeCode && item.specCode===sku.spec_code && item.domainId===domainId)) {
+            item.gradeCode===line.gradeCode && item.specCode===sku.spec_code && (approval.sourceContractVersion===2 || item.domainId===domainId))) {
             throw new ConflictException('所选产出等级、规格和实际 SKU 未在来源档案批准清单中');
           }
         }

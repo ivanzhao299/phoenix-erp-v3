@@ -61,7 +61,9 @@ function ScopedDetail({account,id}:{account:string;id:string}) {
     const text=reason.trim();
     if (requiresReason(action)&&!text) return;
     void write.send(url+(isReview(action)?'/reviews/':'/actions/')+action,{
-      version:detail.version,reason:text||null,...(action==='approve'?{planDigest:detail.planDigest}:{}),
+      version:detail.version,reason:text||null,
+      ...(detail.contractVersion===2 ? {contractVersion:2} : {}),
+      ...(action==='approve'?{planDigest:detail.planDigest,...(detail.contractVersion===2 ? {readinessDigest:detail.readiness?.digest} : {})}:{}),
     });
     clear();
     requestAnimationFrame(()=>document.getElementById('egg-source-write-status')?.focus());
@@ -86,7 +88,7 @@ function ScopedDetail({account,id}:{account:string;id:string}) {
         {label:label('company'),value:detail.owner.companyName||detail.owner.companyCode},
         {label:label('farm'),value:detail.owner.farmName || detail.owner.farmCode},
         {label:label('site'),value:detail.owner.siteName||detail.owner.siteCode},
-        {label:label('warehouse'),value:detail.warehouseName ? detail.warehouseName+' ('+detail.warehouseCode+')' : detail.warehouseCode},
+        ...(detail.contractVersion===2 ? [] : [{label:label('warehouse'),value:detail.warehouseName ? detail.warehouseName+' ('+detail.warehouseCode+')' : detail.warehouseCode}]),
         {label:label('shell'),value:shell(detail.targetClass)},
       ]}
       sections={[
@@ -102,8 +104,13 @@ function ScopedDetail({account,id}:{account:string;id:string}) {
         {title:label('frozenTitle'),content:detail.frozenItems.length ? <ul className={s.events}>{detail.frozenItems.map(row=>
           <li key={JSON.stringify([row.gradeCode,row.specCode])} className={s.record}>
             <Meta pairs={[[label('grade'),row.gradeCode],[label('spec'),row.specCode],[label('product'),row.productCode],[label('sku'),row.skuCode],
-              [label('inventoryDomain'),label(row.domainVerified?'domainVerified':'domainNotRecorded')]]}/>
+              ...(detail.contractVersion===2 ? [] : [[label('inventoryDomain'),label(row.domainVerified?'domainVerified':'domainNotRecorded')] as [string,string]])]}/>
           </li>)}</ul> : <p className={s.hint}>{label('notFrozen')}</p>},
+        ...(detail.contractVersion===2 ? [{title:label('inventoryReadiness'),content:<div className={s.stack}>
+          <p className={s.hint}>{label(detail.readiness ? 'readiness.'+detail.readiness.status : 'readiness.NOT_CHECKED')}</p>
+          {detail.readiness?.warehouseCode&&<p>{label('warehouse')} · {detail.readiness.warehouseCode}</p>}
+          {detail.readiness?.code&&<p className={s.notice}>{label('problem.'+detail.readiness.code)}</p>}
+        </div>}] : []),
         {title:label('originalApproval'),content:<div className={s.stack}>
           <Meta pairs={[
             [label('oldProfile'),old?.previousProfileCode||label('oldProfileUnknown')],

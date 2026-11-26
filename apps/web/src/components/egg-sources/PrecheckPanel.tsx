@@ -31,7 +31,7 @@ export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate
       const path=draftId ? '/changes/'+encodeURIComponent(draftId)+'/precheck' : '/precheck';
       const result=await eggRequest<Precheck>(account,path,valid,{ method:'POST',signal:controller.signal,
         body:draftId ? undefined : JSON.stringify(input) });
-      if (!controller.signal.aborted && result.targetClass===input.targetClass && result.effectiveDate===input.effectiveDate && result.houseCode===input.houseCode && result.warehouseCode===input.warehouseCode) {
+      if (!controller.signal.aborted && result.targetClass===input.targetClass && result.effectiveDate===input.effectiveDate && result.houseCode===input.houseCode && result.warehouseCode===(input.warehouseCode??null)) {
         setState({input,account,result});
       } else if (!controller.signal.aborted) setState({input,account,failure:'precheckError'});
     } catch (error) {
@@ -45,6 +45,8 @@ export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate
       {label(visible?.busy?'runningPrecheck':'preview')}
     </button>
     {visible?.failure&&<p role="alert" className={s.error}>{label(visible.failure)}</p>}
-    {visible?.result&&<div className={placement ? s.fullActionWidth : undefined}><PrecheckResult result={visible.result} grades={grades} specs={specs}/></div>}
+    {visible?.result&&<div className={placement ? s.fullActionWidth : undefined}><PrecheckResult result={visible.result} grades={grades} specs={specs}/>
+      {visible.result.readiness&&<p role="status" className={s.hint}>{label('readiness.'+visible.result.readiness.status)}
+        {visible.result.readiness.code&&' · '+label('problem.'+visible.result.readiness.code)}</p>}</div>}
   </>;
 }

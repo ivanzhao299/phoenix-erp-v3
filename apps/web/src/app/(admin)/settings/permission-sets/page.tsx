@@ -5,6 +5,7 @@
  * 能力集 = 可复用的 菜单×操作 捆绑；角色/用户由能力集组合。
  * 运行时解析在 auth.service 三路并集（role / role_set / user_set）。
  */
+import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -201,6 +202,7 @@ export default function PermissionSetsPage() {
     </div>
 
     <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : t('ui.新建能力集','新建能力集')} width="640px">
+      {editCode&&<EggSourceOrganizationGrants subject="set" code={editCode}/>}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className={s.field}>
           <label className={s.lbl}>{t('ui.能力集编码 *','能力集编码 *')}</label>

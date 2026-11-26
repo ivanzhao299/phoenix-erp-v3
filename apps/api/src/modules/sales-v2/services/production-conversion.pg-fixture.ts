@@ -55,23 +55,26 @@ export async function installProductionConversionFixture(db:DataSource){
 }
 
 /** Explicit synthetic zero count, signatures and state events in the caller-owned schema only. */
-export async function activateOwnedConversionDomain(db:DataSource){
+export async function activateOwnedConversionDomain(db:DataSource,options?:{scopeId:string;houseCode:string;warehouseCode:string}){
+  const scopeId=options?.scopeId??'50000000-0000-0000-0000-000000000001';
+  const houseCode=options?.houseCode??'HOUSE-A',warehouseCode=options?.warehouseCode??'WH-A';
   const id='60000000-0000-0000-0000-000000000001';
   await db.transaction(async m=>{
+    await m.query('ALTER TABLE production_opening_receipts ADD COLUMN IF NOT EXISTS cutover_manifest_id uuid UNIQUE REFERENCES production_cutover_manifests(id)');
     const manifest=randomUUID();
     await m.query(`INSERT INTO production_cutover_manifests(id,document_no,company_code,warehouse_code,intent_key,creation_hash,boundary,payload,created_by)
-      VALUES($1,$2,'COMP-A','WH-A',$2,repeat('d',64),$3,'{"openingLines":[]}','owned synthetic count maker')`,
-      [manifest,`SYNTHETIC-COUNT-${manifest}`,JSON.stringify({productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-17'}]})]);
+      VALUES($1,$2,'COMP-A',$4,$2,repeat('d',64),$3,'{"openingLines":[]}','owned synthetic count maker')`,
+      [manifest,`SYNTHETIC-COUNT-${manifest}`,JSON.stringify({productCodes:['PRD-EGG-RAW'],houses:[{houseCode,firstProductionDate:'2026-11-17'}]}),warehouseCode]);
     await m.query("UPDATE production_cutover_manifests SET state='READY',version=version+1,snapshot='{}',snapshot_sha256=repeat('d',64),content_hash=repeat('d',64) WHERE id=$1",[manifest]);
     for(const [role,actor,name] of [['BUSINESS','1','maker'],['FINANCE','2','reviewer']]){
       const file=`DOMAIN-${role}`;
       await m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,uploaded_by,checksum)
-        VALUES($1,'ACTIVE','PROTECTED','application/pdf','PRODUCTION_CUTOVER','WAREHOUSE','WH-A','COMP-A',$2,repeat('d',64)) ON CONFLICT DO NOTHING`,[file,name]);
+        VALUES($1,'ACTIVE','PROTECTED','application/pdf','PRODUCTION_CUTOVER','WAREHOUSE',$3,'COMP-A',$2,repeat('d',64)) ON CONFLICT DO NOTHING`,[file,name,warehouseCode]);
       await m.query(`INSERT INTO production_cutover_signatures(id,manifest_id,signature_role,content_hash,snapshot_sha256,signed_by,evidence_file_id,evidence_checksum,reason)
         VALUES($1,$2,$3,repeat('d',64),repeat('d',64),$4,$5,repeat('d',64),'Owned synthetic zero count signature')`,[randomUUID(),manifest,role,actor,file]);
     }
     await m.query("UPDATE production_cutover_manifests SET state='APPROVED',version=version+1 WHERE id=$1",[manifest]);
-    await m.query("INSERT INTO production_inventory_domain_states(id,company_code,warehouse_code,product_code,created_by) VALUES($1,'COMP-A','WH-A','PRD-EGG-RAW','owned fixture')",[id]);
+    await m.query("INSERT INTO production_inventory_domain_states(id,company_code,warehouse_code,product_code,created_by) VALUES($1,'COMP-A',$2,'PRD-EGG-RAW','owned fixture')",[id,warehouseCode]);
     const opening=randomUUID();
     for(const [state,version] of [['FENCED',1],['ACTIVE',2]]){
       const event=randomUUID();
@@ -79,11 +82,13 @@ export async function activateOwnedConversionDomain(db:DataSource){
         VALUES($1::uuid,$2,$3,$4,$5,$1::text,repeat('d',64),'Owned synthetic domain event','1','DOMAIN-BUSINESS',repeat('d',64))`,[event,id,state,version,manifest]);
       await m.query('UPDATE production_inventory_domain_states SET state=$2,version=$3 WHERE id=$1',[id,state,version]);
       if(state==='FENCED')await m.query(`INSERT INTO production_opening_domain_claims(domain_id,manifest_id,opening_receipt_id,scope_id,content_hash,claimed_by)
-        VALUES($1,$2,$3,'50000000-0000-0000-0000-000000000001',repeat('d',64),'1')`,[id,manifest,opening]);
+        VALUES($1,$2,$3,$4,repeat('d',64),'1')`,[id,manifest,opening,scopeId]);
     }
-    await m.query(`INSERT INTO production_opening_receipts(id,handover_ref,company_code,warehouse_code,scope_id,evidence_sha256,manifest,created_by,receipt)
-      VALUES($1,$2,'COMP-A','WH-A','50000000-0000-0000-0000-000000000001',repeat('d',64),$3,'1','{"synthetic":true,"totalOpening":0,"batches":[]}')`,
-      [opening,`SYNTHETIC-ZERO-${manifest}`,JSON.stringify({manifestId:manifest})]);
+    await m.query(`INSERT INTO production_opening_receipts(id,handover_ref,company_code,warehouse_code,scope_id,evidence_sha256,manifest,created_by,receipt,cutover_manifest_id)
+      VALUES($1,$2,'COMP-A',$4,$5,repeat('d',64),$3,'1','{"synthetic":true,"totalOpening":0,"batches":[]}', $6)`,
+      [opening,`SYNTHETIC-ZERO-${manifest}`,JSON.stringify({manifestId:manifest}),warehouseCode,scopeId,manifest]);
     await m.query(`UPDATE production_cutover_manifests SET state='APPLIED',version=version+1,applied_at=now(),receipt='{"synthetic":true,"totalOpening":0,"batches":[]}' WHERE id=$1`,[manifest]);
+    if(options)await m.query(`UPDATE production_inventory_domains SET inventory_domain_id=$1
+      WHERE scope_id=$2 AND company_code='COMP-A' AND warehouse_code=$3 AND product_code='PRD-EGG-RAW'`,[id,scopeId,warehouseCode]);
   });return id;
 }

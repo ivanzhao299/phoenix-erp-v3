@@ -52,7 +52,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     await expect(db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,qty,qty_available,status,inventory_class)
       VALUES('SYNTHETIC-UNPROVEN-WIP','COMP-A','WH-A','PRD-EGG-RAW','SKU-GRADE_1',1,1,'AVAILABLE','WIP')`)).rejects.toThrow('OFFICIAL_CONVERSION_WIP_ADMISSION_HOLD');
   });
-  async function source(amounts:Record<string,number>={GRADE_1:100},sourceDay=day){
+  async function source(amounts:Record<string,number>={GRADE_1:100},sourceDay=day,prepareDomain?:()=>Promise<void>){
     await db.query(`TRUNCATE sal_return_orders,sal_return_items,sal_order_item_batch_allocations,sal_store_sales,store_sale_allocations,
       production_cutover_scopes,production_inventory_domain_states,production_cutover_manifests,wms_transfer,inv_ledger,inv_batches,brd_daily_logs,brd_flock_occupancies,brd_flock_documents,
       production_raw_receipts,production_conversion_documents,pkg_source_batches,pkg_work_shifts RESTART IDENTITY CASCADE;
@@ -62,22 +62,25 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
         VALUES('CVT-BASE','SYNTHETIC-CVT-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
-        VALUES('CVT-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'CVT-BASE');
+        SELECT 'CVT-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A',mapped_site_code,'2026-11-17',5000,'CVT-BASE' FROM brd_farms WHERE farm_code='FARM-A';
       INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
         VALUES('50000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'2026-11-17','DRAFT','WH-A','FLOCK-A','PROFILE-A',repeat('c',64),'{"synthetic":true}','fixture');
       INSERT INTO production_inventory_domains(scope_id,company_code,warehouse_code,product_code)
         VALUES('50000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
-      UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();`);
+      `);
+    await prepareDomain?.();
+    await db.query("UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now()");
     const receipt = await issueRaw(amounts,sourceDay,1);
     reviewer();actor.permissions.push('MENU_FIN2_AR_LEDGER:E');await documents.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:day.slice(0,7),
       state:'OPEN',expectedVersion:0,evidenceFileId:'PERIOD-EVIDENCE',reason:'Owned synthetic conversion period approval'});maker();
     return receipt;
   }
-  async function issueRaw(amounts:Record<string,number>,sourceDay:string,sourceId:number){
+  async function issueRaw(amounts:Record<string,number>,sourceDay:string,sourceId:number,
+    verifyDraft?: (open:()=>Promise<any>)=>Promise<void>) {
     await db.query("INSERT INTO pkg_work_shifts VALUES($2,'FARM-A',$1,false)",[sourceDay,sourceId]);
     const total=Object.values(amounts).reduce((n,q)=>n+q,0);
     const [report]=await db.query(`INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
-      VALUES('HOUSE-A','FLOCK-A',$1,'DAILY',$2,'CVT-OCC','COMP-A','FARM-A','SITE-A') RETURNING id`,[sourceDay,JSON.stringify(Object.fromEntries(grades.map(g=>[g,amounts[g]??0])))]);
+      SELECT 'HOUSE-A','FLOCK-A',$1,'DAILY',$2,'CVT-OCC','COMP-A','FARM-A',mapped_site_code FROM brd_farms WHERE farm_code='FARM-A' RETURNING id`,[sourceDay,JSON.stringify(Object.fromEntries(grades.map(g=>[g,amounts[g]??0])))]);
     await db.query(`INSERT INTO pkg_source_batches(id,house_code,flock_code,received_qty,production_date,lay_date,is_test,batch_code,source_inbound_no,
       shift_id,total_qty,dirty_qty,cracked_qty,batch_status) VALUES($5,'HOUSE-A','FLOCK-A',$1,$2,$2,false,$6,$6,$5,$1,$3,$4,'RECEIVED')`,
       [total,sourceDay,amounts.DIRTY??0,amounts.BROKEN??0,sourceId,sourceId===1?'SYNTHETIC-CVT-RAW':'SYNTHETIC-CVT-RAW-'+sourceId]);
@@ -85,7 +88,9 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     const h=await documents.createPhysicalHandover({companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:sourceDay,warehouseCode:'WH-A',handoverRef:randomUUID(),rawCollectionSourceId:String(sourceId),
       segments:Object.entries(amounts).map(([gradeCode,quantity])=>({dailyLogId:report.id,gradeCode,quantity,evidenceFileId:'RAW-EVIDENCE'}))});
     actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E']};await documents.confirmPhysicalHandover(h.id,h.version,h.content_hash);maker();
-    const d=await raw.create({companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:sourceDay,warehouseCode:'WH-A',sourceBatchId:String(sourceId),handoverId:h.id,intentKey:randomUUID()});
+    const create=()=>raw.create({companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:sourceDay,warehouseCode:'WH-A',sourceBatchId:String(sourceId),handoverId:h.id,intentKey:randomUUID()});
+    await verifyDraft?.(create);
+    const d=await create();
     const r=await raw.ready(d.id,0,randomUUID());reviewer();const a=await raw.approve(d.id,r.version,r.content_hash);maker();await raw.post(a.id,a.submit_key,a.content_hash);
     return {reportId:report.id,segments:await db.query('SELECT * FROM production_raw_receipt_segments WHERE receipt_id=$1 ORDER BY grade_code',[a.id])};
   }
@@ -167,6 +172,55 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       expect(rows.items[0]).toMatchObject({batchQty:100-loss,attributableQty:null,attribution:'MIXED'});
       expect(rows.items[0].sources.map(s=>s.productionDate).sort()).toEqual([earlier,day]);
       expect(rows.items[0].sources.every(s=>s.kind==='RAW'&&s.handoverRef&&s.dailyLogId&&s.occupancyId&&s.flockNo)).toBe(true);
+    }
+  });
+  it('uses actual stock domains for mixed V1 and V2 RAW and rejects V2 SKU and warehouse drift',async()=>{
+    const earlier=(await db.query("SELECT ($1::date-1)::text AS day",[day]))[0].day;
+    const site='SITE-DONGPENG-LAYER',scopeId='50000000-0000-0000-0000-000000000001';
+    const oldProfile='ESP-CHANGE-'+randomUUID(),newProfile='ESP-CHANGE-'+randomUUID();
+    const item={skuCode:'SKU-GRADE_1',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',specCode:'LOOSE'};
+    await db.query(`CREATE TABLE md_egg_source_changes(id uuid PRIMARY KEY,new_profile_code text,company_code text,house_code text,
+      state text,contract_version smallint,payload jsonb,approval jsonb)`);
+    await db.query("UPDATE brd_farms SET mapped_site_code=$1 WHERE farm_code='FARM-A'",[site]);
+    await db.query("UPDATE wms_warehouses SET site_code=$1 WHERE warehouse_code='WH-A'",[site]);
+    await db.query("UPDATE file_metadata SET store_code=$1 WHERE file_id='RAW-EVIDENCE'",[site]);
+    await db.query("UPDATE md_egg_source_profiles SET site_code=$1,status='INACTIVE' WHERE profile_code='PROFILE-A'",[site]);
+    try {
+      const first=await source({GRADE_1:30},earlier,async()=>{
+        const domain=await activateOwnedConversionDomain(db,{scopeId,houseCode:'HOUSE-A',warehouseCode:'WH-A'});
+        await db.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,
+          variety_code,effective_date,expire_date,created_by,updated_by)
+          VALUES($1,'COMP-A','FARM-A',$3,'HOUSE-A','VARIANT','EGG_RED','2026-11-17',$4,'fixture','fixture'),
+            ($2,'COMP-A','FARM-A',$3,'HOUSE-A','VARIANT','EGG_RED',$5,NULL,'fixture','fixture')`,[oldProfile,newProfile,site,earlier,day]);
+        for (const [version,profile,payload,frozen] of [[1,oldProfile,{warehouseCode:'WH-A'},{...item,domainId:domain}],
+          [2,newProfile,{},item]] as const) {
+          await db.query(`INSERT INTO md_egg_source_changes VALUES($1,$2,'COMP-A','HOUSE-A','APPROVED',$3,$4,$5)`,
+            [randomUUID(),profile,version,JSON.stringify(payload),JSON.stringify({snapshot:{items:[frozen]}})]);
+        }
+      });
+      const second=await issueRaw({GRADE_1:70},day,2,async open=>{
+        await db.query("UPDATE md_egg_source_changes SET approval=jsonb_set(approval,'{snapshot,items,0,specCode}', $1::jsonb) WHERE contract_version=2",[JSON.stringify('DRIFTED')]);
+        await expect(open()).rejects.toThrow('当前 SKU 与来源档案冻结的品目、等级和规格不一致');
+        await db.query("UPDATE md_egg_source_changes SET approval=$1 WHERE contract_version=2",[JSON.stringify({snapshot:{items:[item]}})]);
+        await db.query("UPDATE wms_warehouses SET domain='TEST' WHERE warehouse_code='WH-A'");
+        await expect(open()).rejects.toThrow('启用操作仓');
+        await db.query("UPDATE wms_warehouses SET domain='OPERATIONAL' WHERE warehouse_code='WH-A'");
+      });
+      const frozen=await db.query("SELECT payload->'profile' AS profile FROM production_raw_receipts ORDER BY production_date");
+      expect(frozen[0].profile).not.toHaveProperty('sourceContractVersion');
+      expect(frozen[1].profile).toMatchObject({sourceContractVersion:2,approvedSkus:[item]});
+      const request=plan(first.segments[0].id,30);
+      request.inputs.push({rawSegmentId:second.segments[0].id,quantity:70});
+      request.outputs[0].quantity=100;
+      const approval=await approved(request);
+      expect(await service.post(approval.id,approval.submit_key,approval.content_hash)).toMatchObject({inputQuantity:100,outputQuantity:100});
+    } finally {
+      await db.query(`DELETE FROM md_egg_source_profiles WHERE profile_code IN ($1,$2)`,[oldProfile,newProfile]);
+      await db.query(`UPDATE brd_farms SET mapped_site_code='SITE-A' WHERE farm_code='FARM-A';
+        UPDATE wms_warehouses SET site_code='SITE-A',domain='OPERATIONAL' WHERE warehouse_code='WH-A';
+        UPDATE file_metadata SET store_code='SITE-A' WHERE file_id='RAW-EVIDENCE';
+        UPDATE md_egg_source_profiles SET site_code='SITE-A',status='ACTIVE' WHERE profile_code='PROFILE-A';
+        DROP TABLE md_egg_source_changes`);
     }
   });
   it('recombines two actual splits of one RAW source without duplicating the source or stock',async()=>{

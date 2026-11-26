@@ -25,8 +25,9 @@ export default function NewChange() {
   const {label,crumb}=useSourceText();
   const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
   const canCreate = !!workspace.data?.businessDay && !workspace.data.createBlocker;
-  const warehouses=useEggRead<Option[]>(account,canCreate ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
-  const options=useEggRead<Options>(account,canCreate ? '/candidates/options' : null,validOptions);
+  const houseContract = workspace.data?.createContractVersion===2;
+  const warehouses=useEggRead<Option[]>(account,canCreate && !houseContract ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
+  const options=useEggRead<Options>(account,canCreate ? '/candidates/options'+query({contractVersion:houseContract?'2':null}) : null,validOptions);
   const write=useEggWrite(account,house,key=>'/change-requests/'+key+query({houseCode:house}),receipt=>{
     router.push(root+'/changes/'+receipt.id+'?saved=1');
   });
@@ -40,14 +41,16 @@ export default function NewChange() {
     {workspace.data&&<section className={s.section}><OwnerMeta owner={workspace.data.owner} day={workspace.data.businessDay} zone={workspace.data.zone}/></section>}
     {workspace.data?.createBlocker&&<p className={s.notice}>{label('problem.'+workspace.data.createBlocker)}</p>}
     {house&&!canCreate&&<WriteFeedback write={write} allowRetry={false}/>}
-    {workspace.data?.businessDay&&canCreate&&warehouses.data&&options.data&&
-      <NewForm key={JSON.stringify([account,house])} account={account} house={house} earliest={nextDay(workspace.data.businessDay)}
-        warehouses={warehouses.data} options={options.data} write={write}/>}
+    {workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data&&
+      <NewForm key={JSON.stringify([account,house,houseContract])} account={account} house={house}
+        earliest={nextDay(workspace.data.businessDay)} warehouses={warehouses.data??[]} options={options.data}
+        houseContract={houseContract} continuation={workspace.data.continuation} write={write}/>}
   </div>}/>;
 }
 
-function NewForm({account,house,earliest,warehouses,options,write}:{
-  account:string;house:string;earliest:string;warehouses:Option[];options:Options;write:ReturnType<typeof useEggWrite>
+function NewForm({account,house,earliest,warehouses,options,houseContract,continuation,write}:{
+  account:string;house:string;earliest:string;warehouses:Option[];options:Options;houseContract:boolean;
+  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>
 }) {
   const {label,shell}=useSourceText();
   const [date,setDate]=useState(earliest);
@@ -58,10 +61,17 @@ function NewForm({account,house,earliest,warehouses,options,write}:{
   const [items,setItems]=useState<Array<Requirement&{id:number}>>([{id:1,gradeCode:'',specCode:''}]);
   const [nextId,setNextId]=useState(2);
   const [attempted,setAttempted]=useState(false);
-  const plans=useEggRead<PlanOption[]>(account,date>=earliest ? '/flock-plans'+query({houseCode:house,effectiveDate:date}) : null,isPlanList);
-  const requirements=useMemo(()=>items.map(({gradeCode,specCode})=>({gradeCode,specCode})),[items]);
-  const input=useMemo<Input>(()=>({ houseCode:house,effectiveDate:date,targetClass:color,warehouseCode:warehouse,
-    reason:reason.trim(),requirements,planDocument:linked||null }),[house,date,color,warehouse,reason,requirements,linked]);
+  const [continueOld,setContinueOld]=useState(false);
+  const selectedContinuation=continueOld ? continuation : null;
+  const plans=useEggRead<PlanOption[]>(account,!selectedContinuation&&date>=earliest
+    ? '/flock-plans'+query({houseCode:house,effectiveDate:date,contractVersion:houseContract?'2':null}) : null,isPlanList);
+  const requirements=useMemo(()=>selectedContinuation?.requirements??items.map(({gradeCode,specCode})=>({gradeCode,specCode})),
+    [items,selectedContinuation]);
+  const input=useMemo<Input>(()=>({ houseCode:house,effectiveDate:date,targetClass:selectedContinuation?.targetClass??color,
+    ...(houseContract ? {contractVersion:2 as const} : {warehouseCode:warehouse}),
+    ...(selectedContinuation ? {continuationProfileCode:selectedContinuation.profileCode} : {}),
+    reason:reason.trim(),requirements,planDocument:selectedContinuation ? null : linked||null }),
+  [house,date,color,warehouse,reason,requirements,linked,houseContract,selectedContinuation]);
   const matchingRows=new Map<string,number>();
   const duplicates=new Set<number>();
   items.forEach(row=>{
@@ -73,9 +83,9 @@ function NewForm({account,house,earliest,warehouses,options,write}:{
   });
   const warehouseUnavailable=!!warehouse&&!warehouses.some(row=>row.code===warehouse);
   const dateInvalid=!date||date<earliest;
-  const linkedUnavailable=!!linked&&!(plans.data?.some(plan=>plan.id===linked));
-  const complete=!dateInvalid && !!warehouse && !warehouseUnavailable && !!input.reason && !linkedUnavailable && !duplicates.size
-    && items.every(row=>options.grades.some(grade=>grade.code===row.gradeCode) && options.specs.some(spec=>spec.code===row.specCode));
+  const linkedUnavailable=!selectedContinuation&&!!linked&&!(plans.data?.some(plan=>plan.id===linked));
+  const complete=!dateInvalid && (houseContract || !!warehouse && !warehouseUnavailable) && !!input.reason && !linkedUnavailable
+    && (!!selectedContinuation || !duplicates.size && items.every(row=>options.grades.some(grade=>grade.code===row.gradeCode) && options.specs.some(spec=>spec.code===row.specCode)));
   const locked=write.busy||write.pending;
   function validate() {
     if (complete) return true;
@@ -92,24 +102,29 @@ function NewForm({account,house,earliest,warehouses,options,write}:{
     }}>
       <section className={s.section}>
         <h2>{label('scheduleBasics')}</h2>
+        {houseContract&&<p className={s.hint}>{label('houseContractWarehouseHelp')}</p>}
+        {continuation&&<label className={s.hint}>
+          <input type="checkbox" checked={!!selectedContinuation} disabled={locked} onChange={e=>setContinueOld(e.target.checked)}/>
+          {' '}{label('continueExistingProfile')}
+        </label>}
         <div className={s.fields}>
           <Field title={label('start')} hint={label('dateHelp')+' '+earliest} error={attempted&&dateInvalid?label('problem.DATE_NOT_FUTURE'):undefined}>
             {attrs=><input {...attrs} type="date" required min={earliest} style={inputField} value={date} disabled={locked}
               onChange={e=>{setDate(e.target.value);setLinked('');}}/>}
           </Field>
-          <Field title={label('shell')}>{attrs=><select {...attrs} required style={inputField} value={color} disabled={locked}
+          <Field title={label('shell')}>{attrs=><select {...attrs} required style={inputField} value={input.targetClass} disabled={locked||!!selectedContinuation}
             onChange={e=>setColor(e.target.value as Shell)}>{colors.map(value=><option value={value} key={value}>{shell(value)}</option>)}</select>}</Field>
-          <Field title={label('warehouse')} hint={label(warehouses.length?'warehouseHelp':'noWarehouses')}
+          {!houseContract&&<Field title={label('warehouse')} hint={label(warehouses.length?'warehouseHelp':'noWarehouses')}
             error={warehouseUnavailable?label('warehouseLost'):attempted&&!warehouse?label('required'):undefined}>
             {attrs=><SelectOption attrs={{...attrs,required:true,disabled:locked||!warehouses.length}} values={warehouses} value={warehouse} onChange={setWarehouse}/>}
-          </Field>
-          <Field title={label('changeDoc')} hint={plans.loading?label('loadingPlans'):label('optionalPlan')}
+          </Field>}
+          {!selectedContinuation&&<Field title={label('changeDoc')} hint={plans.loading?label('loadingPlans'):label('optionalPlan')}
             error={linkedUnavailable?label('planLost'):undefined}>
             {attrs=><select {...attrs} style={inputField} value={linked} disabled={locked||plans.loading} onChange={e=>setLinked(e.target.value)}>
               <option value="">{label('noPlan')}</option>
               {plans.data?.map(row=><option key={row.id} value={row.id}>{label('plan.'+row.kind)} · {row.flock_no} · {label('status.'+row.status)}</option>)}
             </select>}
-          </Field>
+          </Field>}
         </div>
         {plans.error&&<ReadFailure error={plans.error} retry={plans.reload}/>}
       </section>
@@ -118,7 +133,8 @@ function NewForm({account,house,earliest,warehouses,options,write}:{
         <div className={s.stack}>
           {!options.grades.length&&<p className={s.notice}>{label('noGrades')}</p>}
           {!options.specs.length&&<p className={s.notice}>{label('noSpecs')}</p>}
-          {items.map((row,index)=><fieldset key={row.id} className={s.row} disabled={locked}>
+          {selectedContinuation&&<ul className={s.events}>{requirements.map(row=><li className={s.record} key={JSON.stringify(row)}>{row.gradeCode} · {row.specCode}</li>)}</ul>}
+          {!selectedContinuation&&items.map((row,index)=><fieldset key={row.id} className={s.row} disabled={locked}>
             <legend>{label('combination')} {index+1}</legend>
             <div className={s.fields}>
               <Field title={label('grade')} error={attempted&&!options.grades.some(option=>option.code===row.gradeCode)?label('required'):undefined}>
@@ -133,9 +149,9 @@ function NewForm({account,house,earliest,warehouses,options,write}:{
               </div>
             </div>
           </fieldset>)}
-          <div className={s.actions}><button type="button" style={secondaryActionButton} disabled={locked||items.length>=96} onClick={()=>{
+          {!selectedContinuation&&<div className={s.actions}><button type="button" style={secondaryActionButton} disabled={locked||items.length>=96} onClick={()=>{
             setItems(rows=>[...rows,{id:nextId,gradeCode:'',specCode:''}]);setNextId(id=>id+1);
-          }}>{label('add')}</button></div>
+          }}>{label('add')}</button></div>}
         </div>
       </section>
       <section className={s.section}><Field title={label('reason')} error={attempted&&!reason.trim()?label('required'):undefined}>

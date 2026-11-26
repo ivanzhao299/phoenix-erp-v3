@@ -6,6 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import { SysUserEntity } from './entities/sys-user.entity';
 import { resolvePermissions } from './permissions-resolver';
 import { EGG_SOURCE_MENU } from './egg-source-permissions';
+import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants } from './egg-source-organization-grants';
 import { loadPermissionSources } from './permission-sources';
 import { isDevLoginAllowedEnvironment } from './dev-login-policy';
 
@@ -198,7 +199,13 @@ export class AuthService {
     } else {
       try {
         const permRows = await loadPermissionSources(this.userRepo,user.id);
-        permissions = resolvePermissions(permRows.filter(row=>row.menu_code!==EGG_SOURCE_MENU || row.active_role));
+        const active = permRows.filter(row=>row.menu_code!==EGG_SOURCE_MENU || row.active_role);
+        permissions = resolvePermissions(active);
+        try {
+          permissions = addEggSourceHouseSessionPermissions(permissions,active,await loadEggSourceOrganizationGrants(this.userRepo,user.id));
+        } catch (error) {
+          if ((error as {code?:string})?.code!=='42P01') throw error;
+        }
       } catch (e: any) {
         // 降级：表/列缺失时静默回退（兼容未升级的库）
         console.warn('[AUTH][WARN] Permission query failed:', e?.message);

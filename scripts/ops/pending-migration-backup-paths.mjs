@@ -7,7 +7,7 @@ import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {assertRegularFile,assertRootIdentity,inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './production-trusted-paths.mjs';
 import {physicalParent,physicalPins,archiveEvidence} from './vet-1124-backup-volume.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126'];
+const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126','egg-source-house-1126'];
 const legacyParent='/opt/phoenix-erp-backups';
 const hold=reason=>{throw Error('BACKUP_PATH_HOLD='+reason);};
 function context(runId,dependencies){
@@ -61,18 +61,28 @@ function evidenceFiles(archive) {
 function receiptFile(runId,scope) {
  return path.join(CONTRACT.stateDirectory,scope+'-migration-backup-'+runId+'.json');
 }
-function verifyArchivePins(directory,runId,target,scope) {
+function verifyArchivePins(directory,runId,target,scope,beforeLedgerSha256,inspectionSha256) {
  const receipt=JSON.parse(readPinnedFile(receiptFile(runId,scope),{contract:CONTRACT}));
  const archive=path.join(directory,'phoenix_erp_pre_'+target.slice(0,12)+'.dump');
- if(receipt.runId!==runId||receipt.sourceSha!==target||receipt.archive!==archive)hold('ARCHIVE_RECEIPT');
+ if(receipt.runId!==runId||receipt.sourceSha!==target||receipt.archive!==archive||(beforeLedgerSha256&&receipt.beforeLedgerSha256!==beforeLedgerSha256)
+   ||(inspectionSha256&&receipt.scopedInspectionSha256!==inspectionSha256))hold('ARCHIVE_RECEIPT');
  assertSameDirectory(receipt.files,evidenceFiles(archive).map(filePin));
  assertSameDirectory(receipt.manifest,filePin(path.join(directory,'backup-receipt.json')));
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
-  const [operation,runId,...extra]=process.argv.slice(2);if(extra.length||!['prepare','verify','receipt'].includes(operation))hold('ARGUMENTS');
+  const [operation,runId,...extra]=process.argv.slice(2);if(extra.length||!['prepare','verify','receipt','recover'].includes(operation))hold('ARGUMENTS');
   const scope=process.env.AUDIT_SCOPE||'ordinary';
-  if(operation==='receipt'){
+  if(operation==='recover'){
+   const target=process.env.TARGET_SHA,before=process.env.EXPECTED_BEFORE_LEDGER_SHA256,inspection=process.env.EXPECTED_VET_INSPECTION_SHA256;
+   if(scope!=='egg-source-house-1126'||!/^\d+-\d+$/.test(runId||'')||!/^[a-f0-9]{40}$/.test(target||'')
+      ||!/^[a-f0-9]{64}$/.test(before||'')||!/^[a-f0-9]{64}$/.test(inspection||''))hold('RECOVERY_BINDING');
+   verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
+   const directory=path.join(physicalParent,'pending-migration-'+runId);
+   physicalPins(directory);
+   verifyArchivePins(directory,runId,target,scope,before,inspection);
+   console.log('MIGRATION_BACKUP_RECOVERY=VERIFIED');
+  } else if(operation==='receipt'){
    if(!physicalScopes.includes(scope))hold('SCOPE');
    const check=()=>verifyPendingMigrationBackupPaths(runId,{scope});
    const {directory}=check();
@@ -80,6 +90,11 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
    const beforeLedgerSha256=process.env.EXPECTED_BEFORE_LEDGER_SHA256,entries=Number(process.env.TOC_ENTRIES);
    if(!/^[a-f0-9]{64}$/.test(beforeLedgerSha256||'')||!Number.isSafeInteger(entries)||entries<1)hold('ARCHIVE_RECEIPT');
    Object.assign(receipt,{beforeLedgerSha256,tocEntries:entries,verification:'pg_restore full parse and SHA-256'});
+   if(scope==='egg-source-house-1126'){
+    const inspection=process.env.EXPECTED_VET_INSPECTION_SHA256;
+    if(!/^[a-f0-9]{64}$/.test(inspection||''))hold('INSPECTION_BINDING');
+    receipt.scopedInspectionSha256=inspection;
+   }
    check();
    const file=receiptFile(runId,scope);
    receipt.files=evidenceFiles(receipt.archive).map(filePin);

@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpException, InternalServerErrorException, Logger, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
-import { EGG_SOURCE_MENU as menu, EggSourcePermission } from '../../../auth/egg-source-permissions';
+import { EGG_SOURCE_MENU as menu } from '../../../auth/egg-source-permissions';
+import type { EggSourceHouseAction } from '../../../auth/egg-source-organization-grants';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { deriveOrgScope } from '../../farm/farm.service';
 import { EggSourceAccessService } from '../services/egg-source-access.service';
@@ -9,7 +10,7 @@ import { sourceText } from '../services/egg-source-change-policy';
 import { EggHistoryReviewService } from '../services/egg-history-review.service';
 import { SourceSkuBlocked } from '../services/sku-availability.service';
 import type { ChangeListQuery } from '../services/egg-source-change-read';
-import { EggSourceChangeService } from '../services/egg-source-change.service';
+import { EggSourceChangeService,sourceContractVersion,sourceScopeFor,type SourceContractVersion } from '../services/egg-source-change.service';
 
 
 @Controller('api/product-master/egg-sources')
@@ -29,15 +30,21 @@ export class EggSourceChangeController {
     return sourceText(String(req.user?.userId ?? ''),'实名账号');
   }
 
-  private async accessScope(req: any, action: EggSourcePermission = 'V', manager?: EntityManager) {
-    const access = await this.access.resolve(req.user, action, manager);
-    return action === 'V' ? access.scope : { ...access.scope, actionGrants: action === 'E' ? access.edit : access.approve };
+  private async accessScope(req: any, action: EggSourceHouseAction = 'V', manager?: EntityManager, contract?:SourceContractVersion) {
+    return (await this.access.resolve(req.user,action,manager,contract)).scope;
+  }
+
+  private createScope(req:any,version:unknown,manager?:EntityManager) {
+    const contract = sourceContractVersion(version);
+    return this.accessScope(req,contract===2 ? 'C' : 'E',manager,contract);
   }
 
   private async reader(req: any) {
     const access = await this.access.resolve(req.user);
     return { scope: access.scope, actor: access.actor, edit: !!access.edit.length, approve: !!access.approve.length,
-      editGrants: access.edit, approveGrants: access.approve };
+      editGrants:access.edit,approveGrants:access.approve,houseCreateGrants:access.houseCreate,
+      houseEditGrants:access.houseEdit,houseApproveGrants:access.houseApprove,
+      warehouseCodes:access.warehouseScope?.allowedWarehouseCodes,warehouseGlobal:access.warehouseScope?.isGlobal };
   }
 
   @Get('workspace')
@@ -53,13 +60,12 @@ export class EggSourceChangeController {
   @Get('candidates/warehouses')
   @RequireMenu(menu,'E')
   async warehouses(@Query('houseCode') house:string,@Req() req:any) {
-    return { code:200,data:await this.service.candidateWarehouses(house,await this.accessScope(req,'E')) };
+    return { code:200,data:await this.service.candidateWarehouses(house,await this.accessScope(req,'E',undefined,1)) };
   }
 
   @Get('candidates/options')
-  @RequireMenu(menu,'E')
-  async options(@Req() req:any) {
-    await this.accessScope(req,'E');
+  async options(@Query('contractVersion') contract:unknown,@Req() req:any) {
+    await this.createScope(req,contract);
     return { code:200,data:await this.service.candidateOptions() };
   }
 
@@ -86,9 +92,8 @@ export class EggSourceChangeController {
 
   @Post('precheck')
   @HttpCode(200)
-  @RequireMenu(menu,'E')
   async precheck(@Body() body: Parameters<EggSourceChangeService['precheck']>[0],@Req() req: any) {
-    const scope = await this.accessScope(req,'E');
+    const scope = await this.createScope(req,body?.contractVersion);
     return this.precheckResponse(() => this.service.precheck(body,scope));
   }
 
@@ -126,22 +131,21 @@ export class EggSourceChangeController {
   }
 
   @Get('flock-plans')
-  @RequireMenu(menu,'E')
-  async flockPlans(@Query('houseCode') house:string,@Query('effectiveDate') date:string,@Req() req:any) {
-    return {code:200,data:await this.service.planOptions(house,date,await this.accessScope(req,'E'),await this.access.flockScope(req.user))};
+  async flockPlans(@Query('houseCode') house:string,@Query('effectiveDate') date:string,
+    @Query('contractVersion') version:unknown,@Req() req:any) {
+    const scope = sourceScopeFor(await this.createScope(req,version),sourceContractVersion(version));
+    return {code:200,data:await this.service.planOptions(house,date,scope,await this.access.flockScope(req.user))};
   }
 
   @Post('preview')
-  @RequireMenu(menu,'E')
   async preview(@Body() body: Parameters<EggSourceChangeService['preview']>[0],@Req() req: any) {
     const flock = await this.access.flockScope(req.user);
-    return { code:200,data:await this.safeWrite(async () => this.service.preview(body,await this.accessScope(req,'E'),flock)) };
+    return { code:200,data:await this.safeWrite(async () => this.service.preview(body,await this.createScope(req,body?.contractVersion),flock)) };
   }
 
   @Post('changes')
-  @RequireMenu(menu,'E')
   async create(@Body() body: Parameters<EggSourceChangeService['create']>[0],@Req() req: any) {
-    const change=await this.service.create(body,await this.accessScope(req,'E'),this.actor(req),m=>this.accessScope(req,'E',m));
+    const change=await this.service.create(body,await this.createScope(req,body?.contractVersion),this.actor(req),m=>this.createScope(req,body?.contractVersion,m));
     return { code:201,data:await this.service.safeLegacyChange(change,await this.access.flockScope(req.user)) };
   }
 
