@@ -171,6 +171,7 @@ export class GenericCrudController {
       if (method === 'GET') return ['MENU_WMS_INOUT', 'MENU_WMS_ISSUE'];
       return ['MENU_WMS_ISSUE'];
     }
+    if (method === 'GET' && table === 'wms_transfer') return ['MENU_INV_BATCH', 'MENU_WMS_INOUT'];
     if (method === 'GET' && table.startsWith('wms_')) return ['MENU_WMS_INOUT'];
     // BUG-20260707-0004: 库存查询/台账是只读库存事实表，历史仓库作业角色常持
     // MENU_INV_BATCH / MENU_INV_LEDGER / MENU_WMS_INOUT，而不一定持 MENU_WMS_VIEW。
@@ -564,6 +565,11 @@ export class GenericCrudController {
       scopeField = 'store_code';
     }
 
+    if (table === 'wms_transfer') {
+      const warehouses = tableScope?.isGlobal ? null : tableScope?.allowedWarehouseCodes ?? [];
+      return { code: 200, data: await this.crudService.findAllTransferScoped(query, warehouses) };
+    }
+
     if (isInventoryFactTable(table)) {
       const allowedWarehouseCodes = isGlobal ? null : (tableScope?.allowedWarehouseCodes ?? []);
       const data = await this.crudService.findAllInventoryScoped(table, query, allowedWarehouseCodes);
@@ -609,6 +615,10 @@ export class GenericCrudController {
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
+    if ((table === 'wms_stocktake' && (String(body.status).toUpperCase() === 'APPROVED' || /^DC-/i.test(body.stocktake_no ?? '')))
+      || (table === 'wms_inbound' && String(body.status).toUpperCase() === 'COMPLETED')) {
+      throw new BadRequestException('库存过账须使用对应的确认接口');
+    }
     if (table === 'wms_inbound') {
       body = this.canonicalizeWmsInboundBody(body);
     }
@@ -705,6 +715,11 @@ export class GenericCrudController {
       await this.wmsService.assertWarehouseOwnership(safeBody, existing);
     }
 
+    if (table === 'wms_stocktake' && (String(safeBody.status).toUpperCase() === 'APPROVED'
+      || (safeBody.stocktake_no !== undefined && safeBody.stocktake_no !== existing.stocktake_no))) {
+      throw new BadRequestException('盘点或报损审批必须使用专用接口，单号不可更改');
+    }
+
     if (table === 'wms_transfer' && Object.prototype.hasOwnProperty.call(safeBody, 'status')) {
       throw new BadRequestException('调拨状态必须通过专用 create/dispatch/receive/complete 接口流转');
     }
@@ -720,16 +735,12 @@ export class GenericCrudController {
       if (tableScope) {
         this.cls.set('dataScope', tableScope);
       }
-      // Inventory confirmation is the authoritative state transition. Persisting
-      // editable header fields first could leave a mutated document when posting
-      // fails; confirm first and only then mirror the successful edit to CRUD.
+      // Confirm against the saved receipt. Draft field changes belong to a
+      // separate edit before confirmation, so the header cannot diverge after posting.
       const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
       // The strict flag forces the WMS service to resolve the persisted detail
       // row instead of accepting a caller-supplied identity that is not stored.
       const result = await this.wmsService.confirmInbound(payload, req.user, undefined, true);
-      if (Object.keys(detailFields).length > 0) {
-        await this.crudService.update(table, idColumn, id, detailFields);
-      }
       return result;
     }
 

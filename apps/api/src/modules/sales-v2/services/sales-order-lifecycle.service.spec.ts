@@ -118,7 +118,9 @@ describe('sales order lifecycle red lines', () => {
 
   it('cancels the pending workflow before CAS-cancelling the order', async () => {
     const order = { id: '7', order_no: 'SO-7', company_code: 'C1', status: 'PENDING_APPROVAL', wf_instance_id: '11' };
-    const manager = { query: jest.fn().mockResolvedValue([order]) };
+    const manager = { query: jest.fn(async (sql: string) =>
+      sql.includes('sal_order_item_batch_allocations') ? [] : [order],
+    ) };
     const approval = { cancelInstance: jest.fn().mockResolvedValue(undefined) };
     const lifecycle = {
       transitionStatus: jest.fn().mockResolvedValue({ ...order, status: 'CANCELLED' }),

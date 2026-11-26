@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -26,8 +26,8 @@ export class TraceabilityController {
 
   @Get('batch/:batchNo')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
-  byBatch(@Param('batchNo') batchNo: string, @Req() req: any) {
-    return this.trace.traceByBatch(batchNo, this.scope(req),req.dataScope??req.user?.dataScope);
+  byBatch(@Param('batchNo') batchNo: string, @Req() req: any, @Query('after') after?: string, @Query('limit') limit?: string) {
+    return this.trace.traceByBatch(batchNo, this.scope(req), req.dataScope, { after, limit });
   }
 
   @Get('packaging/:packingCode')
@@ -50,7 +50,7 @@ export class TraceabilityController {
 
   @Get('customer/:customerCode')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
-  byCustomer(@Param('customerCode') customerCode: string, @Req() req: any) {
-    return this.trace.traceByCustomer(customerCode, this.scope(req));
+  byCustomer(@Param('customerCode') customerCode: string, @Req() req: any, @Query('after') after?: string, @Query('limit') limit?: string) {
+    return this.trace.traceByCustomer(customerCode, this.scope(req), req.dataScope, { after, limit });
   }
 }

@@ -14,13 +14,12 @@
  */
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { NavCard } from "@/components/ui/NavCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { getWarehouseDashboardAccess } from "@/lib/warehouse-dashboard-access";
-import { groupWarehouseQuantitiesByUnit } from "@/lib/warehouse-query";
 import styles from "./warehouse.module.css";
 import {
   PackagePlus, PackageMinus, ListChecks, Search, ArrowDown, ArrowUp,
@@ -29,7 +28,7 @@ import {
 import {
   MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
   actionGroupBox, detailInfoBox, recordRow, inlineAlert,
-  secondaryActionButton, moneyCell,
+  secondaryActionButton,
 } from "@/components/design-system/cockpit-styles";
 
 interface Zone {
@@ -42,34 +41,14 @@ interface Zone {
   total_capacity: number;
   status: string;
 }
-interface InboundRow {
-  id: number;
-  inbound_no: string;
-  item: string;
-  qty: number;
-  unit?: string;
-  warehouse_code: string;
-  date: string;
-  created_at: string;
-}
-interface OutboundRow {
-  id: number;
-  outbound_no: string;
-  item: string;
-  qty: number;
-  unit?: string;
-  dest: string;
-  date: string;
-  time?: string;
-  created_at: string;
-}
-interface BatchRow {
-  id: number;
-  batch_no: string;
-  expire_date: string;
-  qty_available: number;
-  unit?: string;
-}
+type DashboardDocuments = {
+  today_in: number; today_out: number; month_in: number; month_out: number;
+  activity: Array<{ kind: 'in' | 'out'; number: string; warehouse_code: string; day: string; updated_at: string }>;
+};
+type DashboardStock = {
+  available_count: number; expiring_count: number;
+  units: Array<{ unit: string | null; count: number; available: string }>;
+};
 
 // ── 库区卡片 — g200e 重写,克制白底 + 进度条用 var(--status-*)
 function ZoneCard({ zone, warningLabel }: { zone: Zone; warningLabel: string }) {
@@ -106,107 +85,49 @@ export default function WarehouseDashboard() {
     canViewWarehouse,
     canViewInout,
     canLoadZones,
-    canLoadInbounds,
-    canLoadOutbounds,
     canLoadBatches,
   } = useMemo(() => getWarehouseDashboardAccess(hasPermission), [hasPermission]);
   const [zones, setZones] = useState<Zone[]>([]);
-  const [inbounds, setInbounds] = useState<InboundRow[]>([]);
-  const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
-  const [batches, setBatches] = useState<BatchRow[]>([]);
-  const [expiry, setExpiry] = useState<BatchRow[]>([]);
+  const [documents, setDocuments] = useState<DashboardDocuments | null>(null);
+  const [stock, setStock] = useState<DashboardStock | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     if (authLoading) return;
-    if (!canViewWarehouse) {
-      setZones([]);
-      setInbounds([]);
-      setOutbounds([]);
-      setBatches([]);
-      setExpiry([]);
-      setLoadError(null);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setLoadError(null);
-    const [zRes, ibRes, obRes, btRes] = await Promise.all([
-      canLoadZones
-        ? crudApi.list<Zone>("wms_zones", { limit: 100 }, { silent: true }).catch(() => {
-            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
-            return { data: [] as Zone[], code: 0 };
-          })
-        : Promise.resolve({ data: [] as Zone[], code: 0 }),
-      canLoadInbounds
-        ? crudApi.list<InboundRow>("wms_inbound", { limit: 200 }, { silent: true }).catch(() => {
-            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
-            return { data: [] as InboundRow[], code: 0 };
-          })
-        : Promise.resolve({ data: [] as InboundRow[], code: 0 }),
-      canLoadOutbounds
-        ? crudApi.list<OutboundRow>("wms_outbound", { limit: 200 }, { silent: true }).catch(() => {
-            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
-            return { data: [] as OutboundRow[], code: 0 };
-          })
-        : Promise.resolve({ data: [] as OutboundRow[], code: 0 }),
-      canLoadBatches
-        ? crudApi.list<BatchRow>("inv_batches", { limit: 500 }, { silent: true }).catch(() => {
-            setLoadError(t("ui.部分仓储看板数据加载失败请刷新或联系管理员", "部分仓储看板数据加载失败，请刷新或联系管理员。"));
-            return { data: [] as BatchRow[], code: 0 };
-          })
-        : Promise.resolve({ data: [] as BatchRow[], code: 0 }),
+    const outcomes = await Promise.allSettled([
+      canLoadZones ? crudApi.list<Zone>('wms_zones', { limit: 100 }, { silent: true }) : null,
+      canViewInout ? request<{ data: DashboardDocuments }>('/inventory/dashboard/documents', { silent: true }) : null,
+      canLoadBatches ? request<{ data: DashboardStock }>('/inventory/batches/query', { silent: true }) : null,
     ]);
-    setZones(canLoadZones ? (zRes.data ?? []) : []);
-    setInbounds(canLoadInbounds ? (ibRes.data ?? []) : []);
-    setOutbounds(canLoadOutbounds ? (obRes.data ?? []) : []);
-    setBatches(btRes.data ?? []);
-    const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-    const today = new Date().toISOString().slice(0, 10);
-    setExpiry((btRes.data ?? []).filter((b: BatchRow) => b.expire_date && b.expire_date <= in14 && b.expire_date >= today && b.qty_available > 0));
+    const [zoneResult, documentResult, stockResult] = outcomes;
+    setZones(zoneResult.status === 'fulfilled' ? zoneResult.value?.data ?? [] : []);
+    setDocuments(documentResult.status === 'fulfilled' ? documentResult.value?.data ?? null : null);
+    setStock(stockResult.status === 'fulfilled' ? stockResult.value?.data ?? null : null);
+    if (outcomes.some(outcome => outcome.status === 'rejected')) {
+      setLoadError(t('ui.部分仓储看板数据加载失败请刷新或联系管理员', '部分仓储看板数据加载失败，请刷新或联系管理员。'));
+    }
     setLoading(false);
-  }, [authLoading, canLoadBatches, canLoadInbounds, canLoadOutbounds, canLoadZones, canViewWarehouse, t]);
-  useEffect(() => { loadAll(); }, [loadAll]);
+  }, [authLoading, canLoadBatches, canLoadZones, canViewInout, t]);
+  useEffect(() => { void loadAll(); }, [loadAll]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayIn = useMemo(() => inbounds.filter(r => (r.date || r.created_at?.slice(0, 10)) === today), [inbounds, today]);
-  const todayOut = useMemo(() => outbounds.filter(r => (r.date || r.created_at?.slice(0, 10)) === today), [outbounds, today]);
-  const stockByUnit = useMemo(() => groupWarehouseQuantitiesByUnit(batches), [batches]);
-
-  const activity = useMemo(() => {
-    const inLabel = t("ui.入库", "入库");
-    const outLabel = t("ui.出库", "出库");
-    const itemLabel = t("ui.品目", "品目");
-    const zoneLabel = t("ui.仓区", "仓区");
-    const destLabel = t("ui.去向", "去向");
-    const ib = inbounds.slice(0, 20).map(r => ({
-      type: "in" as const,
-      label: inLabel,
-      desc: `${r.item || itemLabel} → ${r.warehouse_code || zoneLabel}`,
-      qty: r.qty,
-      unit: r.unit,
-      date: r.date || r.created_at?.slice(0, 10) || "",
-      time: r.created_at?.slice(11, 16) || "--:--",
-    }));
-    const ob = outbounds.slice(0, 20).map(r => ({
-      type: "out" as const,
-      label: outLabel,
-      desc: `${r.item || itemLabel} → ${r.dest || destLabel}`,
-      qty: r.qty,
-      unit: r.unit,
-      date: r.date || r.created_at?.slice(0, 10) || "",
-      time: r.time || r.created_at?.slice(11, 16) || "--:--",
-    }));
-    return [...ib, ...ob].sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`)).slice(0, 8);
-  }, [inbounds, outbounds, t]);
+  const stockByUnit = (stock?.units ?? []).map(group => ({
+    unit: group.unit ?? t('ui.单位待核', '单位待核'), quantity: Number(group.available), batchCount: group.count,
+  }));
+  const activity = (documents?.activity ?? []).map(row => ({
+    type: row.kind, date: row.day, time: row.updated_at?.slice(11,16) ?? '',
+    desc: row.number + ' · ' + row.warehouse_code,
+    label: row.kind === 'in' ? t('ui.入库', '入库') : t('ui.出库', '出库'),
+  }));
 
   // g200e KPI 4 卡:kpiCardCompact(tone) 统一
   const KPIs = [
-    { label: t("ui.可用库存批次", "可用库存批次"), value: loading ? "…" : batches.length.toLocaleString(), unit: t("ui.批", "批"), tone: "info" as const, Icon: Package },
-    { label: t("ui.今日入库单", "今日入库单"), value: loading ? "…" : canViewInout ? todayIn.length.toString() : "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
-    { label: t("ui.今日出库单", "今日出库单"), value: loading ? "…" : canViewInout ? todayOut.length.toString() : "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "danger" as const, Icon: ArrowUp },
-    { label: t("ui.临期批次", "临期批次"), value: loading ? "…" : expiry.length.toString(),                    unit: t("ui.批", "批"),  tone: "warning" as const, Icon: AlertTriangle },
+    { label: t("ui.可用库存批次", "可用库存批次"), value: loading ? "…" : stock?.available_count.toLocaleString() ?? "—", unit: t("ui.批", "批"), tone: "info" as const, Icon: Package },
+    { label: t("ui.今日入库单", "今日入库单"), value: loading ? "…" : documents?.today_in.toString() ?? "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
+    { label: t("ui.今日出库单", "今日出库单"), value: loading ? "…" : documents?.today_out.toString() ?? "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "danger" as const, Icon: ArrowUp },
+    { label: t("ui.临期批次", "临期批次"), value: loading ? "…" : stock?.expiring_count.toString() ?? "—",                    unit: t("ui.批", "批"),  tone: "warning" as const, Icon: AlertTriangle },
   ];
 
   // g200e 快捷入口:全局 NavCard + description 副标
@@ -214,7 +135,7 @@ export default function WarehouseDashboard() {
     { path: "/warehouse/inbound",   Icon: PackagePlus,    label: t("ui.入库管理", "入库管理"), desc: t("ui.入库单创建", "入库单录入、扫码收货、批次台账上链。"),       accent: "green"  as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/outbound",  Icon: PackageMinus,   label: t("ui.出库管理", "出库管理"), desc: t("ui.出库单创建", "出库单录入、FIFO 出库、含调拨与销售出库。"), accent: "red"    as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/issues",    Icon: PackageMinus,   label: t("ui.生产与内部领用", "生产与内部领用"), desc: t("ui.生产与内部领用说明", "饲料、兽药、包材、配件、后勤和维修领用，按用途与领用对象归集。"), accent: "amber" as const, perm: "MENU_WMS_ISSUE" },
-    { path: "/warehouse/transfer",  Icon: MoveHorizontal, label: t("ui.库存调拨", "库存调拨"), desc: t("ui.库存调拨", "库间调拨,事务安全,源/目仓批次一致。"),         accent: "blue"   as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/transfer",  Icon: MoveHorizontal, label: t("ui.库存调拨", "库存调拨"), desc: t("ui.库存调拨", "库间调拨,事务安全,源/目仓批次一致。"),         accent: "blue"   as const, perm: "MENU_INV_BATCH" },
     { path: "/warehouse/stocktake", Icon: ListChecks,     label: t("ui.盘点管理", "盘点管理"), desc: t("ui.盘点单", "盘点单生成、差异比对、盘盈/盘亏入账。"),         accent: "amber"  as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/query",     Icon: Search,         label: t("ui.库存查询", "库存查询"), desc: t("ui.库存查询", "按批次/库位/品目/到期日多维查询。"),          accent: "violet" as const, perm: "MENU_WMS_VIEW" },
     { path: "/warehouse/expiry",    Icon: AlertTriangle,  label: t("ui.临期预警", "临期预警"), desc: t("ui.临期预警", "14 天内临期批次提示与紧急处置入口。"),        accent: "amber"  as const, perm: "MENU_WMS_VIEW" },
@@ -224,10 +145,10 @@ export default function WarehouseDashboard() {
   const warningLabel = t("ui.容量预警", "容量预警");
 
   const monthlyStats = [
-    { label: t("ui.总入库单数", "总入库单数"),       value: canViewInout ? inbounds.length : "—",  tone: "success" as const },
-    { label: t("ui.总出库单数", "总出库单数"),       value: canViewInout ? outbounds.length : "—", tone: "danger"  as const },
+    { label: t("ui.总入库单数", "总入库单数"),       value: documents?.month_in ?? "—",  tone: "success" as const },
+    { label: t("ui.总出库单数", "总出库单数"),       value: documents?.month_out ?? "—", tone: "danger"  as const },
     { label: t("ui.库区满载预警", "库区满载预警"),   value: canViewInout ? zones.filter(z => z.status === "WARNING").length : "—", tone: "warning" as const },
-    { label: t("ui.临期批次", "临期批次"),           value: expiry.length,    tone: "warning" as const },
+    { label: t("ui.临期批次", "临期批次"),           value: stock?.expiring_count ?? "—",    tone: "warning" as const },
   ];
 
   return (
@@ -366,9 +287,6 @@ export default function WarehouseDashboard() {
                       <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{a.date?.slice(5)} {a.time}</span>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", wordBreak: "break-word" }}>{a.desc}</div>
-                  </div>
-                  <div style={moneyCell(a.type === "in" ? "success" : "danger", "md")}>
-                    {a.qty}{a.unit ? ` ${a.unit}` : ""}
                   </div>
                 </div>
               ))

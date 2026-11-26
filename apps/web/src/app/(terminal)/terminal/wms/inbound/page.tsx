@@ -127,12 +127,9 @@ export default function WmsInboundTerminalPage() {
       const items = selected.items.map(it => {
         const e = edits[it.line_no] ?? { actual: '', broken: '' };
         return {
-          product_code: it.product_code,
-          batch_no: it.batch_no || undefined,
-          location_code: it.location_code || undefined,
-          actual_qty: parseInt(e.actual) || 0,
-          broken_qty: parseInt(e.broken) || 0,
-          expected_qty: it.planned_qty != null ? Number(it.planned_qty) : undefined,
+          id: it.line_no,
+          actual_qty: e.actual === '' ? undefined : e.actual,
+          broken_qty: e.broken === '' ? 0 : e.broken,
         };
       });
       const { ok, json } = await api('/api/inbound/confirm', { method: 'POST', body: JSON.stringify({ task_no: selected.task_no, items }) });

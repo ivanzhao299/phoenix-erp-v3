@@ -16,20 +16,24 @@ export class QualityController {
   /** 正向追溯（扫码用） */
   @Get('trace/forward')
   @RequireMenu('MENU_QA_MGR', 'V')
-  async traceForward(@Query('batch_no') batchNo: string) {
+  async traceForward(@Query('batch_no') batchNo: string, @Req() req: any,
+    @Query('after') after?: string, @Query('limit') limit?: string) {
     if (!batchNo) throw new BadRequestException('batch_no required');
-    return await this.qaService.traceForward(batchNo);
+    return await this.qaService.traceForward(batchNo, req.dataScope, { after, limit });
   }
 
   /** 逆向追溯 + 召回评估 */
   @Get('trace/backward')
   @RequireMenu('MENU_QA_MGR', 'V')
   async traceBackward(
+    @Req() req: any,
+    @Query('after') after?: string,
+    @Query('limit') limit?: string,
     @Query('sale_no') saleNo?: string,
     @Query('batch_no') batchNo?: string,
     @Query('keyword') keyword?: string,
   ) {
-    return await this.qaService.traceBackward({ sale_no: saleNo, batch_no: batchNo, keyword });
+    return await this.qaService.traceBackward({ sale_no: saleNo, batch_no: batchNo, keyword }, req.dataScope, { after, limit });
   }
 
   @Get('inspections')

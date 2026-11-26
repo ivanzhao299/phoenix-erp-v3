@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { DataSource } from 'typeorm';
+import { TransferCostEvidence1795658700000 } from '../../../database/migrations/1795658700000-TransferCostEvidence';
 import { OfficialInventoryCutover1794971000000 } from '../../../database/migrations/1794971000000-OfficialInventoryCutover';
 import { resolveQuantity, savedQuantity, sharedBatches, QuantitySnapshot } from './quantity-contract';
 import { PackageQuantitySnapshots1794268800000 } from '../../../database/migrations/1794268800000-PackageQuantitySnapshots';
@@ -106,10 +107,11 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       ALTER TABLE mst_products ADD COLUMN specs text;
       ALTER TABLE product_skus ADD COLUMN sku_name text;
       CREATE TABLE store_master (id serial PRIMARY KEY,store_code text,status text,company_code text);
-      CREATE TABLE wms_transfer (id serial PRIMARY KEY,transfer_no text,from_warehouse text,to_warehouse text,from_zone text,to_zone text,from_location text,to_location text,
+      CREATE TABLE wms_transfer (id serial PRIMARY KEY,transfer_no text UNIQUE NOT NULL,from_warehouse text,to_warehouse text,from_zone text,to_zone text,from_location text,to_location text,
         batch_no text,qty numeric(14,3),reason text,attachment_url text,operator text,status text,operator_id int,created_at timestamptz,updated_at timestamptz,
         in_transit_qty numeric,received_qty numeric,dispatched_at timestamptz,dispatched_by text,received_at timestamptz,received_by text,completed_at timestamptz);
       CREATE TABLE wms_transfer_items (id serial PRIMARY KEY,transfer_no text,source_batch_no text,target_batch_no text,expected_qty numeric,received_qty numeric,difference_qty numeric,source_snapshot jsonb);
+      CREATE TABLE wms_transfer_discrepancies(id serial PRIMARY KEY,resolution_type text);
 
       CREATE TABLE mst_audit_trail (id serial PRIMARY KEY,object_type text,object_code text,action text,before_json jsonb,after_json jsonb,operator text,reason text);
     `);
@@ -118,7 +120,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     await migration.up(db.createQueryRunner());
     const sourceRunner = db.createQueryRunner();
     await sourceRunner.connect();
-    try { await new EggSourceProfiles1794400001000().up(sourceRunner); await new OfficialInventoryCutover1794971000000().up(sourceRunner); }
+    try { await new EggSourceProfiles1794400001000().up(sourceRunner); await new OfficialInventoryCutover1794971000000().up(sourceRunner); await new TransferCostEvidence1795658700000().up(sourceRunner); }
     finally { await sourceRunner.release(); }
     // Existing quantity/Sales/POS scenarios exercise the STANDARD catalogue,
     // not the intentionally gated phase-4 VARIANT sales path. Keep a separate
@@ -171,7 +173,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
     await db.query(`TRUNCATE inv_ledger,inv_batches,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,sal_order_item_batch_allocation_actions,
-      store_sale_allocations,sal_return_items,sal_return_orders,sal_price_items,sal_price_books,prc2_order_items RESTART IDENTITY;
+      store_sale_allocations,sal_return_items,sal_return_orders,sal_price_items,sal_price_books,prc2_order_items,wms_transfer,wms_transfer_items,wms_atomic_transfer_receipts RESTART IDENTITY;
       UPDATE product_skus SET status='ACTIVE'; UPDATE packaging_specs SET qty_per_unit=CASE WHEN spec_code='T' THEN 30 ELSE 360 END;
       UPDATE md_product_varieties SET status='ACTIVE'; UPDATE md_sku_org_scope SET status='ACTIVE',stock_enabled=true;`);
   });
@@ -362,7 +364,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   it('WMS transfer preserves base measurement proof, source grade/spec and packaging/collection references', async () => {
     const b=await batch(); await db.query("UPDATE inv_batches SET packaging_batch_ref='PK',collection_batch_ref='COL' WHERE batch_no=$1",[b.batch_no]);
     await db.query("INSERT INTO wms_warehouses (warehouse_code,company_code) VALUES ('W2','C')");
-    await wms.confirmTransfer({from_warehouse:'W',to_warehouse:'W2',items:[{batch_no:b.batch_no,qty:30}]},{username:'fixture'});
+    await wms.confirmTransfer({transfer_no:'QTY-FIXTURE-TRANSFER',from_warehouse:'W',to_warehouse:'W2',items:[{batch_no:b.batch_no,qty:30}]},{username:'fixture'});
     const [target]=await db.query("SELECT sku_code,grade_code_std,spec_code,unit,base_quantity_version,packaging_batch_ref,collection_batch_ref,qty FROM inv_batches WHERE warehouse_code='W2'");
     expect(target).toEqual({sku_code:'TRAY',grade_code_std:'A',spec_code:'T',unit:'枚',base_quantity_version:1,packaging_batch_ref:'PK',collection_batch_ref:'COL',qty:'30.000'});
   });

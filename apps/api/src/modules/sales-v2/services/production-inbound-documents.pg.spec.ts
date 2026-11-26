@@ -15,6 +15,7 @@ import { ProductionInboundService } from './production-inbound.service';
 import { EggInventoryService } from './egg-inventory.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+import { TransferCostEvidence1795658700000 } from '../../../database/migrations/1795658700000-TransferCostEvidence';
 import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
 import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
 import { qualifyPurchaseInventory, purchaseReceiptBatchNo } from '../../wms/purchase-inventory-qualification';
@@ -56,7 +57,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const continuation = db.createQueryRunner();
     try { await new ProductionDocumentContinuations1795400100000().up(continuation); }
     finally { await continuation.release(); }
-    const transfer=db.createQueryRunner();await transfer.connect();try{await new AlignWmsTransactionForms1787731200000().up(transfer);await new UpgradeWmsTransferLifecycle1787965200000().up(transfer);}finally{await transfer.release();}
+    const transfer=db.createQueryRunner();await transfer.connect();try{await new AlignWmsTransactionForms1787731200000().up(transfer);await new UpgradeWmsTransferLifecycle1787965200000().up(transfer);await new TransferCostEvidence1795658700000().up(transfer);}finally{await transfer.release();}
     const defect=db.createQueryRunner();await defect.connect();try{await new AddWmsDefectDisposition1794405000000().up(defect);}finally{await defect.release();}
     await db.query(`CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');

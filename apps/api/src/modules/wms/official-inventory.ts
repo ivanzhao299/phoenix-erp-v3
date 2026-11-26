@@ -16,7 +16,9 @@ export function officialInventoryWritablePredicate(alias = 'b'): string {
 /** A numeric zero placeholder is not a confirmed cost for a newly qualified source. */
 export function officialInventoryCostKnownPredicate(alias = 'b'): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(alias)) throw new Error('Invalid SQL batch alias');
-  return `(${alias}.unit_cost IS NOT NULL AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications cost_q JOIN production_cutover_scopes cost_scope ON cost_scope.id=cost_q.scope_id
+  return `(${alias}.unit_cost IS NOT NULL
+    AND (COALESCE(to_jsonb(${alias})->>'source_type','') NOT IN ('TRANSFER','TRANSFER_DAMAGE') OR to_jsonb(${alias})->>'transfer_cost_currency' IS NOT NULL)
+    AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications cost_q JOIN production_cutover_scopes cost_scope ON cost_scope.id=cost_q.scope_id
     WHERE cost_q.batch_no=${alias}.batch_no AND cost_q.disposition='QUALIFIED' AND cost_q.cost_status='UNKNOWN'
       AND (official_inventory_qualification_controlled(cost_q.batch_no) OR cost_scope.state<>'DRAFT' OR to_jsonb(cost_q)->>'receipt_item_id' IS NOT NULL OR to_jsonb(cost_q)->>'opening_manifest_id' IS NOT NULL
         OR EXISTS(SELECT 1 FROM production_batch_roots cost_roots JOIN production_batch_qualifications cost_root ON cost_root.batch_no=cost_roots.root_batch_no

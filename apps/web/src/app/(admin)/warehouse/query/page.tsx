@@ -1,25 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw, Search, Warehouse } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import request, { crudApi, type ApiError } from "@/lib/api-client";
+import request, { type ApiError } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { moneyCell } from "@/components/design-system/cockpit-styles";
 import {
-  filterWarehouseBatchRows,
   formatWarehouseBatchDate,
   getWarehouseBatchQuantity,
-  groupWarehouseQuantitiesByUnit,
-  loadWarehouseBatchRows,
-  normalizeWarehouseBatchRows,
   type WarehouseQueryBatch,
 } from "@/lib/warehouse-query";
 import { formatBusinessEnum, formatMasterData } from "@/lib/business-display";
 
 export default function StockQueryPage() {
   const { t, lang } = useLanguage();
-  const [rows, setRows] = useState<WarehouseQueryBatch[]>([]);
+  type Batch = WarehouseQueryBatch & Record<string, unknown> & { reserved: number; held: number };
+  type Unit = { unit: string | null; count: number; physical: string; available: string; reserved: string; held: string };
+  type BatchPage = { total: number; rows: Batch[]; units: Unit[] };
+  const [data, setData] = useState<BatchPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [keyword, setKeyword] = useState(() => {
@@ -29,40 +30,30 @@ export default function StockQueryPage() {
   });
   const [inventoryClass, setInventoryClass] = useState<"ALL" | "STANDARD" | "DEFECT_SALE">("ALL");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const data = await loadWarehouseBatchRows(
-        () => request("/inventory/batches", { silent: true }),
-        () => crudApi.list<WarehouseQueryBatch>("inv_batches", { limit: 1000, offset: 0 }),
-      );
-      setRows(data);
-    } catch (e) {
-      const err = e as ApiError;
-      if (err.status === 403) {
-        setError(t("ui.当前账号没有库存查询权限或仓库数据范围，请联系管理员检查 MENU_WMS_VIEW 与仓库授权。", "当前账号没有库存查询权限或仓库数据范围，请联系管理员检查 MENU_WMS_VIEW 与仓库授权。"));
-      } else {
-        setError(err.message || t("ui.库存查询加载失败", "库存查询加载失败"));
-      }
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError('');
+      setData(null);
+      try {
+        const params = new URLSearchParams({ q: keyword.trim(), page: String(page) });
+        if (inventoryClass !== 'ALL') params.set('inventory_class', inventoryClass);
+        const result = await request<{ data: BatchPage }>('/inventory/batches/query?' + params, { signal: controller.signal });
+        if (!controller.signal.aborted) setData(result.data);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        const err = e as ApiError;
+        setError(err.message || t('ui.库存查询加载失败', '库存查询加载失败'));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 180);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [keyword, inventoryClass, page, refresh, t]);
 
-  const filteredRows = useMemo(() => {
-    const keywordRows = filterWarehouseBatchRows(rows, keyword);
-    if (inventoryClass === "ALL") return keywordRows;
-    return keywordRows.filter((row) => String(row.inventory_class || "STANDARD").toUpperCase() === inventoryClass);
-  }, [rows, keyword, inventoryClass]);
-
-  const quantityGroups = useMemo(() => groupWarehouseQuantitiesByUnit(filteredRows), [filteredRows]);
+  const filteredRows = data?.rows ?? [];
+  const quantityGroups = data?.units ?? [];
 
   return (
     <div>
@@ -78,14 +69,14 @@ export default function StockQueryPage() {
       }}>
         <div style={summaryCardStyle}>
           <span style={summaryLabelStyle}>{t("ui.可见批次", "可见批次")}</span>
-          <strong style={summaryValueStyle}>{filteredRows.length}</strong>
+          <strong style={summaryValueStyle}>{data?.total ?? "—"}</strong>
           <span style={summaryHintStyle}>{t("ui.按当前账号仓库范围", "按当前账号仓库范围")}</span>
         </div>
         {quantityGroups.map((group) => (
-          <div key={group.unit} style={summaryCardStyle}>
-            <span style={summaryLabelStyle}>{t("ui.可见库存量", "可见库存量")} · {group.unit}</span>
-            <strong style={{ ...summaryValueStyle, color: "var(--status-success)" }}>{group.quantity.toLocaleString()}</strong>
-            <span style={summaryHintStyle}>{group.batchCount} {t("ui.批", "批")} · {t("ui.不同单位不合并", "不同单位不合并")}</span>
+          <div key={group.unit ?? "UNKNOWN"} style={summaryCardStyle}>
+            <span style={summaryLabelStyle}>{t("ui.实存", "实存")} · {group.unit ?? t("ui.单位待核", "单位待核")}</span>
+            <strong style={{ ...summaryValueStyle, color: "var(--status-success)" }}>{Number(group.physical).toLocaleString()}</strong>
+            <span style={summaryHintStyle}>{group.count} {t("ui.批", "批")} · {t("ui.不同单位不合并", "不同单位不合并")}</span>
           </div>
         ))}
       </div>
@@ -104,7 +95,7 @@ export default function StockQueryPage() {
         <Search size={18} color="var(--text-secondary)" />
         <input
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
+          onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
           placeholder={t("ui.搜索批次产品仓库库位门店", "搜索批次号、产品编码、仓库、库位或门店")}
           style={{
             flex: 1,
@@ -118,7 +109,7 @@ export default function StockQueryPage() {
         />
         <select
           value={inventoryClass}
-          onChange={(e) => setInventoryClass(e.target.value as typeof inventoryClass)}
+          onChange={(e) => { setInventoryClass(e.target.value as typeof inventoryClass); setPage(1); }}
           aria-label={t("ui.库存分类", "库存分类")}
           style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", color: "var(--text-primary)", padding: "8px 10px", minWidth: 150 }}
         >
@@ -126,7 +117,7 @@ export default function StockQueryPage() {
           <option value="STANDARD">{t("ui.普通销售库存", "普通销售库存")}</option>
           <option value="DEFECT_SALE">{t("ui.缺陷销售库存", "缺陷销售库存")}</option>
         </select>
-        <button type="button" onClick={load} disabled={loading} style={buttonStyle}>
+        <button type="button" onClick={() => setRefresh(n => n + 1)} disabled={loading} style={buttonStyle}>
           <RefreshCw size={15} />
           {loading ? t("ui.刷新中", "刷新中") : t("ui.刷新", "刷新")}
         </button>
@@ -192,7 +183,8 @@ export default function StockQueryPage() {
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "warehouse_name", row.warehouse_code, lang)}</td>
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "location_name", row.location_code, lang)}</td>
                     <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>
-                      {qty.toLocaleString()} {row.unit || ""}
+                      <div>{t('ui.实存', '实存')} {Number(row.qty).toLocaleString()} {row.unit}</div>
+                      <small>{t('ui.可用', '可用')} {qty.toLocaleString()} · {t('ui.预留', '预留')} {row.reserved} · {t('ui.隔离冻结', '隔离冻结')} {row.held}</small>
                     </td>
                     <td style={tdStyle}><span style={statusPillStyle}>{formatBusinessEnum("inventory", row.status || "AVAILABLE", lang)}</span></td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.inbound_date)}</td>
@@ -203,6 +195,11 @@ export default function StockQueryPage() {
               })}
             </tbody>
           </table>
+        </div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center', padding: 12 }}>
+          <button type="button" style={buttonStyle} disabled={loading || page === 1} onClick={() => setPage(n => n - 1)}>{t('ui.上一页', '上一页')}</button>
+          <span>{page} / {Math.max(1, Math.ceil((data?.total ?? 0) / 30))}</span>
+          <button type="button" style={buttonStyle} disabled={loading || page * 30 >= (data?.total ?? 0)} onClick={() => setPage(n => n + 1)}>{t('ui.下一页', '下一页')}</button>
         </div>
       </div>
     </div>

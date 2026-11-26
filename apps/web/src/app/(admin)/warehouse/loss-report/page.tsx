@@ -90,7 +90,8 @@ export default function LossReportPage() {
       grade_code: "grade_code"
     }
   }, {
-    key: "diff_qty",
+    key: "quantity_delta",
+    step: 0.001,
     label: t("ui.报损数量", "报损数量"),
     type: "number",
     required: true
@@ -197,9 +198,6 @@ export default function LossReportPage() {
       method: "POST",
       body: JSON.stringify({
         loss_no: approveTarget.stocktake_no,
-        batch_no: approveTarget.batch_no,
-        loss_qty: approveTarget.diff_qty,
-        reason: approveTarget.reason,
       }),
     });
     invalidateBatchLookups();
@@ -210,7 +208,7 @@ export default function LossReportPage() {
   // 只显示 LR- 前缀的报损单
   const lossRows = allRows.filter(r => String(r.stocktake_no ?? "").startsWith("LR-"));
   const pendingCount = lossRows.filter(r => r.status === "DONE").length;
-  const totalLoss = lossRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
+  const totalLoss = lossRows.reduce((s, r) => s + Math.abs(Number(r.quantity_delta ?? r.diff_qty ?? 0)), 0);
   const COLUMNS: Column<Row>[] = [{
     key: "stocktake_no",
     title: t("ui.报损单号", "报损单号"),

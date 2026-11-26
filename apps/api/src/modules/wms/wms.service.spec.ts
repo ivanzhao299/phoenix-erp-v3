@@ -238,7 +238,8 @@ describe('WmsService inventory read queries', () => {
     );
     expect(em.query.mock.calls[0][0]).toContain('LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code');
     expect(em.query.mock.calls[0][0]).toContain('COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name');
-    expect(em.query.mock.calls[0][0]).toContain('(b.warehouse_code = ANY($1) OR b.warehouse_code IS NULL)');
+    expect(em.query.mock.calls[0][0]).toContain('b.warehouse_code = ANY($1)');
+    expect(em.query.mock.calls[0][0]).not.toContain('OR b.warehouse_code IS NULL');
     expect(em.query.mock.calls[0][0]).toContain('b.inbound_date');
     expect(em.query.mock.calls[0][0]).toContain('ORDER BY b.inbound_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200');
     expect(em.query.mock.calls[0][0]).not.toContain('WHERE qty > 0');
@@ -1023,6 +1024,8 @@ describe('WmsService inventory read queries', () => {
       code: 200,
       msg: '调拨完成',
       transfer_no: 'TR-ATOMIC-1',
+      qty: 2.5,
+      unit: '件',
     });
 
     expect(manager.query).toHaveBeenCalledWith(
@@ -1177,7 +1180,12 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-TARGET', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
-      if (sql.includes('FROM wms_transfer_items')) return [];
+      if (sql.includes('FROM wms_transfer_items')) return [{
+        id: 11, source_batch_no: 'B-TARGET', expected_qty: '0.300',
+        source_snapshot: { warehouse_code: 'WH-A', company_code: 'COMP-A', unit: 'kg' },
+      }];
+      if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
+      if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: null }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };

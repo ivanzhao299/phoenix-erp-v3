@@ -1,3 +1,4 @@
+import { WarehouseDailyCloseService } from './warehouse-daily-close.service';
 import { ProductionCutoverController } from './production-cutover.controller';
 import { ProductionCutoverService } from './production-cutover.service';
 import { FileModule } from '../file/file.module';
@@ -26,7 +27,7 @@ import { WmsStockLedgerEntity } from './entities/wms-stock-ledger.entity';
     ]),
   ],
   controllers: [ProductionCutoverController, InboundController, OutboundController, InventoryController, StocktakeController],
-  providers: [ProductionCutoverService, InventoryService, WmsService],
+  providers: [ProductionCutoverService, InventoryService, WmsService, WarehouseDailyCloseService],
   exports: [InventoryService, WmsService],
 })
 export class WmsModule {}

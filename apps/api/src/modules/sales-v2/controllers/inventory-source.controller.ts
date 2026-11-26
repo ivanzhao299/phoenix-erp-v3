@@ -31,6 +31,7 @@ export class InventorySourceController {
   @RequireMenu('MENU_INV_SOURCE_MODE', 'V')
   async getMode(@Query('siteCode') siteCode?: string, @Query('companyCode') companyCode?: string, @Query('houseCode') houseCode?: string) {
     if (houseCode !== undefined) return this.prodInbound.effectiveSourceMode(houseCode);
+    if (siteCode !== undefined || companyCode !== undefined) this.modeSvc.assertGlobalGovernance();
     const mode = await this.modeSvc.resolveMode({ siteCode, companyCode });
     return { mode };
   }
@@ -58,7 +59,7 @@ export class InventorySourceController {
   @RequireMenu('MENU_INV_SOURCE_MODE', 'A')
   switchMode(@Body() body: {
     scopeLevel: ScopeLevel; scopeCode: string; newMode: InventorySourceMode;
-    remark?: string; confirmRisk?: boolean;
+    remark?: string; confirmRisk?: boolean; riskDigest?: string; requestKey?: string;
   }) {
     return this.modeSvc.switchMode(body);
   }

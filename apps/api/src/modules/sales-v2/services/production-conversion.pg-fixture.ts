@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { installProductionInboundFixture } from './production-inbound.pg-fixture';
 import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
 import { OfficialInventoryConversions1795011331222 } from '../../../database/migrations/1795011331222-OfficialInventoryConversions';
+import { TransferCostEvidence1795658700000 } from '../../../database/migrations/1795658700000-TransferCostEvidence';
 import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
 import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
 import { AddWmsDefectDisposition1794405000000 } from '../../../database/migrations/1794405000000-AddWmsDefectDisposition';
@@ -48,7 +49,7 @@ export async function installProductionConversionFixture(db:DataSource){
       VALUES('CONVERSION-P-EVIDENCE','ACTIVE','PROTECTED','application/pdf','PRODUCTION_CONVERSION','WAREHOUSE','WH-P','COMP-A','maker',repeat('c',64))`);
   const q=db.createQueryRunner();await q.connect();try{
     await new OfficialRawCollectionReceipts1795005390930().up(q);
-    await new AlignWmsTransactionForms1787731200000().up(q);await new UpgradeWmsTransferLifecycle1787965200000().up(q);
+    await new AlignWmsTransactionForms1787731200000().up(q);await new UpgradeWmsTransferLifecycle1787965200000().up(q);await new TransferCostEvidence1795658700000().up(q);
     await new AddWmsDefectDisposition1794405000000().up(q);
     await new OfficialInventoryConversions1795011331222().up(q);
   }finally{await q.release();}

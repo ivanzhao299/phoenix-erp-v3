@@ -42,3 +42,53 @@ for (const identity of ['admin', 'inout-only', 'issue-only', 'no-create']) {
     }
   });
 }
+
+test('PDA checks every saved allocation and displays the durable loading receipt', async ({ page }) => {
+  await authenticateMockPage(page, { username: 'shipping-fixture', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] });
+  const path = '/api/v2/sales/delivery/warehouse-loading';
+  const header = { id: '91', delivery_no: 'DO-FIXTURE', fulfillment_warehouse_code: 'WH-FIXTURE', status: 'LOADING' };
+  const items = [
+    { allocation_id: '1', order_line_id: '11', order_no: 'SO-FIXTURE', batch_no: 'BATCH-A', qty: '6', unit: 'kg' },
+    { allocation_id: '2', order_line_id: '11', order_no: 'SO-FIXTURE', batch_no: 'BATCH-B', qty: '4', unit: 'kg' },
+  ];
+  const receipt = items.map((row, index) => ({ ...row, ledger_id: String(index + 301) }));
+  let confirmed = false;
+  const requests: unknown[] = [];
+  await page.route('**/api/**', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === path + '/91' && route.request().method() === 'POST') {
+      confirmed = true;
+      requests.push(route.request().postDataJSON());
+      return route.fulfill({ json: { delivery_no: header.delivery_no, items: receipt } });
+    }
+    if (url.pathname === path) {
+      if (url.searchParams.has('delivery_no')) return route.fulfill({
+        json: { ...header, status: confirmed ? 'LOADED' : 'LOADING', items: confirmed ? receipt : items },
+      });
+      return route.fulfill({ json: confirmed ? [] : [header] });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto('/terminal/wms/outbound');
+  const fullscreen = page.getByText('点击进入全屏模式');
+  if (await fullscreen.isVisible().catch(() => false)) await fullscreen.click();
+  await page.getByRole('button', { name: /DO-FIXTURE.*WH-FIXTURE/ }).click();
+  const submit = page.getByRole('button', { name: '确认完成装车' });
+  await page.getByLabel('扫码核对批次').nth(0).fill('BATCH-A');
+  await page.getByLabel('实装数量').nth(0).fill('6');
+  await submit.click();
+  await expect(page.getByRole('alert')).toHaveText('请逐行核对批次及实装数量');
+  expect(requests).toEqual([]);
+  await page.getByLabel('扫码核对批次').nth(1).fill('BATCH-B');
+  await page.getByLabel('实装数量').nth(1).fill('4');
+  await submit.click();
+  await expect(page.getByText('装车过账已确认')).toBeVisible();
+  await expect(page.getByText('11 · BATCH-B · 4 kg · 302')).toBeVisible();
+  expect(requests).toEqual([{ items: items.map(({ allocation_id, order_line_id, batch_no, qty }) => ({ allocation_id, order_line_id, batch_no, qty })) }]);
+  await page.reload();
+  if (await fullscreen.isVisible().catch(() => false)) await fullscreen.click();
+  await page.getByLabel('配送单号').fill('DO-FIXTURE');
+  await page.getByRole('button', { name: '打开', exact: true }).click();
+  await expect(page.getByText('11 · BATCH-A · 6 kg · 301')).toBeVisible();
+  expect(requests).toHaveLength(1);
+});

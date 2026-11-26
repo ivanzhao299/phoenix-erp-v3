@@ -60,8 +60,10 @@ suite('WmsService exact correction on owned PostgreSQL',()=>{
     // not inferred from a candidate field list.
     const snapshot=readFileSync(resolve(__dirname,'../../../../..','docs/schema-snapshot.sql'),'utf8');
     const inboundSequence=snapshot.match(/CREATE SEQUENCE public\.wms_inbound_items_id_seq\n[\s\S]*?;/)?.[0];
-    if(!inboundSequence)throw Error('Documented inbound sequence missing');await db.query(inboundSequence);
+    if(!inboundSequence)throw Error('Documented inbound sequence missing');
+    if (!(await db.manager.query("SELECT to_regclass('wms_inbound_items') AS relation"))[0].relation) await db.query(inboundSequence);
     for(const table of ['qa_inspections','qa_non_conformance','qa_product_inspections','wms_inbound_items']){
+      if ((await db.manager.query('SELECT to_regclass($1) AS relation',[table]))[0].relation) continue;
       const ddl=snapshot.match(new RegExp(`CREATE TABLE public\\.${table} \\([\\s\\S]*?\\n\\);`))?.[0];
       if(!ddl)throw Error('Documented legacy DDL missing: '+table);await db.query(ddl);
     }
@@ -179,7 +181,13 @@ suite('WmsService exact correction on owned PostgreSQL',()=>{
     const printed=await new LabelsService(db.manager).recordPrint({batch_no:alias},7);
     expect(printed.msg).toContain('已核验冲销');
     await expect(new GenericCrudService(db.manager).create('wms_stocktake',{stocktake_no:'OWNED-BLOCKED',item:alias})).rejects.toThrow('已核验冲销');
-    await expect(service().pdaStocktakeCount({lines:[{batch_no:alias,counted_qty:30}]},{username:'fixture-operator'})).rejects.toThrow('已核验冲销');
+    await db.query(`CREATE TABLE IF NOT EXISTS wms_stocktake_submissions(
+      actor_id text,request_key uuid,payload_digest text,receipt jsonb,PRIMARY KEY(actor_id,request_key))`);
+    const [{ version }] = await db.query('SELECT xmin::text AS version FROM inv_batches WHERE batch_no=$1',[c.targets[0].batchNo]);
+    await expect(service().pdaStocktakeCount({
+      request_key:'f8e410cd-20c9-41f0-9929-85a773b5e512',
+      lines:[{batch_no:alias,batch_version:version,counted_qty:30}],
+    },{username:'fixture-operator'})).rejects.toThrow('已核验冲销');
     expect(await db.query("SELECT 1 FROM wms_stocktake WHERE stocktake_no='OWNED-BLOCKED'")).toHaveLength(0);
     expect(await db.query('SELECT id FROM inv_ledger')).toHaveLength(4);
   });

@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { DataScopeContext } from '../org/services/data-scope.service';
+import { officialInventoryPredicate } from '../wms/official-inventory';
 
 /**
  * V3 Terminal Service
@@ -54,33 +56,36 @@ export class TerminalService {
   }
 
   // ─── PDA 手持扫码终端 ────────────────────────────────────────────────────────
-  async pdaSyncInventory(warehouseCode: string) {
-    try {
-      const data = await this.em.query(
-        `SELECT batch_no, product_code, qty, status, warehouse_code, location_code, created_at
-         FROM inv_batches
-         WHERE warehouse_code = $1 AND qty > 0
-         ORDER BY egg_date DESC NULLS LAST, batch_no DESC, id DESC`,
-        [warehouseCode],
-      );
-      return { code: 200, data };
-    } catch {
-      return { code: 200, data: [] };
-    }
+  private requireScope(scope?: DataScopeContext): DataScopeContext {
+    if (!scope) throw new ForbiddenException('缺少仓库数据范围');
+    return scope;
   }
 
-  async pdaScanBarcode(barcode: string) {
-    // 先尝试从 inv_batches 查询已知条码
-    try {
-      const rows = await this.em.query(
-        `SELECT batch_no, product_code, qty FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
-        [barcode],
-      );
-      if (rows.length > 0) {
-        return { code: 200, data: { barcode, status: 'VALID', type: 'BATCH', ...rows[0] } };
-      }
-    } catch { /* 表不存在时降级 */ }
-    return { code: 200, data: { barcode, status: 'VALID', type: 'PRODUCT' } };
+  async pdaSyncInventory(warehouseCode: string, dataScope?: DataScopeContext) {
+    const scope = this.requireScope(dataScope);
+    if (!warehouseCode || (!scope.isGlobal && !scope.allowedWarehouseCodes.includes(warehouseCode))) {
+      throw new ForbiddenException('无权查看该仓库存');
+    }
+    const data = await this.em.query(
+      `SELECT b.batch_no,b.product_code,b.qty,b.status,b.warehouse_code,b.location_code,b.created_at
+       FROM inv_batches b
+       JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code AND w.domain='OPERATIONAL'
+       WHERE b.warehouse_code=$1 AND b.qty>0 AND ${officialInventoryPredicate('b')}
+       ORDER BY b.egg_date DESC NULLS LAST,b.batch_no DESC,b.id DESC`, [warehouseCode]);
+    return { code: 200, data };
+  }
+
+  async pdaScanBarcode(barcode: string, dataScope?: DataScopeContext) {
+    const scope = this.requireScope(dataScope);
+    if (typeof barcode !== 'string' || !barcode.trim() || barcode.length > 128) throw new BadRequestException('条码无效');
+    const [batch] = await this.em.query(
+      `SELECT b.batch_no,b.product_code,b.qty FROM inv_batches b
+       JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code AND w.domain='OPERATIONAL'
+       WHERE b.batch_no=$1 AND ($2::boolean OR b.warehouse_code=ANY($3::text[]))
+         AND ${officialInventoryPredicate('b')}`, [barcode.trim(), scope.isGlobal, scope.allowedWarehouseCodes]);
+    return { code: 200, data: batch
+      ? { barcode, status: 'VALID', type: 'BATCH', ...batch }
+      : { barcode, status: 'UNKNOWN' } };
   }
 
   // ─── 标签打印 (Zebra ZPL) ───────────────────────────────────────────────────
@@ -101,25 +106,14 @@ export class TerminalService {
   }
 
   // ─── 盘点与日结 ──────────────────────────────────────────────────────────────
-  async getStocktakeTasks() {
-    try {
-      const data = await this.em.query(
-        `SELECT * FROM wms_stocktake WHERE status = 'PENDING' ORDER BY created_at DESC, id DESC`,
-      );
-      return { code: 200, data };
-    } catch {
-      return { code: 200, data: [] };
-    }
-  }
-
-  async submitDailyClose(warehouseCode: string, date: string, userId: number) {
-    try {
-      await this.em.query(
-        `INSERT INTO sys_audit_log (user_id, module, action, description)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, 'DAILY_CLOSE', 'SUBMIT', JSON.stringify({ warehouseCode, date })],
-      );
-    } catch { /* 日志失败不阻断 */ }
-    return { code: 200, msg: `库区 ${warehouseCode} 在 ${date} 的日结已完成` };
+  async getStocktakeTasks(dataScope?: DataScopeContext) {
+    const scope = this.requireScope(dataScope);
+    const data = await this.em.query(
+      `SELECT s.* FROM wms_stocktake s
+       JOIN wms_warehouses w ON w.warehouse_code=s.warehouse_code AND w.domain='OPERATIONAL'
+       WHERE s.status='PENDING' AND s.document_kind='STOCKTAKE'
+         AND ($1::boolean OR s.warehouse_code=ANY($2::text[]))
+       ORDER BY s.created_at DESC,s.id DESC`, [scope.isGlobal, scope.allowedWarehouseCodes]);
+    return { code: 200, data };
   }
 }

@@ -454,7 +454,7 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.update).not.toHaveBeenCalled();
   });
 
-  it('canonicalizes material identity fields and confirms before mirroring header edits', async () => {
+  it('canonicalizes material identity fields for confirmation without mirroring header edits', async () => {
     svc.findOneByColumn.mockResolvedValueOnce({
       id: 81,
       task_no: 'WI-MAT-549',
@@ -496,21 +496,10 @@ describe('GenericCrudController WMS RBAC', () => {
       undefined,
       true,
     );
-    expect(svc.update).toHaveBeenCalledWith(
-      'wms_inbound',
-      'id',
-      '81',
-      expect.objectContaining({
-        material_code: 'MAT-VET-NDV',
-        item_type: 'MATERIAL',
-        material_type: 'VET_DRUG',
-      }),
-    );
-    expect(wmsService.confirmInbound.mock.invocationCallOrder[0])
-      .toBeLessThan(svc.update.mock.invocationCallOrder[0]);
+    expect(svc.update).not.toHaveBeenCalled();
   });
 
-  it('persists inbound detail edits after WMS confirmation without directly completing the row', async () => {
+  it('delegates inbound confirmation without rewriting saved head fields', async () => {
     svc.findOneByColumn.mockResolvedValueOnce({
       id: 8,
       task_no: 'WI-535598',
@@ -538,18 +527,7 @@ describe('GenericCrudController WMS RBAC', () => {
       ),
     ).resolves.toEqual({ code: 200, msg: '入库确认成功' });
 
-    expect(svc.update).toHaveBeenCalledTimes(1);
-    expect(svc.update).toHaveBeenCalledWith(
-      'wms_inbound',
-      'id',
-      '8',
-      {
-        item: '监控摄像头测试',
-        actual_qty: 50,
-        batch_no: 'WI-535598-B1',
-        location_code: 'RAW-IN-01',
-      },
-    );
+    expect(svc.update).not.toHaveBeenCalled();
     expect(wmsService.confirmInbound).toHaveBeenCalledWith(
       {
         task_no: 'WI-535598',

@@ -6,7 +6,7 @@ import { assertOfficialInventoryBatches } from './official-inventory';
 
 /** Only callers resolving actual persisted parent rows may construct this internal input. */
 export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{ batch_no:string;official_scope_id?:string|null }>, target: {
-  batchNo:string;companyCode:string;warehouseCode:string;productCode:string|null;skuCode:string|null;sourceType:string;sourceNo:string;actor:string;ownershipTransfer?:boolean;allowSkuConversion?:boolean;
+  batchNo:string;companyCode:string;warehouseCode:string;productCode:string|null;skuCode:string|null;sourceType:string;sourceNo:string;actor:string;ownershipTransfer?:boolean;allowSkuConversion?:boolean;costStatus?:'CONFIRMED'|'UNKNOWN';
 }): Promise<void> {
   const parentNos=[...new Set(parents.map(p=>p.batch_no))].sort();
   const metadata=await m.query("SELECT to_regclass('production_inventory_domain_states') AS domains,to_regclass('production_batch_raw_roots') AS raw_roots");
@@ -86,9 +86,9 @@ export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{
   }
   const evidence=createHash('sha256').update(JSON.stringify({ target,parentNos,roots,...(rawEnabled?{rawRoots,processingStage}:{}) })).digest('hex');
   await m.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,
-    disposition,origin_kind,origin_ref,source_type,source_no,evidence_sha256,created_by${rawEnabled?',processing_stage':''})
-    VALUES($1,$2,$3,$4,$5,'QUALIFIED','DERIVED',$6,$7,$6,$8,$9${rawEnabled?',$10':''})`,
-  [target.batchNo,qualified[0].scope_id,target.companyCode,target.productCode,target.skuCode,target.sourceNo,target.sourceType,evidence,target.actor,...(rawEnabled?[processingStage]:[])]);
+    disposition,origin_kind,origin_ref,source_type,source_no,evidence_sha256,created_by,cost_status${rawEnabled?',processing_stage':''})
+    VALUES($1,$2,$3,$4,$5,'QUALIFIED','DERIVED',$6,$7,$6,$8,$9,$10${rawEnabled?',$11':''})`,
+  [target.batchNo,qualified[0].scope_id,target.companyCode,target.productCode,target.skuCode,target.sourceNo,target.sourceType,evidence,target.actor,target.costStatus??'UNKNOWN',...(rawEnabled?[processingStage]:[])]);
   for (const { root } of roots) await m.query('INSERT INTO production_batch_roots(batch_no,root_batch_no) VALUES($1,$2)',[target.batchNo,root]);
   for(const root of rawRoots)await m.query('INSERT INTO production_batch_raw_roots(batch_no,raw_segment_id) VALUES($1,$2)',[target.batchNo,root.raw_segment_id]);
   if(rawEnabled&&(rawRoots.length||processingStage==='WIP'||conversionRelated))for(const parent of parentNos)await m.query('INSERT INTO production_batch_derivation_parents(batch_no,parent_batch_no) VALUES($1,$2)',[target.batchNo,parent]);

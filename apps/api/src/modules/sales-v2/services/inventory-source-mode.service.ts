@@ -1,4 +1,5 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { Injectable, Logger, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -116,8 +117,15 @@ export class InventorySourceModeService {
     return rows.map((row: any) => ({ code: row.code, siteCode: row.site_code, detail: row.detail }));
   }
 
+  assertGlobalGovernance(): void {
+    if (this.cls.get('dataScope')?.isGlobal !== true) {
+      throw new ForbiddenException('库存来源模式治理需要集团数据范围');
+    }
+  }
+
   /** 列出全部模式配置 */
   async listConfigs(): Promise<any[]> {
+    this.assertGlobalGovernance();
     try {
       const configs = await this.ds.query(
         `SELECT scope_level, scope_code, mode, remark, updated_by, updated_at
@@ -134,6 +142,7 @@ export class InventorySourceModeService {
 
   /** 最近切换审计 */
   async listAudit(limit = 50): Promise<any[]> {
+    this.assertGlobalGovernance();
     return this.ds.query(
       `SELECT scope_level, scope_code, old_mode, new_mode, operator, remark, risk_snapshot, created_at
          FROM inv_source_mode_audit
@@ -148,7 +157,7 @@ export class InventorySourceModeService {
    *   库存余额 / 最后入库日期 / 最后包装日期 / 未完成包装批次 / 未确认库存（待上架）
    * 不直接切换，先输出风险提示。
    */
-  async assessSwitchRisk(scopeLevel: ScopeLevel, scopeCode: string, newMode: InventorySourceMode): Promise<{
+  async assessSwitchRisk(scopeLevel: ScopeLevel, scopeCode: string, newMode: InventorySourceMode, manager?: EntityManager): Promise<{
     scopeLevel: ScopeLevel;
     scopeCode: string;
     currentMode: InventorySourceMode;
@@ -160,7 +169,13 @@ export class InventorySourceModeService {
     unconfirmedInventory: number;
     warnings: string[];
     canSwitch: boolean;
+    riskDigest: string;
   }> {
+    this.assertGlobalGovernance();
+    if (!['GROUP', 'COMPANY', 'SITE'].includes(scopeLevel) || typeof scopeCode !== 'string' || !scopeCode.trim()
+      || (scopeLevel === 'GROUP' && scopeCode !== 'ALL')) {
+      throw new BadRequestException('库存来源模式范围无效');
+    }
     if (!VALID_MODES.includes(newMode)) {
       throw new BadRequestException(`无效模式：${newMode}，有效值：${VALID_MODES.join(' / ')}`);
     }
@@ -168,10 +183,10 @@ export class InventorySourceModeService {
     const currentMode = await this.resolveMode({
       siteCode: scopeLevel === 'SITE' ? scopeCode : null,
       companyCode,
-    });
+    }, manager, { failClosed: true });
 
     const q = async (sql: string, args: unknown[] = []) => {
-      try { return await this.ds.query(sql, args); } catch { return []; }
+      return (manager ?? this.ds).query(sql, args);
     };
 
     // 可售库存余额（非 legacy）
@@ -218,12 +233,12 @@ export class InventorySourceModeService {
     // 允许切换：模式有效且与当前不同
     const canSwitch = currentMode !== newMode;
 
-    return {
+    const risk = {
       scopeLevel, scopeCode, currentMode, newMode,
       balance, lastInboundDate, lastPackagingDate,
-      unfinishedPackagingBatches, unconfirmedInventory,
-      warnings, canSwitch,
+      unfinishedPackagingBatches, unconfirmedInventory, warnings, canSwitch,
     };
+    return { ...risk, riskDigest: createHash('sha256').update(JSON.stringify(risk)).digest('hex') };
   }
 
   /**
@@ -236,46 +251,48 @@ export class InventorySourceModeService {
     newMode: InventorySourceMode;
     remark?: string;
     confirmRisk?: boolean;
-  }): Promise<{ ok: boolean; scopeLevel: ScopeLevel; scopeCode: string; oldMode: InventorySourceMode | null; newMode: InventorySourceMode }> {
-    if (!VALID_MODES.includes(dto.newMode)) {
-      throw new BadRequestException(`无效模式：${dto.newMode}`);
+    riskDigest?: string;
+    requestKey?: string;
+  }) {
+    this.assertGlobalGovernance();
+    if (dto?.confirmRisk !== true || !/^[0-9a-f]{64}$/.test(dto.riskDigest ?? '')
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(dto.requestKey ?? '')) {
+      throw new BadRequestException('请先评估风险并提交有效的确认版本与申请标识');
     }
-    const risk = await this.assessSwitchRisk(dto.scopeLevel, dto.scopeCode, dto.newMode);
-    if (!risk.canSwitch) {
-      throw new BadRequestException(`无法切换：当前已是 ${risk.currentMode} 模式。`);
-    }
-    if (!dto.confirmRisk) {
-      throw new BadRequestException('切换前必须确认风险提示（confirmRisk=true）。请先调用风险评估接口查看风险，再确认切换。');
-    }
-
     const operator = this.operator;
-    const oldRows = await this.ds.query(
-      `SELECT mode FROM inv_source_mode WHERE scope_level = $1 AND scope_code = $2`,
-      [dto.scopeLevel, dto.scopeCode],
-    );
-    const oldMode = (oldRows[0]?.mode as InventorySourceMode) ?? null;
-
-    // upsert 模式
-    await this.ds.query(
-      `INSERT INTO inv_source_mode (scope_level, scope_code, mode, remark, updated_by, updated_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())
-       ON CONFLICT (scope_level, scope_code)
-       DO UPDATE SET mode = EXCLUDED.mode, remark = EXCLUDED.remark,
-                     updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
-      [dto.scopeLevel, dto.scopeCode, dto.newMode, dto.remark ?? null, operator],
-    );
-
-    // 审计日志 + 风险快照
-    await this.ds.query(
-      `INSERT INTO inv_source_mode_audit
-         (scope_level, scope_code, old_mode, new_mode, operator, remark, risk_snapshot)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
-      [dto.scopeLevel, dto.scopeCode, oldMode, dto.newMode, operator, dto.remark ?? null, JSON.stringify(risk)],
-    );
-
-    this.logger.log(
-      `[InvSourceMode] 切换 ${dto.scopeLevel}/${dto.scopeCode}: ${oldMode ?? '(无)'} → ${dto.newMode} by ${operator}`,
-    );
-    return { ok: true, scopeLevel: dto.scopeLevel, scopeCode: dto.scopeCode, oldMode, newMode: dto.newMode };
+    const requestDigest = createHash('sha256').update(JSON.stringify([
+      dto.scopeLevel, dto.scopeCode, dto.newMode, dto.remark ?? null, dto.riskDigest,
+    ])).digest('hex');
+    return this.ds.transaction(async manager => {
+      await manager.query('LOCK TABLE inv_source_mode IN SHARE ROW EXCLUSIVE MODE');
+      const [past] = await manager.query(
+        `SELECT id::text AS audit_id,old_mode,new_mode,scope_level,scope_code,risk_snapshot->>'requestDigest' AS payload_digest
+         FROM inv_source_mode_audit WHERE operator=$1 AND risk_snapshot->>'requestKey'=$2`, [operator,dto.requestKey]);
+      if (past) {
+        if (past.payload_digest !== requestDigest) throw new ConflictException('申请标识已用于其他来源模式切换');
+        return { ok: true, auditId: past.audit_id, oldMode: past.old_mode, newMode: past.new_mode,
+          scopeLevel: past.scope_level, scopeCode: past.scope_code };
+      }
+      const risk = await this.assessSwitchRisk(dto.scopeLevel, dto.scopeCode, dto.newMode, manager);
+      if (risk.riskDigest !== dto.riskDigest || !risk.canSwitch) {
+        throw new ConflictException('库存来源风险或模式已变化，请重新评估');
+      }
+      const [current] = await manager.query(
+        'SELECT mode FROM inv_source_mode WHERE scope_level=$1 AND scope_code=$2', [dto.scopeLevel,dto.scopeCode]);
+      const oldMode = (current?.mode as InventorySourceMode) ?? null;
+      await manager.query(
+        `INSERT INTO inv_source_mode (scope_level,scope_code,mode,remark,updated_by,updated_at)
+         VALUES ($1,$2,$3,$4,$5,now())
+         ON CONFLICT (scope_level,scope_code) DO UPDATE SET mode=EXCLUDED.mode,remark=EXCLUDED.remark,
+           updated_by=EXCLUDED.updated_by,updated_at=now()`,
+        [dto.scopeLevel,dto.scopeCode,dto.newMode,dto.remark ?? null,operator]);
+      const [saved] = await manager.query(
+        `INSERT INTO inv_source_mode_audit (scope_level,scope_code,old_mode,new_mode,operator,remark,risk_snapshot)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING id::text AS audit_id`,
+        [dto.scopeLevel,dto.scopeCode,oldMode,dto.newMode,operator,dto.remark ?? null,
+          JSON.stringify({ ...risk, requestKey: dto.requestKey, requestDigest })]);
+      return { ok: true, auditId: saved.audit_id, oldMode, newMode: dto.newMode,
+        scopeLevel: dto.scopeLevel, scopeCode: dto.scopeCode };
+    });
   }
 }

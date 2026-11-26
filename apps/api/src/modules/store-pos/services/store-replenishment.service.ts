@@ -175,7 +175,8 @@ export class StoreReplenishmentService {
       LEFT JOIN wms_warehouses tw ON tw.warehouse_code=t.to_warehouse
       WHERE t.transfer_no=$1`, [request.transfer_no]);
     if (!transfer) return null;
-    transfer.items = await this.ds.query(`SELECT i.*,b.sku_code,s.sku_name,s.sku_name_en,s.sku_name_lo
+    transfer.items = await this.ds.query(`SELECT i.id,i.transfer_no,i.source_batch_no,i.target_batch_no,i.expected_qty,i.received_qty,i.damaged_qty,
+             i.difference_qty,i.source_snapshot->>'unit' AS unit,b.sku_code,s.sku_name,s.sku_name_en,s.sku_name_lo
       FROM wms_transfer_items i
       LEFT JOIN inv_batches b ON b.batch_no=i.source_batch_no
       LEFT JOIN product_skus s ON s.sku_code=b.sku_code

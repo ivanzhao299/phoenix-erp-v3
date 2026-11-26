@@ -83,6 +83,7 @@ function fixture(options: Options = {}) {
     if (sql.includes('FROM wms_outbound_items')) return [{ id: 2, product_code: SKU, batch_no: 'B-1', qty: 2, quantity_snapshot: options.quantity ? snapshot : null }];
     if (sql.includes('FROM wms_outbound')) return [{ ...order }];
     if (sql.includes('FROM ord_orders')) return [{ order_no: 'SO-1', status: options.orderStatus ?? (options.done ? 'SHIPPED' : 'ALLOCATED'), store_code: 'ALL' }];
+    if (sql.includes('FROM wms_atomic_transfer_receipts')) return [];
     if (sql.includes('FROM wms_transfer_items')) {
       const source = { ...batch, warehouse_code: options.snapshotWarehouse ?? 'WH-A' };
       return [{ id: 3, source_batch_no: 'B-1', expected_qty: 2, source_snapshot: options.stringSourceSnapshot ? JSON.stringify(source) : source }];
@@ -104,6 +105,7 @@ function fixture(options: Options = {}) {
     if(sql==="SELECT to_regclass('production_inventory_domain_states') AS domains")return [{domains:null}];
     if(sql==="SELECT to_regclass('production_inventory_domain_states') AS domains,to_regclass('production_batch_raw_roots') AS raw_roots")return [{domains:null,raw_roots:null}];
     if(sql==="SELECT to_regclass('production_batch_raw_roots') AS raw_roots")return [{raw_roots:null}];
+    if (sql.includes("to_regprocedure('official_inventory_proven_currency(text)')")) return [{ supported: false }];
     throw new Error(`Unmodeled SQL: ${sql}`);
   }) };
   const em = {

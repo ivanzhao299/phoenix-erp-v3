@@ -52,6 +52,8 @@ interface Risk {
   unconfirmedInventory: number;
   warnings: string[];
   canSwitch: boolean;
+  riskDigest: string;
+  requestKey: string;
 }
 export default function SourceModePage() {
   const { t } = useLanguage();
@@ -118,7 +120,7 @@ export default function SourceModePage() {
     setRisk(null);
     setAssessing(true);
     try {
-      const r = await request<Risk>("/v2/inventory/source/assess-risk", {
+      const r = await request<Omit<Risk, "requestKey">>("/v2/inventory/source/assess-risk", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -129,7 +131,7 @@ export default function SourceModePage() {
           newMode
         })
       });
-      setRisk(r);
+      setRisk({ ...r, requestKey: crypto.randomUUID() });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('ui.风险评估失败','风险评估失败'));
     } finally {
@@ -137,6 +139,7 @@ export default function SourceModePage() {
     }
   };
   const doSwitch = async () => {
+    if (!risk || !risk.canSwitch) return;
     setError("");
     setMsg("");
     setSwitching(true);
@@ -151,7 +154,9 @@ export default function SourceModePage() {
           scopeCode,
           newMode,
           remark: remark || undefined,
-          confirmRisk: true
+          confirmRisk: true,
+          riskDigest: risk.riskDigest,
+          requestKey: risk.requestKey
         })
       });
       setMsg(`已切换 ${scopeLevel}/${scopeCode} → ${MODE_LABEL[newMode]}`);

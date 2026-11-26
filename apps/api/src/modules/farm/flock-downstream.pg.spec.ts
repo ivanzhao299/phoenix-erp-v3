@@ -28,6 +28,25 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
  let releaseBusinessClock:(()=>void)|undefined;
  let db:DataSource,wms:WmsService,trace:TraceabilityService;
  const scope=(farm:string)=>({isGlobal:false,allowedCompanyCodes:['CB'],allowedWarehouseCodes:['WB'],allowedBreedingFarmCodes:[farm],allowedBreedingSiteCodes:[],allowedBreedingCompanyCodes:[]}) as any;
+ async function withTraceSchema(check: () => Promise<void>) {
+  await db.query(`CREATE TABLE production_conversion_documents(id int,document_no text,state text,company_code text,warehouse_code text);
+   CREATE TABLE production_conversion_inputs(id int,document_id int,parent_batch_no text,raw_segment_id int);
+   CREATE TABLE production_conversion_outputs(document_id int,batch_no text);
+   CREATE TABLE production_raw_receipt_segments(id int,receipt_id int,company_code text);
+   CREATE TABLE production_raw_receipts(id int,document_no text,state text,company_code text,warehouse_code text);
+   CREATE TABLE sal_order_item_batch_allocation_actions(id bigint,allocation_id bigint,sales_order_id bigint,delivery_order_id bigint,ledger_id bigint,action_type text,qty numeric,created_at timestamptz);
+   CREATE TABLE sal_order_item_batch_allocations(id bigint,sales_order_item_id bigint,batch_no text);
+   CREATE TABLE sal_order_items(id bigint,sales_order_id bigint);
+   CREATE TABLE sal_sales_orders(id bigint,order_no text,customer_code text,customer_name text,status text,company_code text);
+   CREATE TABLE sal_delivery_orders(id bigint,company_code text,delivery_no text,status text);
+   CREATE TABLE store_sale_allocations(id bigint,sale_id bigint,sale_item_id bigint,batch_no text,warehouse_code text,allocated_qty numeric,returned_qty numeric);
+   CREATE TABLE sal_store_sales(id bigint,sale_no text,store_code text,customer_code text,company_code text,status text,completed_at timestamptz);
+   CREATE TABLE sal_store_sale_items(id bigint,sale_id bigint,product_code text,grade_code text,sku_code text);`);
+  try { await check(); }
+  finally {
+    await db.query('DROP TABLE production_conversion_documents, production_conversion_inputs, production_conversion_outputs, production_raw_receipt_segments, production_raw_receipts, sal_order_item_batch_allocation_actions, sal_order_item_batch_allocations, sal_order_items, sal_sales_orders, sal_delivery_orders, store_sale_allocations, sal_store_sales, sal_store_sale_items');
+  }
+ }
  beforeAll(async()=>{
   const u=new URL(url!);if(u.hostname!=='127.0.0.1'||u.pathname!=='/phoenix_flock_downstream')throw Error('Owned loopback downstream fixture required');
   db=await new DataSource({type:'postgres',url,synchronize:false,migrationsRun:false,installExtensions:false}).initialize();
@@ -39,7 +58,7 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
    CREATE TABLE IF NOT EXISTS wms_warehouses(warehouse_code text PRIMARY KEY,company_code text,domain text,owner_store_id int);
    CREATE TABLE IF NOT EXISTS store_master(id int PRIMARY KEY,store_code text,status text);
    CREATE TABLE IF NOT EXISTS wms_transfer(transfer_no text PRIMARY KEY,status text,from_warehouse text,to_warehouse text,to_location text,in_transit_qty numeric,received_qty numeric,difference_qty numeric,dispatched_at timestamptz,dispatched_by text,received_at timestamptz,received_by text,completed_at timestamptz,updated_at timestamptz DEFAULT now());
-   CREATE TABLE IF NOT EXISTS wms_transfer_items(id bigserial PRIMARY KEY,transfer_no text,source_batch_no text,expected_qty numeric,source_snapshot jsonb,target_batch_no text,received_qty numeric,damaged_qty numeric,difference_qty numeric,updated_at timestamptz DEFAULT now());
+   CREATE TABLE IF NOT EXISTS wms_transfer_items(id bigserial PRIMARY KEY,transfer_no text,source_batch_no text,expected_qty numeric,source_snapshot jsonb,target_batch_no text,damaged_batch_no text,received_qty numeric,damaged_qty numeric,difference_qty numeric,updated_at timestamptz DEFAULT now());
    CREATE TABLE IF NOT EXISTS wms_transfer_discrepancies(id bigserial PRIMARY KEY,transfer_no text,transfer_item_id bigint,discrepancy_type text,qty numeric,note text,created_by text);
    CREATE TABLE IF NOT EXISTS product_skus(sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,variety_code text,status text,effective_date date,expire_date date);
    CREATE TABLE IF NOT EXISTS mst_products(product_code text PRIMARY KEY,variety_code text,status text);
@@ -60,8 +79,8 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
    ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS product_type text,ADD COLUMN IF NOT EXISTS unit_code text,ADD COLUMN IF NOT EXISTS default_withdraw_days int;
    ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS next_due_date date,ADD COLUMN IF NOT EXISTS inventory_batch_no text;
    ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS status text,ADD COLUMN IF NOT EXISTS type text,ADD COLUMN IF NOT EXISTS site_code text;
-   ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS manufacturer_batch_no text;
-   ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date date,ADD COLUMN IF NOT EXISTS house_code text;
+   ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS manufacturer_batch_no text,ADD COLUMN IF NOT EXISTS unit_cost numeric,ADD COLUMN IF NOT EXISTS transfer_cost_currency text;
+   ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date date,ADD COLUMN IF NOT EXISTS house_code text,ADD COLUMN IF NOT EXISTS cost_change numeric;
    CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);`);
   await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS vet_fixture_med_code ON brd_medications(medication_code);
     CREATE TABLE IF NOT EXISTS mst_materials(material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text); ALTER TABLE mst_materials ADD COLUMN IF NOT EXISTS spec text`);
@@ -99,8 +118,10 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
   const broken=rows.find((r:any)=>r.quality_grade==='BROKEN');const normal=rows.find((r:any)=>r.quality_grade==='GRADE_1');expect(broken).toMatchObject({sku_code:'SKU-BROKEN',grade_code_std:'BROKEN',inventory_class:'DEFECT_SALE',status:'AVAILABLE',company_code:'CB',variety_code:'VARIANT-1',source_profile_code:'PROFILE-A',spec_code:'SP',packaging_spec:'SP',base_quantity_version:1});expect(normal).toMatchObject({sku_code:'SKU-A',quality_grade:'GRADE_1',company_code:'CB'});
   for(const row of rows){expect(row.source_profile_snapshot).toEqual({sourceKind:'VARIANT',profile:'PROFILE-A'});const [link]=await db.query('SELECT * FROM inv_flock_source_links WHERE batch_no=$1',[row.batch_no]);expect(link).toMatchObject({flock_no:'FA',house_code:'HA',company_code:'CA',occupancy_id:'O',origin_batch_no:'SOURCE',precision:'INHERITED',allocated_output_qty:null});}
   const [source]=await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='SOURCE'");expect(Number(source.qty_available)).toBe(0);expect((await db.query('SELECT SUM(qty_change) AS n FROM inv_ledger'))[0].n).toBe('0');
+  await withTraceSchema(async () => {
   const visible=await trace.traceByBatch(normal.batch_no,['CB'],scope('A'));expect(visible.production).toMatchObject({provenanceStatus:'VERIFIED_OCCUPANCY',allocationPrecision:'RELATED_INPUT_OR_INHERITED'});expect(visible.production.flocks[0]).toEqual({flock_no:'FA',breed_type:null,breed_code:'BREED'});expect(visible.production.dailyLogs[0].log_date).toBe('2026-11-11');expect(visible.production.houses).toEqual([{house_code:'HA',farm_code:'A'}]);
   const denied=await trace.traceByBatch(normal.batch_no,['CB'],scope('X'));expect(denied.production).toMatchObject({provenanceStatus:'RESTRICTED_SOURCE',provenance:[],dailyLogs:[],flocks:[],houses:[]});
+  });
  });
  it('rolls back normal receipt and every inherited source if the BROKEN SKU is unavailable',async()=>{
   await wms.dispatchTransfer('TR',{username:'dispatcher'});await db.query("UPDATE product_skus SET status='INACTIVE' WHERE sku_code='SKU-BROKEN'");await expect(wms.receiveTransfer('TR',{items:[{batch_no:'SOURCE',received_qty:8,damaged_qty:2}]},{username:'receiver'})).rejects.toThrow('BROKEN SKU');expect((await db.query("SELECT COUNT(*)::int AS n FROM inv_batches WHERE warehouse_code='WB'"))[0].n).toBe(0);expect((await db.query('SELECT COUNT(*)::int AS n FROM inv_flock_source_links'))[0].n).toBe(1);expect((await db.query("SELECT status FROM wms_transfer WHERE transfer_no='TR'"))[0].status).toBe('IN_TRANSIT');
@@ -157,8 +178,8 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       CREATE TABLE production_raw_receipt_segments(id int PRIMARY KEY,receipt_id int,flock_no text);
       CREATE TABLE production_conversion_inputs(id int,raw_segment_id int);
       CREATE TABLE pkg_handover_records(packing_code text);
-      CREATE TABLE wms_stocktake(stocktake_no text,status text,auditor text,warehouse_code text,updated_at timestamptz);
-      ALTER TABLE wms_transfer_items ADD COLUMN damaged_batch_no text;
+      CREATE TABLE wms_stocktake(stocktake_no text,status text,auditor text,warehouse_code text,updated_at timestamptz,
+        batch_no text,observed_batch_version text,quantity_delta numeric,reason text);
       ALTER TABLE inv_ledger ADD COLUMN batch_expire_date date,ADD COLUMN location_code text;
       CREATE TABLE production_batch_derivation_parents(batch_no text,parent_batch_no text);
       CREATE TABLE production_conversion_return_receipts(batch_no text,source_batch_no text);
@@ -202,8 +223,8 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
         VALUES('SOURCE',-2,'RESERVED','SO-CANCEL','CA','WA') RETURNING id)
         INSERT INTO sal_order_item_batch_allocations SELECT 51,41,id,'SOURCE',2,0,0,now() FROM l;
       WITH l AS (INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no,company_code,warehouse_code)
-        VALUES('SOURCE',-4,'RESERVED','SO-CANCEL','CA','WA') RETURNING id)
-        INSERT INTO sal_order_item_batch_allocations SELECT 52,42,id,'SOURCE',4,1,1,now() FROM l`);
+        VALUES('SOURCE',-3,'RESERVED','SO-CANCEL','CA','WA') RETURNING id)
+        INSERT INTO sal_order_item_batch_allocations SELECT 52,42,id,'SOURCE',3,0,1,now() FROM l`);
     await m.query(`INSERT INTO brd_daily_logs(id,flock_no,house_code,company_code,log_date,shift) VALUES(88,'OTHER','HX','CA','2026-11-11','AM');
       INSERT INTO inv_batches(batch_no,source_type,company_code,source_no,collection_batch_ref,egg_date,qty,qty_available,status)
       VALUES('OLD-TEMP','TEMP_PRODUCTION','CA','DAILY-OLD-A','HOUSE-HA','2026-11-11',3,3,'AVAILABLE'),
@@ -339,10 +360,13 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
       const doc=await review.requestReview(global,vet,extra.id,logId,'dispose source',key);
       await proof('DISPOSE-'+logId,doc);await review.decide(global,qa,doc,'DISPOSE','DISPOSE-'+logId);
     }
-    await m.query("INSERT INTO wms_stocktake VALUES('LR-FIXTURE','DONE',NULL,'WA'),('LR-CUSTODY','DONE',NULL,'WA')");
+    await m.query(`INSERT INTO wms_stocktake(stocktake_no,status,warehouse_code,batch_no,observed_batch_version,quantity_delta,reason)
+      SELECT CASE batch_no WHEN 'RET-TEST' THEN 'LR-FIXTURE' ELSE 'LR-CUSTODY' END,
+        'DONE','WA',batch_no,xmin::text,CASE batch_no WHEN 'RET-TEST' THEN -2 ELSE -1 END,'fixture disposal'
+      FROM inv_batches WHERE batch_no IN ('RET-TEST','OLD-RETURN')`);
     const scopedWms=new WmsService(m,{get:()=>({isGlobal:true,allowedWarehouseCodes:[]})} as never);
-    await scopedWms.approveLoss({loss_no:'LR-FIXTURE',batch_no:'RET-TEST',loss_qty:2,reason:'fixture disposal'},{username:'fixture-keeper'});
-    await scopedWms.approveLoss({loss_no:'LR-CUSTODY',batch_no:'OLD-RETURN',loss_qty:1,reason:'fixture quarantine disposal'},{username:'fixture-keeper'});
+    await scopedWms.approveLoss({loss_no:'LR-FIXTURE'},{username:'fixture-keeper'});
+    await scopedWms.approveLoss({loss_no:'LR-CUSTODY'},{username:'fixture-keeper'});
     expect((await m.query("SELECT qty::int AS qty,qty_available::int AS available,status FROM inv_batches WHERE batch_no='OLD-RETURN'"))[0])
       .toEqual({qty:1,available:0,status:'QUARANTINE'});
     await m.query('SET CONSTRAINTS vet_verify_disposition IMMEDIATE');
@@ -475,8 +499,10 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
   await db.query(`INSERT INTO pkg_packing_records VALUES('OLD',false,'2026-11-01','G','["G"]','[]',1,10,NULL,'COMPLETED',NULL),('EMPTY',false,'2026-11-01','NONE','["NONE"]','[]',1,10,NULL,'COMPLETED',NULL);
    INSERT INTO pkg_grading_records(id,code,source_batch_code,production_date,total_output,status,is_test) VALUES(1,'G','MIX','2026-11-01',10,'ACTIVE',false);
    INSERT INTO pkg_source_batches(id,batch_code,house_code,flock_code,lay_date,production_date,received_qty,batch_status,is_test) VALUES(1,'A-EGGS','HA','FA','2026-11-01','2026-11-01',5,'RECEIVED',false),(2,'X-EGGS','HX','FX','2026-11-01','2026-11-01',5,'RECEIVED',false);INSERT INTO pkg_grading_source_links VALUES(1,1),(1,2);
-   INSERT INTO inv_batches(batch_no,company_code,qty,qty_available,egg_date,packaging_batch_ref) VALUES('LEGACY-MIX','CB',10,10,'2026-11-01','OLD'),('LEGACY-EMPTY','CB',10,10,'2026-11-01','EMPTY');`);
+   INSERT INTO inv_batches(batch_no,company_code,warehouse_code,qty,qty_available,egg_date,packaging_batch_ref) VALUES('LEGACY-MIX','CB','WB',10,10,'2026-11-01','OLD'),('LEGACY-EMPTY','CB','WB',10,10,'2026-11-01','EMPTY');`);
+  await withTraceSchema(async () => {
   for(const key of ['LEGACY-MIX','LEGACY-EMPTY']){const t=await trace.traceByBatch(key,['CB'],scope('A'));expect(t.production).toMatchObject({provenanceStatus:'RESTRICTED_SOURCE',provenance:[],source:[],houses:[],flocks:[],dailyLogs:[]});expect(t.packaging).toBeNull();}
-  expect((await trace.traceByBatch('SOURCE',[],scope('A'))).denied).toBe(true);
+  expect((await trace.traceByBatch('SOURCE',[],scope('A'))).found).toBe(false);
+  });
  });
 });

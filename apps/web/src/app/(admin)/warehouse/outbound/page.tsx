@@ -252,6 +252,37 @@ export default function OutboundPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [allowedBatchTypes, canCreateCurrent, openNewWithType]);
+  useEffect(() => {
+    const url = new URL(location.href);
+    const expiryBatch = url.searchParams.get('expiryBatch');
+    const warehouse = url.searchParams.get('warehouse');
+    if (!expiryBatch || !warehouse || !canCreateInout || !allowedBatchTypes.length) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ batch_no: expiryBatch, warehouse_code: warehouse, expiry: 'UPCOMING' });
+    apiRequest<{ data: { rows: Row[] } }>('/inventory/batches/query?' + params, { signal: controller.signal })
+      .then(result => {
+        const row = result.data.rows[0];
+        if (controller.signal.aborted || !row || Number(row.qty_available) <= 0) return;
+        const type = allowedBatchTypes.find(value => value === 'SCRAP');
+        if (!type) return;
+        const sku = row.sku_code;
+        const material = row.material_code;
+        if (!sku && !material) return;
+        setEditing(null);
+        setBatchHeader({ date: flockBusinessToday(), type, warehouse_code: row.warehouse_code, warehouse_name: row.warehouse_name,
+          expiry_batch_no: row.batch_no, destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? '' });
+        setBatchItems([{ ...newBatchLine(), batch_no: row.batch_no, item: sku ?? material,
+          item_name: row.sku_name ?? row.material_name, item_type: sku ? 'SKU' : 'MATERIAL',
+          sku_code: sku ?? undefined, material_code: material ?? undefined, material_type: row.material_type,
+          quantityBasis: sku ? 'BASE' : undefined, unit: row.unit, qty: '' }]);
+        setDrawerOpen(true);
+        url.searchParams.delete('expiryBatch');
+        url.searchParams.delete('warehouse');
+        history.replaceState(history.state, '', url);
+      }).catch(() => undefined);
+    return () => controller.abort();
+  }, [allowedBatchTypes, canCreateInout]);
+
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row.quantity_snapshot ? { ...row, qty: (row.quantity_snapshot as { baseQty: number }).baseQty } : row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 

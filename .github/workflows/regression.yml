@@ -197,6 +197,14 @@ jobs:
           $check$;
           SQL
 
+      - name: Warehouse inventory workflows — migrated PostgreSQL 18
+        working-directory: apps/api
+        run: |
+          set -euo pipefail
+          createdb --template="$PGDATABASE" inventory_validation
+          export INVENTORY_WORKFLOWS_PG_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/inventory_validation"
+          pnpm exec jest --runInBand --runTestsByPath src/modules/wms/inventory-workflows.pg.spec.ts
+
       - name: SALES_ORDER approval — Nest + PostgreSQL integration
         working-directory: apps/api
         env:

@@ -364,16 +364,29 @@ export class GenericCrudService {
     }
   }
 
+  async findAllTransferScoped(query: any, allowedWarehouseCodes: string[] | null) {
+    if (allowedWarehouseCodes?.length === 0) return [];
+    const where: string[] = [];
+    const values: unknown[] = [];
+    if (allowedWarehouseCodes !== null) {
+      const idx = this.nextParamIndex(query, 0);
+      where.push(`("from_warehouse" = ANY($${idx}::text[]) OR "to_warehouse" = ANY($${idx}::text[]))`);
+      values.push(allowedWarehouseCodes);
+    }
+    const { sql, queryValues } = this.buildFindAllSql('wms_transfer', query, where, values);
+    return this.entityManager.query(sql, queryValues);
+  }
+
   private nextParamIndex(query: any, extraValueCount: number): number {
     let idx = 1;
-    for (const [key] of Object.entries(query)) {
+    for (const [key, value] of Object.entries(query)) {
       if (this.isControlQueryParam(key)) continue;
       if (key.endsWith('__like')) {
         const col = key.slice(0, -6);
         if (/^[a-zA-Z0-9_]+$/.test(col)) idx++;
         continue;
       }
-      if (/^[a-zA-Z0-9_]+$/.test(key)) idx++;
+      if (/^[a-zA-Z0-9_]+$/.test(key) && (!Array.isArray(value) || value.length > 0)) idx++;
     }
     return idx + extraValueCount;
   }
@@ -662,14 +675,16 @@ export class GenericCrudService {
     const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`).join(',');
     const hasUpdatedAt = fields.includes('updated_at');
 
+    const editable = table === 'wms_stocktake' ? " AND upper(COALESCE(status,''))<>'APPROVED'"
+      : table === 'wms_inbound' ? " AND upper(COALESCE(status,'')) NOT IN ('COMPLETED','CANCELLED')" : '';
     let finalSql: string;
     // ✅ 修复：updated_at 全部改用参数化写法（JS Date 对象），避免 TEXT 列类型不匹配
     if (hasUpdatedAt) {
-      finalSql = `UPDATE "${table}" SET ${setClauses} WHERE "${pkName}" = $${fields.length + 1} RETURNING "${pkName}"`;
+      finalSql = `UPDATE "${table}" SET ${setClauses} WHERE "${pkName}" = $${fields.length + 1}${editable} RETURNING "${pkName}"`;
       values.push(id);
     } else {
       // $n+1 = updated_at（JS Date 自动转换）, $n+2 = PK
-      finalSql = `UPDATE "${table}" SET ${setClauses}, "updated_at" = $${fields.length + 1} WHERE "${pkName}" = $${fields.length + 2} RETURNING "${pkName}"`;
+      finalSql = `UPDATE "${table}" SET ${setClauses}, "updated_at" = $${fields.length + 1} WHERE "${pkName}" = $${fields.length + 2}${editable} RETURNING "${pkName}"`;
       values.push(new Date(), id);
     }
 
@@ -713,7 +728,9 @@ export class GenericCrudService {
       }
     }
 
-    const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1 RETURNING "${pkName}"`;
+    const editable = table === 'wms_stocktake' ? " AND upper(COALESCE(status,''))<>'APPROVED'"
+      : table === 'wms_inbound' ? " AND upper(COALESCE(status,'')) NOT IN ('COMPLETED','CANCELLED')" : '';
+    const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1${editable} RETURNING "${pkName}"`;
     console.log(`[CRUD Delete] ${table} WHERE ${pkName}=${id}`);
     try {
       const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];

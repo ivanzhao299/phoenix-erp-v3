@@ -39,6 +39,7 @@ export type FieldType =
   | "dict" | "attachment";
 
 export interface FormField {
+  step?: number;
   key: string;
   label: string;
   type: FieldType;
@@ -398,6 +399,7 @@ export const CrudForm = memo(function CrudForm({
               <input
                 className={`${styles.input} ${errors[field.key] ? styles.hasError : ""}`}
                 type={field.type === "datetime" ? "datetime-local" : field.type}
+                step={field.type === "number" ? field.step : undefined}
                 value={String(values[field.key] ?? "")}
                 onChange={e => set(field.key, e.target.value)}
                 placeholder={field.placeholder}
