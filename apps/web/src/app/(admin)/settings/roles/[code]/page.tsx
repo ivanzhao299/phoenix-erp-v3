@@ -11,7 +11,7 @@ import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceO
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { EntityWorkspace, Panel } from "@/components/design-system";
 import { inlineBadge, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useToast } from "@/contexts/ToastContext";
@@ -43,6 +43,7 @@ interface RoleRow {
   role_name_zh: string;
   role_name_lo: string | null;
   role_type: string;
+  status?:string;
   approval_level: number;
   description: string | null;
 }
@@ -101,6 +102,7 @@ const apiPut = (path: string, body: Record<string, unknown>) =>
 export default function RoleDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const startOnMatrix=useSearchParams().get("tab")==="matrix";
   const toast = useToast();
   const { t } = useLanguage();
   const { canEdit } = usePermission("MENU_SETTINGS_ROLE");
@@ -144,6 +146,7 @@ export default function RoleDetailPage() {
         role_name_zh: d.role_name_zh as string,
         role_name_lo: d.role_name_lo as string | null,
         role_type: (d.role_type as string) || "COMMON",
+        status: d.status as string|undefined,
         approval_level: (d.approval_level as number) ?? 0,
         description: d.description as string | null,
       }));
@@ -259,17 +262,18 @@ export default function RoleDetailPage() {
   };
   const toggleDomainView = (group: MenuGroup) => {
     if (!editable) return;
+    const menus=group.menus.filter(menu=>menu.menu_code!==EGG_SOURCE_MENU);
     setPerms(prev => {
       const next = { ...prev };
-      const allHasView = group.menus.every(m => next[m.menu_code]?.has("V"));
+      const allHasView = menus.every(m => next[m.menu_code]?.has("V"));
       if (allHasView) {
-        for (const m of group.menus) {
+        for (const m of menus) {
           const set = new Set(next[m.menu_code] || []);
           set.delete("V");
           if (set.size === 0) delete next[m.menu_code]; else next[m.menu_code] = set;
         }
       } else {
-        for (const m of group.menus) {
+        for (const m of menus) {
           const set = new Set(next[m.menu_code] || []);
           set.add("V");
           next[m.menu_code] = set;
@@ -421,7 +425,6 @@ export default function RoleDetailPage() {
   // ── Tab 2：权限矩阵 ───────────────────────────────────────────────────
   const matrixTab = (
     <>
-      {!isAdmin&&<EggSourceOrganizationGrants subject="role" code={roleCode}/>}
     <Panel title={t("ui.菜单CRUD权限", "菜单 × CRUD 权限")} icon={<Grid size={14} />}
       extra={
         <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--status-special-bg-medium)", color: "var(--color-primary)", fontWeight: 600 }}>
@@ -465,6 +468,16 @@ export default function RoleDetailPage() {
             <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 4 }}>
               {group.menus.map(menu => {
                 const set = perms[menu.menu_code] || new Set<string>();
+                  if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
+                    key={menu.menu_code} subject="role" code={role?.status==="DEPRECATED"?undefined:roleCode} name={menu.menu_name_zh}
+                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
+                          aria-pressed={set.has(code)} disabled={!editable} title={menuActionLabel(menu.menu_code,code,code,t)}
+                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
+                      </div>
+                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse} disabled={!editable}/>}
+                    </div>}/>;
                 return (
                   <div key={menu.menu_code} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, background: set.size > 0 ? `${group.domain_color}10` : "transparent" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
@@ -487,8 +500,6 @@ export default function RoleDetailPage() {
                       style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, border: "1px solid var(--border)", background: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)", color: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "white" : "var(--text-secondary)", cursor: editable ? "pointer" : "not-allowed", fontWeight: 600, opacity: editable ? 1 : 0.7 }}>
                       {t("ui.全选", "全选")}
                     </button>
-                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
-                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse} disabled={!editable}/></div>}
                   </div>
                 );
               })}
@@ -581,6 +592,7 @@ export default function RoleDetailPage() {
         status={statusBadge}
         onBack={() => router.push("/settings/roles")}
         actions={actions}
+        defaultTab={startOnMatrix?"matrix":"info"}
         tabs={[
           { key: "info", label: t("ui.角色信息", "角色信息"), content: infoTab },
           { key: "matrix", label: t("ui.权限矩阵", "权限矩阵"), content: matrixTab },

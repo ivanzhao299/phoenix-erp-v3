@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
-import { sourceScopeFor,type Action,type ChangeRow,type ChangeScope } from './egg-source-change.service';
+import { sourceScopeFor,type Action,type ChangeRow,type ChangeScope, type SourceContractVersion } from './egg-source-change.service';
 import { checkHouseInventoryReadiness } from './egg-source-change-facts';
 import {
   assertEggSourceScope, canAccessEggSource, commercialShellClass, EggSourceOwner, readEggSourceOwner,
@@ -109,6 +109,25 @@ async function readProfiles(m: EntityManager, owner: EggSourceOwner, day: string
   });
 }
 
+export async function sourceCreatePolicy(m: EntityManager, owner: EggSourceOwner, lock = false) {
+  const [gate] = await m.query(`SELECT writes_enabled,house_writes_enabled,legacy_creates_enabled
+    FROM md_egg_source_write_control WHERE id=1 ${lock ? 'FOR SHARE' : ''}`);
+  const [rollout] = await m.query(`SELECT enabled FROM md_egg_source_house_rollouts
+    WHERE company_code=$1 AND house_code=$2`, [owner.companyCode,owner.houseCode]);
+  const version: SourceContractVersion = rollout || !gate?.legacy_creates_enabled ? 2 : 1;
+  const blocker = version===2 && !rollout ? 'HOUSE_NOT_OPEN'
+    : rollout && !rollout.enabled ? 'HOUSE_PAUSED'
+    : !gate?.writes_enabled || version===2 && !gate.house_writes_enabled ? 'WRITES_PAUSED' : null;
+  return { version, blocker };
+}
+
+export async function sourceCreationPrerequisite(m:EntityManager, owner:EggSourceOwner, businessDay:string|null) {
+  if (!businessDay) return 'NO_CALENDAR';
+  const [enrolled] = await m.query(`SELECT 1 FROM md_egg_source_profiles
+    WHERE company_code=$1 AND effective_date<=$2 LIMIT 1`, [owner.companyCode,businessDay]);
+  return enrolled ? null : 'NOT_ENROLLED';
+}
+
 export async function workspace(db: DataSource, house: string, reader: ChangeReader) {
   return db.transaction('REPEATABLE READ',async m => {
     const owner = await readEggSourceOwner(m,house);
@@ -116,27 +135,21 @@ export async function workspace(db: DataSource, house: string, reader: ChangeRea
     const [labels] = await m.query(`SELECT ${ownerFields},${ownerLabels} FROM ${ownerJoin} WHERE h.house_code=$1`,[house]);
     const clock = sourceCalendars[owner.siteCode] ? await sourceClock(m,owner) : null;
     const profiles = await readProfiles(m,owner,clock?.day??null);
-    const [enrolled] = clock ? await m.query(`SELECT 1 FROM md_egg_source_profiles
-      WHERE company_code=$1 AND effective_date<=$2 LIMIT 1`,[owner.companyCode,clock.day]) : [];
     const [pending] = await m.query(`SELECT count(*) FILTER (WHERE c.state='SUBMITTED' AND ($8::date IS NULL OR c.effective_date>$8))::int AS submitted,
       count(*) FILTER (WHERE c.state='SUBMITTED' AND c.effective_date<=$8::date)::int AS expired,
       count(*) FILTER (WHERE c.state='REVOKE_REQUESTED')::int AS "revokeRequested"
       FROM md_egg_source_changes c WHERE ${changeFilter} AND c.state IN ('SUBMITTED','REVOKE_REQUESTED')`,[...changeArgs(owner,reader.scope),clock?.day??null]);
-    const [gate] = await m.query('SELECT writes_enabled,house_writes_enabled FROM md_egg_source_write_control WHERE id=1');
-    const legacyEditScope = { ...reader.scope,actionGrants:reader.editGrants };
-    const canLegacyCreate = reader.edit && canAccessEggSource(legacyEditScope,owner) &&
-      (await candidateWarehouses(m,house,legacyEditScope)).length>0;
-    const canHouseCreate = !!reader.houseCreateGrants?.length &&
-      canAccessEggSource({ ...sourceScopeFor(reader.scope,2),actionGrants:reader.houseCreateGrants },owner);
-    const [rollout] = await m.query(
-      'SELECT enabled FROM md_egg_source_house_rollouts WHERE company_code=$1 AND house_code=$2',[owner.companyCode,owner.houseCode]);
-    const createContractVersion = rollout ? 2 : 1;
-    const canEdit = createContractVersion===2 ? canHouseCreate : canLegacyCreate;
-    const writesEnabled = !!gate?.writes_enabled && (createContractVersion===1 || !!gate.house_writes_enabled && !!rollout?.enabled);
-    const createBlocker = !canEdit ? 'NO_EDIT' : !writesEnabled ? 'WRITES_PAUSED' : labels.houseType!=='LAYER' ? 'NON_LAYER'
+    const policy = await sourceCreatePolicy(m,owner);
+    const createContractVersion = policy.version;
+    const createScope = createContractVersion===2
+      ? { ...sourceScopeFor(reader.scope,2),actionGrants:reader.houseCreateGrants??[] }
+      : { ...reader.scope,actionGrants:reader.editGrants??[] };
+    const canCreate = canAccessEggSource(createScope,owner);
+    const createBlocker = policy.blocker ?? (!canCreate ? 'NO_EDIT' : labels.houseType!=='LAYER' ? 'NON_LAYER'
       : labels.houseStatus!=='ACTIVE' || labels.farmStatus!=='ACTIVE' ? 'INACTIVE_HOUSE'
-      : !clock ? 'NO_CALENDAR' : !enrolled ? 'NOT_ENROLLED' : null;
-    const current = createContractVersion===2 && canHouseCreate ? profiles.find(profile=>profile.status==='CURRENT') : undefined;
+      : await sourceCreationPrerequisite(m,owner,clock?.day??null)
+        ?? (createContractVersion===1 && !(await candidateWarehouses(m,house,createScope)).length ? 'NO_EDIT' : null));
+    const current = createContractVersion===2 && !createBlocker ? profiles.find(profile=>profile.status==='CURRENT') : undefined;
     const [continuation] = current ? await m.query(`SELECT new_profile_code AS "profileCode",target_class AS "targetClass",
       payload->'requirements' AS requirements FROM md_egg_source_changes
       WHERE new_profile_code=$1 AND contract_version=1 AND state='APPROVED'

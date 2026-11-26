@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { lockEggSourceGrantEditor,requireEggSourceAdministrator,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
+import { isEggSourceManagedSubject,auditEggSourcePermissionChange,lockEggSourceGrantEditor,requireEggSourceAdministrator,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
 import { resolveMenuGrants, saveMenuGrants } from '../permissions/save-menu-grants';
 
 /**
@@ -19,10 +19,12 @@ export class PermissionSetsService {
     return this.ds.query(`
       SELECT s.set_id, s.set_code, s.set_name_zh, s.set_name_lo, s.description,
              COALESCE(i.cnt,0)::int AS item_count,
+             COALESCE(g.cnt,0)::int AS source_organization_count,
              COALESCE(rs.cnt,0)::int AS role_count,
              COALESCE(us.cnt,0)::int AS user_count
         FROM sys_permission_set s
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_permission_set_item GROUP BY set_id) i  ON i.set_id=s.set_id
+        LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM md_egg_source_organization_grants GROUP BY set_id) g ON g.set_id=s.set_id
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_role_permission_set GROUP BY set_id) rs ON rs.set_id=s.set_id
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_user_permission_set GROUP BY set_id) us ON us.set_id=s.set_id
        ORDER BY s.set_code`);
@@ -83,16 +85,16 @@ export class PermissionSetsService {
       await manager.query('DELETE FROM sys_permission_set_item WHERE set_id=$1',[setId]);
       await manager.query('DELETE FROM sys_permission_set WHERE set_id=$1',[setId]);
       await this.bumpPerms(manager,affected.map((row:{user_id:number})=>row.user_id));
-    },true);
+    },{action:'remove'},true);
   }
 
-  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string }>) {
+  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string }>,actor?:EggSourceGrantActor) {
     return this.ds.transaction(async manager => {
       await lockEggSourceGrantEditor(manager);
       const [head] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE', [setCode]);
       if (!head) throw new BadRequestException(`能力集 ${setCode} 不存在`);
       const grants = await resolveMenuGrants(manager, items);
-      const written = await saveMenuGrants(manager, 'set', head.set_id, grants);
+      const written = await saveMenuGrants(manager, 'set', head.set_id, grants,actor);
       await manager.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=NOW()
         WHERE user_id IN (
           SELECT user_id FROM sys_user_permission_set WHERE set_id=$1
@@ -129,7 +131,7 @@ export class PermissionSetsService {
         : 'DELETE FROM sys_role_permission_set WHERE role_id=$1 AND set_id=$2',[role.role_id,setId]);
       const users = await manager.query('SELECT user_id FROM sys_user_role WHERE role_id=$1',[role.role_id]);
       await this.bumpPerms(manager,users.map((row:{user_id:number})=>row.user_id));
-    });
+    },{action:enabled?'assign':'unassign',target:'role',roleCode});
   }
 
   private changeUserBinding(setCode:string,userId:number,actor:EggSourceGrantActor|undefined,enabled:boolean) {
@@ -138,20 +140,20 @@ export class PermissionSetsService {
         ? 'INSERT INTO sys_user_permission_set(user_id,set_id,granted_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING'
         : 'DELETE FROM sys_user_permission_set WHERE user_id=$1 AND set_id=$2',[userId,setId]);
       await this.bumpPerms(manager,[userId]);
-    });
+    },{action:enabled?'assign':'unassign',target:'user',userId});
   }
 
   private changeBindings(setCode:string,actor:EggSourceGrantActor|undefined,
-    change:(manager:EntityManager,setId:number)=>Promise<void>,allowMissing=false) {
+    change:(manager:EntityManager,setId:number)=>Promise<void>,details:Record<string,unknown>,allowMissing=false) {
     return this.ds.transaction(async manager=>{
       await lockEggSourceGrantEditor(manager);
       const [set] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE',[setCode]);
       if (!set && !allowMissing) throw new BadRequestException(`能力集 ${setCode} 不存在`);
       if (set) {
-        const [managed] = await manager.query('SELECT 1 FROM md_egg_source_organization_grants WHERE set_id=$1 LIMIT 1',[set.set_id]);
-        // Ordinary sets retain the existing role/permission-set administration policy.
-        if (managed) await requireEggSourceAdministrator(manager,actor);
+        const managed=await isEggSourceManagedSubject(manager,'set',set.set_id);
+        const admin=managed ? await requireEggSourceAdministrator(manager,actor) : undefined;
         await change(manager,set.set_id);
+        if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_PERMISSION_SET_BINDING',setCode,details);
       }
       return {ok:true};
     });

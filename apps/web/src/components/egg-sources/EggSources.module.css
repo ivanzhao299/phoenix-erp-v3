@@ -38,3 +38,50 @@
 .field :is(input,select,textarea):focus-visible { box-shadow: 0 0 0 2px var(--color-primary); }
 .field :is(input,select,textarea)[aria-invalid="true"] { box-shadow: 0 0 0 1px var(--status-danger); }
 .field :is(input,select,textarea)[aria-invalid="true"]:focus-visible { box-shadow: 0 0 0 2px var(--status-danger); }
+
+.sourceGrantRow {
+  display: grid;
+  gap: 8px;
+  padding: 6px 8px;
+}
+.sourceGrantToolbar, .sourceGrantActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.sourceGrantToolbar {
+  justify-content: space-between;
+  font-size: 12px;
+}
+.sourceGrantAction, .sourceGrantScope {
+  min-width: 22px;
+  min-height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+.sourceGrantAction:not(:disabled), .sourceGrantScope:not(:disabled) {
+  cursor: pointer;
+}
+.sourceGrantAction:disabled {
+  opacity: .5;
+}
+
+.sourceGrantAction[data-configured='true'] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+.sourceGrantAction[data-action='C'][data-configured='true'] {
+  background: var(--status-success);
+  border-color: var(--status-success);
+}
+.sourceGrantAction[data-action='E'][data-configured='true'] {
+  background: var(--status-warning);
+  border-color: var(--status-warning);
+  color: var(--bg-card);
+}

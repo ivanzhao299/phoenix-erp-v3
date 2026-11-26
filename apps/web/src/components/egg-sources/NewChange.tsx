@@ -18,19 +18,40 @@ function nextDay(day:string) {
   return d.toISOString().slice(0,10);
 }
 
+type FormDraft = {
+  date?:string;
+  color:Shell;
+  warehouse:string;
+  reason:string;
+  linked:string;
+  items:Array<Requirement&{id:number}>;
+  nextId:number;
+  continueOld:boolean;
+};
+const emptyDraft:FormDraft={color:'STANDARD',warehouse:'',reason:'',linked:'',
+  items:[{id:1,gradeCode:'',specCode:''}],nextId:2,continueOld:false};
+
 export default function NewChange() {
   const account=useEggIdentity();
   const router=useRouter();
   const house=useSearchParams().get('houseCode')||'';
+  const key=JSON.stringify([account,house]);
+  const [local,setLocal]=useState<{key:string;draft:FormDraft}>();
+  const draft=local?.key===key ? local.draft : emptyDraft;
+  const updateDraft=(values:Partial<FormDraft>)=>setLocal(previous=>({
+    key,draft:{...(previous?.key===key ? previous.draft : emptyDraft),...values},
+  }));
   const {label,crumb}=useSourceText();
   const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
   const canCreate = !!workspace.data?.businessDay && !workspace.data.createBlocker;
   const houseContract = workspace.data?.createContractVersion===2;
   const warehouses=useEggRead<Option[]>(account,canCreate && !houseContract ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
-  const options=useEggRead<Options>(account,canCreate ? '/candidates/options'+query({contractVersion:houseContract?'2':null}) : null,validOptions);
+  const options=useEggRead<Options>(account,canCreate ? '/candidates/options'+query({houseCode:house,contractVersion:houseContract?'2':null}) : null,validOptions);
   const write=useEggWrite(account,house,key=>'/change-requests/'+key+query({houseCode:house}),receipt=>{
     router.push(root+'/changes/'+receipt.id+'?saved=1');
   });
+  const formReady=!!(workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data);
+  const changed = write.problem && ['SOURCE_CONTRACT_CHANGED','HOUSE_NOT_OPEN','HOUSE_PAUSED','WRITES_PAUSED'].includes(write.problem);
   return <MasterDataTemplate responsive title={label('newChange')} breadcrumb={crumb} content={<div className={s.stack}>
     <div className={s.actions}><Back href={root+query({houseCode:house,tab:'changes'})}/></div>
     {!house&&<EmptyState title={label('chooseHouse')}/>}
@@ -40,28 +61,24 @@ export default function NewChange() {
     {options.error&&<ReadFailure error={options.error} retry={options.reload}/>}
     {workspace.data&&<section className={s.section}><OwnerMeta owner={workspace.data.owner} day={workspace.data.businessDay} zone={workspace.data.zone}/></section>}
     {workspace.data?.createBlocker&&<p className={s.notice}>{label('problem.'+workspace.data.createBlocker)}</p>}
-    {house&&!canCreate&&<WriteFeedback write={write} allowRetry={false}/>}
+    {changed&&<p role="alert" className={s.notice}>{label('problem.'+write.problem)}{' '}
+      <button type="button" style={secondaryActionButton} onClick={()=>{write.resetFeedback();workspace.reload();}}>{label('refreshWorkspace')}</button></p>}
+    {house&&!formReady&&<WriteFeedback write={write} allowRetry={false}/>}
     {workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data&&
-      <NewForm key={JSON.stringify([account,house,houseContract])} account={account} house={house}
+      <NewForm key={JSON.stringify([account,house])} account={account} house={house}
         earliest={nextDay(workspace.data.businessDay)} warehouses={warehouses.data??[]} options={options.data}
-        houseContract={houseContract} continuation={workspace.data.continuation} write={write}/>}
+        houseContract={houseContract} continuation={workspace.data.continuation} write={write} draft={draft} updateDraft={updateDraft}/>}
   </div>}/>;
 }
 
-function NewForm({account,house,earliest,warehouses,options,houseContract,continuation,write}:{
+function NewForm({account,house,earliest,warehouses,options,houseContract,continuation,write,draft,updateDraft}:{
   account:string;house:string;earliest:string;warehouses:Option[];options:Options;houseContract:boolean;
-  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>
+  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>;draft:FormDraft;updateDraft:(values:Partial<FormDraft>)=>void
 }) {
   const {label,shell}=useSourceText();
-  const [date,setDate]=useState(earliest);
-  const [color,setColor]=useState<Shell>('STANDARD');
-  const [warehouse,setWarehouse]=useState('');
-  const [reason,setReason]=useState('');
-  const [linked,setLinked]=useState('');
-  const [items,setItems]=useState<Array<Requirement&{id:number}>>([{id:1,gradeCode:'',specCode:''}]);
-  const [nextId,setNextId]=useState(2);
+  const {color,warehouse,reason,linked,items,nextId,continueOld}=draft;
+  const date=draft.date??earliest;
   const [attempted,setAttempted]=useState(false);
-  const [continueOld,setContinueOld]=useState(false);
   const selectedContinuation=continueOld ? continuation : null;
   const plans=useEggRead<PlanOption[]>(account,!selectedContinuation&&date>=earliest
     ? '/flock-plans'+query({houseCode:house,effectiveDate:date,contractVersion:houseContract?'2':null}) : null,isPlanList);
@@ -93,7 +110,7 @@ function NewForm({account,house,earliest,warehouses,options,houseContract,contin
     requestAnimationFrame(()=>document.querySelector<HTMLElement>('form [aria-invalid="true"]')?.focus());
     return false;
   }
-  const changeRow=(id:number,piece:Partial<Requirement>)=>setItems(rows=>rows.map(row=>row.id===id?{...row,...piece}:row));
+  const changeRow=(id:number,piece:Partial<Requirement>)=>updateDraft({items:items.map(row=>row.id===id?{...row,...piece}:row)});
 
   return <div className={s.stack}>
     <form className={s.stack} noValidate onSubmit={event=>{
@@ -101,26 +118,26 @@ function NewForm({account,house,earliest,warehouses,options,houseContract,contin
       if (validate()) void write.send('/changes',input);
     }}>
       <section className={s.section}>
-        <h2>{label('scheduleBasics')}</h2>
-        {houseContract&&<p className={s.hint}>{label('houseContractWarehouseHelp')}</p>}
+        <h2>{label(houseContract?'scheduleHouseBasics':'scheduleBasics')}</h2>
+        <p className={s.hint}>{label(houseContract?'houseContractWarehouseHelp':'legacyTransition')}</p>
         {continuation&&<label className={s.hint}>
-          <input type="checkbox" checked={!!selectedContinuation} disabled={locked} onChange={e=>setContinueOld(e.target.checked)}/>
+          <input type="checkbox" checked={!!selectedContinuation} disabled={locked} onChange={e=>updateDraft({continueOld:e.target.checked})}/>
           {' '}{label('continueExistingProfile')}
         </label>}
         <div className={s.fields}>
           <Field title={label('start')} hint={label('dateHelp')+' '+earliest} error={attempted&&dateInvalid?label('problem.DATE_NOT_FUTURE'):undefined}>
             {attrs=><input {...attrs} type="date" required min={earliest} style={inputField} value={date} disabled={locked}
-              onChange={e=>{setDate(e.target.value);setLinked('');}}/>}
+              onChange={e=>{updateDraft({date:e.target.value,linked:''});}}/>}
           </Field>
           <Field title={label('shell')}>{attrs=><select {...attrs} required style={inputField} value={input.targetClass} disabled={locked||!!selectedContinuation}
-            onChange={e=>setColor(e.target.value as Shell)}>{colors.map(value=><option value={value} key={value}>{shell(value)}</option>)}</select>}</Field>
+            onChange={e=>updateDraft({color:e.target.value as Shell})}>{colors.map(value=><option value={value} key={value}>{shell(value)}</option>)}</select>}</Field>
           {!houseContract&&<Field title={label('warehouse')} hint={label(warehouses.length?'warehouseHelp':'noWarehouses')}
             error={warehouseUnavailable?label('warehouseLost'):attempted&&!warehouse?label('required'):undefined}>
-            {attrs=><SelectOption attrs={{...attrs,required:true,disabled:locked||!warehouses.length}} values={warehouses} value={warehouse} onChange={setWarehouse}/>}
+            {attrs=><SelectOption attrs={{...attrs,required:true,disabled:locked||!warehouses.length}} values={warehouses} value={warehouse} onChange={value=>updateDraft({warehouse:value})}/>}
           </Field>}
           {!selectedContinuation&&<Field title={label('changeDoc')} hint={plans.loading?label('loadingPlans'):label('optionalPlan')}
             error={linkedUnavailable?label('planLost'):undefined}>
-            {attrs=><select {...attrs} style={inputField} value={linked} disabled={locked||plans.loading} onChange={e=>setLinked(e.target.value)}>
+            {attrs=><select {...attrs} style={inputField} value={linked} disabled={locked||plans.loading} onChange={e=>updateDraft({linked:e.target.value})}>
               <option value="">{label('noPlan')}</option>
               {plans.data?.map(row=><option key={row.id} value={row.id}>{label('plan.'+row.kind)} · {row.flock_no} · {label('status.'+row.status)}</option>)}
             </select>}
@@ -145,23 +162,23 @@ function NewForm({account,house,earliest,warehouses,options,houseContract,contin
               </Field>
               <div className={s.actions}>
                 {items.length>1&&<button type="button" style={secondaryActionButton}
-                  onClick={()=>setItems(rows=>rows.filter(item=>item.id!==row.id))}>{label('remove')}</button>}
+                  onClick={()=>updateDraft({items:items.filter(item=>item.id!==row.id)})}>{label('remove')}</button>}
               </div>
             </div>
           </fieldset>)}
           {!selectedContinuation&&<div className={s.actions}><button type="button" style={secondaryActionButton} disabled={locked||items.length>=96} onClick={()=>{
-            setItems(rows=>[...rows,{id:nextId,gradeCode:'',specCode:''}]);setNextId(id=>id+1);
+            updateDraft({items:[...items,{id:nextId,gradeCode:'',specCode:''}],nextId:nextId+1});
           }}>{label('add')}</button></div>}
         </div>
       </section>
       <section className={s.section}><Field title={label('reason')} error={attempted&&!reason.trim()?label('required'):undefined}>
-        {attrs=><textarea {...attrs} required style={inputField} value={reason} maxLength={2000} disabled={locked} onChange={e=>setReason(e.target.value)}/>}
+        {attrs=><textarea {...attrs} required style={inputField} value={reason} maxLength={2000} disabled={locked} onChange={e=>updateDraft({reason:e.target.value})}/>}
       </Field></section>
       <div className={s.actions}>
         <PrecheckPanel placement="button" account={account} input={input} grades={options.grades} specs={options.specs} validate={validate} disabled={locked}/>
         <button type="submit" style={primaryActionButton} disabled={locked}>{label('save')}</button>
       </div>
-      <p className={s.hint}>{label(complete?'draftHelp':'completeFields')}</p>
+      <p className={s.hint}>{label(complete?'draftHelp':houseContract?'completeHouseFields':'completeFields')}</p>
       <WriteFeedback write={write}/>
     </form>
   </div>;

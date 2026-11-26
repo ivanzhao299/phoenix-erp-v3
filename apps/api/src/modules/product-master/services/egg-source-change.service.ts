@@ -7,7 +7,7 @@ import {
   readEggSourceOwner, requireShellClass, SHELL_TYPES, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid, sourceCalendars,
 } from './egg-source-change-policy';
 import { assertApprovedFlock,checkHouseInventoryReadiness,sourceUseBlockers, SourceSkuRequirement, SourcePlanBlocked, SourcePrecheckRow, verifySourceChangePlan } from './egg-source-change-facts';
-import { type ChangeListQuery, type ChangeReader, changeList, changeDetail, draftReceipt, actionReceipt, candidateHouses, candidateWarehouses, candidateOptions, workspace, authorizedPlans, changeArgs, planOptions, findChange, redactChange } from './egg-source-change-read';
+import { type ChangeListQuery, type ChangeReader, changeList, changeDetail, draftReceipt, actionReceipt, candidateHouses, candidateWarehouses, candidateOptions, workspace, authorizedPlans, changeArgs, planOptions, findChange, redactChange, sourceCreatePolicy, sourceCreationPrerequisite } from './egg-source-change-read';
 import { SkuAvailabilityService } from './sku-availability.service';
 
 type ChangeInput = {
@@ -82,8 +82,27 @@ export class EggSourceChangeService {
 
   workspace(house: string, reader: ChangeReader) { return workspace(this.db,house,reader); }
   candidateHouses(scope: ChangeScope) { return candidateHouses(this.db.manager,scope); }
-  candidateWarehouses(house: string, scope: ChangeScope) { return this.db.transaction('REPEATABLE READ',m=>candidateWarehouses(m,house,scope)); }
-  candidateOptions() { return candidateOptions(this.db.manager); }
+  candidateWarehouses(house: string, scope: ChangeScope) {
+    return this.db.transaction('REPEATABLE READ',async m => {
+      await this.checkNewApplication(m,house,1,scope);
+      return candidateWarehouses(m,house,scope);
+    });
+  }
+
+  candidateOptions(house:string,contract:SourceContractVersion,scope:ChangeScope) {
+    return this.db.transaction('REPEATABLE READ',async m => {
+      if (!house && contract===1) {
+        const [legacy]=await m.query('SELECT legacy_creates_enabled FROM md_egg_source_write_control WHERE id=1');
+        if (!legacy?.legacy_creates_enabled) {
+          throw new ConflictException({subcode:'SOURCE_CONTRACT_CHANGED',message:'请刷新来源申请后继续'});
+        }
+      } else {
+        await this.checkNewApplication(m,house,contract,scope);
+      }
+      return candidateOptions(m);
+    });
+  }
+
   changeList(query: ChangeListQuery, scope: ChangeScope) { return this.db.transaction('REPEATABLE READ',m=>changeList(m,query,scope)); }
   changeDetail(id: string, reader: ChangeReader) { return changeDetail(this.db,id,reader); }
   draftReceipt(key: string, house: string, scope: ChangeScope, actor: string) {
@@ -115,8 +134,26 @@ export class EggSourceChangeService {
     });
   }
 
-  planOptions(house:string,date:string,scope:ChangeScope,flockScope?:ChangeScope) {
-    return this.db.transaction('REPEATABLE READ',m=>planOptions(m,house,date,scope,flockScope));
+  planOptions(house:string,date:string,contract:SourceContractVersion,scope:ChangeScope,flockScope?:ChangeScope) {
+    return this.db.transaction('REPEATABLE READ',async m => {
+      await this.checkNewApplication(m,house,contract,scope);
+      return planOptions(m,house,date,sourceScopeFor(scope,contract),flockScope);
+    });
+  }
+
+  private async checkNewApplication(m:EntityManager, house:string, contract:SourceContractVersion, scope:ChangeScope,
+    owner?:EggSourceOwner, lock = false) {
+    const current = owner ?? await readEggSourceOwner(m,house);
+    assertEggSourceScope(sourceScopeFor(scope,contract),current);
+    const policy = await sourceCreatePolicy(m,current,lock);
+    if (contract!==policy.version) {
+      throw new ConflictException({subcode:'SOURCE_CONTRACT_CHANGED',message:'来源申请口径已变化，请刷新后继续'});
+    }
+    if (!owner) await readEggSourceOwner(m,house,true);
+    const clock = sourceCalendars[current.siteCode] ? await sourceClock(m,current) : null;
+    const blocker = policy.blocker ?? await sourceCreationPrerequisite(m,current,clock?.day??null);
+    if (blocker) throw new ConflictException({subcode:blocker,message:'当前鸡舍暂不能新建来源变更，请核对工作区'});
+    return current;
   }
 
   async safeLegacyChange<T extends ChangeRow>(row:T, flock?:ChangeScope) {
@@ -133,7 +170,7 @@ export class EggSourceChangeService {
     const contract = sourceContractVersion(input.contractVersion);
     const payload = normalize(input,contract);
     return this.db.transaction(async m => {
-      const owner = await readEggSourceOwner(m,house,true);
+      const owner = await this.checkNewApplication(m,house,contract,scope);
       assertEggSourceScope(sourceScopeFor(scope,contract),owner,payload.warehouseCode);
       const plan=await this.plan(m,owner,date,kind,payload,contract);
       const linkedPlan = payload.planDocument ?? plan.verified.planned?.documentId;
@@ -150,7 +187,10 @@ export class EggSourceChangeService {
     const targetClass = requireShellClass(input.targetClass);
     const contract = sourceContractVersion(input.contractVersion);
     const payload = normalize(input,contract);
-    return this.db.transaction(m => this.runPrecheck(m,house,date,targetClass,payload,scope,contract));
+    return this.db.transaction('REPEATABLE READ',async m => {
+      await this.checkNewApplication(m,house,contract,scope);
+      return this.runPrecheck(m,house,date,targetClass,payload,scope,contract);
+    });
   }
 
   async precheckDraft(id:string, scope: ChangeScope, actor:string) {
@@ -205,25 +245,23 @@ export class EggSourceChangeService {
     const kind = requireShellClass(input.targetClass);
     const key = sourceUuid(input.actionKey,'创建请求号');
     const contract = sourceContractVersion(input.contractVersion);
-    const payload = normalize(input,contract);
     return this.db.transaction('READ COMMITTED', async m => {
       await lockEggSourceHouse(m,house);
-      const owner = await readEggSourceOwner(m,house,true);
+      const owner = await readEggSourceOwner(m,house,false,true);
       const current = refresh ? await refresh(m) : scope;
-      assertEggSourceScope(sourceScopeFor(current,contract),owner,payload.warehouseCode);
+      assertEggSourceScope(sourceScopeFor(current,contract),owner);
       const [prior] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c
         WHERE company_code=$1 AND request_key=$2 FOR UPDATE`, [owner.companyCode,key]);
       if (prior) {
         this.authorizeRow(prior,owner,current);
         if (prior.contract_version!==contract || prior.created_by !== actor || prior.effective_date !== date || prior.target_class !== kind
-          || sourceDigest(prior.payload) !== sourceDigest(payload)) throw new ConflictException('创建请求号已经绑定其他申请内容');
+          || sourceDigest(prior.payload) !== sourceDigest(normalize(input,prior.contract_version))) throw new ConflictException('创建请求号已经绑定其他申请内容');
         return prior;
       }
-      const [rollout] = await m.query(
-        'SELECT enabled FROM md_egg_source_house_rollouts WHERE company_code=$1 AND house_code=$2 FOR SHARE',
-        [owner.companyCode,owner.houseCode]);
-      if (contract===1 && rollout) throw new ConflictException('本舍已切换来源申请口径，请刷新页面后新建');
-      if (contract===2 && !rollout?.enabled) throw new ConflictException('本舍尚未开放新版来源申请');
+      await readEggSourceOwner(m,house,true);
+      await this.checkNewApplication(m,house,contract,current,owner,true);
+      const payload=normalize(input,contract);
+      assertEggSourceScope(sourceScopeFor(current,contract),owner,payload.warehouseCode);
       await this.ensureFuture(m,owner,date);
       if (contract===1 && !await eggSourceWarehouse(m,owner,payload.warehouseCode!)) {
         throw new ConflictException('目标仓须为本公司、适用场站的启用操作仓');
@@ -395,7 +433,7 @@ export class EggSourceChangeService {
         throw new ConflictException('交库准备结果已变化，请重新加载审核详情');
       }
       const previous = plan.previous;
-      if (row.contract_version===2 && previous) {
+      if (previous) {
         await m.query('SELECT profile_code FROM md_egg_source_profiles WHERE profile_code=$1 FOR UPDATE',[previous.profile_code]);
       }
       const clock = await this.ensureFuture(m,owner,row.effective_date);

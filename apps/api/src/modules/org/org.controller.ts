@@ -14,6 +14,7 @@
  */
 import {
   Controller,
+  Req,
   Get,
   Post,
   Put,
@@ -104,8 +105,8 @@ export class OrgController {
 
   @Post('user-orgs')
   @RequireMenu(DATA_SCOPE_MENU, 'C', [USER_MENU, ORG_MENU])
-  async assignUserOrg(@Body() dto: AssignUserOrgDto) {
-    const data = await this.orgService.assignUserOrg(dto);
+  async assignUserOrg(@Body() dto: AssignUserOrgDto,@Req() req:any) {
+    const data = await this.orgService.assignUserOrg(dto,req.user);
     return { code: 200, data };
   }
 
@@ -114,16 +115,17 @@ export class OrgController {
   async updateUserOrg(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserOrgDto,
+    @Req() req:any,
   ) {
-    const data = await this.orgService.updateUserOrg(id, dto);
+    const data = await this.orgService.updateUserOrg(id, dto,req.user);
     return { code: 200, data };
   }
 
   @Delete('user-orgs/:id')
   @RequireMenu(DATA_SCOPE_MENU, 'D', [USER_MENU, ORG_MENU])
   @HttpCode(HttpStatus.OK)
-  async removeUserOrg(@Param('id', ParseIntPipe) id: number) {
-    await this.orgService.removeUserOrg(id);
+  async removeUserOrg(@Param('id', ParseIntPipe) id: number,@Req() req:any) {
+    await this.orgService.removeUserOrg(id,req.user);
     return { code: 200, message: 'deleted' };
   }
 
@@ -153,16 +155,16 @@ export class OrgController {
 
   @Post('user-scopes/warehouse')
   @RequireMenu(DATA_SCOPE_MENU, 'C')
-  async addWarehouseScope(@Body() body: { userId: number; warehouseCode: string }) {
-    const data = await this.orgService.addWarehouseScope(body.userId, body.warehouseCode);
+  async addWarehouseScope(@Body() body: { userId: number; warehouseCode: string },@Req() req:any) {
+    const data = await this.orgService.addWarehouseScope(body.userId,body.warehouseCode,req.user);
     return { code: 200, data };
   }
 
   @Delete('user-scopes/warehouse/:id')
   @RequireMenu(DATA_SCOPE_MENU, 'D')
   @HttpCode(HttpStatus.OK)
-  async removeWarehouseScope(@Param('id', ParseIntPipe) id: number) {
-    await this.orgService.removeWarehouseScope(id);
+  async removeWarehouseScope(@Param('id', ParseIntPipe) id: number,@Req() req:any) {
+    await this.orgService.removeWarehouseScope(id,req.user);
     return { code: 200, message: 'deleted' };
   }
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { requireReviewFile } from '../../wms/production-finance-review';
 import { ChanjetCallbackController } from '../../chanjet/chanjet-callback.controller';
+import { EggSourceAccessService } from '../../product-master/services/egg-source-access.service';
 import { MenuAdminController } from '../../product-master/controllers/menu-admin.controller';
 import { ProductionFinanceReview1795400200000 } from '../../../database/migrations/1795400200000-ProductionFinanceReview';
 import { ProductionFinanceReviewController } from '../controllers/production-finance-review.controller';
@@ -214,7 +215,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[FlockLifecycleController,ChanjetCallbackController,MenuAdminController,ProductionFinanceReviewController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,InventorySourceController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,...Reflect.getMetadata('design:paramtypes',ChanjetCallbackController).slice(0,8).map((provide:Function)=>({provide,useValue:{}})),OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+      controllers:[FlockLifecycleController,ChanjetCallbackController,MenuAdminController,ProductionFinanceReviewController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,InventorySourceController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[
+        EggSourceAccessService,FlockLifecycleService,...Reflect.getMetadata('design:paramtypes',ChanjetCallbackController).slice(0,8).map((provide:Function)=>({provide,useValue:{}})),OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
         FinanceCreditNoteAdapter,SalesOrderLifecycleService,
         {provide:ReturnOrdersService,inject:[ClsService,FinanceCreditNoteAdapter,EggInventoryService,SalesOrderLifecycleService],
           useFactory:(cls:ClsService,finance:FinanceCreditNoteAdapter,inventory:EggInventoryService,lifecycle:SalesOrderLifecycleService)=>

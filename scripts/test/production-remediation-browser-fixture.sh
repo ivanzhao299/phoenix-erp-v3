@@ -58,6 +58,13 @@ for scenario in range installments reports cutover; do
 done
 
 (
+  cd apps/api
+  EGG_SOURCE_BROWSER_URL="$INSTALLMENT_WEB_URL" EGG_SOURCE_HTTP_PORT="$INSTALLMENT_HTTP_PORT" \
+    ./node_modules/.bin/jest --runInBand --testTimeout=90000 --runTestsByPath \
+    src/modules/product-master/services/egg-source-change.pg.spec.ts
+) | tee "$report_dir/egg-source-real-browser.log"
+
+(
   cd apps/web
   PLAYWRIGHT_BASE_URL="$INSTALLMENT_WEB_URL" ./node_modules/.bin/playwright test e2e/egg-source-workspace.spec.ts e2e/production-operator-feedback.spec.ts \
     --workers=1 --reporter=line --output="$report_dir/egg-source-browser-artifacts"

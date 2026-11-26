@@ -1,3 +1,4 @@
+import { auditEggSourcePermissionChange,authorizeEggSourceRoleMutation,lockEggSourceGrantEditor,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
 import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { writeHenhouse } from './henhouse-write-policy';
 import { DataScopeContext } from '../org/services/data-scope.service';
@@ -695,6 +696,23 @@ export class GenericCrudService {
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
     }
+  }
+
+  async removeRole(column:string,id:string,actor:EggSourceGrantActor) {
+    if (column!=='role_id' && column!=='role_code') throw new BadRequestException('无效的角色标识');
+    return this.entityManager.transaction(async manager=>{
+      await lockEggSourceGrantEditor(manager);
+      const [role] = await manager.query(`SELECT role_id,role_code FROM sys_role WHERE ${column}=$1 FOR UPDATE`,[id]);
+      if (!role) throw new BadRequestException('角色不存在');
+      if (role.role_code==='ROLE_ADMIN') throw new ForbiddenException('系统管理员角色不可删除');
+      const admin=await authorizeEggSourceRoleMutation(manager,actor,[role.role_code]);
+      const users=await manager.query('SELECT user_id FROM sys_user_role WHERE role_id=$1',[role.role_id]);
+      await manager.query('DELETE FROM sys_role WHERE role_id=$1',[role.role_id]);
+      if (users.length) await manager.query('UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1 WHERE user_id=ANY($1)',
+        [users.map((row:{user_id:string})=>row.user_id)]);
+      if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_ROLE_STATUS',role.role_code,{status:'REMOVED'});
+      return '已删除';
+    });
   }
 
   async remove(table: string, pkName: string, id: any) {

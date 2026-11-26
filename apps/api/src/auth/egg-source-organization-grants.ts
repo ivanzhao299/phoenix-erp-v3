@@ -67,3 +67,80 @@ export async function requireEggSourceAdministrator(manager: EntityManager, user
 export function lockEggSourceGrantEditor(manager:EntityManager) {
   return manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-source-grant-editor'))");
 }
+
+export async function isEggSourceManagedSubject(manager:EntityManager, type:'role'|'set', id:string|number) {
+  const sql = type==='role' ? `SELECT 1 FROM sys_role r WHERE r.role_id=$1 AND (
+    r.role_code='ROLE_ADMIN'
+    OR EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.role_id=r.role_id)
+    OR EXISTS (SELECT 1 FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
+      WHERE p.role_id=r.role_id AND m.menu_code=$2)
+    OR EXISTS (SELECT 1 FROM sys_role_permission_set rs WHERE rs.role_id=r.role_id AND (
+      EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.set_id=rs.set_id)
+      OR EXISTS (SELECT 1 FROM sys_permission_set_item p JOIN sys_menu m USING(menu_id)
+        WHERE p.set_id=rs.set_id AND m.menu_code=$2))))`
+    : `SELECT 1 WHERE EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.set_id=$1)
+      OR EXISTS (SELECT 1 FROM sys_permission_set_item p JOIN sys_menu m USING(menu_id)
+        WHERE p.set_id=$1 AND m.menu_code=$2)`;
+  return (await manager.query(sql,[id,EGG_SOURCE_MENU])).length>0;
+}
+
+export async function auditEggSourcePermissionChange(manager:EntityManager,actor:string,operation:string,id:string|number,change:unknown) {
+  await manager.query(`INSERT INTO sys_audit_log(user_id,user_name,action,entity_type,entity_id,after_value)
+    VALUES ($1,$2,$3,'EGG_SOURCE_HOUSE',$4,$5::jsonb)`,[actor,actor,operation,String(id),JSON.stringify(change)]);
+}
+
+export async function authorizeEggSourceRoleMutation(manager:EntityManager, actor:EggSourceGrantActor,
+  roleCodes:readonly string[], userId?:string|number, includeAssigned=false) {
+  await lockEggSourceGrantEditor(manager);
+  const roles:{role_id:string}[] = await manager.query(`SELECT DISTINCT r.role_id FROM sys_role r
+    WHERE r.role_code=ANY($1::text[]) OR ($2::bigint IS NOT NULL AND EXISTS (
+      SELECT 1 FROM sys_user_role ur WHERE ur.user_id=$2 AND ur.role_id=r.role_id))`,
+  [roleCodes,includeAssigned ? userId??null : null]);
+  let admin:string|undefined;
+  for (const {role_id} of roles) {
+    if (await isEggSourceManagedSubject(manager,'role',role_id)) {
+      admin=await requireEggSourceAdministrator(manager,actor);
+      break;
+    }
+  }
+  if (userId!==undefined) await manager.query('SELECT user_id FROM sys_user WHERE user_id=$1 FOR UPDATE',[userId]);
+  return admin;
+}
+
+export async function authorizeEggSourceUserScopeMutation(manager:EntityManager, actor:EggSourceGrantActor, userId:string|number) {
+  const admin=await authorizeEggSourceRoleMutation(manager,actor,[],userId,true);
+  if (admin) return admin;
+  const sets:{set_id:string}[] = await manager.query('SELECT set_id FROM sys_user_permission_set WHERE user_id=$1',[userId]);
+  for (const {set_id} of sets) {
+    if (await isEggSourceManagedSubject(manager,'set',set_id)) return requireEggSourceAdministrator(manager,actor);
+  }
+  return undefined;
+}
+
+export async function authorizeEggSourceWarehouseScopeMutation(manager:EntityManager,actor:EggSourceGrantActor,userId:number) {
+  await lockEggSourceGrantEditor(manager);
+  const rows=await loadEligibleWarehouseRoles(manager,userId);
+  const admin=rows.length ? await requireEggSourceAdministrator(manager,actor) : undefined;
+  await manager.query('SELECT user_id FROM sys_user WHERE user_id=$1 FOR UPDATE',[userId]);
+  return admin;
+}
+
+function loadEligibleWarehouseRoles(manager:EntityManager,userId:number) {
+  return manager.query(`WITH roles AS (SELECT role_id FROM sys_user_role WHERE user_id=$1),
+    sets AS (SELECT set_id FROM sys_user_permission_set WHERE user_id=$1
+      UNION SELECT rs.set_id FROM sys_role_permission_set rs JOIN roles USING(role_id))
+    SELECT 1 FROM sys_menu m WHERE m.menu_code=$2 AND (
+      EXISTS (SELECT 1 FROM sys_role_menu_permission p JOIN roles USING(role_id) WHERE p.menu_id=m.menu_id)
+      OR EXISTS (SELECT 1 FROM sys_permission_set_item p JOIN sets USING(set_id) WHERE p.menu_id=m.menu_id))`,
+    [userId,EGG_SOURCE_MENU]);
+}
+
+export function resetEggSourceAccountPassword(manager:EntityManager,actor:EggSourceGrantActor,userId:string,passwordHash:string) {
+  return manager.transaction(async transaction=>{
+    const admin=await authorizeEggSourceUserScopeMutation(transaction,actor,userId);
+    const rows=await transaction.query(`UPDATE sys_user SET password_hash=$1,
+      perms_version=COALESCE(perms_version,0)+1,updated_at=now() WHERE user_id=$2 RETURNING user_id`,[passwordHash,userId]);
+    if (admin&&rows.length) await auditEggSourcePermissionChange(transaction,admin,'EGG_SOURCE_ACCOUNT_PASSWORD_RESET',userId,{});
+    return rows;
+  });
+}

@@ -71,7 +71,6 @@ export default function Workspace() {
     {key:'id',title:label('requestId'),render:row=><code title={row.id}>{row.id.slice(0,8)}…</code>},
     {key:'effectiveDate',title:label('start')},
     {key:'shell',title:label('shell'),render:row=>shell(row.targetClass)},
-    {key:'warehouse',title:label('warehouse'),render:row=>row.warehouseName||row.warehouseCode},
     {key:'state',title:label('status'),render:row=><><Badge value={row.state}/>{row.overdue && <small className={s.hint}> · {label('overdue')}</small>}</>},
     {key:'createdBy',title:label('createdBy'),render:row=>row.createdByName||row.createdBy},
     {key:'createdAt',title:label('createdAt'),render:row=>time(row.createdAt)},
@@ -91,6 +90,7 @@ export default function Workspace() {
           </select>}</Field>
         </div>
         {result&&<OwnerMeta owner={result.owner} day={result.businessDay} zone={result.zone}/>}
+        {result?.createContractVersion===1&&!result.createBlocker&&<p className={s.hint}>{label('legacyTransition')}</p>}
         {result?.createBlocker&&<p className={s.hint}>{label('problem.'+result.createBlocker)}</p>}
         {result&&!result.createBlocker&&<div className={s.actions}>
           <Link href={root+'/new'+query({houseCode:house})} style={primaryActionButton}>{label('newChange')}</Link>
@@ -153,7 +153,7 @@ export default function Workspace() {
               <div className={s.desktop}><PresentationalTable serverManaged rows={changes.data.items} columns={columns} rowKey={row=>row.id}/></div>
               <div className={s.compact}>{changes.data.items.map(row=><article key={row.id} className={s.record}>
                 <Meta pairs={[[label('requestId'),<code key="id" title={row.id}>{row.id.slice(0,8)}…</code>],[label('start'),row.effectiveDate],
-                  [label('shell'),shell(row.targetClass)],[label('warehouse'),row.warehouseName||row.warehouseCode],
+                  [label('shell'),shell(row.targetClass)],
                   [label('status'),<span key="status"><Badge value={row.state}/>{row.overdue && <small className={s.hint}> · {label('overdue')}</small>}</span>],[label('createdBy'),row.createdByName||row.createdBy],[label('createdAt'),time(row.createdAt)]]}/>
                 {action(row)}
               </article>)}</div>
