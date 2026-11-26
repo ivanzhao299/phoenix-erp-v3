@@ -801,7 +801,8 @@ export class WmsService {
     }
   }
 
-  async confirmInbound(body: any, user: any, managerOverride?: EntityManager, requirePersistedLine = false, confirmPlanned = false) {
+  async confirmInbound(body: any, user: any, managerOverride?: EntityManager, requirePersistedLine = false,
+    confirmPlanned = false, expectedHeaderId?: string) {
     const task_no = this.nonEmptyString(body?.task_no);
     if (!task_no) throw new BadRequestException('task_no 必填');
     const requested = body?.items ?? [];
@@ -812,14 +813,17 @@ export class WmsService {
       if (requirePersistedLine && !confirmPlanned && !requested.length) this.validateInboundLines(requested);
       // V2 fidelity: 幂等 — 仅 PENDING/PROCESSING 状态允许确认
       const taskScope = this.warehouseScope('warehouse_code', 1);
+      const taskParams = [task_no, ...taskScope.params];
+      const expectedTask = expectedHeaderId === undefined ? '' : ` AND id=$${taskParams.push(expectedHeaderId)}`;
       const tasks = await manager.query(
-        `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 AND ${taskScope.sql} FOR UPDATE`,
-        [task_no, ...taskScope.params],
+        `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 AND ${taskScope.sql}${expectedTask} FOR UPDATE`,
+        taskParams,
       );
-      if (tasks.length === 0) {
+      const [task] = tasks;
+      if (!task) {
+        if (expectedHeaderId !== undefined) throw new ConflictException('入库单已变更，请刷新后重新核对');
         return { code: 404, msg: `入库单 ${task_no} 不存在` };
       }
-      const task = tasks[0];
       const workflowErrors = validateInboundWorkflow(task.type, 'GENERIC_INBOUND');
       if (workflowErrors.length > 0) {
         throw new BadRequestException({
@@ -3053,6 +3057,45 @@ export class WmsService {
       );
       return { code: 200, msg: '调拨已发运', transfer_no: transferNo, status: 'IN_TRANSIT', in_transit_qty: total };
     });
+  }
+
+  async findAllTransferScoped(query: Record<string, unknown>, warehouses: string[] | null) {
+    if (warehouses?.length === 0) return [];
+    const where: string[] = [];
+    const values: unknown[] = [];
+    const bind = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+    if (warehouses !== null) {
+      const scope = bind(warehouses);
+      where.push(`(from_warehouse=ANY(${scope}::text[]) OR to_warehouse=ANY(${scope}::text[]))`);
+    }
+    const controls = new Set(['limit', 'offset', 'page', 'pageSize', 'pageNumber', 'pageNo', 'size',
+      'sortBy', 'sortDesc', 'orderBy', 'orderDir', '_t', '_']);
+    for (const [key, value] of Object.entries(query)) {
+      if (controls.has(key)) continue;
+      const like = key.endsWith('__like');
+      const column = like ? key.slice(0, -6) : key;
+      if (!/^[a-zA-Z0-9_]+$/.test(column)) continue;
+      if (like) where.push(`"${column}" LIKE ${bind(value)}`);
+      else if (Array.isArray(value)) where.push(value.length ? `"${column}"=ANY(${bind(value)})` : '1=0');
+      else where.push(`"${column}"=${bind(value)}`);
+    }
+    const limit = bind(Math.min(Math.max(Number(query.limit) || 100, 1), 1000));
+    const offset = bind(Math.max(Number(query.offset) || 0, 0));
+    return this.em.query(`SELECT * FROM (
+      SELECT t.*,fw.warehouse_name AS from_warehouse_name,fw.warehouse_name_zh AS from_warehouse_name_zh,
+        fw.warehouse_name_en AS from_warehouse_name_en,fw.warehouse_name_lo AS from_warehouse_name_lo,
+        tw.warehouse_name AS to_warehouse_name,tw.warehouse_name_zh AS to_warehouse_name_zh,
+        tw.warehouse_name_en AS to_warehouse_name_en,tw.warehouse_name_lo AS to_warehouse_name_lo,
+        op.real_name AS operator_name
+      FROM wms_transfer t
+      LEFT JOIN wms_warehouses fw ON fw.warehouse_code=t.from_warehouse
+      LEFT JOIN wms_warehouses tw ON tw.warehouse_code=t.to_warehouse
+      LEFT JOIN sys_user op ON op.username=t.operator
+    ) transfer_rows ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY created_at DESC,id DESC LIMIT ${limit} OFFSET ${offset}`, values);
   }
 
   async getTransferForWarehouse(transferNo: string) {

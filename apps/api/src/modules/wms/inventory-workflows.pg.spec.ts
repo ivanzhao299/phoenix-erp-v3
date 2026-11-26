@@ -9,6 +9,8 @@ import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
 import { QualityService } from '../quality/quality.service';
 import { readPosAllocationTrace } from '../traceability/pos-allocation-trace';
 import { readInventoryLineage, readOutboundTrace } from '../traceability/inventory-lineage';
+import { GenericCrudController } from '../generic-crud/generic-crud.controller';
+import { GenericCrudService } from '../generic-crud/generic-crud.service';
 import { WmsService } from './wms.service';
 import { WarehouseDailyCloseService } from './warehouse-daily-close.service';
 
@@ -34,6 +36,74 @@ pg('inventory workflows against the complete migration chain', () => {
 
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
 
+  it('filters transfers by either authorized warehouse before paging and keeps localized names', async () => {
+    const wms = new WmsService(db.manager, cls);
+    const outside = 'INVENTORY-FLOOR-OUTSIDE';
+    const beyond = 'INVENTORY-FLOOR-BEYOND';
+    const next = 'INVENTORY-FLOOR-NEXT';
+    const prefix = 'INVENTORY-FLOOR-XFER';
+    await db.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,warehouse_name_en,company_code,type,domain)
+      VALUES ($1,'Outside','Outside EN',$4,'GENERAL','OPERATIONAL'),($2,'Next','Next EN',$4,'GENERAL','OPERATIONAL'),
+             ($3,'Beyond','Beyond EN',$4,'GENERAL','OPERATIONAL')`, [outside, next, beyond, company]);
+    await db.query(`INSERT INTO wms_transfer(transfer_no,from_warehouse,to_warehouse,qty,status,created_at)
+      VALUES ($1,$5,$6,1,'PENDING','2026-11-25'),($2,$6,$5,1,'PENDING','2026-11-25'),
+             ($3,$5,$7,1,'IN_TRANSIT','2026-11-25'),($4,$6,$8,1,'PENDING','2026-11-25')`,
+    [`${prefix}-1`, `${prefix}-2`, `${prefix}-3`, `${prefix}-4`, warehouse, outside, next, beyond]);
+    const filter = { transfer_no__like: `${prefix}-%`, status: ['PENDING', 'IN_TRANSIT'] };
+    const visible = [warehouse, next];
+    await expect(wms.findAllTransferScoped({ ...filter, limit: 2 }, visible)).resolves.toMatchObject([
+      { transfer_no: `${prefix}-3`, to_warehouse_name_en: 'Next EN' }, { transfer_no: `${prefix}-2` },
+    ]);
+    await expect(wms.findAllTransferScoped({ ...filter, limit: 2, offset: 2 }, visible))
+      .resolves.toMatchObject([{ transfer_no: `${prefix}-1` }]);
+    await expect(wms.findAllTransferScoped({ ...filter, status: [] }, visible)).resolves.toEqual([]);
+    await expect(wms.findAllTransferScoped(filter, [])).resolves.toEqual([]);
+    await expect(wms.findAllTransferScoped(filter, null)).resolves.toHaveLength(4);
+  });
+
+  it('locks generic warehouse draft mutations and refuses changes that race with completion', async () => {
+    const controller = new GenericCrudController(new GenericCrudService(db.manager),
+      { resolve: async () => scope } as any, new WmsService(db.manager, cls), cls, db.manager);
+    const req = { user: { userId: 100, username: 'fixture', permissions: ['*'] } };
+    const cases = [
+      { table: 'wms_inbound', key: 'task_no', number: 'INVENTORY-FLOOR-RACE-IN', terminal: 'COMPLETED' },
+      { table: 'wms_stocktake', key: 'stocktake_no', number: 'INVENTORY-FLOOR-RACE-ST', terminal: 'APPROVED' },
+    ];
+    for (const entry of cases) {
+      const [{ id }] = await db.query(`INSERT INTO ${entry.table}(${entry.key},warehouse_code,status,item)
+        VALUES ($1,$2,'PENDING','draft') RETURNING id`, [entry.number, warehouse]);
+      await expect(controller.updateWithColumn(entry.table, entry.key, entry.number, { operator: 'fixture' }, req))
+        .resolves.toMatchObject({ code: 200 });
+      const closer = db.createQueryRunner();
+      let outcome: Promise<unknown> | undefined;
+      try {
+        await closer.startTransaction();
+        const [{ pid }] = await closer.query('SELECT pg_backend_pid() AS pid');
+        await closer.query(`UPDATE ${entry.table} SET status=$2 WHERE id=$1`, [id, entry.terminal]);
+        const edit = entry.table === 'wms_inbound'
+          ? controller.updateWithColumn(entry.table, 'id', String(id), { item: 'racing edit' }, req)
+          : controller.removeWithColumn(entry.table, entry.key, entry.number, req);
+        outcome = edit.catch(error => error);
+        let waiting = false;
+        for (let attempt = 0; attempt < 150 && !waiting; attempt++) {
+          const [{ blocked }] = await db.query(`SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+            WHERE $1=ANY(pg_blocking_pids(pid))) AS blocked`, [pid]);
+          waiting = blocked;
+          if (!waiting) await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        expect(waiting).toBe(true);
+        await closer.commitTransaction();
+        await expect(outcome).resolves.toMatchObject({ status: 409 });
+        const [stored] = await db.query(`SELECT item,status FROM ${entry.table} WHERE id=$1`, [id]);
+        expect(stored).toEqual({ item: 'draft', status: entry.terminal });
+      } finally {
+        if (closer.isTransactionActive) await closer.rollbackTransaction();
+        await outcome;
+        await closer.release();
+      }
+    }
+  });
+
   it('widens legacy integer receipt columns while retaining all existing receipt data', async () => {
     const runner = db.createQueryRunner();
     await runner.startTransaction();
@@ -53,6 +123,34 @@ pg('inventory workflows against the complete migration chain', () => {
       await runner.rollbackTransaction();
       await runner.release();
     }
+  });
+
+  it('removes inbound draft lines and rejects a stale confirmation after the task number is reused', async () => {
+    const wms = new WmsService(db.manager, cls);
+    const controller = new GenericCrudController(new GenericCrudService(db.manager),
+      { resolve: async () => scope } as any, wms, cls, db.manager);
+    const req = { user: { userId: 100, username: 'fixture', permissions: ['*'] } };
+    const task = 'INVENTORY-FLOOR-DRAFT-REMOVE';
+    const createHead = async () => {
+      const [row] = await db.query(`INSERT INTO wms_inbound(task_no,warehouse_code,type,status)
+        VALUES($1,$2,'RETURN','PENDING') RETURNING id`, [task, warehouse]);
+      return String(row.id);
+    };
+    const originalId = await createHead();
+    await db.query(`INSERT INTO wms_inbound_items(task_no,product_code,qty) VALUES($1,'ORIGINAL',5)`, [task]);
+    await expect(controller.updateWithColumn('wms_inbound', 'id', originalId, { warehouse_code: null }, req))
+      .rejects.toMatchObject({ status: 400 });
+    await expect(controller.removeWithColumn('wms_inbound', 'task_no', task, req)).resolves.toMatchObject({ code: 200 });
+    const newId = await createHead();
+    expect(newId).not.toBe(originalId);
+    await expect(db.query('SELECT id FROM wms_inbound_items WHERE task_no=$1', [task])).resolves.toEqual([]);
+    await db.query(`INSERT INTO wms_inbound_items(task_no,product_code,qty) VALUES($1,'REPLACEMENT',5)`, [task]);
+    const payload = { task_no: task, items: [{ product_code: 'REPLACEMENT', qty: 5 }] };
+    await expect(wms.confirmInbound(payload, req.user, undefined, true, false, originalId))
+      .rejects.toMatchObject({ status: 409 });
+    await expect(db.query('SELECT status FROM wms_inbound WHERE id=$1', [newId]))
+      .resolves.toEqual([{ status: 'PENDING' }]);
+    await expect(db.query('SELECT id FROM inv_ledger WHERE ref_no=$1', [task])).resolves.toEqual([]);
   });
 
   it('rejects a stale source-mode assessment and replays the audited switch after transport failure', async () => {

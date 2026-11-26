@@ -14,6 +14,7 @@ import {
   Req,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Header,
   GoneException,
   ServiceUnavailableException,
@@ -29,6 +30,8 @@ import { WmsService } from '../wms/wms.service';
 import { WMS_ISSUE_OUTBOUND_TYPES } from '../wms/wms-outbound-policy';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
 
+type WarehouseDocument = 'wms_inbound' | 'wms_stocktake';
+
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
 export class GenericCrudController {
@@ -37,7 +40,7 @@ export class GenericCrudController {
     private readonly dataScopeService: DataScopeService,
     private readonly wmsService: WmsService,
     private readonly cls: ClsService,
-    @Optional() @InjectEntityManager() private readonly roleManager?:EntityManager,
+    @Optional() @InjectEntityManager() private readonly entityManager?: EntityManager,
   ) {}
 
   /**
@@ -439,7 +442,7 @@ export class GenericCrudController {
 
   private buildWmsInboundConfirmPayload(existing: any, body: any) {
     const row = { ...(existing || {}), ...(body || {}) };
-    const taskNo = String(row.task_no || row.inbound_no || '').trim();
+    const taskNo = String(existing.task_no || existing.inbound_no || '').trim();
     if (!taskNo) {
       throw new BadRequestException('wms_inbound task_no 必填，无法确认入库');
     }
@@ -567,7 +570,7 @@ export class GenericCrudController {
 
     if (table === 'wms_transfer') {
       const warehouses = tableScope?.isGlobal ? null : tableScope?.allowedWarehouseCodes ?? [];
-      return { code: 200, data: await this.crudService.findAllTransferScoped(query, warehouses) };
+      return { code: 200, data: await this.wmsService.findAllTransferScoped(query, warehouses) };
     }
 
     if (isInventoryFactTable(table)) {
@@ -615,8 +618,9 @@ export class GenericCrudController {
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
-    if ((table === 'wms_stocktake' && (String(body.status).toUpperCase() === 'APPROVED' || /^DC-/i.test(body.stocktake_no ?? '')))
-      || (table === 'wms_inbound' && String(body.status).toUpperCase() === 'COMPLETED')) {
+    const status = String(body.status ?? '').trim().toUpperCase();
+    if ((table === 'wms_stocktake' && (status === 'APPROVED' || /^DC-/i.test(body.stocktake_no ?? '')))
+      || (table === 'wms_inbound' && status === 'COMPLETED')) {
       throw new BadRequestException('库存过账须使用对应的确认接口');
     }
     if (table === 'wms_inbound') {
@@ -681,6 +685,35 @@ export class GenericCrudController {
     return { code: 200, msg: result.msg };
   }
 
+  private assertWarehouseDocumentKey(table: string, column: string): void {
+    if (!isWarehouseDocument(table) || column === 'id') return;
+    const documentKey = table === 'wms_inbound' ? 'task_no' : 'stocktake_no';
+    if (column !== documentKey) throw new BadRequestException('库存单据须使用主键或单据号定位');
+  }
+
+  private async mutateWarehouseDraft(table: WarehouseDocument, idColumn: string, id: string,
+    rowId: number | string, scope: DataScopeContext | null, change: 'remove' | Record<string, unknown>) {
+    if (!this.entityManager) throw new ServiceUnavailableException('库存单据服务暂不可用');
+    return this.entityManager.transaction(async manager => {
+      const numberColumn = table === 'wms_inbound' ? 'task_no' : 'stocktake_no';
+      const [row] = await manager.query(`SELECT id,warehouse_code,status,"${numberColumn}" AS document_no FROM "${table}"
+        WHERE id=$1 AND "${idColumn}"=$2 FOR UPDATE`, [rowId, id]);
+      if (!row) throw new BadRequestException('Record not found');
+      this.assertWarehouseRowScope(table, row, scope);
+      const status = String(row.status ?? '').trim().toUpperCase();
+      const closed = table === 'wms_inbound' ? ['COMPLETED', 'CANCELLED'].includes(status) : status === 'APPROVED';
+      if (closed) throw new ConflictException('已完成或已取消的库存单据不可修改或删除');
+      const crud = new GenericCrudService(manager);
+      if (change === 'remove') {
+        if (table === 'wms_inbound' && row.document_no) {
+          await manager.query('DELETE FROM wms_inbound_items WHERE task_no=$1', [row.document_no]);
+        }
+        return crud.remove(table, 'id', row.id);
+      }
+      return crud.update(table, 'id', row.id, change);
+    });
+  }
+
   @Put(':table/:idColumn/:id')
   async updateWithColumn(
     @Param('table') table: string,
@@ -690,6 +723,7 @@ export class GenericCrudController {
     @Req() req: any,
   ) {
     this.checkTableAccess(table, req, 'PUT');
+    this.assertWarehouseDocumentKey(table, idColumn);
     const tableScope = await this.resolveTableScope(table, req, 'PUT');
     const existing = await this.crudService.findOneByColumn(table, idColumn, id);
     if (!existing) {
@@ -704,6 +738,10 @@ export class GenericCrudController {
     const safeBody = table === 'wms_inbound'
       ? this.canonicalizeWmsInboundBody(this.filterBlockedFields(table, body))
       : this.filterBlockedFields(table, body);
+    if (isWarehouseDocument(table) && Object.prototype.hasOwnProperty.call(safeBody, 'warehouse_code')
+      && (typeof safeBody.warehouse_code !== 'string' || !safeBody.warehouse_code.trim())) {
+      throw new BadRequestException('库存单据的仓库不能为空');
+    }
     if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
       && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
       safeBody.operator = req.user.username;
@@ -715,7 +753,10 @@ export class GenericCrudController {
       await this.wmsService.assertWarehouseOwnership(safeBody, existing);
     }
 
-    if (table === 'wms_stocktake' && (String(safeBody.status).toUpperCase() === 'APPROVED'
+    if (table === 'wms_inbound' && safeBody.task_no !== undefined && safeBody.task_no !== existing.task_no) {
+      throw new BadRequestException('入库任务单号不可更改');
+    }
+    if (table === 'wms_stocktake' && (String(safeBody.status ?? '').trim().toUpperCase() === 'APPROVED'
       || (safeBody.stocktake_no !== undefined && safeBody.stocktake_no !== existing.stocktake_no))) {
       throw new BadRequestException('盘点或报损审批必须使用专用接口，单号不可更改');
     }
@@ -740,7 +781,7 @@ export class GenericCrudController {
       const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
       // The strict flag forces the WMS service to resolve the persisted detail
       // row instead of accepting a caller-supplied identity that is not stored.
-      const result = await this.wmsService.confirmInbound(payload, req.user, undefined, true);
+      const result = await this.wmsService.confirmInbound(payload, req.user, undefined, true, false, String(existing.id));
       return result;
     }
 
@@ -769,7 +810,9 @@ export class GenericCrudController {
       return await this.wmsService.updateStandaloneOutbound(outboundNo, safeBody, req.user);
     }
 
-    const result = await this.crudService.update(table, idColumn, id, safeBody).catch(this.eggSourceConfigError);
+    const result = isWarehouseDocument(table)
+      ? await this.mutateWarehouseDraft(table, idColumn, id, existing.id, tableScope, safeBody)
+      : await this.crudService.update(table, idColumn, id, safeBody).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };
   }
 
@@ -792,6 +835,7 @@ export class GenericCrudController {
     @Req() req: any,
   ) {
     this.checkTableAccess(table, req, 'DELETE');
+    this.assertWarehouseDocumentKey(table, idColumn);
     if (!/^[a-zA-Z0-9_]+$/.test(idColumn)) {
       throw new BadRequestException('Security Violation: Invalid primary key column');
     }
@@ -805,10 +849,12 @@ export class GenericCrudController {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
     }
     if (table==='sys_role') {
-      if (!this.roleManager) throw new ServiceUnavailableException('角色配置服务暂不可用');
-      return {code:200,msg:await removeEggSourceManagedRole(this.roleManager,idColumn,id,req.user)};
+      if (!this.entityManager) throw new ServiceUnavailableException('角色配置服务暂不可用');
+      return {code:200,msg:await removeEggSourceManagedRole(this.entityManager,idColumn,id,req.user)};
     }
-    const result = await this.crudService.remove(table, idColumn, id).catch(this.eggSourceConfigError);
+    const result = isWarehouseDocument(table)
+      ? await this.mutateWarehouseDraft(table, idColumn, id, existing.id, tableScope, 'remove')
+      : await this.crudService.remove(table, idColumn, id).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };
   }
 
@@ -820,6 +866,10 @@ export class GenericCrudController {
   ) {
     return this.removeWithColumn(table, getPkColumn(table), id, req);
   }
+}
+
+function isWarehouseDocument(table: string): table is WarehouseDocument {
+  return table === 'wms_inbound' || table === 'wms_stocktake';
 }
 
 function isInventoryFactTable(table: string): table is 'inv_batches' | 'inv_ledger' {

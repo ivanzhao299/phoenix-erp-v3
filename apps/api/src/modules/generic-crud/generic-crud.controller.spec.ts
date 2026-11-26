@@ -7,7 +7,7 @@ describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
   let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update' | 'assertOperationalWarehouseCodes'>>;
   let dataScopeService: { resolve: jest.Mock };
-  let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
+  let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock; findAllTransferScoped: jest.Mock };
   let cls: { set: jest.Mock };
 
   const req = (permissions: string[], permsVersion = 17) => ({
@@ -47,6 +47,7 @@ describe('GenericCrudController WMS RBAC', () => {
     wmsService = {
       confirmInbound: jest.fn().mockResolvedValue({ code: 200, msg: '入库确认成功' }),
       confirmStandaloneOutbound: jest.fn().mockResolvedValue({ code: 200, msg: '出库确认成功' }),
+      findAllTransferScoped: jest.fn().mockResolvedValue([]),
     };
     cls = {
       set: jest.fn(),
@@ -149,6 +150,18 @@ describe('GenericCrudController WMS RBAC', () => {
       controller.findAll('wms_zones', { limit: '100', offset: '0' }, req(['MENU_WMS_INOUT:V'])),
     ).resolves.toEqual({ code: 200, data: [] });
     expect(svc.findAll).toHaveBeenCalledWith('wms_zones', { limit: '100', offset: '0' });
+  });
+
+  it('passes the transfer menu warehouse scope and filters to the WMS list', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] });
+    const rows = [{ transfer_no: 'TR-1', from_warehouse: 'WH-B', to_warehouse: 'WH-A' }];
+    wmsService.findAllTransferScoped.mockResolvedValueOnce(rows);
+    const query = { status: 'PENDING', limit: '10' };
+    await expect(controller.findAll('wms_transfer', query, req(['MENU_INV_BATCH:V'])))
+      .resolves.toEqual({ code: 200, data: rows });
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('1', ['ROLE_MENGSAI_DONGPENG_TREASURER'], 'MENU_INV_BATCH', 17);
+    expect(wmsService.findAllTransferScoped).toHaveBeenCalledWith(query, ['WH-A']);
+    expect(svc.findAll).not.toHaveBeenCalled();
   });
 
   it('scopes inventory batch reads by warehouse DataScope instead of store_code', async () => {
@@ -446,6 +459,8 @@ describe('GenericCrudController WMS RBAC', () => {
       expect.objectContaining({ username: 'wangweihua' }),
       undefined,
       true,
+      false,
+      '7',
     );
     expect(cls.set).toHaveBeenCalledWith(
       'dataScope',
@@ -495,6 +510,8 @@ describe('GenericCrudController WMS RBAC', () => {
       expect.objectContaining({ username: 'wangweihua' }),
       undefined,
       true,
+      false,
+      '81',
     );
     expect(svc.update).not.toHaveBeenCalled();
   });
@@ -546,6 +563,8 @@ describe('GenericCrudController WMS RBAC', () => {
       expect.objectContaining({ username: 'wangweihua' }),
       undefined,
       true,
+      false,
+      '8',
     );
   });
 
@@ -589,6 +608,8 @@ describe('GenericCrudController WMS RBAC', () => {
       expect.objectContaining({ username: 'wangweihua' }),
       undefined,
       true,
+      false,
+      '9',
     );
   });
 
