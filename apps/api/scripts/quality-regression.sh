@@ -6,7 +6,7 @@ API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
 ADMIN_P="${ADMIN_PASS:-admin123}"
 PSQL=${PSQL:-$(which psql)}
-DB=phoenix_erp
+DB="${DB_NAME:-phoenix_erp}"
 
 PASS=0; FAIL=0
 declare -a FAILURES
@@ -32,17 +32,28 @@ BATCH_Q="REGR-QA-BAT-$(date +%s | tail -c 6)"
 STORE_Q="ST-QA-REGR"
 SALE_Q="POS-REGR-QA-$(date +%s | tail -c 6)"
 
+$PSQL $DB -q -c "DELETE FROM store_sale_allocations WHERE sale_id IN (SELECT id FROM sal_store_sales WHERE sale_no='$SALE_Q');
+ DELETE FROM sal_store_sale_items WHERE sale_id IN (SELECT id FROM sal_store_sales WHERE sale_no='$SALE_Q');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM sal_store_sales WHERE sale_no='$SALE_Q';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no='$BATCH_Q' OR ref_no LIKE 'REGR-QA-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no='$BATCH_Q';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pos_sale_items WHERE sale_no='$SALE_Q';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pos_sales WHERE sale_no='$SALE_Q';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM qa_inspections WHERE inspect_no LIKE 'INS-QA-REGR-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM qa_non_conformance WHERE nc_no LIKE 'NC-QA-REGR-%' OR batch_no='$BATCH_Q';" >/dev/null
 
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code) VALUES ('$BATCH_Q','REGR-PROD-Q',500,500,'AVAILABLE','WMS-VTE-MAIN','ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no,product_code,qty,qty_available,status,warehouse_code,store_code,company_code,unit)
+  VALUES ('$BATCH_Q','REGR-PROD-Q',500,500,'AVAILABLE','WMS-VTE-MAIN','ALL','COMP-REGR-QA','件');" >/dev/null
 $PSQL $DB -q -c "INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note) VALUES ('$BATCH_Q','INBOUND',500,'test','ALL','REGR-QA-IB-1','QA seed inbound');" >/dev/null
-$PSQL $DB -q -c "INSERT INTO pos_sales (sale_no, store_code, cashier, total_amount, net_amount, pay_method, status, created_at, updated_at) VALUES ('$SALE_Q','$STORE_Q','test',100,100,'CASH','COMPLETED',now(),now());" >/dev/null
-$PSQL $DB -q -c "INSERT INTO pos_sale_items (sale_no, product_code, batch_no, qty, unit_price, subtotal, store_code, created_at) VALUES ('$SALE_Q','REGR-PROD-Q','$BATCH_Q',10,10,100,'$STORE_Q',now());" >/dev/null
+$PSQL $DB -v ON_ERROR_STOP=1 -q -c "
+  WITH sale AS (
+    INSERT INTO sal_store_sales(sale_no,store_code,store_name,company_code,status,completed_at)
+    VALUES ('$SALE_Q','$STORE_Q','回归门店','COMP-REGR-QA','COMPLETED',now()) RETURNING id
+  ), item AS (
+    INSERT INTO sal_store_sale_items(sale_id,product_code,product_name,qty,unit_price,amount)
+    SELECT id,'REGR-PROD-Q','回归品目',10,10,100 FROM sale RETURNING id,sale_id
+  )
+  INSERT INTO store_sale_allocations(sale_id,sale_item_id,batch_no,warehouse_code,allocated_qty,returned_qty)
+  SELECT sale_id,id,'$BATCH_Q','WMS-VTE-MAIN',10,2 FROM item;
+" >/dev/null || exit 99
 green "  ✓ seed batch=$BATCH_Q sale=$SALE_Q"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -70,8 +81,10 @@ TB_TYPE=$(cat /tmp/qa_t2.json | grep -oE '"trace_type":"[^"]*"' | head -1 | cut 
 assert_eq "T2.2 trace_type=BACKWARD" "BACKWARD" "$TB_TYPE"
 TB_BATCH=$(cat /tmp/qa_t2.json | grep -oE "\"batch_no\":\"$BATCH_Q\"" | head -1)
 [ -n "$TB_BATCH" ] && green "  ✓ T2.3 含 $BATCH_Q" && PASS=$((PASS+1)) || { red "  ✗ T2.3 missing batch_no"; FAIL=$((FAIL+1)); FAILURES+=("T2.3"); }
-TB_RECALL=$(cat /tmp/qa_t2.json | grep -oE '"can_recall":true')
-[ -n "$TB_RECALL" ] && green "  ✓ T2.4 recall_assessment.can_recall=true" && PASS=$((PASS+1)) || { red "  ✗ T2.4 missing can_recall=true"; FAIL=$((FAIL+1)); FAILURES+=("T2.4"); }
+TB_RECALL=$(node -pe "JSON.parse(require('node:fs').readFileSync('/tmp/qa_t2.json','utf8')).traces[0]?.recall_assessment?.can_recall")
+assert_eq "T2.4 召回资格需人工核定" "null" "$TB_RECALL"
+TB_AMOUNT=$(node -pe "JSON.parse(require('node:fs').readFileSync('/tmp/qa_t2.json','utf8')).allocations[0]?.outstanding_qty")
+assert_eq "T2.5 该批次实销 10 已退 2" "8.000" "$TB_AMOUNT"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -150,10 +163,11 @@ assert_ok "T8.1 listStandards 200" "$R8"
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ Cleanup"
+$PSQL $DB -q -c "DELETE FROM store_sale_allocations WHERE sale_id IN (SELECT id FROM sal_store_sales WHERE sale_no='$SALE_Q');
+ DELETE FROM sal_store_sale_items WHERE sale_id IN (SELECT id FROM sal_store_sales WHERE sale_no='$SALE_Q');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM sal_store_sales WHERE sale_no='$SALE_Q';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no='$BATCH_Q' OR ref_no LIKE 'REGR-QA-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no='$BATCH_Q';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pos_sale_items WHERE sale_no='$SALE_Q';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pos_sales WHERE sale_no='$SALE_Q';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM qa_inspections WHERE inspect_no LIKE 'INS-QA-REGR-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM qa_non_conformance WHERE nc_no LIKE 'NC-QA-REGR-%';" >/dev/null
 green "  ✓ 清理完毕"

@@ -104,6 +104,11 @@ export class WarehouseDailyCloseCapture1795658600000 implements MigrationInterfa
 
   async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
+      DO $down$ BEGIN
+        IF EXISTS (SELECT 1 FROM wms_daily_closes) OR EXISTS (SELECT 1 FROM wms_close_event_claims) THEN
+          RAISE EXCEPTION 'Cannot drop sealed warehouse close snapshots or event claims';
+        END IF;
+      END $down$;
       DROP TRIGGER legacy_warehouse_close_readonly ON wms_stocktake;
       DROP FUNCTION reject_legacy_warehouse_close();
       DROP TRIGGER ledger_wms_close_capture ON inv_ledger;

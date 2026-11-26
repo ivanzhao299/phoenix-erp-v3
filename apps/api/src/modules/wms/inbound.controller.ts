@@ -42,6 +42,6 @@ export class InboundController {
   @Post('confirm')
   @RequireMenu('MENU_WMS_INOUT', 'E')
   async confirmInbound(@Body() body: any, @Req() req: any) {
-    return await this.wmsService.confirmInbound(body, req.user, undefined, true);
+    return await this.wmsService.confirmReceivingOrder(body?.task_no, body, req.user);
   }
 }

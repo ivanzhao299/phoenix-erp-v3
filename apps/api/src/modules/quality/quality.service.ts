@@ -79,8 +79,16 @@ export class QualityService {
       .filter((edge: { kind: string }) => edge.kind !== 'RAW_RECEIPT')
       .map((edge: { parent_batch_no: string }) => edge.parent_batch_no)])] : null;
     const batches = await this.traceBatches(scope, selected, keyword);
+    const [schema] = await this.em.query("SELECT to_regclass('qa_non_conformance') AS ncr");
+    const reports = !schema?.ncr || !batches.length ? [] : await this.em.query(
+      `SELECT n.nc_no,n.batch_no,n.issue_type,n.status,n.severity
+       FROM qa_non_conformance n JOIN inv_batches b ON b.batch_no=n.batch_no
+       WHERE n.batch_no=ANY($1::text[])
+         AND (to_jsonb(n)->>'company_code' IS NULL OR to_jsonb(n)->>'company_code'=b.company_code)
+       ORDER BY n.nc_no`, [batches.map((batch: { batch_no: string }) => batch.batch_no)]);
     const traces = batches.map((batch: any) => ({
       batch_no: batch.batch_no, batch_detail: batch, current_stock: batch,
+      non_conformances: reports.filter((row: { batch_no: string }) => row.batch_no === batch.batch_no),
       recall_assessment: { can_recall: null, qty_at_risk: null, status: batch.status },
     }));
     return { code: 200, trace_type: 'BACKWARD', batch_count: traces.length, traces,

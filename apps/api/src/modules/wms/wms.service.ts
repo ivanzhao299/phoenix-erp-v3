@@ -1067,7 +1067,7 @@ export class WmsService {
             }
             const exStatus = (existRows[0].status || 'AVAILABLE').toUpperCase();
             if (exStatus !== 'AVAILABLE') {
-              throw new Error(`批次 ${item.batch_no} 当前状态 ${exStatus}，不可继续入库`);
+              throw new ConflictException(`批次 ${item.batch_no} 当前状态 ${exStatus}，不可继续入库`);
             }
             const existingCompany = this.nonEmptyString(existRows[0].company_code);
             if (existingCompany && existingCompany !== 'ALL' && existingCompany !== companyCode) {
