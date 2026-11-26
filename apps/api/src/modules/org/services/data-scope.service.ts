@@ -5,7 +5,7 @@
  */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { SysDataScopeEntity } from '../entities/sys-data-scope.entity';
 import { SysUserOrgEntity } from '../entities/sys-user-org.entity';
@@ -68,6 +68,15 @@ export class DataScopeService {
     private readonly ownership: OrgOwnershipService,
   ) {}
 
+  withManager(manager: EntityManager): DataScopeService {
+    return new DataScopeService(
+      manager.getRepository(SysDataScopeEntity), manager.getRepository(SysUserOrgEntity),
+      manager.getRepository(SysUserProjectScopeEntity), manager.getRepository(SysUserWarehouseScopeEntity),
+      manager.getRepository(SysUserFarmScopeEntity), manager.getRepository(SysOrganizationEntity),
+      this.cls, new OrgOwnershipService(manager),
+    );
+  }
+
   async assertActiveHouseOwnership(houseCode: string) {
     const resolved = await this.ownership.resolveHouse(houseCode);
     const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
@@ -105,6 +114,7 @@ export class DataScopeService {
     roles: string[],
     menuCode: string,
     permsVersion?: number,
+    boundToOrganizations = false,
   ): Promise<DataScopeContext> {
     if (!userId?.trim()) throw new ForbiddenException('DATA_SCOPE_IDENTITY_REQUIRED');
     // ROLE_ADMIN 直接全局
@@ -141,7 +151,7 @@ export class DataScopeService {
     }
 
     // GROUP → 全局
-    if (topLevel === 'GROUP') {
+    if (topLevel === 'GROUP' && !boundToOrganizations) {
       const cached = cache.get(cacheKey);
       if (cached && cached.expireAt > Date.now()) return cached.context;
       const ctx: DataScopeContext = {
@@ -188,7 +198,7 @@ export class DataScopeService {
     //   data_scope_level。G114 给部门绑定(DEPT-HQ-*)显式授 GROUP 范围的用户(郭大鹏/刘杰/
     //   刘汉涛/王乐金/范镇豪)，因角色无 GROUP 规则 → 非全局 + 部门展开无公司 → 公司级主数据
     //   (客户/项目/资金账户)被 DENY 看空。绑定的 GROUP 范围是权威 per-user 授权 → 视为全局。
-    if (userOrgRows.some((r) => r.org_status === 'ACTIVE' && r.data_scope_level === 'GROUP')) {
+    if (!boundToOrganizations && userOrgRows.some((r) => r.org_status === 'ACTIVE' && r.data_scope_level === 'GROUP')) {
       const ctx: DataScopeContext = {
         isGlobal: true,
         scopeLevel: 'GROUP',
@@ -213,7 +223,7 @@ export class DataScopeService {
       for (const row of userOrgRows) {
         const activeBinding = row.org_status === 'ACTIVE';
         const explicitCompany = activeBinding && row.org_type === 'COMPANY';
-        const companyTree = activeBinding && (row.org_type === 'BU' || row.org_type === 'GROUP');
+        const companyTree = activeBinding && (row.org_type === 'BU' || (!boundToOrganizations && row.org_type === 'GROUP'));
         if (row.company_code) {
           companyCodes.add(row.company_code);
           if (explicitCompany) breedingCompanyCodes.add(row.company_code);
@@ -227,7 +237,7 @@ export class DataScopeService {
         } else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
 
         // REGION 级别：展开同一父节点下所有子公司
-        if (topLevel === 'REGION' && row.parent_id) {
+        if (topLevel === 'REGION' && !boundToOrganizations && row.parent_id) {
           const siblings = await this.orgRepo.find({
             where: { parentId: row.parent_id, status: 'ACTIVE' },
           });
@@ -311,7 +321,7 @@ export class DataScopeService {
     // OPERATIONAL 仓 ∩ sys_user_warehouse_scopes”；没有显式授权即保持空集合。
     // COMPANY/REGION 等非 SITE 绑定继续沿用公司操作仓全量，语义不变。
     const hasSiteBinding = siteCodes.size > 0;
-    if (companyCodes.size > 0 && !hasSiteBinding) {
+    if (!boundToOrganizations && companyCodes.size > 0 && !hasSiteBinding) {
       const companyWarehouseRows: Array<{ warehouse_code: string | null }> =
         await this.orgRepo.manager.query(`
           SELECT warehouse_code
@@ -332,9 +342,9 @@ export class DataScopeService {
       const operationalRows: Array<{ warehouse_code: string }> = await this.orgRepo.manager.query(`
         SELECT warehouse_code FROM wms_warehouses
         WHERE warehouse_code = ANY($1)
-          AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
           AND domain = 'OPERATIONAL'
-          ${hasSiteBinding ? 'AND site_code = ANY($2)' : ''}
+          ${boundToOrganizations ? '' : "AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')"}
+          ${hasSiteBinding ? (boundToOrganizations ? "AND (site_code = ANY($2) OR NULLIF(site_code,'') IS NULL)" : 'AND site_code = ANY($2)') : ''}
       `, hasSiteBinding ? [explicitWarehouseCodes, [...siteCodes]] : [explicitWarehouseCodes]);
       operationalRows.forEach((row) => warehouseCodes.add(row.warehouse_code));
     }

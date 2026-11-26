@@ -16,6 +16,9 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
+import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
+import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
@@ -31,7 +34,7 @@ import { modalMask, primaryActionButton, secondaryActionButton, actionPill } fro
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
-interface MenuItem {
+interface MenuItem { actions?: string[];
   menu_code: string;
   menu_name_zh: string;
   menu_name_lo: string | null;
@@ -59,6 +62,7 @@ interface RoleRow {
 interface RolePerm {
   menu_code: string;
   perm_codes: string;
+  egg_warehouse_code?: string;
 }
 interface ConflictRule {
   id: number;
@@ -284,7 +288,7 @@ const apiPatch = (path: string, body: Record<string, unknown>) => fetch(path, {
 export default function RoleManagementPage() {
   const toast = useToast();
   const router = useRouter();
-  const { isSuper } = usePermission();
+  const { isSuper, user } = usePermission();
   const [registeringFlockActions, setRegisteringFlockActions] = useState(false);
   const {
     t
@@ -367,6 +371,8 @@ export default function RoleManagementPage() {
     description: ""
   });
   // perms: Map<menu_code, Set<perm_code>>
+  const [eggWarehouse, setEggWarehouse] = useState("");
+  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [codeError, setCodeError] = useState("");
 
@@ -494,6 +500,8 @@ export default function RoleManagementPage() {
       description: ROLE_TYPE_DEFAULT_DESC[defaultType]
     });
     setPerms({});
+    setEggWarehouse("");
+    setSavedEggWarehouse("");
     setCodeError("");
     setShowDrawer(true);
   };
@@ -510,15 +518,19 @@ export default function RoleManagementPage() {
     // 加载该角色现有的菜单权限三元组
     try {
       const r = await apiGet(`/api/permissions/role/${role.role_code}/perms`);
-      const data: RolePerm[] = r.data || [];
+      if (r.code!==200 || !Array.isArray(r.data)) throw new Error(r.message || t("eggSources.permission.loadFailed","权限明细加载失败，请重试"));
+      const data: RolePerm[] = r.data;
       const p: Record<string, Set<string>> = {};
       for (const it of data) {
         p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       }
       setPerms(p);
+      const warehouse = data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+      setEggWarehouse(warehouse);
+      setSavedEggWarehouse(warehouse);
     } catch (e: any) {
       toast.error(t("ui.加载角色权限失败", "加载角色权限失败") + ": " + e.message);
-      setPerms({});
+      return;
     }
     setCodeError("");
     setShowDrawer(true);
@@ -535,15 +547,16 @@ export default function RoleManagementPage() {
     });
     try {
       const r = await apiGet(`/api/permissions/role/${role.role_code}/perms`);
-      const data: RolePerm[] = r.data || [];
+      if (r.code!==200 || !Array.isArray(r.data)) throw new Error(r.message || t("eggSources.permission.loadFailed","权限明细加载失败，请重试"));
+      const data: RolePerm[] = r.data;
       const p: Record<string, Set<string>> = {};
       for (const it of data) {
         p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       }
       setPerms(p);
-    } catch {
-      setPerms({});
-    }
+      setEggWarehouse(data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "");
+      setSavedEggWarehouse("");
+    } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
     setCodeError(t("ui.请填入新的角色代码", "请填入新的角色代码"));
     setShowDrawer(true);
   };
@@ -562,14 +575,15 @@ export default function RoleManagementPage() {
   };
 
   // 一键给该菜单授全部 V/C/E/D/A/X
-  const toggleMenuAll = (menuCode: string) => {
+  const toggleMenuAll = (menu: MenuItem) => {
+    const {menu_code:menuCode, actions=PERM_CODE_ORDER} = menu;
     setPerms(prev => {
       const next = {
         ...prev
       };
       const cur = next[menuCode];
-      const isAll = cur && PERM_CODE_ORDER.every(c => cur.has(c));
-      if (isAll) delete next[menuCode];else next[menuCode] = new Set(PERM_CODE_ORDER);
+      const isAll = cur && actions.every(c => cur.has(c));
+      if (isAll) delete next[menuCode];else next[menuCode] = new Set(actions);
       return next;
     });
   };
@@ -638,7 +652,8 @@ export default function RoleManagementPage() {
       // 2) 批量覆盖三元组到 sys_role_menu_permission
       const permsPayload = Object.entries(perms).filter(([, set]) => set && set.size > 0).map(([menu_code, set]) => ({
         menu_code,
-        perm_codes: Array.from(set).join(",")
+        perm_codes: Array.from(set).join(","),
+        egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined
       }));
       const setR = await apiPut(`/api/permissions/role/${roleBody.role_code}/perms`, {
         perms: permsPayload
@@ -705,6 +720,8 @@ export default function RoleManagementPage() {
       display: "flex",
       gap: "8px"
     }}>
+            {isSuper && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
+              <EggSourceWriteControl/>}
             {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
               <Shield size={14} /> {t('breeding.lifecycle.register')}
             </button>}
@@ -1287,10 +1304,10 @@ export default function RoleManagementPage() {
                       display: "flex",
                       gap: 2
                     }}>
-                            {PERM_CODE_ORDER.map(c => {
+                            {(menu.actions ?? PERM_CODE_ORDER).map(c => {
                         const meta = PERM_CODE_META[c];
                         const on = set.has(c);
-                        return <button type="button" key={c} title={meta.tip} onClick={() => togglePerm(menu.menu_code, c)} style={{
+                        return <button type="button" key={c} title={menuActionLabel(menu.menu_code,c,meta.tip,t)} aria-pressed={on} onClick={() => togglePerm(menu.menu_code, c)} style={{
                           minWidth: 22,
                           height: 22,
                           fontSize: 10,
@@ -1302,22 +1319,24 @@ export default function RoleManagementPage() {
                           color: on ? "white" : "var(--text-secondary)",
                           transition: "all 0.1s"
                         }}>
-                                  {c}
+                                  {menuActionLabel(menu.menu_code,c,c,t)}
                                 </button>;
                       })}
                           </div>
-                          <button type="button" onClick={() => toggleMenuAll(menu.menu_code)} style={{
+                          <button type="button" onClick={() => toggleMenuAll(menu)} style={{
                       fontSize: 10,
                       padding: "1px 6px",
                       borderRadius: 3,
                       border: "1px solid var(--border)",
-                      background: PERM_CODE_ORDER.every(c => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)",
-                      color: PERM_CODE_ORDER.every(c => set.has(c)) ? "white" : "var(--text-secondary)",
+                      background: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)",
+                      color: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "white" : "var(--text-secondary)",
                       cursor: "pointer",
                       fontWeight: 600
                     }}>
                             {t("ui.全选", "全选")}
                           </button>
+                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
+                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/></div>}
                         </div>;
                 })}
                   </div>
@@ -1459,7 +1478,7 @@ export default function RoleManagementPage() {
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
               <div style={{ flex: 2, minWidth: 200 }}>
                 <label className={s.lbl}>{t("ui.菜单功能", "菜单 / 功能")}</label>
-                <select className={s.inp} value={wcMenu} onChange={e => setWcMenu(e.target.value)}>
+                <select className={s.inp} value={wcMenu} onChange={e => { setWcMenu(e.target.value); setWcPerm("V"); }}>
                   <option value="">{t("ui.请选择菜单", "请选择菜单…")}</option>
                   {menuGroups.map(g => <optgroup key={g.domain} label={g.domain_label_zh}>
                     {g.menus.map(m => <option key={m.menu_code} value={m.menu_code}>{m.menu_name_zh}</option>)}
@@ -1469,7 +1488,7 @@ export default function RoleManagementPage() {
               <div style={{ flex: 1, minWidth: 110 }}>
                 <label className={s.lbl}>{t("ui.操作", "操作")}</label>
                 <select className={s.inp} value={wcPerm} onChange={e => setWcPerm(e.target.value)}>
-                  {PERM_CODE_ORDER.map(c => <option key={c} value={c}>{c} · {PERM_CODE_META[c].label}</option>)}
+                  {(allMenus.find(menu => menu.menu_code === wcMenu)?.actions ?? PERM_CODE_ORDER).map(c => <option key={c} value={c}>{c} · {menuActionLabel(wcMenu,c,PERM_CODE_META[c].label,t)}</option>)}
                 </select>
               </div>
               <button type="button" className={s.btnPrimaryGrad} onClick={runWhoCan} disabled={wcLoading}>{wcLoading ? t("ui.查询中", "查询中…") : t("ui.反查", "反查")}</button>

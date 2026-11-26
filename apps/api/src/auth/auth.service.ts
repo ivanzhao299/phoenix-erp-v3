@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { SysUserEntity } from './entities/sys-user.entity';
 import { resolvePermissions } from './permissions-resolver';
+import { EGG_SOURCE_MENU } from './egg-source-permissions';
 import { loadPermissionSources } from './permission-sources';
 import { isDevLoginAllowedEnvironment } from './dev-login-policy';
 
@@ -197,7 +198,7 @@ export class AuthService {
     } else {
       try {
         const permRows = await loadPermissionSources(this.userRepo,user.id);
-        permissions = resolvePermissions(permRows);
+        permissions = resolvePermissions(permRows.filter(row=>row.menu_code!==EGG_SOURCE_MENU || row.active_role));
       } catch (e: any) {
         // 降级：表/列缺失时静默回退（兼容未升级的库）
         console.warn('[AUTH][WARN] Permission query failed:', e?.message);

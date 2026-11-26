@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import type { OrgScope } from '../../farm/farm.service';
 import {
-  assertEggSourceScope, commercialShellClass, EggShellClass, EggSourceOwner, lockEggSourceHouse, lockEggSourcePolicy,
+  assertEggSourceScope, eggSourceWarehouse, commercialShellClass, EggShellClass, EggSourceOwner, lockEggSourceHouse, lockEggSourcePolicy,
   readEggSourceOwner, requireShellClass, SHELL_TYPES, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid, sourceCalendars,
 } from './egg-source-change-policy';
 import { sourceUseBlockers, SourceSkuRequirement, SourcePlanBlocked, SourcePrecheckRow, verifySourceChangePlan } from './egg-source-change-facts';
-import { type ChangeListQuery, type ChangeReader, changeList, changeDetail, draftReceipt, actionReceipt, candidateHouses, candidateWarehouses, candidateOptions, workspace, authorizedPlans, planOptions, findChange, redactChange } from './egg-source-change-read';
+import { type ChangeListQuery, type ChangeReader, changeList, changeDetail, draftReceipt, actionReceipt, candidateHouses, candidateWarehouses, candidateOptions, workspace, authorizedPlans, changeArgs, planOptions, findChange, redactChange } from './egg-source-change-read';
 import { SkuAvailabilityService } from './sku-availability.service';
 
 type ChangeInput = {
@@ -16,7 +16,17 @@ type ChangeInput = {
 };
 type Payload = { reason:string; warehouseCode:string; requirements:SourceSkuRequirement[]; planDocument:string|null };
 export type Action = 'submit'|'approve'|'reject'|'cancel'|'request-revoke'|'revoke'|'decline-revoke';
-export type ChangeScope = OrgScope & { allowedWarehouses?: string[] };
+type LiveScope = (manager: EntityManager) => Promise<ChangeScope>;
+type LiveFlock = (manager: EntityManager) => Promise<ChangeScope|undefined>;
+export type ChangeScope = OrgScope & {
+  allowedWarehouses?: string[];
+  restrictedFarm?: string;
+  restrictedWarehouse?: string;
+  restrictedCompany?: string;
+  restrictedSite?: string;
+  viewGrants?: readonly ChangeScope[];
+  actionGrants?: readonly ChangeScope[];
+};
 type ActionInput = { actionKey?:unknown; version?:unknown; planDigest?:unknown; reason?:unknown };
 type ProfileRow = { profile_code:string; product_mode:string; variety_code:string|null; effective_date:string;
   expire_date:string|null; status:string };
@@ -69,9 +79,9 @@ export class EggSourceChangeService {
       const clock = await sourceClock(m, owner);
       const profiles: ProfileRow[] = await this.profiles(m, owner, false);
       const changes: ChangeRow[] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c
-        WHERE company_code=$1 AND house_code=$2 AND farm_code=$3 AND site_code=$4
+        WHERE company_code=$1 AND farm_code=$2 AND site_code=$3 AND house_code=$4
         AND ($5::boolean OR c.payload->>'warehouseCode'=ANY($6::text[]))
-        ORDER BY c.created_at DESC,c.id DESC LIMIT 100`, [owner.companyCode,owner.houseCode,owner.farmCode,owner.siteCode,scope.isGlobal,scope.allowedWarehouses??[]]);
+        ORDER BY c.created_at DESC,c.id DESC LIMIT 100`, changeArgs(owner,scope));
       const ids=changes.flatMap(change=>change.payload.planDocument ? [change.payload.planDocument] : []);
       const allowed=new Set((await authorizedPlans(m,flock,owner,ids)).map((plan:{id:string})=>plan.id));
       return { owner, businessDay:clock.day, zone:clock.zone,
@@ -98,8 +108,7 @@ export class EggSourceChangeService {
     const payload = normalize(input);
     return this.db.transaction(async m => {
       const owner = await readEggSourceOwner(m,house,true);
-      assertEggSourceScope(scope,owner);
-      this.authorizeWarehouse(scope,payload.warehouseCode);
+      assertEggSourceScope(scope,owner,payload.warehouseCode);
       const plan=await this.plan(m,owner,date,kind,payload);
       if (!payload.planDocument || (await authorizedPlans(m,flock,owner,[payload.planDocument])).length) return plan;
       return { ...plan,payload:{ ...plan.payload,planDocument:null },verified:{ ...plan.verified,planned:null } };
@@ -133,7 +142,7 @@ export class EggSourceChangeService {
       owner = await readEggSourceOwner(m,house,false,true);
       assertEggSourceScope(scope,owner);
       if (draft) this.authorizeRow(draft,owner,scope);
-      this.authorizeWarehouse(scope,payload.warehouseCode);
+      assertEggSourceScope(scope,owner,payload.warehouseCode);
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof ConflictException) throw new ForbiddenException('鸡舍或目标仓不可访问');
       throw error;
@@ -157,7 +166,7 @@ export class EggSourceChangeService {
       houseCode:owner.houseCode,warehouseCode:payload.warehouseCode,targetClass,effectiveDate:date,problems,rows };
   }
 
-  async create(input: ChangeInput, scope: ChangeScope, actor: string) {
+  async create(input: ChangeInput, scope: ChangeScope, actor: string, refresh?: LiveScope) {
     const house = sourceText(input.houseCode,'鸡舍',64);
     const date = sourceDate(input.effectiveDate);
     const kind = requireShellClass(input.targetClass);
@@ -166,17 +175,21 @@ export class EggSourceChangeService {
     return this.db.transaction('READ COMMITTED', async m => {
       await lockEggSourceHouse(m,house);
       const owner = await readEggSourceOwner(m,house,true);
-      assertEggSourceScope(scope,owner);
-      this.authorizeWarehouse(scope,payload.warehouseCode);
+      const current = refresh ? await refresh(m) : scope;
+      assertEggSourceScope(current,owner,payload.warehouseCode);
       const [prior] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c
         WHERE company_code=$1 AND request_key=$2 FOR UPDATE`, [owner.companyCode,key]);
       if (prior) {
-        this.authorizeRow(prior,owner,scope);
+        this.authorizeRow(prior,owner,current);
         if (prior.created_by !== actor || prior.effective_date !== date || prior.target_class !== kind
           || sourceDigest(prior.payload) !== sourceDigest(payload)) throw new ConflictException('创建请求号已经绑定其他申请内容');
         return prior;
       }
       await this.ensureFuture(m,owner,date);
+      if (!await eggSourceWarehouse(m,owner,payload.warehouseCode)) {
+        throw new ConflictException('目标仓须为本公司、适用场站的启用操作仓');
+      }
+      await this.beginWrite(m,actor);
       const [row] = await m.query(`WITH inserted AS (
         INSERT INTO md_egg_source_changes(id,request_key,company_code,farm_code,site_code,house_code,effective_date,target_class,
           created_by,last_editor,payload) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10) RETURNING *
@@ -186,7 +199,7 @@ export class EggSourceChangeService {
     });
   }
 
-  async act(idInput: string, action: Action, input: ActionInput, scope: ChangeScope, actor: string) {
+  async act(idInput: string, action: Action, input: ActionInput, scope: ChangeScope, actor: string, flock?: LiveFlock, refresh?: LiveScope) {
     const id = sourceUuid(idInput,'申请号');
     const key = sourceUuid(input.actionKey,'操作请求号');
     const version = input.version;
@@ -200,10 +213,11 @@ export class EggSourceChangeService {
       const initial = await readEggSourceOwner(m,identity.house_code);
       assertEggSourceScope(scope,initial);
       await lockEggSourceHouse(m,identity.house_code);
-      const owner = await readEggSourceOwner(m,identity.house_code);
+      const owner = await readEggSourceOwner(m,identity.house_code,false,true);
       const [row]: ChangeRow[] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c WHERE id=$1 FOR UPDATE`,[id]);
-      this.authorizeRow(row,owner,scope);
-      this.authorizeWarehouse(scope,row.payload.warehouseCode);
+      const current = refresh ? await refresh(m) : scope;
+      this.authorizeRow(row,owner,current);
+      assertEggSourceScope(current,owner,row.payload.warehouseCode);
       const [logged] = await m.query(`SELECT action,actor_id,input_sha256,receipt FROM md_egg_source_change_events
         WHERE change_id=$1 AND action_key=$2`,[id,key]);
       if (logged) {
@@ -213,6 +227,11 @@ export class EggSourceChangeService {
         return logged.receipt;
       }
       if (row.version !== version) throw new ConflictException('申请已变化，请重新加载');
+      if (action === 'approve' && row.payload.planDocument &&
+          !(await authorizedPlans(m,await flock?.(m),owner,[row.payload.planDocument],true)).length) {
+        throw new ForbiddenException('批准前须能查看关联鸡群原计划及原鸡舍');
+      }
+      await this.beginWrite(m,actor);
       const applied = await this.transition(m,owner,row,actor,action,input.planDigest,reason);
       await m.query(`INSERT INTO md_egg_source_change_events(change_id,action_key,actor_id,action,input_sha256,receipt)
         VALUES ($1,$2,$3,$4,$5,$6)`,[id,key,actor,action,inputHash,JSON.stringify(applied)]);
@@ -226,10 +245,10 @@ export class EggSourceChangeService {
         || row.house_code !== owner.houseCode) throw new ConflictException('申请的原组织归属已变化');
   }
 
-  private authorizeWarehouse(scope: ChangeScope, warehouse: string) {
-    if (!scope.isGlobal && !scope.allowedWarehouses?.includes(warehouse)) {
-      throw new ForbiddenException('目标仓库超出当前授权范围');
-    }
+  private async beginWrite(m: EntityManager, actor: string) {
+    const [gate] = await m.query('SELECT writes_enabled FROM md_egg_source_write_control WHERE id=1 FOR SHARE');
+    if (!gate?.writes_enabled) throw new ConflictException('蛋品来源变更暂时暂停，请先核对原申请或回执');
+    await m.query("SELECT set_config('phoenix.egg_source_writer', $1, true)", [actor]);
   }
 
   private async profiles(m: EntityManager, owner: EggSourceOwner, lock: boolean): Promise<ProfileRow[]> {

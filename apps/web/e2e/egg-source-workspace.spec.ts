@@ -13,7 +13,7 @@ const change={id,state:'SUBMITTED',version:2,effectiveDate:tomorrow,targetClass:
 const workspace={owner,businessDay:'2026-11-25',zone:'Asia/Vientiane',createBlocker:null,pending:{submitted:1,revokeRequested:0},profiles:[]};
 
 async function fixture(page:Page,language='zh') {
-  await authenticateMockPage(page,{ username:actor,role:'ROLE_ADMIN',roles:['ROLE_ADMIN'],permissions:['*'] },language);
+  await authenticateMockPage(page,{ username:actor,role:'ROLE_EGG_CLERK',roles:['ROLE_EGG_CLERK'],permissions:['MENU_MD_EGG_SOURCE:V,E'] },language);
   await page.route('**/api/**',route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;
@@ -37,6 +37,33 @@ async function fillForm(page:Page) {
   await page.getByLabel('规格',{exact:true}).selectOption('LOOSE');
   await page.getByLabel('依据',{exact:true}).fill('Fixture change');
 }
+
+test('retains a request key and allows receipt lookup during a write pause',async({page})=>{
+  await fixture(page);
+  let opened=0;
+  let receiptChecks=0;
+  const requestKey='9c524a5b-2eaf-44a8-a0c2-d34f0c35a397';
+  await page.addInitScript(({actor,requestKey})=>{
+    sessionStorage.setItem('phoenix.egg-source.pending.'+JSON.stringify([[actor,null],'H1']),JSON.stringify({key:requestKey}));
+  },{actor,requestKey});
+  await page.route(url=>url.pathname===api+'/workspace',route=>route.fulfill({
+    json:{code:200,data:{...workspace,createBlocker:'WRITES_PAUSED'}},
+  }));
+  await page.route(url=>url.pathname===api+'/candidates/options',route=>{
+    opened++;
+    return route.fulfill({status:403});
+  });
+  await page.route(url=>url.pathname===api+'/change-requests/'+requestKey,route=>{
+    receiptChecks++;
+    return route.fulfill({status:404,json:{message:'Fixture not found'}});
+  });
+  await page.goto(base+'/new?houseCode=H1');
+  await expect(page.getByText(requestKey,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'查询此次操作回执'}).click();
+  await expect.poll(()=>receiptChecks).toBe(1);
+  await expect(page.getByText(requestKey,{exact:true})).toBeVisible();
+  expect(opened).toBe(0);
+});
 
 test('keeps a visible pending request, opens independent details and restores row focus',async({page})=>{
   await fixture(page);

@@ -11,7 +11,7 @@ export async function loadPermissionSources(manager:Pick<EntityManager,'query'>,
             m.menu_code,
             rmp.perm_codes, rmp.deny_codes, rmp.scope_type, rmp.scope_value,
             COALESCE(r.approval_level, 0) AS approval_level,
-            'role'::text AS source
+            'role'::text AS source, r.role_code, (r.status='ACTIVE') AS active_role
           FROM sys_user_role ur
           JOIN sys_role r                  ON r.role_id = ur.role_id
           JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
@@ -27,7 +27,7 @@ export async function loadPermissionSources(manager:Pick<EntityManager,'query'>,
             m.menu_code,
             psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
             COALESCE(r.approval_level, 0) AS approval_level,
-            'role_set'::text AS source
+            'role_set'::text AS source, r.role_code, (r.status='ACTIVE') AS active_role
           FROM sys_user_role ur
           JOIN sys_role r                       ON r.role_id = ur.role_id
           JOIN sys_role_permission_set rps      ON rps.role_id = r.role_id
@@ -44,7 +44,7 @@ export async function loadPermissionSources(manager:Pick<EntityManager,'query'>,
             m.menu_code,
             psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
             0 AS approval_level,  -- 直绑无角色优先级，默认最低；DENY 仍然生效
-            'user_set'::text AS source
+            'user_set'::text AS source, NULL::text AS role_code, true AS active_role
           FROM sys_user_permission_set ups
           JOIN sys_permission_set_item psi ON psi.set_id = ups.set_id
           JOIN sys_menu m                  ON m.menu_id = psi.menu_id
