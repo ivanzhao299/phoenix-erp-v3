@@ -4,11 +4,15 @@ import { BadRequestException, InternalServerErrorException } from '@nestjs/commo
 
 describe('UsersBffController', () => {
   it('creates a non-POS user without store_code and persists SQL NULL', async () => {
-    const em = {
+    const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('INSERT INTO sys_user')) return [{ user_id: 42 }];
         return [];
       }),
+    };
+    const em = {
+      ...manager,
+      transaction: jest.fn(async (work:(tx:typeof manager)=>Promise<unknown>)=>work(manager)),
     };
     const controller = new UsersBffController(em as never);
 
@@ -19,6 +23,7 @@ describe('UsersBffController', () => {
       user_type: 'NORMAL',
     }, {})).resolves.toMatchObject({ code: 200, data: { id: 42 } });
 
+    expect(em.transaction).toHaveBeenCalledTimes(1);
     const insertCall = em.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO sys_user'));
     expect(insertCall).toBeDefined();
     expect(insertCall?.[1]).toEqual([

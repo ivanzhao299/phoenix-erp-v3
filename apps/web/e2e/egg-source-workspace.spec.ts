@@ -201,14 +201,13 @@ test('recovers a lost draft write after reload with a read-only receipt',async({
   expect(writes).toBe(1);
 });
 
-for (const [width,language,heading] of [[320,'en','Source change requests'],[390,'lo','ລາຍການຄຳຮ້ອງປ່ຽນແຫຼ່ງໄຂ່'],[768,'zh','来源变更申请']] as const) {
+for (const [width,language,heading] of [[320,'en','Source change requests'],[390,'lo','ຄຳຮ້ອງຂໍປ່ຽນແຫຼ່ງ'],[768,'zh','来源变更申请']] as const) {
   test('keeps usable request cards at '+width+' CSS px in '+language,async({page})=>{
     await page.setViewportSize({width,height:850});
     await fixture(page,language);
     await page.goto(base+'?houseCode=H1&tab=changes');
-    if (language==='lo') {
-      await expect(page.getByText('Shared warehouse',{exact:true}).filter({visible:true})).toBeVisible();
-    } else await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
+    await expect(page.getByText('Shared warehouse',{exact:true})).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await expect(page.locator('a[data-change="'+id+'"]:visible')).toBeVisible();
   });

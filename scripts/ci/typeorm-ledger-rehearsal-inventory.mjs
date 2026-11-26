@@ -260,6 +260,12 @@ export const featureMigrations = Object.freeze([
     effective_name: 'EggSourceHouseContract1795654800000',
     timestamp: 1795654800000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795658400000-EggSourceLegacyCreationGate.js',
+    class_name: 'EggSourceLegacyCreationGate1795658400000',
+    effective_name: 'EggSourceLegacyCreationGate1795658400000',
+    timestamp: 1795658400000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

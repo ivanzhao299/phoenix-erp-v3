@@ -7,7 +7,8 @@ import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {assertRegularFile,assertRootIdentity,inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './production-trusted-paths.mjs';
 import {physicalParent,physicalPins,archiveEvidence} from './vet-1124-backup-volume.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126','egg-source-house-1126'];
+const physicalScopes=['vet-1124','egg-source-1125','production-ui-1125','egg-source-permissions-1126','egg-source-house-1126','egg-source-legacy-creation-1126'];
+const inspectionScopes=['egg-source-house-1126','egg-source-legacy-creation-1126'];
 const legacyParent='/opt/phoenix-erp-backups';
 const hold=reason=>{throw Error('BACKUP_PATH_HOLD='+reason);};
 function context(runId,dependencies){
@@ -75,7 +76,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const scope=process.env.AUDIT_SCOPE||'ordinary';
   if(operation==='recover'){
    const target=process.env.TARGET_SHA,before=process.env.EXPECTED_BEFORE_LEDGER_SHA256,inspection=process.env.EXPECTED_VET_INSPECTION_SHA256;
-   if(scope!=='egg-source-house-1126'||!/^\d+-\d+$/.test(runId||'')||!/^[a-f0-9]{40}$/.test(target||'')
+   if(!inspectionScopes.includes(scope)||!/^\d+-\d+$/.test(runId||'')||!/^[a-f0-9]{40}$/.test(target||'')
       ||!/^[a-f0-9]{64}$/.test(before||'')||!/^[a-f0-9]{64}$/.test(inspection||''))hold('RECOVERY_BINDING');
    verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
    const directory=path.join(physicalParent,'pending-migration-'+runId);
@@ -90,7 +91,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
    const beforeLedgerSha256=process.env.EXPECTED_BEFORE_LEDGER_SHA256,entries=Number(process.env.TOC_ENTRIES);
    if(!/^[a-f0-9]{64}$/.test(beforeLedgerSha256||'')||!Number.isSafeInteger(entries)||entries<1)hold('ARCHIVE_RECEIPT');
    Object.assign(receipt,{beforeLedgerSha256,tocEntries:entries,verification:'pg_restore full parse and SHA-256'});
-   if(scope==='egg-source-house-1126'){
+   if(inspectionScopes.includes(scope)){
     const inspection=process.env.EXPECTED_VET_INSPECTION_SHA256;
     if(!/^[a-f0-9]{64}$/.test(inspection||''))hold('INSPECTION_BINDING');
     receipt.scopedInspectionSha256=inspection;
@@ -114,7 +115,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   } else {
   (operation==='prepare'?preparePendingMigrationBackupPaths:verifyPendingMigrationBackupPaths)(runId,{scope});
   if(physicalScopes.includes(scope)&&operation==='verify'&&process.env.REQUIRE_BACKUP_RECEIPT==='1'){
-   verifyArchivePins(path.join(physicalParent,'pending-migration-'+runId),runId,process.env.TARGET_SHA,scope);
+   verifyArchivePins(path.join(physicalParent,'pending-migration-'+runId),runId,process.env.TARGET_SHA,scope,
+     inspectionScopes.includes(scope)?process.env.EXPECTED_BEFORE_LEDGER_SHA256:undefined,
+     inspectionScopes.includes(scope)?process.env.EXPECTED_VET_INSPECTION_SHA256:undefined);
   }
   console.log('MIGRATION_BACKUP_PATHS=VERIFIED');
   }

@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ErrorState, LoadingSkeleton, PresentationalTable, StatusBadge } from '@/components/design-system';
 import { inputField, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import type { Owner, Option, Precheck, Profile, Shell } from './contracts';
-import { EggError, type useEggWrite } from './client';
+import { sourceCreationProblem,EggError, type useEggWrite } from './client';
 import s from './EggSources.module.css';
 
 export function useSourceText() {
@@ -53,7 +53,8 @@ export function SelectOption({ values,value,onChange,attrs }: {values:Option[];v
 export function ReadFailure({error,retry}:{error:unknown;retry:()=>void}) {
   const { label } = useSourceText();
   const denied = error instanceof EggError && [401,403,404].includes(error.status);
-  return <div role="alert"><ErrorState compact message={label(denied ? 'readDenied' : 'invalidResponse')} onRetry={retry}/></div>;
+  const problem=error instanceof EggError && sourceCreationProblem(error.subcode) ? 'problem.'+error.subcode : null;
+  return <div role="alert"><ErrorState compact message={label(problem??(denied ? 'readDenied' : 'invalidResponse'))} onRetry={retry}/></div>;
 }
 
 export function Meta({pairs}:{pairs:Array<[string,ReactNode]>}) {

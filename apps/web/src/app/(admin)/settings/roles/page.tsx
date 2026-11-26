@@ -16,7 +16,7 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
-import { EggSourceHouseRollout,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
+import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
@@ -289,7 +289,7 @@ const apiPatch = (path: string, body: Record<string, unknown>) => fetch(path, {
 export default function RoleManagementPage() {
   const toast = useToast();
   const router = useRouter();
-  const { isSuper, user } = usePermission();
+  const { isSuper, user, roles: rolesForSession } = usePermission();
   const [registeringFlockActions, setRegisteringFlockActions] = useState(false);
   const {
     t
@@ -317,14 +317,14 @@ export default function RoleManagementPage() {
   const [showWhoCan, setShowWhoCan] = useState(false);
   const [wcMenu, setWcMenu] = useState("");
   const [wcPerm, setWcPerm] = useState("A");
-  const [wcResult, setWcResult] = useState<{ roles: Array<{ role_code: string; role_name_zh: string; via: string }>; users: Array<{ username: string; real_name_zh: string | null }> } | null>(null);
+  const [wcResult, setWcResult] = useState<{ configuredOnly?:boolean; roles: Array<{ role_code: string; role_name_zh: string; via: string }>; users: Array<{ username: string; real_name_zh: string | null }> } | null>(null);
   const [wcLoading, setWcLoading] = useState(false);
   const runWhoCan = async () => {
     if (!wcMenu) { toast.error(t("ui.请选择菜单", "请选择菜单")); return; }
     setWcLoading(true); setWcResult(null);
     try {
       const r = await apiGet(`/api/permissions/who-can?menu=${encodeURIComponent(wcMenu)}&perm=${wcPerm}`);
-      setWcResult({ roles: r.data?.roles || [], users: r.data?.users || [] });
+      setWcResult({ configuredOnly:r.data?.configuration_only,roles: r.data?.roles || [], users: r.data?.users || [] });
     } catch (e: any) { toast.error(t("ui.反查失败: ", "反查失败: ") + (e.message || String(e))); } finally { setWcLoading(false); }
   };
 
@@ -551,11 +551,11 @@ export default function RoleManagementPage() {
       if (r.code!==200 || !Array.isArray(r.data)) throw new Error(r.message || t("eggSources.permission.loadFailed","权限明细加载失败，请重试"));
       const data: RolePerm[] = r.data;
       const p: Record<string, Set<string>> = {};
-      for (const it of data) {
+      for (const it of data.filter(grant=>grant.menu_code!==EGG_SOURCE_MENU)) {
         p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       }
       setPerms(p);
-      setEggWarehouse(data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "");
+      setEggWarehouse("");
       setSavedEggWarehouse("");
     } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
     setCodeError(t("ui.请填入新的角色代码", "请填入新的角色代码"));
@@ -591,19 +591,20 @@ export default function RoleManagementPage() {
 
   // 一键给整个 domain 授 V (只读)
   const toggleDomainView = (group: MenuGroup) => {
+    const menus=group.menus.filter(menu=>menu.menu_code!==EGG_SOURCE_MENU);
     setPerms(prev => {
       const next = {
         ...prev
       };
-      const allHasView = group.menus.every(m => next[m.menu_code]?.has("V"));
+      const allHasView = menus.every(m => next[m.menu_code]?.has("V"));
       if (allHasView) {
-        for (const m of group.menus) {
+        for (const m of menus) {
           const set = new Set(next[m.menu_code] || []);
           set.delete("V");
           if (set.size === 0) delete next[m.menu_code];else next[m.menu_code] = set;
         }
       } else {
-        for (const m of group.menus) {
+        for (const m of menus) {
           const set = new Set(next[m.menu_code] || []);
           set.add("V");
           next[m.menu_code] = set;
@@ -723,8 +724,8 @@ export default function RoleManagementPage() {
       justifyContent: "flex-end",
       gap: "8px"
     }}>
-            {isSuper && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
-              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/></>}
+            {rolesForSession.includes('ROLE_ADMIN') && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
+              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/><EggSourceLegacyCreationGate/></>}
             {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
               <Shield size={14} /> {t('breeding.lifecycle.register')}
             </button>}
@@ -890,7 +891,7 @@ export default function RoleManagementPage() {
                     flexShrink: 0
                   }}>
                             <button type="button" className={s.btnIcon} title={t("ui.复制", "复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
-                            <button type="button" className={s.btnIcon} title={t("common.edit", "编辑")} onClick={() => router.push(`/settings/roles/${encodeURIComponent(role.role_code)}`)}><Edit2 size={12} /></button>
+                            <button type="button" className={s.btnIcon} title={t("common.edit", "编辑")} onClick={() => router.push(`/settings/roles/${encodeURIComponent(role.role_code)}?tab=matrix`)}><Edit2 size={12} /></button>
                             {!isAdmin && (isDeprecated
                       ? <button type="button" className={s.btnIcon} title={t("ui.恢复角色", "恢复角色")} onClick={() => setRoleStatus(role, "ACTIVE")} style={{ color: "var(--status-success)" }}><ArchiveRestore size={12} /></button>
                       : <button type="button" className={s.btnIcon} title={t("ui.停用角色", "停用角色（从编辑页隐藏，可恢复）")} onClick={() => setRoleStatus(role, "DEPRECATED")} style={{ color: "var(--status-warning)" }}><Archive size={12} /></button>)}
@@ -945,7 +946,6 @@ export default function RoleManagementPage() {
 
       {/* ── 编辑/新建 抽屉 ───────────────────────────────────────────── */}
       <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit", "编辑")}：${editCode}` : t("ui.新建角色", "新建角色")} width="620px">
-        {editCode&&<EggSourceOrganizationGrants subject="role" code={editCode}/>}
         <div style={{
         display: "flex",
         flexDirection: "column",
@@ -1284,6 +1284,16 @@ export default function RoleManagementPage() {
               }}>
                     {group.menus.map(menu => {
                   const set = perms[menu.menu_code] || new Set<string>();
+                  if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
+                    key={menu.menu_code} subject="role" code={editCode || undefined} name={menu.menu_name_zh}
+                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
+                          aria-pressed={set.has(code)} disabled={false} title={menuActionLabel(menu.menu_code,code,code,t)}
+                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
+                      </div>
+                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/>}
+                    </div>}/>;
                   return <div key={menu.menu_code} style={{
                     display: "grid",
                     gridTemplateColumns: "1fr auto auto",
@@ -1339,8 +1349,6 @@ export default function RoleManagementPage() {
                     }}>
                             {t("ui.全选", "全选")}
                           </button>
-                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
-                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/></div>}
                         </div>;
                 })}
                   </div>
@@ -1492,25 +1500,25 @@ export default function RoleManagementPage() {
               <div style={{ flex: 1, minWidth: 110 }}>
                 <label className={s.lbl}>{t("ui.操作", "操作")}</label>
                 <select className={s.inp} value={wcPerm} onChange={e => setWcPerm(e.target.value)}>
-                  {(allMenus.find(menu => menu.menu_code === wcMenu)?.actions ?? PERM_CODE_ORDER).map(c => <option key={c} value={c}>{c} · {menuActionLabel(wcMenu,c,PERM_CODE_META[c].label,t)}</option>)}
+                  {(wcMenu===EGG_SOURCE_MENU ? ['V','C','E','A'] : allMenus.find(menu => menu.menu_code === wcMenu)?.actions ?? PERM_CODE_ORDER).map(c => <option key={c} value={c}>{c} · {menuActionLabel(wcMenu,c,PERM_CODE_META[c].label,t)}</option>)}
                 </select>
               </div>
               <button type="button" className={s.btnPrimaryGrad} onClick={runWhoCan} disabled={wcLoading}>{wcLoading ? t("ui.查询中", "查询中…") : t("ui.反查", "反查")}</button>
             </div>
             {wcResult && <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <div className={s.lbl} style={{ marginBottom: 6 }}><Shield size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t("ui.有权角色", "有权角色")} ({wcResult.roles.length})</div>
+                <div className={s.lbl} style={{ marginBottom: 6 }}><Shield size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{wcResult.configuredOnly ? t("eggSources.configuredRoles","已配置角色") : t("ui.有权角色", "有权角色")} ({wcResult.roles.length})</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {wcResult.roles.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.roles.map(r => <span key={r.role_code} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--status-special-bg-medium)", color: "var(--color-primary)" }}>{r.role_name_zh}<span style={{ opacity: 0.55, marginLeft: 4, fontSize: 9 }}>{r.via === "set" ? t("ui.权限集", "权限集") : r.via === "direct" ? t("ui.直绑", "直绑") : r.via}</span></span>)}
                 </div>
               </div>
               <div>
-                <div className={s.lbl} style={{ marginBottom: 6 }}><Users size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t("ui.有权在岗用户", "有权在岗用户")} ({wcResult.users.length})</div>
+                <div className={s.lbl} style={{ marginBottom: 6 }}><Users size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{wcResult.configuredOnly ? t("eggSources.configuredUsers","配置匹配的在岗用户") : t("ui.有权在岗用户", "有权在岗用户")} ({wcResult.users.length})</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {wcResult.users.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.users.map(usr => <span key={usr.username} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--bg-muted)", color: "var(--text-secondary)" }}>{usr.real_name_zh || usr.username}</span>)}
                 </div>
               </div>
-              <div style={{ fontSize: 10, color: "var(--text-secondary)", opacity: 0.7 }}>{t("ui.反查含权限集近似不含deny", "※ 含权限集来源；为快速反查近似，未扣除 deny 覆盖")}</div>
+              <div style={{ fontSize: 10, color: "var(--text-secondary)", opacity: 0.7 }}>{wcResult.configuredOnly ? t("eggSources.configuredPermissionsHelp","以下是配置记录。实际可办权限请按账号和鸡舍核对。") : t("ui.反查含权限集近似不含deny", "※ 含权限集来源；为快速反查近似，未扣除 deny 覆盖")}</div>
             </div>}
           </div>
         </div>

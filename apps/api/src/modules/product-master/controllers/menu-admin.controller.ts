@@ -1,10 +1,13 @@
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Post, Get, Param, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { EGG_SOURCE_MENU } from '../../../auth/egg-source-permissions';
 import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
 import { requireEggSourceAdministrator,lockEggSourceGrantEditor } from '../../../auth/egg-source-organization-grants';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
-import { lockEggSourceHouse,readEggSourceOwner,sourceDigest,sourceText } from '../services/egg-source-change-policy';
+import { lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
+import { EggSourceAccessService } from '../services/egg-source-access.service';
+import { sourceCreationPrerequisite } from '../services/egg-source-change-read';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import {
   rehydrate,
@@ -20,7 +23,7 @@ import {
 @Controller('api/sys/menu-registry')
 @UseGuards(MenuGuard)
 export class MenuAdminController {
-  constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+  constructor(@InjectEntityManager() private readonly em: EntityManager,private readonly sourceAccess:EggSourceAccessService) {}
 
   /** GET /api/sys/menu-registry/stats — 调试用，查看当前内存 Set 大小与数据源 */
   @Get('stats')
@@ -54,7 +57,7 @@ export class MenuAdminController {
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'V')
   async eggSourceWriteControl(@Req() req: any) {
     await requireEggSourceAdministrator(this.em, req.user);
-    const [data] = await this.em.query(`SELECT writes_enabled,changed_at,changed_by,change_reason
+    const [data] = await this.em.query(`SELECT writes_enabled,changed_at,changed_at::text AS revision,changed_by,change_reason
       FROM md_egg_source_write_control WHERE id=1`);
     if (!data) throw new ConflictException('蛋品来源写开关未登记');
     return { code:200,data };
@@ -63,17 +66,21 @@ export class MenuAdminController {
   @Post('egg-source-write-control')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'E')
   async setEggSourceWriteControl(@Req() req: any,
-    @Body() body: { expectedEnabled:boolean; enabled:boolean; reason:string }) {
+    @Body() body: { expectedEnabled:boolean; expectedRevision?:string|null; enabled:boolean; reason:string }) {
     const reason = typeof body?.reason==='string' ? body.reason.trim() : '';
     if (!reason || reason.length>500 || typeof body?.enabled!=='boolean' || typeof body?.expectedEnabled!=='boolean'
       || body.enabled===body.expectedEnabled) throw new BadRequestException('须提供当前状态、目标状态和变更依据');
     return this.em.transaction(async manager=>{
       const id = await requireEggSourceAdministrator(manager,req.user);
+      const [before]=await manager.query(`SELECT writes_enabled,changed_at::text AS revision,changed_by,change_reason
+        FROM md_egg_source_write_control WHERE id=1 FOR UPDATE`);
+      if (body.expectedRevision!==undefined && body.expectedRevision!==before?.revision) throw new ConflictException('来源总写入状态已变化');
       const rows = await manager.query(`WITH changed AS (UPDATE md_egg_source_write_control
         SET writes_enabled=$1,ever_enabled=ever_enabled OR $1,changed_by=$2,change_reason=$3,changed_at=clock_timestamp()
-        WHERE id=1 AND writes_enabled=$4 RETURNING writes_enabled,changed_at,changed_by,change_reason)
+        WHERE id=1 AND writes_enabled=$4 RETURNING writes_enabled,changed_at,changed_at::text AS revision,changed_by,change_reason)
         SELECT * FROM changed`,[body.enabled,id,reason,body.expectedEnabled]);
       if (!rows.length) throw new ConflictException('蛋品来源写开关状态已变化');
+      await this.eggSourceAudit(manager,id,req.user?.username,'EGG_SOURCE_WRITE_CONTROL','global',before,rows[0]);
       return { code:200,data:rows[0] };
     });
   }
@@ -82,7 +89,7 @@ export class MenuAdminController {
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'V')
   async houseWriteControl(@Req() req:any) {
     await requireEggSourceAdministrator(this.em,req.user);
-    const [data] = await this.em.query(`SELECT house_writes_enabled AS writes_enabled,house_changed_at AS changed_at,
+    const [data] = await this.em.query(`SELECT house_writes_enabled AS writes_enabled,house_changed_at AS changed_at,house_changed_at::text AS revision,
       house_changed_by AS changed_by,house_change_reason AS change_reason FROM md_egg_source_write_control WHERE id=1`);
     if (!data) throw new ConflictException('新版写入开关未登记');
     return {code:200,data};
@@ -90,22 +97,70 @@ export class MenuAdminController {
 
   @Post('egg-source-house-write-control')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'E')
-  async setHouseWriteControl(@Req() req:any,@Body() body:{expectedEnabled:boolean;enabled:boolean;reason:string}) {
+  async setHouseWriteControl(@Req() req:any,@Body() body:{expectedEnabled:boolean;expectedRevision?:string|null;enabled:boolean;reason:string}) {
     const reason = sourceText(body?.reason,'发布依据',500);
     if (typeof body.enabled!=='boolean' || typeof body.expectedEnabled!=='boolean' || body.expectedEnabled===body.enabled) {
       throw new BadRequestException('须提供当前和目标写入状态');
     }
     return this.em.transaction(async m=>{
       const actor = await requireEggSourceAdministrator(m,req.user);
+      const [before]=await m.query(`SELECT house_writes_enabled AS writes_enabled,house_changed_at::text AS revision,
+        house_changed_by AS changed_by,house_change_reason AS change_reason
+        FROM md_egg_source_write_control WHERE id=1 FOR UPDATE`);
+      if (body.expectedRevision!==undefined && body.expectedRevision!==before?.revision) throw new ConflictException('新版写入状态已变化');
       const [data] = await m.query(`WITH changed AS (UPDATE md_egg_source_write_control
         SET house_writes_enabled=$1,house_writes_ever_enabled=house_writes_ever_enabled OR $1,
           house_changed_by=$2,house_change_reason=$3,house_changed_at=clock_timestamp()
         WHERE id=1 AND house_writes_enabled=$4 RETURNING *)
-        SELECT house_writes_enabled AS writes_enabled,house_changed_at AS changed_at,
+        SELECT house_writes_enabled AS writes_enabled,house_changed_at AS changed_at,house_changed_at::text AS revision,
           house_changed_by AS changed_by,house_change_reason AS change_reason FROM changed`,
       [body.enabled,actor,reason,body.expectedEnabled]);
       if (!data) throw new ConflictException('新版写入开关已变化，请重新读取');
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_WRITE_CONTROL','house',before,data);
       return {code:200,data};
+    });
+  }
+
+  private async legacyCreationState(m:EntityManager,lock=false) {
+    const [gate] = await m.query(`SELECT legacy_creates_enabled AS enabled,writes_enabled,house_writes_enabled
+      FROM md_egg_source_write_control WHERE id=1 ${lock ? 'FOR UPDATE' : ''}`);
+    if (!gate) throw new ConflictException('蛋品来源写入控制未登记');
+    const houses: {house_code:string}[] = gate.enabled ? await m.query(`SELECT h.house_code FROM brd_houses h
+      JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code)
+      WHERE h.status='ACTIVE' AND h.house_type='LAYER' AND f.status='ACTIVE'
+        AND EXISTS (SELECT 1 FROM md_egg_source_profiles p WHERE p.company_code=f.company_code)
+        AND NOT EXISTS (SELECT 1 FROM md_egg_source_house_rollouts r WHERE r.company_code=f.company_code AND r.house_code=h.house_code)
+      ORDER BY h.house_code`) : [];
+    const [pilot]=await m.query(`SELECT 1 FROM md_egg_source_house_rollouts r JOIN md_egg_source_changes c
+      ON c.company_code=r.company_code AND c.house_code=r.house_code
+      JOIN md_egg_source_change_events e ON e.change_id=c.id AND e.action='approve'
+      WHERE r.enabled AND c.contract_version=2 AND c.state='APPROVED' AND e.actor_id<>c.created_by LIMIT 1`);
+    return { enabled:!!gate.enabled,unclassified:houses.map(row=>row.house_code),
+      available:!!gate.writes_enabled && !!gate.house_writes_enabled,pilotVerified:!!pilot };
+  }
+
+  @Get('egg-source-legacy-creation')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
+  async getLegacyCreation(@Req() req:any) {
+    await requireEggSourceAdministrator(this.em,req.user);
+    return {code:200,data:await this.legacyCreationState(this.em)};
+  }
+
+  @Post('egg-source-legacy-creation')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async retireLegacyCreation(@Req() req:any,@Body() body:{confirmed:boolean;reason:string}) {
+    const reason=sourceText(body?.reason,'业务切换依据',500);
+    if (body.confirmed!==true) throw new BadRequestException('须核对业务切换清单');
+    return this.em.transaction(async m=>{
+      const actor=await requireEggSourceAdministrator(m,req.user);
+      const before=await this.legacyCreationState(m,true);
+      if (!before.enabled) return {code:200,data:before};
+      if (!before.available || before.unclassified.length) throw new ConflictException('须核对全局开关及逐舍开通或暂停状态');
+      if (!before.pilotVerified) throw new ConflictException('至少一个鸡舍完成新版办理验收后才能关闭旧版新建');
+      await m.query('UPDATE md_egg_source_write_control SET legacy_creates_enabled=false WHERE id=1');
+      const after={...before,enabled:false};
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_LEGACY_CREATION','1',before,{...after,reason});
+      return {code:200,data:after};
     });
   }
 
@@ -113,34 +168,60 @@ export class MenuAdminController {
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
   async houseRollouts(@Req() req:any) {
     await requireEggSourceAdministrator(this.em,req.user);
-    return {code:200,data:await this.em.query(`SELECT company_code,house_code,enabled,changed_by::text,changed_at,change_reason
+    return {code:200,data:await this.em.query(`SELECT company_code,house_code,enabled,changed_by::text,changed_at,changed_at::text AS revision,change_reason
       FROM md_egg_source_house_rollouts ORDER BY company_code,house_code`)};
+  }
+
+  @Get('egg-source-house-access')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
+  async inspectHouseAccess(@Req() req:any,@Query('house') house:string,@Query('username') username:string) {
+    await requireEggSourceAdministrator(this.em,req.user);
+    const owner=await readEggSourceOwner(this.em,house);
+    const outcome=await this.sourceAccess.inspectHouseAccount(this.em,owner,sourceText(username,'账号',64));
+    return {code:200,data:{eligibleAccount:!!outcome.accountId,actions:outcome.actions}};
   }
 
   @Put('egg-source-house-rollouts/:house')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
   async setHouseRollout(@Req() req:any,@Param('house') house:string,
-    @Body() body:{expectedEnabled:boolean|null;enabled:boolean;reason:string}) {
+    @Body() body:{expectedEnabled:boolean|null;expectedRevision?:string|null;enabled:boolean;reason:string;maker?:string;reviewer?:string}) {
     const reason = sourceText(body?.reason,'鸡舍切换依据',500);
     if (typeof body.enabled!=='boolean' || (body.expectedEnabled!==null && typeof body.expectedEnabled!=='boolean') ||
-        body.expectedEnabled===body.enabled || body.expectedEnabled===null && !body.enabled) {
+        body.expectedEnabled===body.enabled) {
       throw new BadRequestException('须提供当前和目标开放状态');
     }
     return this.em.transaction(async m=>{
+      await lockEggSourceGrantEditor(m);
       const actor = await requireEggSourceAdministrator(m,req.user);
       await lockEggSourceHouse(m,house);
       const owner = await readEggSourceOwner(m,house,body.enabled,true);
-      const [before] = await m.query(`SELECT enabled FROM md_egg_source_house_rollouts
+      const [gate] = await m.query('SELECT writes_enabled,house_writes_enabled FROM md_egg_source_write_control WHERE id=1 FOR SHARE');
+      let verifiedAccounts: {maker:string;reviewer:string}|undefined;
+      if (body.enabled) {
+        if (!gate?.writes_enabled || !gate.house_writes_enabled) throw new ConflictException('须先确认来源总写入和新版写入已开启');
+        const clock=sourceCalendars[owner.siteCode] ? await sourceClock(m,owner) : null;
+        const blocker=await sourceCreationPrerequisite(m,owner,clock?.day??null);
+        if (blocker) throw new ConflictException({subcode:blocker,message:'请先核对公司来源切入和场站业务日'});
+        const maker=await this.sourceAccess.inspectHouseAccount(m,owner,sourceText(body.maker,'申请账号',64));
+        const reviewer=await this.sourceAccess.inspectHouseAccount(m,owner,sourceText(body.reviewer,'审核账号',64));
+        if (!maker.accountId || !reviewer.accountId || maker.accountId===reviewer.accountId ||
+            !(['V','C','E'] as const).every(action=>maker.actions.includes(action)) ||
+            !(['V','A'] as const).every(action=>reviewer.actions.includes(action))) {
+          throw new ConflictException({subcode:'HOUSE_ROLES_NOT_READY',message:'请核对本舍的实名申请岗与独立审核岗有效权限'});
+        }
+        verifiedAccounts={maker:maker.accountId,reviewer:reviewer.accountId};
+      }
+      const [before] = await m.query(`SELECT enabled,changed_at::text AS revision FROM md_egg_source_house_rollouts
         WHERE company_code=$1 AND house_code=$2 FOR UPDATE`,[owner.companyCode,owner.houseCode]);
-      if ((before?.enabled??null)!==body.expectedEnabled) throw new ConflictException('鸡舍开放状态已变化，请刷新');
+      if ((before?.enabled??null)!==body.expectedEnabled || (before?.revision??null)!==(body.expectedRevision??null)) throw new ConflictException('鸡舍开放状态已变化，请刷新');
       await m.query("SELECT set_config('phoenix.egg_source_rollout_editor','1',true)");
       const rows = await m.query(`WITH changed AS (INSERT INTO md_egg_source_house_rollouts
         (company_code,house_code,enabled,changed_by,change_reason) VALUES($1,$2,$3,$4,$5)
         ON CONFLICT(company_code,house_code) DO UPDATE SET enabled=EXCLUDED.enabled,
           changed_by=EXCLUDED.changed_by,change_reason=EXCLUDED.change_reason,changed_at=clock_timestamp()
-        RETURNING *) SELECT company_code,house_code,enabled,changed_by::text,changed_at,change_reason FROM changed`,
+        RETURNING *) SELECT company_code,house_code,enabled,changed_by::text,changed_at,changed_at::text AS revision,change_reason FROM changed`,
       [owner.companyCode,owner.houseCode,body.enabled,actor,reason]);
-      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_HOUSE_ROLLOUT',owner.houseCode,before??null,rows[0]);
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_HOUSE_ROLLOUT',owner.houseCode,before??null,{...rows[0],verifiedAccounts});
       return {code:200,data:rows[0]};
     });
   }
@@ -184,15 +265,22 @@ export class MenuAdminController {
     if (!result) throw new BadRequestException('角色或权限集不存在或未启用');
     const rows:EggSourceOrganizationGrant[] = await m.query(`SELECT scope_type,scope_code,company_code,actions
       FROM md_egg_source_organization_grants WHERE ${column}=$1 ORDER BY scope_type,scope_code`,[result.id]);
-    return { id:result.id as string,column,rows,digest:sourceDigest(rows) };
+    const [audit] = await m.query(`SELECT log_id::text AS revision FROM sys_audit_log
+      WHERE action='EGG_SOURCE_HOUSE_GRANT' AND entity_type='EGG_SOURCE_HOUSE' AND entity_id=$1
+        AND after_value->>'subject'=$2 ORDER BY log_id DESC LIMIT 1`,[code,subject]);
+    return { id:result.id as string,column,rows,digest:sourceDigest({revision:audit?.revision??null,rows}) };
   }
 
   @Get('egg-source-organization-grants/:subject/:code')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
   async getHouseGrants(@Req() req:any,@Param('subject') subject:string,@Param('code') code:string) {
     await requireEggSourceAdministrator(this.em,req.user);
-    const {rows,digest} = await this.houseGrantSubject(this.em,subject,code);
-    return {code:200,data:{rows,digest}};
+    const {id,rows,digest} = await this.houseGrantSubject(this.em,subject,code);
+    const inherited=subject==='role' ? await this.em.query(`SELECT g.scope_type,g.scope_code,g.company_code,g.actions,s.set_code
+      FROM sys_role_permission_set rs JOIN sys_permission_set s USING(set_id)
+      JOIN md_egg_source_organization_grants g USING(set_id)
+      WHERE rs.role_id=$1 ORDER BY s.set_code,g.scope_type,g.scope_code`,[id]) : [];
+    return {code:200,data:{rows,digest,inherited}};
   }
 
   @Put('egg-source-organization-grants/:subject/:code')
@@ -225,6 +313,29 @@ export class MenuAdminController {
         seen.add(key);
         rows.push({scope_type:scope,scope_code:scopeCode,company_code:organization.companyCode,actions:EGG_SOURCE_HOUSE_ACTIONS.filter(action=>row.actions.includes(action))});
       }
+      rows.sort((a,b)=>a.scope_type.localeCompare(b.scope_type)||a.scope_code.localeCompare(b.scope_code));
+      if (sourceDigest(before.rows)===sourceDigest(rows)) return {code:200,data:{rows:before.rows,digest:before.digest}};
+      const hasWrite=(grant:EggSourceOrganizationGrant)=>grant.actions.some(action=>action!=='V');
+      if (rows.some(hasWrite) && !before.rows.some(hasWrite)) {
+        const [conflict]=await m.query(`WITH roles AS (
+          SELECT role_id FROM sys_role WHERE $1='role' AND role_id=$2
+          UNION SELECT role_id FROM sys_role_permission_set WHERE $1='set' AND set_id=$2
+        ), write_menus AS (
+          SELECT p.role_id,m.menu_code FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
+            JOIN roles r USING(role_id) WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
+          UNION SELECT rs.role_id,m.menu_code FROM sys_role_permission_set rs JOIN sys_permission_set_item p USING(set_id)
+            JOIN sys_menu m USING(menu_id) JOIN roles r ON r.role_id=rs.role_id
+            WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
+        ) SELECT c.menu_a,c.menu_b FROM sys_role_conflict c JOIN write_menus w ON
+          (c.menu_a=$3 AND c.menu_b=w.menu_code OR c.menu_b=$3 AND c.menu_a=w.menu_code)
+          WHERE c.severity='BLOCK'
+          AND NOT EXISTS (SELECT 1 FROM write_menus d WHERE d.role_id=w.role_id AND d.menu_code=$3)
+          AND NOT EXISTS (SELECT 1 FROM md_egg_source_organization_grants g
+            WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=w.role_id OR g.set_id IN (
+              SELECT set_id FROM sys_role_permission_set WHERE role_id=w.role_id))) LIMIT 1`,
+          [subject,before.id,EGG_SOURCE_MENU]);
+        if (conflict) throw new ConflictException('新增岗位分离冲突，请核对角色与权限');
+      }
       await m.query("SELECT set_config('phoenix.egg_source_organization_editor','1',true)");
       await m.query(`DELETE FROM md_egg_source_organization_grants WHERE ${before.column}=$1`,[before.id]);
       if (rows.length) await m.query(`INSERT INTO md_egg_source_organization_grants(${before.column},scope_type,scope_code,company_code,actions)
@@ -235,8 +346,8 @@ export class MenuAdminController {
           SELECT ur.user_id FROM sys_user_role ur JOIN sys_role_permission_set ps USING(role_id) WHERE ps.set_id=$1`;
       await m.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1
         WHERE user_id IN (${affected})`,[before.id]);
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_HOUSE_GRANT',code,before.rows,{subject,reason,rows});
       const after = await this.houseGrantSubject(m,subject,code);
-      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_HOUSE_GRANT',code,before.rows,{subject,reason,rows:after.rows});
       return {code:200,data:{rows:after.rows,digest:after.digest}};
     });
   }

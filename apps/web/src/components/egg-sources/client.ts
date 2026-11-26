@@ -22,7 +22,12 @@ function sessionIdentity() {
 }
 
 export class EggError extends Error {
-  constructor(readonly status:number) { super(String(status)); }
+  constructor(readonly status:number,readonly subcode?:string) { super(String(status)); }
+}
+
+export function sourceCreationProblem(code:unknown): code is string {
+  return typeof code==='string' && ['SOURCE_CONTRACT_CHANGED','HOUSE_NOT_OPEN','HOUSE_PAUSED','WRITES_PAUSED',
+    'NO_CALENDAR','NOT_ENROLLED'].includes(code);
 }
 
 export async function eggRequest<T>(account:string,path:string,validate:(data:T)=>boolean,options?:RequestInit) {
@@ -37,7 +42,7 @@ export async function eggRequest<T>(account:string,path:string,validate:(data:T)
     if (response.status===401 && token===sessionStorage.getItem('phoenix_token')) {
       dispatchAuthExpired(envelope?.subcode==='PERMS_CHANGED' ? 'perms_changed' : 'expired');
     }
-    throw new EggError(response.status);
+    throw new EggError(response.status,envelope?.subcode);
   }
   if (![200,201].includes(envelope?.code) || envelope?.data==null || !validate(envelope.data)) throw new EggError(502);
   return envelope.data as T;
@@ -93,6 +98,7 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
   const activeKey = JSON.stringify([account,resource]);
   const [known,setKnown] = useState<{storageKey:string;pending:Pending|null}>({ storageKey,pending:null });
   const [busy,setBusy] = useState(false);
+  const [problem,setProblem]=useState<string>();
   const [feedback,setFeedback] = useState<'UNKNOWN'|'CONFLICT'|'FAILED'|'SAVED'|null>(null);
   const inFlight = useRef(false);
   const body = useRef<{path:string;body:string;activeKey:string}|null>(null);
@@ -126,6 +132,7 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     inFlight.current=true;
     setBusy(true);
     setFeedback(null);
+    setProblem(undefined);
     try { await work(); }
     finally {
       inFlight.current=false;
@@ -140,6 +147,7 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     } catch (error) {
       if (!active()) return;
       const status = error instanceof EggError ? error.status : 0;
+      if (error instanceof EggError) setProblem(error.subcode);
       if (!replay && [400,403,404,409,422].includes(status)) {
         remember(null);
         body.current=null;
@@ -149,7 +157,7 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     }
   });
   return {
-    busy,feedback,resetFeedback:()=>setFeedback(null),pending:!!pending,pendingKey:pending?.key,sentAt:pending?.sentAt,canRetry:!!pending && retryContext===activeKey,
+    busy,feedback,problem,resetFeedback:()=>{setFeedback(null);setProblem(undefined);},pending:!!pending,pendingKey:pending?.key,sentAt:pending?.sentAt,canRetry:!!pending && retryContext===activeKey,
     send(path:string,input:Record<string,unknown>) {
       if (pending || inFlight.current || !active() || loadPending(storageKey)) return;
       const key = crypto.randomUUID();

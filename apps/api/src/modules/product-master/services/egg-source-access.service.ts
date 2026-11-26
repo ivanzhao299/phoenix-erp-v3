@@ -8,7 +8,8 @@ import { hasPerm } from '../../../auth/permissions.util';
 import { deriveOrgScope } from '../../farm/farm.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
-import type { ChangeScope } from './egg-source-change.service';
+import { sourceScopeFor,type ChangeScope } from './egg-source-change.service';
+import { canAccessEggSource,type EggSourceOwner } from './egg-source-change-policy';
 
 export type EggSourceAccount = { userId?: string | number; perms_version?: number; impersonatedBy?: unknown };
 
@@ -82,6 +83,24 @@ export class EggSourceAccessService {
       ? await this.dataScopes.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin)
       : undefined;
     return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, actor:user?.impersonatedBy ? null : id };
+  }
+
+  async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string) {
+    const [account] = await manager.query(`SELECT u.user_id::text AS id,u.perms_version FROM sys_user u WHERE u.username=$1
+      AND u.status=1 AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
+        WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')`,[username]);
+    if (!account) return {accountId:null,actions:[] as EggSourceHouseAction[]};
+    const actions:EggSourceHouseAction[]=[];
+    const subject={userId:account.id,perms_version:Number(account.perms_version)};
+    for (const action of ['V','C','E','A'] as const) {
+      try {
+        const {scope}=await this.resolve(subject,action,manager,2);
+        if (canAccessEggSource(sourceScopeFor(scope,2),owner)) actions.push(action);
+      } catch (error) {
+        if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;
+      }
+    }
+    return {accountId:account.id as string,actions};
   }
 
   async flockScope(user: EggSourceAccount | undefined, manager = this.db.manager): Promise<ChangeScope | undefined> {

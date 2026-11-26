@@ -1,3 +1,6 @@
+import { InjectEntityManager } from '@nestjs/typeorm';
+import { EntityManager } from 'typeorm';
+import { removeEggSourceManagedRole } from '../../auth/egg-source-organization-grants';
 import {
   Controller,
   Get,
@@ -13,6 +16,8 @@ import {
   BadRequestException,
   Header,
   GoneException,
+  ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
@@ -32,6 +37,7 @@ export class GenericCrudController {
     private readonly dataScopeService: DataScopeService,
     private readonly wmsService: WmsService,
     private readonly cls: ClsService,
+    @Optional() @InjectEntityManager() private readonly roleManager?:EntityManager,
   ) {}
 
   /**
@@ -70,6 +76,10 @@ export class GenericCrudController {
   ]);
   private static readonly DEDICATED_CORE_WRITE_TABLES = new Set([
     'sys_audit_log',
+    'sys_user_role',
+    'sys_permission_set_item',
+    'sys_role_permission_set',
+    'sys_user_permission_set',
     'brd_daily_logs',
     'brd_vaccinations',
     'brd_medications',
@@ -675,6 +685,10 @@ export class GenericCrudController {
     if (!existing) {
       throw new BadRequestException('Record not found');
     }
+    if (table==='sys_role' && (Object.prototype.hasOwnProperty.call(body,'status') || Object.prototype.hasOwnProperty.call(body,'role_id')
+      || Object.prototype.hasOwnProperty.call(body,'role_code') && body.role_code!==existing.role_code)) {
+      throw new ForbiddenException('角色编码固定，角色状态须通过角色与权限管理');
+    }
     this.assertWarehouseRowScope(table, existing, tableScope);
     await this.assertBreedingWriteScope(table, existing, tableScope);
     const safeBody = table === 'wms_inbound'
@@ -778,6 +792,10 @@ export class GenericCrudController {
     this.assertWarehouseRowScope(table, existing, tableScope);
     if (table === 'wms_transfer') {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
+    }
+    if (table==='sys_role') {
+      if (!this.roleManager) throw new ServiceUnavailableException('角色配置服务暂不可用');
+      return {code:200,msg:await removeEggSourceManagedRole(this.roleManager,idColumn,id,req.user)};
     }
     const result = await this.crudService.remove(table, idColumn, id).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };

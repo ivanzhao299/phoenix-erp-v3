@@ -47,9 +47,9 @@ export class PermissionSetsController {
   /** 覆盖明细 body: { items: [{menu_code, perm_codes}] } */
   @Put(':code/items')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
-  async setItems(@Param('code') code: string, @Body() body: { items: Array<{ menu_code: string; perm_codes: string }> }) {
+  async setItems(@Param('code') code: string, @Body() body: { items: Array<{ menu_code: string; perm_codes: string }> },@Req() req:any) {
     if (!body || !Array.isArray(body.items)) throw new BadRequestException('body.items 必须是数组');
-    return { code: 200, data: await this.svc.setItems(code, body.items) };
+    return { code: 200, data: await this.svc.setItems(code, body.items,req.user) };
   }
 
   @Post(':code/roles/:roleCode')

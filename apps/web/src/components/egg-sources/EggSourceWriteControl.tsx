@@ -8,7 +8,7 @@ import request from '@/lib/api-client';
 import { useSourceText } from './parts';
 import s from './EggSources.module.css';
 
-type WriteControl = { writes_enabled: boolean; changed_at: string; changed_by: string|null; change_reason: string|null };
+type WriteControl = { writes_enabled: boolean; changed_at: string; revision?:string|null; changed_by: string|null; change_reason: string|null };
 export function EggSourceWriteControl({houseContract=false}:{houseContract?:boolean}) {
   const endpoint = houseContract ? '/sys/menu-registry/egg-source-house-write-control' : '/sys/menu-registry/egg-source-write-control';
   const { t } = useLanguage();
@@ -38,7 +38,7 @@ export function EggSourceWriteControl({houseContract=false}:{houseContract?:bool
     setFailed(false);
     try {
       const result = await request<{code:number;data:WriteControl}>(endpoint,{
-        method:'POST', body:JSON.stringify({expectedEnabled:state.writes_enabled,enabled:!state.writes_enabled,reason:reason.trim()}),
+        method:'POST', body:JSON.stringify({expectedEnabled:state.writes_enabled,expectedRevision:state.revision,enabled:!state.writes_enabled,reason:reason.trim()}),
         silent:true,bindSession:true,retry:false,
       });
       if (result.code!==200 || typeof result.data?.writes_enabled!=='boolean') throw new Error();
@@ -60,6 +60,7 @@ export function EggSourceWriteControl({houseContract=false}:{houseContract?:bool
           <p role="alert">{t('eggSources.writeControl.failed','状态未确认。请重新读取后再操作。')}</p>
           <button type="button" style={secondaryActionButton} onClick={()=>void read()}>{t('eggSources.writeControl.refresh','重新读取状态')}</button>
         </div>}
+        {!houseContract&&<p className={s.hint}>{t('eggSources.globalWriteControl','此开关同时控制旧单和新版来源办理。')}</p>}
         {state && <form className={s.stack} onSubmit={event=>{event.preventDefault(); void save();}}>
           <p role="status">{state.writes_enabled
             ? t('eggSources.writeControl.enabled','当前状态为允许写入')

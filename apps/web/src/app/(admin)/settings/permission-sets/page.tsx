@@ -20,7 +20,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SetRow {
   set_id: number; set_code: string; set_name_zh: string; description: string | null;
-  item_count: number; role_count: number; user_count: number;
+  item_count: number;
+  source_organization_count?:number; role_count: number; user_count: number;
 }
 interface MenuItem { actions?: string[]; menu_code: string; menu_name_zh: string; sensitive: boolean; }
 interface MenuGroup { domain: string; domain_label_zh: string; domain_color: string; menus: MenuItem[]; }
@@ -44,7 +45,12 @@ const SET_CODE_RE = /^PSET_[A-Z][A-Z0-9_]*$/;
 const tok = () => typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 const jget = (p: string) => fetch(p, { headers: hdr() }).then(r => r.json());
-const jsend = (p: string, m: string, b?: unknown) => fetch(p, { method: m, headers: hdr(), body: b ? JSON.stringify(b) : undefined }).then(r => r.json());
+const jsend = async (p: string, m: string, b?: unknown) => {
+  const response=await fetch(p,{method:m,headers:hdr(),body:b ? JSON.stringify(b) : undefined});
+  const result=await response.json();
+  if (!response.ok || result.code!==200) throw new Error(result.message||result.msg);
+  return result;
+};
 
 export default function PermissionSetsPage() {
   const { t } = useLanguage();
@@ -195,6 +201,7 @@ export default function PermissionSetsPage() {
         {row.description && <div style={{ padding: "0 14px 8px", fontSize: 11, lineHeight: 1.6, color: "var(--text-secondary)", fontStyle: "italic", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.description}</div>}
         <div style={{ padding: "6px 14px", borderTop: "1px solid var(--border)", fontSize: 11, display: "flex", gap: 12, color: "var(--text-secondary)" }}>
           <span>{row.item_count} {t('ui.项明细','项明细')}</span>
+          {!!row.source_organization_count&&<span>{row.source_organization_count} {t('eggSources.organizationGrants','蛋品来源组织授权')}</span>}
           <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Shield size={10} /> {row.role_count} {t('ui.角色','角色')}</span>
           <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Users size={10} /> {row.user_count} {t('ui.用户','用户')}</span>
         </div>
@@ -202,7 +209,6 @@ export default function PermissionSetsPage() {
     </div>
 
     <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : t('ui.新建能力集','新建能力集')} width="640px">
-      {editCode&&<EggSourceOrganizationGrants subject="set" code={editCode}/>}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className={s.field}>
           <label className={s.lbl}>{t('ui.能力集编码 *','能力集编码 *')}</label>
@@ -232,13 +238,21 @@ export default function PermissionSetsPage() {
               <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                 {group.menus.map(menu => {
                   const set = perms[menu.menu_code] || new Set<string>();
+                  if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
+                    key={menu.menu_code} subject="set" code={editCode || undefined} name={menu.menu_name_zh}
+                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
+                          aria-pressed={set.has(code)} disabled={false} title={menuActionLabel(menu.menu_code,code,code,t)}
+                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
+                      </div>
+                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/>}
+                    </div>}/>;
                   return <div key={menu.menu_code} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, background: set.size > 0 ? `${group.domain_color}10` : "transparent" }}>
                     <span style={{ fontSize: 12, fontWeight: set.size > 0 ? 600 : 400 }}>{menu.menu_name_zh}</span>
                     <div style={{ display: "flex", gap: 2 }}>
                       {(menu.actions ?? PERM_ORDER).map(c => { const on = set.has(c); const m = PERM_META[c]; return <button type="button" key={c} title={menuActionLabel(menu.menu_code,c,m.label,t)} aria-pressed={on} onClick={() => togglePerm(menu.menu_code, c)} style={{ minWidth: 22, height: 22, fontSize: 10, fontWeight: 700, borderRadius: 3, cursor: "pointer", border: `1px solid ${on ? m.color : "var(--border)"}`, background: on ? m.color : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)" }}>{menuActionLabel(menu.menu_code,c,c,t)}</button>; })}
                     </div>
-                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
-                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/></div>}
                   </div>;
                 })}
               </div>

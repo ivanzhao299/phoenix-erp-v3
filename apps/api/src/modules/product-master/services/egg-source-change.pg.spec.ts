@@ -1,7 +1,15 @@
+import { UsersBffController } from '../../bff/bff.controller';
+import { SystemUsersController } from '../../master/system-users.controller';
+import { createRequire } from 'node:module';
+import { resolve as resolvePath } from 'node:path';
+import * as bcrypt from 'bcrypt';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AuthController } from '../../../auth/auth.controller';
+import { AuthService } from '../../../auth/auth.service';
 import { activateOwnedConversionDomain } from '../../sales-v2/services/production-conversion.pg-fixture';
 import { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import request = require('supertest');
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +32,7 @@ import { SysUserWarehouseScopeEntity } from '../../org/entities/sys-user-warehou
 import { SysUserFarmScopeEntity } from '../../org/entities/sys-user-farm-scope.entity';
 import { SysOrganizationEntity } from '../../org/entities/sys-organization.entity';
 import { EggSourceIndependentPermissions1795651200000 } from '../../../database/migrations/1795651200000-EggSourceIndependentPermissions';
+import { EggSourceLegacyCreationGate1795658400000 } from '../../../database/migrations/1795658400000-EggSourceLegacyCreationGate';
 import { EggSourceHouseContract1795654800000 } from '../../../database/migrations/1795654800000-EggSourceHouseContract';
 import { EggSourceAccessService } from './egg-source-access.service';
 import { EggSourceChanges1795564800000 } from '../../../database/migrations/1795564800000-EggSourceChanges';
@@ -128,6 +137,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
     `);
     await db.transaction(async m=>new EggSourceIndependentPermissions1795651200000().up(m.queryRunner!));
     await db.transaction(async m=>new EggSourceHouseContract1795654800000().up(m.queryRunner!));
+    await db.transaction(async m=>new EggSourceLegacyCreationGate1795658400000().up(m.queryRunner!));
     // The controlled registration starts closed and does not implicitly copy legacy permissions.
     expect(await db.query('SELECT writes_enabled FROM md_egg_source_write_control')).toEqual([{writes_enabled:false}]);
     expect(await db.query('SELECT * FROM sys_role_menu_permission')).toEqual([]);
@@ -196,7 +206,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
     const http=request(app.getHttpServer());
     const warehouses=await http.get(base+'/candidates/warehouses').query({houseCode:'HOUSE-A2'}).expect(200);
     expect(warehouses.body.data.map((row:{code:string})=>row.code)).toEqual(['WH-SHARED']);
-    const options=await http.get(base+'/candidates/options').expect(200);
+    const options=await http.get(base+'/candidates/options').query({houseCode:'HOUSE-A2'}).expect(200);
     expect(options.body.data.grades).toContainEqual(expect.objectContaining({code:'GRADE_1'}));
     expect(options.body.data.specs).toContainEqual(expect.objectContaining({code:'LOOSE'}));
     const candidates=await changes.candidateWarehouses('HOUSE-A2',globalScope);
@@ -302,7 +312,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
     await http.get(url+'/action-requests/'+reviewed.actionKey).expect(404);
   });
   it('uses real JWT and guards for ordinary role, permission set, warehouse intersection, and old writer fencing',async()=>{
-    const secret=randomBytes(32).toString('hex');
+    const secret=process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
     // A separately instantiated app exercises the guard and scope chain instead of test overrides.
     const cls=ClsServiceManager.getClsService();
     const resolver=new DataScopeService(db.getRepository(SysDataScopeEntity),db.getRepository(SysUserOrgEntity),
@@ -311,8 +321,10 @@ suite('egg source change workspace on PostgreSQL',()=>{
     const rolePermissions=new PermissionsService({} as never,{} as never,{} as never,{} as never,{} as never,db);
     const sets=new PermissionSetsService(db);
     const permsMenu='MENU_MD_EGG_SOURCE';
-    const testApp=(await Test.createTestingModule({imports:[ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[EggSourceChangeController,MenuAdminController],providers:[
+    const testApp=(await Test.createTestingModule({imports:[ClsModule.forRoot({global:true,middleware:{mount:true}}),
+      ThrottlerModule.forRoot([{name:'login',ttl:900000,limit:30}])],
+      controllers:[EggSourceChangeController,MenuAdminController,AuthController,UsersBffController,SystemUsersController],providers:[
+        {provide:AuthService,useValue:new AuthService(db.manager as never)},
         {provide:getEntityManagerToken(),useValue:db.manager},
         {provide:JwtStrategy,useValue:new JwtStrategy(new ConfigService({JWT_SECRET:secret}),db.manager)},
         {provide:DataScopeService,useValue:resolver},
@@ -321,7 +333,12 @@ suite('egg source change workspace on PostgreSQL',()=>{
         {provide:EggHistoryReviewService,useValue:new EggHistoryReviewService(db,{} as any,{} as any)},
       ]}).compile()).createNestApplication({logger:['error']});
     try {
-      await testApp.init();
+      const browserURL=process.env.EGG_SOURCE_BROWSER_URL;
+      if (browserURL) {
+        const port=Number(process.env.EGG_SOURCE_HTTP_PORT);
+        if (!Number.isInteger(port) || port<1024 || new URL(browserURL).hostname!=='127.0.0.1') throw new Error('Invalid loopback browser fixture');
+        await testApp.listen(port,'127.0.0.1');
+      } else await testApp.init();
       await hydrateMenuRegistry(db.manager);
       const fixtureGrantConfig = (sql:string, args?: unknown[])=>db.transaction(async manager=>{
         await manager.query("SELECT set_config('phoenix.egg_source_role_editor','1',true)");
@@ -329,6 +346,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
       });
       await fixtureGrantConfig(`INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-RBAC','FARM-A','ACTIVE','LAYER');
         INSERT INTO sys_user(user_id,real_name) VALUES (21,'Applicant'),(22,'Reviewer'),(23,'Legacy'),(24,'Review only'),(26,'Current system administrator');
+        UPDATE sys_user SET username='egg-fixture-'||user_id::text WHERE user_id>=21;
         INSERT INTO sys_role VALUES (21,'ROLE_EGG_APPLY','ACTIVE',1),(22,'ROLE_EGG_REVIEW','ACTIVE',1),
           (23,'ROLE_LEGACY_PRODUCT','ACTIVE',1),(24,'ROLE_ONLY_REVIEW','ACTIVE',1),(25,'ROLE_OLD_DENY','DEPRECATED',0),(26,'ROLE_ADMIN','ACTIVE',100);
         INSERT INTO sys_user_role VALUES (21,21,true),(22,22,true),(23,23,true),(24,24,true),(22,25,true),(26,26,true);
@@ -340,14 +358,24 @@ suite('egg source change workspace on PostgreSQL',()=>{
         INSERT INTO sys_role_permission_set VALUES(22,22),(24,24);
         INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes,deny_codes)
           SELECT 25,menu_id,'','V' FROM sys_menu WHERE menu_code='MENU_MD_EGG_SOURCE';
+        INSERT INTO sys_menu(menu_code,menu_name_zh) VALUES ('MENU_SETTINGS_USER','Fixture user administration') ON CONFLICT DO NOTHING;
         UPDATE md_egg_source_write_control SET writes_enabled=false WHERE id=1;`);
+      await hydrateMenuRegistry(db.manager);
       await expect(rolePermissions.setRolePermissions('ROLE_EGG_APPLY',[{menu_code:permsMenu,perm_codes:'*'}])).rejects.toThrow();
       await expect(sets.setItems('PSET_EGG_REVIEW',[{menu_code:'UNKNOWN',perm_codes:'V'}])).rejects.toThrow();
-      await rolePermissions.setRolePermissions('ROLE_EGG_APPLY',[{menu_code:permsMenu,perm_codes:'V,E',egg_warehouse_code:'WH-SHARED'}]);
+      const adminActor={userId:26,perms_version:1};
+      await rolePermissions.setRolePermissions('ROLE_EGG_APPLY',[{menu_code:permsMenu,perm_codes:'V,E',egg_warehouse_code:'WH-SHARED'}],adminActor);
       await rolePermissions.setRolePermissions('ROLE_LEGACY_PRODUCT',[{menu_code:'MENU_MD_PRODUCT',perm_codes:'V,E,A'}]);
-      await sets.setItems('PSET_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}]);
-      await rolePermissions.setRolePermissions('ROLE_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'V'}]);
-      await sets.setItems('PSET_ONLY_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}]);
+      await sets.setItems('PSET_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}],adminActor);
+      await rolePermissions.setRolePermissions('ROLE_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'V'}],adminActor);
+      await sets.setItems('PSET_ONLY_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}],adminActor);
+      const password='isolated-egg-source-fixture';
+      const passwordHash=await bcrypt.hash(password,4);
+      await db.query(`ALTER TABLE sys_user ADD COLUMN password_hash text, ADD COLUMN store_code text, ADD COLUMN locale text;
+        ALTER TABLE sys_user_role ADD COLUMN is_primary boolean NOT NULL DEFAULT true;
+        ALTER TABLE sys_role ADD COLUMN role_name_zh text, ADD COLUMN role_type text;
+        ALTER TABLE sys_organizations ADD COLUMN IF NOT EXISTS org_name_cn text`);
+      await db.query("UPDATE sys_user SET password_hash=$1,locale='zh-CN' WHERE user_id>=21",[passwordHash]);
       await expect(db.query("UPDATE sys_menu SET menu_name_zh='Unmanaged' WHERE menu_code=$1",[permsMenu]))
         .rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_MENU_MANAGED'}});
       await expect(db.query("UPDATE sys_role_menu_permission SET perm_codes='*' WHERE role_id=21"))
@@ -430,20 +458,36 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await sets.assignUser('PSET_EGG_REVIEW',22,{userId:26,perms_version:Number(adminVersion)});
       await db.query('DELETE FROM sys_role_permission_set WHERE role_id=22');
       await db.query('DELETE FROM sys_user_warehouse_scopes WHERE user_id IN (21,22)');
-      const makerV2=await token(21), reviewerV2=await token(22);
+      const login = async (id:number) => (await http.post('/api/auth/login')
+        .send({username:'egg-fixture-'+id,password}).expect(200)).body;
+      const makerSession=await login(21), reviewerSession=await login(22);
+      const makerV2=makerSession.token, reviewerV2=reviewerSession.token;
+      const userManager=await token(23,{permissions:['MENU_SETTINGS_USER:E']});
+      await http.put('/api/users/23/role').auth(userManager,{type:'bearer'}).send({role:'ROLE_EGG_APPLY'}).expect(403);
+      await http.put('/api/system/users/23/role').auth(userManager,{type:'bearer'}).send({role:'ROLE_EGG_APPLY'}).expect(403);
+      await http.put('/api/users/26/password').auth(userManager,{type:'bearer'}).send({password:'FixtureOnly2026!'}).expect(403);
+      await http.put('/api/system/users/26/password').auth(userManager,{type:'bearer'}).send({password:'FixtureOnly2026!'}).expect(403);
+
+      expect(makerSession.user_info.permissions.find((permission:string)=>permission.startsWith('MENU_MD_EGG_SOURCE:'))?.split(':')[1].split(',')).toEqual(expect.arrayContaining(['V','C','E']));
+      expect(reviewerSession.user_info.permissions.some((permission:string)=>permission.startsWith('MENU_MD_EGG_SOURCE:'))).toBe(true);
       const {warehouseCode:_,...houseInput}=input();
       const body={...houseInput,houseCode:'HOUSE-HOUSE-PILOT',contractVersion:2,actionKey:randomUUID()};
-      const postDraft=(user:string,requestBody=body)=>http.post(base+'/changes').auth(user,{type:'bearer'}).send(requestBody);
+      const postDraft=(user:string,requestBody:Record<string,unknown>=body)=>http.post(base+'/changes').auth(user,{type:'bearer'}).send(requestBody);
       await postDraft(makerV2).expect(409);
-      await http.put('/api/sys/menu-registry/egg-source-house-rollouts/HOUSE-HOUSE-PILOT')
-        .auth(admin,{type:'bearer'}).send({expectedEnabled:null,enabled:true,reason:'Approved isolated pilot'}).expect(200);
-      await postDraft(makerV2).expect(409);
+      const pilotPath='/api/sys/menu-registry/egg-source-house-rollouts/HOUSE-HOUSE-PILOT';
+      const pilotRequest={expectedEnabled:null,enabled:true,reason:'Approved isolated pilot',maker:'egg-fixture-21',reviewer:'egg-fixture-22'};
+      await http.put(pilotPath).auth(admin,{type:'bearer'}).send(pilotRequest).expect(409);
       await http.post(newGate).auth(admin,{type:'bearer'})
         .send({expectedEnabled:false,enabled:true,reason:'Verified protocol test'}).expect(201);
+      await http.put(pilotPath).auth(admin,{type:'bearer'}).send({...pilotRequest,reviewer:pilotRequest.maker}).expect(409);
+      const effective=(await http.get('/api/sys/menu-registry/egg-source-house-access').auth(admin,{type:'bearer'})
+        .query({house:'HOUSE-HOUSE-PILOT',username:pilotRequest.maker}).expect(200)).body.data;
+      expect(effective).toMatchObject({eligibleAccount:true,actions:['V','C','E']});
+      await http.put(pilotPath).auth(admin,{type:'bearer'}).send(pilotRequest).expect(200);
       await postDraft(makerV2,{...body,houseCode:'HOUSE-RBAC'}).expect(403);
       await postDraft(reviewerV2).expect(403);
       await postDraft(legacy).expect(403);
-      const openedV2=(await postDraft(makerV2).expect(201)).body.data;
+      const openedV2=browserURL ? await createBrowserDraft(browserURL,password,future) : (await postDraft(makerV2).expect(201)).body.data;
       expect(openedV2.payload).not.toHaveProperty('warehouseCode');
       const docV2=base+'/changes/'+openedV2.id;
       await expect(db.transaction(async m=>{
@@ -488,6 +532,59 @@ suite('egg source change workspace on PostgreSQL',()=>{
       const original=await http.get(docV2+'/action-requests/'+reviewV2Key).auth(reviewerV2,{type:'bearer'}).expect(200);
       expect(original.body.data).toMatchObject({id:openedV2.id,state:'APPROVED',version:3});
       await http.get(docV2+'/action-requests/'+reviewV2Key).auth(makerV2,{type:'bearer'}).expect(404);
+      await http.post(newGate).auth(admin,{type:'bearer'})
+        .send({expectedEnabled:false,enabled:true,reason:'Verify safe retirement'}).expect(201);
+      await db.query("INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-V1-REPLAY','FARM-A','ACTIVE','LAYER')");
+      const replay={...input(),houseCode:'HOUSE-V1-REPLAY',actionKey:randomUUID()};
+      const prior=(await postDraft(admin,replay).expect(201)).body.data;
+      const gate='/api/sys/menu-registry/egg-source-legacy-creation';
+      const classification=(await http.get(gate).auth(admin,{type:'bearer'}).expect(200)).body.data;
+      expect(classification.unclassified).toContain('HOUSE-V1-REPLAY');
+      await http.post(gate).auth(admin,{type:'bearer'}).send({confirmed:true,reason:'Unclassified'}).expect(409);
+      for (const house of classification.unclassified) {
+        await http.put('/api/sys/menu-registry/egg-source-house-rollouts/'+house).auth(admin,{type:'bearer'})
+          .send({expectedEnabled:null,enabled:false,reason:'Approved pause in isolated fixture'}).expect(200);
+      }
+      const admission=db.createQueryRunner();
+      await admission.connect();
+      await admission.startTransaction();
+      const retire=async()=>http.post(gate).auth(admin,{type:'bearer'})
+        .send({confirmed:true,reason:'Verified cutover checklist'}).expect(201);
+      let pendingRetirement:ReturnType<typeof retire>|undefined;
+      try {
+        await admission.query('SELECT id FROM md_egg_source_write_control WHERE id=1 FOR SHARE');
+        pendingRetirement=retire();
+        const end=Date.now()+3000;
+        let waiting=false;
+        while (!waiting && Date.now()<end) {
+          const [activity]=await db.query(`SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+            WHERE wait_event_type='Lock' AND query LIKE '%legacy_creates_enabled AS enabled%') AS waiting`);
+          waiting=activity.waiting;
+          if (!waiting) await new Promise(resolve=>setTimeout(resolve,25));
+        }
+        expect(waiting).toBe(true);
+      } finally {
+        await admission.commitTransaction();
+        await admission.release();
+        await pendingRetirement;
+      }
+      expect((await postDraft(admin,replay).expect(201)).body.data.id).toBe(prior.id);
+      await postDraft(admin,{...replay,reason:'Different payload'}).expect(409);
+      await http.post(base+'/changes/'+prior.id+'/actions/cancel').auth(admin,{type:'bearer'})
+        .send({actionKey:randomUUID(),version:1}).expect(201);
+      await db.query("INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-AFTER-RETIRE','FARM-A','ACTIVE','LAYER')");
+      const newLegacy={...replay,houseCode:'HOUSE-AFTER-RETIRE',actionKey:randomUUID()};
+      await postDraft(admin,newLegacy).expect(409);
+      const held=(await http.get(base+'/workspace').auth(admin,{type:'bearer'}).query({houseCode:newLegacy.houseCode}).expect(200)).body.data;
+      expect(held).toMatchObject({createContractVersion:2,createBlocker:'HOUSE_NOT_OPEN'});
+      await expect(db.transaction(async m=>{
+        await m.query("SELECT set_config('phoenix.egg_source_writer','26',true)");
+        await m.query(`INSERT INTO md_egg_source_changes(id,request_key,company_code,farm_code,site_code,house_code,effective_date,
+          target_class,created_by,last_editor,payload) VALUES($1,$2,'COMP-A','FARM-A',$3,'HOUSE-AFTER-RETIRE',$4,'RED','26','26',$5)`,
+          [randomUUID(),newLegacy.actionKey,site,future,JSON.stringify(prior.payload)]);
+      })).rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_LEGACY_CREATION_RETIRED'}});
+      await expect(db.query('DELETE FROM md_egg_source_write_control')).rejects.toMatchObject({driverError:{code:'42501'}});
+      await expect(db.query('UPDATE md_egg_source_write_control SET legacy_creates_enabled=true')).rejects.toMatchObject({driverError:{code:'42501'}});
       await control(admin,true,false).expect(201);
       await db.query('DELETE FROM sys_role WHERE role_id=21');
       expect(await db.query('SELECT 1 FROM sys_role_menu_permission WHERE role_id=21')).toEqual([]);
@@ -495,3 +592,43 @@ suite('egg source change workspace on PostgreSQL',()=>{
   },60000);
 
 });
+
+async function createBrowserDraft(webUrl:string,password:string,effectiveDate:string) {
+  const fromWeb=createRequire(resolvePath(process.cwd(),'../web/package.json'));
+  const {chromium,expect:browserExpect}=fromWeb('@playwright/test');
+  const browser=await chromium.launch({headless:true});
+  try {
+    const page=await browser.newPage({viewport:{width:390,height:850},locale:'zh-CN'});
+    const login=await page.request.post(webUrl+'/api/auth/login',{data:{username:'egg-fixture-21',password}});
+    expect(login.ok()).toBe(true);
+    const session=await login.json();
+    await page.context().addCookies([{name:'phoenix_access_token',value:session.cookie_token,url:webUrl}]);
+    await page.addInitScript((data:{token:string;user_info:unknown})=>{
+      sessionStorage.setItem('phoenix_session_version','v6');
+      sessionStorage.setItem('phoenix_token',data.token);
+      sessionStorage.setItem('phoenix_user',JSON.stringify(data.user_info));
+      localStorage.setItem('phoenix_token',data.token);
+      localStorage.setItem('phoenix_user',JSON.stringify(data.user_info));
+      localStorage.setItem('phoenix_lang','zh');
+    },session);
+    let warehouseCalls=0;
+    page.on('request',(request:{url:()=>string})=>{if (request.url().includes('/candidates/warehouses')) warehouseCalls++;});
+    await page.goto(webUrl+'/master-data/egg-sources/new?houseCode=HOUSE-HOUSE-PILOT');
+    await browserExpect(page.getByRole('heading',{name:'排期与商品壳色'})).toBeVisible({timeout:12000});
+    await browserExpect(page.getByLabel('目标仓库',{exact:true})).toHaveCount(0);
+    await page.getByLabel('生效日',{exact:true}).fill(effectiveDate);
+    await page.getByLabel('商品壳色',{exact:true}).selectOption('RED');
+    await page.getByLabel('等级',{exact:true}).selectOption('GRADE_1');
+    await page.getByLabel('规格',{exact:true}).selectOption('LOOSE');
+    await page.getByLabel('依据',{exact:true}).fill('Isolated browser change');
+    const request=page.waitForResponse((response:{request:()=>{method:()=>string};url:()=>string})=>response.request().method()==='POST' &&
+      new URL(response.url()).pathname.endsWith('/egg-sources/changes'));
+    await page.getByRole('button',{name:'保存草稿'}).click();
+    const response=await request;
+    expect(response.ok()).toBe(true);
+    expect(response.request().postDataJSON()).not.toHaveProperty('warehouseCode');
+    expect(warehouseCalls).toBe(0);
+    await browserExpect(page.getByRole('heading',{name:'来源变更详情'})).toBeVisible();
+    return (await response.json()).data;
+  } finally { await browser.close(); }
+}

@@ -6,7 +6,7 @@ import { SysMenuEntity } from './entities/sys-menu.entity';
 import { SysUserRoleEntity } from './entities/sys-user-role.entity';
 import { SysRoleMenuPermissionEntity } from './entities/sys-role-menu-permission.entity';
 import { SysRoleConflictEntity } from './entities/sys-role-conflict.entity';
-import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants,lockEggSourceGrantEditor } from '../../auth/egg-source-organization-grants';
+import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants,lockEggSourceGrantEditor,authorizeEggSourceRoleMutation,auditEggSourcePermissionChange,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
 import { resolvePermissions, PermSource } from '../../auth/permissions-resolver';
 
 import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
@@ -150,6 +150,12 @@ export class PermissionsService {
     const menus = await this.menuRepo.find({ order: { sort_order: 'ASC', menu_id: 'ASC' } });
     const allPerms = await this.rmpRepo.find();
 
+    const configuredSource: Array<{role_id:string;actions:string[]}> = await this.dataSource.query(`SELECT access.role_id,ARRAY_AGG(DISTINCT act) AS actions
+      FROM (SELECT role_id,actions FROM md_egg_source_organization_grants WHERE role_id IS NOT NULL
+        UNION ALL SELECT rs.role_id,g.actions FROM sys_role_permission_set rs
+          JOIN md_egg_source_organization_grants g ON rs.set_id=g.set_id) access
+      CROSS JOIN LATERAL unnest(access.actions) act GROUP BY access.role_id`);
+    const sourceByRole = new Map(configuredSource.map(row=>[String(row.role_id),row.actions]));
     // 用 (role_id, menu_id) 做索引方便查
     const permMap = new Map<string, string>();
     for (const p of allPerms) {
@@ -164,10 +170,13 @@ export class PermissionsService {
         role_type: r.role_type,
         is_admin: isAdmin,
         cells: menus.map(m => {
-          const codes = isAdmin ? '*' : (permMap.get(`${r.role_id}:${m.menu_id}`) || '');
+          const legacy = permMap.get(`${r.role_id}:${m.menu_id}`) || '';
+          const configured = m.menu_code===EGG_SOURCE_MENU ? sourceByRole.get(String(r.role_id)) : undefined;
+          const codes = isAdmin ? '*' : configured ? [...new Set([...legacy.split(',').filter(Boolean),...configured])].join(',') : legacy;
           return {
             menu_code: m.menu_code,
             perm_codes: codes,
+            ...(m.menu_code===EGG_SOURCE_MENU ? {configured_only:true,version2_configured:configured??[]} : {}),
             granted: codes === '*' || codes.split(',').map(s => s.trim()).filter(Boolean).length > 0,
           };
         }),
@@ -221,7 +230,7 @@ export class PermissionsService {
   }
 
   // ── PUT /api/permissions/role/:code/perms  批量替换该角色的三元组 ──────
-  async setRolePermissions(roleCode: string, perms: RoleMenuPermDto[]) {
+  async setRolePermissions(roleCode: string, perms: RoleMenuPermDto[], actor?:EggSourceGrantActor) {
     return this.dataSource.transaction(async mgr => {
       await lockEggSourceGrantEditor(mgr);
       const [role] = await mgr.query('SELECT role_id FROM sys_role WHERE role_code=$1 FOR UPDATE', [roleCode]);
@@ -230,14 +239,18 @@ export class PermissionsService {
       const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
       const currentPerms: RoleMenuPermDto[] = await mgr.query(`SELECT m.menu_code,rmp.perm_codes
         FROM sys_role_menu_permission rmp JOIN sys_menu m USING (menu_id) WHERE rmp.role_id=$1`, [role.role_id]);
+      const [scopedWrites]=await mgr.query(`SELECT 1 FROM md_egg_source_organization_grants g
+        WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=$1 OR g.set_id IN (
+          SELECT set_id FROM sys_role_permission_set WHERE role_id=$1)) LIMIT 1`,[role.role_id]);
+      const commonMenus=scopedWrites ? [EGG_SOURCE_MENU] : [];
       const rules = await mgr.find(SysRoleConflictEntity);
       const addedBlocks = newlyIntroducedBlockingConflicts(
-        currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
-        perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code), rules);
+        [...commonMenus,...currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)],
+        [...commonMenus,...perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)], rules);
       if (addedBlocks.length) {
         throw new BadRequestException(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
       }
-      const written = await saveMenuGrants(mgr, 'role', role.role_id, rows);
+      const written = await saveMenuGrants(mgr, 'role', role.role_id, rows,actor);
       // 角色权限属于 JWT 快照。每次替换后必须使该角色所有有效用户的旧 token
       // 失效，否则数据库矩阵已更新但浏览器仍携带旧动作位，表现为按钮与接口不一致。
       const affected = await mgr.query(
@@ -303,6 +316,28 @@ export class PermissionsService {
            JOIN sys_menu m ON m.menu_id = psi.menu_id
           WHERE m.menu_code = $1 AND (psi.perm_codes = '*' OR psi.perm_codes LIKE $2)
        ) ORDER BY u.username`, [menuCode, like]);
+    if (menuCode===EGG_SOURCE_MENU) {
+      const scopedRoles=await this.dataSource.query(`SELECT r.role_code,r.role_name_zh,string_agg(DISTINCT g.source,',') AS via FROM sys_role r
+        JOIN (SELECT role_id,actions,'source_organization_direct' AS source FROM md_egg_source_organization_grants WHERE role_id IS NOT NULL
+          UNION ALL SELECT rs.role_id,g.actions,'source_organization_set' FROM sys_role_permission_set rs
+            JOIN md_egg_source_organization_grants g USING(set_id)) g USING(role_id)
+        WHERE r.status='ACTIVE' AND $1=ANY(g.actions) GROUP BY r.role_code,r.role_name_zh`,[p]);
+      const scopedUsers=await this.dataSource.query(`SELECT DISTINCT u.user_id,u.username,u.real_name AS real_name_zh
+        FROM sys_user u WHERE u.status=1 AND (
+          EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
+            JOIN md_egg_source_organization_grants g ON g.role_id=ur.role_id OR g.set_id IN (
+              SELECT rs.set_id FROM sys_role_permission_set rs WHERE rs.role_id=ur.role_id)
+            WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND $1=ANY(g.actions))
+          OR EXISTS (SELECT 1 FROM sys_user_permission_set us JOIN md_egg_source_organization_grants g USING(set_id)
+            WHERE us.user_id=u.user_id AND $1=ANY(g.actions)))`,[p]);
+      const byRole=new Map<string,{role_code:string;role_name_zh:string;via:string}>();
+      for (const role of [...roles,...scopedRoles]) {
+        const prior=byRole.get(role.role_code);
+        byRole.set(role.role_code,prior ? {...role,via:prior.via+','+role.via} : role);
+      }
+      return {menu_code:menuCode,perm:p,roles:[...byRole.values()],configuration_only:true,
+        users:[...new Map([...users,...scopedUsers].map(user=>[String(user.user_id),user])).values()]};
+    }
     return { menu_code: menuCode, perm: p, roles, users };
   }
 
@@ -342,7 +377,7 @@ export class PermissionsService {
 
   // ── PATCH /api/permissions/role/:code/status  角色生命周期 ─────────────
   /** 软停用 / 恢复角色。DEPRECATED 从编辑页隐藏但保留数据，可恢复。 */
-  async setRoleStatus(roleCode: string, status: string) {
+  async setRoleStatus(roleCode: string, status: string, actor:EggSourceGrantActor={}) {
     const st = (status || '').toUpperCase();
     if (!['ACTIVE', 'DEPRECATED'].includes(st)) {
       throw new Error('status 必须是 ACTIVE 或 DEPRECATED');
@@ -350,26 +385,32 @@ export class PermissionsService {
     if (roleCode === 'ROLE_ADMIN' && st === 'DEPRECATED') {
       throw new Error('超管角色不可停用');
     }
-    const exists = await this.dataSource.query(
-      `SELECT 1 FROM sys_role WHERE role_code = $1`, [roleCode]);
-    if (!exists.length) throw new Error(`角色 ${roleCode} 不存在`);
-    // 停用前拦截：仍有在岗用户持有则拒绝（避免误停用导致掉权）
-    if (st === 'DEPRECATED') {
-      const held = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n
-           FROM sys_user_role ur
-           JOIN sys_role r ON r.role_id = ur.role_id
-           JOIN sys_user u ON u.user_id = ur.user_id
-          WHERE r.role_code = $1 AND u.status = 1`, [roleCode]);
-      if (held[0]?.n > 0) {
-        throw new Error(`该角色仍有 ${held[0].n} 个在岗用户持有，请先转移后再停用`);
+    await this.dataSource.transaction(async manager=>{
+      const admin=await authorizeEggSourceRoleMutation(manager,actor,[roleCode]);
+      const exists = await manager.query(
+        `SELECT 1 FROM sys_role WHERE role_code = $1`, [roleCode]);
+      if (!exists.length) throw new Error(`角色 ${roleCode} 不存在`);
+      // 停用前拦截：仍有在岗用户持有则拒绝（避免误停用导致掉权）
+      if (st === 'DEPRECATED') {
+        const held = await manager.query(
+          `SELECT COUNT(*)::int AS n
+             FROM sys_user_role ur
+             JOIN sys_role r ON r.role_id = ur.role_id
+             JOIN sys_user u ON u.user_id = ur.user_id
+            WHERE r.role_code = $1 AND u.status = 1`, [roleCode]);
+        if (held[0]?.n > 0) {
+          throw new Error(`该角色仍有 ${held[0].n} 个在岗用户持有，请先转移后再停用`);
+        }
       }
-    }
-    await this.dataSource.query(
-      `UPDATE sys_role
-          SET status = $1,
-              deprecated_at = CASE WHEN $1 = 'DEPRECATED' THEN NOW() ELSE NULL END
-        WHERE role_code = $2`, [st, roleCode]);
+      await manager.query(
+        `UPDATE sys_role
+            SET status = $1,
+                deprecated_at = CASE WHEN $1 = 'DEPRECATED' THEN NOW() ELSE NULL END
+          WHERE role_code = $2`, [st, roleCode]);
+      await manager.query(`UPDATE sys_user u SET perms_version=COALESCE(u.perms_version,0)+1
+        FROM sys_user_role ur JOIN sys_role r USING(role_id) WHERE u.user_id=ur.user_id AND r.role_code=$1`,[roleCode]);
+      if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_ROLE_STATUS',roleCode,{status:st});
+    });
     return { role_code: roleCode, status: st };
   }
 

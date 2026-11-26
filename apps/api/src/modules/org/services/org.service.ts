@@ -1,3 +1,4 @@
+import { auditEggSourcePermissionChange,authorizeEggSourceUserScopeMutation,authorizeEggSourceWarehouseScopeMutation,type EggSourceGrantActor } from '../../../auth/egg-source-organization-grants';
 /**
  * Phoenix ERP V3 — OrgService
  * RBAC-2 组织树 CRUD + path/level 自动计算
@@ -10,7 +11,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { SysOrganizationEntity } from '../entities/sys-organization.entity';
 import { SysUserOrgEntity } from '../entities/sys-user-org.entity';
@@ -508,49 +509,56 @@ export class OrgService {
     `, [orgId]);
   }
 
-  async assignUserOrg(dto: AssignUserOrgDto): Promise<SysUserOrgEntity> {
+  async assignUserOrg(dto: AssignUserOrgDto,actor:EggSourceGrantActor): Promise<SysUserOrgEntity> {
     await this.assertOrgVisible(dto.orgId);
-    const existing = await this.userOrgRepo.findOne({
-      where: { userId: dto.userId, orgId: dto.orgId },
+    const saved=await this.userOrgRepo.manager.transaction(async manager=>{
+      const admin=await authorizeEggSourceUserScopeMutation(manager,actor,dto.userId);
+      const repo=manager.getRepository(SysUserOrgEntity);
+      const existing=await repo.findOne({where:{userId:dto.userId,orgId:dto.orgId}});
+      const binding=repo.create({
+        ...existing,userId:dto.userId,orgId:dto.orgId,
+        isPrimary:dto.isPrimary ?? existing?.isPrimary ?? false,
+        dataScopeLevel:dto.dataScopeLevel ?? existing?.dataScopeLevel ?? 'COMPANY',
+      });
+      const result=await repo.save(binding);
+      await this.syncPrimaryStoreCode(dto.userId,manager);
+      if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_USER_SCOPE',dto.userId,{before:existing,after:result});
+      return result;
     });
-    if (existing) {
-      existing.isPrimary = dto.isPrimary ?? existing.isPrimary;
-      existing.dataScopeLevel = dto.dataScopeLevel ?? existing.dataScopeLevel;
-      const saved = await this.userOrgRepo.save(existing);
-      this.dataScopeService.invalidate(String(dto.userId));
-      await this.syncPrimaryStoreCode(dto.userId);   // G129
-      return saved;
-    }
-
-    const uo = this.userOrgRepo.create({
-      userId: dto.userId,
-      orgId: dto.orgId,
-      isPrimary: dto.isPrimary ?? false,
-      dataScopeLevel: (dto.dataScopeLevel ?? 'COMPANY') as 'SELF' | 'PROJECT' | 'COMPANY' | 'REGION' | 'GROUP',
-    });
-    const saved = await this.userOrgRepo.save(uo);
     this.dataScopeService.invalidate(String(dto.userId));
-    await this.syncPrimaryStoreCode(dto.userId);     // G129
     return saved;
   }
 
-  async updateUserOrg(id: number, dto: UpdateUserOrgDto): Promise<SysUserOrgEntity> {
-    const uo = await this.userOrgRepo.findOne({ where: { id } });
-    if (!uo) throw new NotFoundException(`UserOrg ${id} not found`);
-    await this.assertOrgVisible(uo.orgId);
-    Object.assign(uo, dto);
-    const saved = await this.userOrgRepo.save(uo);
-    this.dataScopeService.invalidate(String(uo.userId));
-    await this.syncPrimaryStoreCode(uo.userId);      // G129
+  async updateUserOrg(id:number,dto:UpdateUserOrgDto,actor:EggSourceGrantActor): Promise<SysUserOrgEntity> {
+    const original=await this.userOrgRepo.findOne({where:{id}});
+    if (!original) throw new NotFoundException(`UserOrg ${id} not found`);
+    await this.assertOrgVisible(original.orgId);
+    const saved=await this.userOrgRepo.manager.transaction(async manager=>{
+      const admin=await authorizeEggSourceUserScopeMutation(manager,actor,original.userId);
+      const repo=manager.getRepository(SysUserOrgEntity);
+      const binding=await repo.findOne({where:{id,userId:original.userId,orgId:original.orgId}});
+      if (!binding) throw new NotFoundException(`UserOrg ${id} not found`);
+      const result=await repo.save(repo.merge(repo.create(),binding,dto));
+      await this.syncPrimaryStoreCode(original.userId,manager);
+      if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_USER_SCOPE',original.userId,{before:binding,after:result});
+      return result;
+    });
+    this.dataScopeService.invalidate(String(saved.userId));
     return saved;
   }
 
-  async removeUserOrg(id: number): Promise<void> {
-    const uo = await this.userOrgRepo.findOne({ where: { id } });
-    if (uo) await this.assertOrgVisible(uo.orgId);
-    if (uo) this.dataScopeService.invalidate(String(uo.userId));
-    await this.userOrgRepo.delete(id);
-    if (uo) await this.syncPrimaryStoreCode(uo.userId);  // G129
+  async removeUserOrg(id:number,actor:EggSourceGrantActor):Promise<void> {
+    const original=await this.userOrgRepo.findOne({where:{id}});
+    if (!original) return;
+    await this.assertOrgVisible(original.orgId);
+    await this.userOrgRepo.manager.transaction(async manager=>{
+      const admin=await authorizeEggSourceUserScopeMutation(manager,actor,original.userId);
+      const result=await manager.getRepository(SysUserOrgEntity).delete({id,userId:original.userId,orgId:original.orgId});
+      if (!result.affected) return;
+      await this.syncPrimaryStoreCode(original.userId,manager);
+      if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_USER_SCOPE',original.userId,{before:original,after:null});
+    });
+    this.dataScopeService.invalidate(String(original.userId));
   }
 
   /**
@@ -563,8 +571,8 @@ export class OrgService {
    *   强制目标用户重登并让新令牌绕开旧 DataScope 缓存；不能只在 store_code 改变时 bump，
    *   因为同一组织上的 data_scope_level 变化同样会改变可见范围。
    */
-  private async syncPrimaryStoreCode(userId: number): Promise<void> {
-    const rows = await this.userOrgRepo.manager.query(
+  private async syncPrimaryStoreCode(userId:number,manager:EntityManager=this.userOrgRepo.manager): Promise<void> {
+    const rows = await manager.query(
       `SELECT CASE WHEN uo.data_scope_level = 'GROUP' THEN 'ALL' ELSE o.org_code END AS code
          FROM sys_user_orgs uo
          JOIN sys_organizations o ON o.id = uo.org_id
@@ -573,7 +581,7 @@ export class OrgService {
       [userId],
     );
     const code: string | null = rows[0]?.code ?? null;
-    await this.userOrgRepo.manager.query(
+    await manager.query(
       `UPDATE sys_user
           SET store_code = COALESCE($1, store_code),
               perms_version = COALESCE(perms_version, 0) + 1,
@@ -618,21 +626,36 @@ export class OrgService {
     await this.userProjRepo.delete(id);
   }
 
-  async addWarehouseScope(userId: number, warehouseCode: string): Promise<SysUserWarehouseScopeEntity> {
-    await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', warehouseCode, '仓库');
-    const existing = await this.userWhRepo.findOne({ where: { userId, warehouseCode } });
-    if (existing) return existing;
-    const s = this.userWhRepo.create({ userId, warehouseCode });
-    const saved = await this.userWhRepo.save(s);
+  async addWarehouseScope(userId:number,warehouseCode:string,actor:EggSourceGrantActor):Promise<SysUserWarehouseScopeEntity> {
+    await this.assertCompanyScopedCodeVisible('wms_warehouses','warehouse_code',warehouseCode,'仓库');
+    const saved=await this.userWhRepo.manager.transaction(async manager=>{
+      const admin=await authorizeEggSourceWarehouseScopeMutation(manager,actor,userId);
+      const repo=manager.getRepository(SysUserWarehouseScopeEntity);
+      const existing=await repo.findOne({where:{userId,warehouseCode}});
+      if (existing) return existing;
+      const result=await repo.save(repo.create({userId,warehouseCode}));
+      if (admin) await this.auditWarehouseScope(manager,admin,userId,warehouseCode,true);
+      return result;
+    });
     this.dataScopeService.invalidate(String(userId));
     return saved;
   }
 
-  async removeWarehouseScope(id: number): Promise<void> {
-    const s = await this.userWhRepo.findOne({ where: { id } });
-    if (s) await this.assertCompanyScopedCodeVisible('wms_warehouses', 'warehouse_code', s.warehouseCode, '仓库');
-    if (s) this.dataScopeService.invalidate(String(s.userId));
-    await this.userWhRepo.delete(id);
+  async removeWarehouseScope(id:number,actor:EggSourceGrantActor):Promise<void> {
+    const original=await this.userWhRepo.findOne({where:{id}});
+    if (!original) return;
+    await this.assertCompanyScopedCodeVisible('wms_warehouses','warehouse_code',original.warehouseCode,'仓库');
+    await this.userWhRepo.manager.transaction(async manager=>{
+      const admin=await authorizeEggSourceWarehouseScopeMutation(manager,actor,original.userId);
+      const result=await manager.getRepository(SysUserWarehouseScopeEntity).delete({id,userId:original.userId});
+      if (admin&&result.affected) await this.auditWarehouseScope(manager,admin,original.userId,original.warehouseCode,false);
+    });
+    this.dataScopeService.invalidate(String(original.userId));
+  }
+
+  private async auditWarehouseScope(manager:EntityManager,actor:string,userId:number,warehouseCode:string,enabled:boolean) {
+    await manager.query('UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1 WHERE user_id=$1',[userId]);
+    await auditEggSourcePermissionChange(manager,actor,'EGG_SOURCE_LEGACY_WAREHOUSE_SCOPE',userId,{warehouseCode,enabled});
   }
 
   // ── 数据范围规则管理 ─────────────────────────────────────────────────────────

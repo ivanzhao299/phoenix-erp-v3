@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 const pendingByScope = {
   'egg-source-permissions-1126': /^1795651200000-EggSourceIndependentPermissions$/,
   'egg-source-house-1126': /^1795654800000-EggSourceHouseContract$/,
+  'egg-source-legacy-creation-1126': /^1795658400000-EggSourceLegacyCreationGate$/,
 };
 export function parseInspectionReceipt(stdout, target, run, scope='egg-source-permissions-1126') {
   if (!Object.hasOwn(pendingByScope,scope)) throw new Error('INSPECTION_RECEIPT_INVALID_SCOPE');

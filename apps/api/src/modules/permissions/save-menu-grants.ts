@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
+import { auditEggSourcePermissionChange,requireEggSourceAdministrator,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
 import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
 
 export type Grant = { menu_code: string; perm_codes: string; egg_warehouse_code?: string };
@@ -34,9 +35,17 @@ export async function resolveMenuGrants(manager: EntityManager, grants: Grant[])
 
 /** The editor owns grant codes. A row may still carry a deny or a scope when all grants are cleared. */
 export async function saveMenuGrants(manager: EntityManager, kind: 'role' | 'set', id: string | number,
-  grants: StoredGrant[]) {
+  grants: StoredGrant[], actor?:EggSourceGrantActor) {
   const table = kind === 'role' ? 'sys_role_menu_permission' : 'sys_permission_set_item';
   const key = kind === 'role' ? 'role_id' : 'set_id';
+  const [menu] = await manager.query('SELECT menu_id FROM sys_menu WHERE menu_code=$1',[EGG_SOURCE_MENU]);
+  const legacy = grants.find(grant=>grant.menu_id===menu?.menu_id);
+  const [before] = menu ? await manager.query(`SELECT perm_codes,scope_type,scope_value FROM ${table}
+    WHERE ${key}=$1 AND menu_id=$2`,[id,menu.menu_id]) : [];
+  const codes = (value:string) => value.split(',').sort().join(',');
+  const changed = codes(legacy?.perm_codes??'')!==codes(before?.perm_codes??'')
+    || legacy?.warehouse_code!==undefined && (before?.scope_type!=='WAREHOUSE' || before.scope_value!==legacy.warehouse_code);
+  const admin = changed ? await requireEggSourceAdministrator(manager,actor) : undefined;
   const ids = grants.map(grant => grant.menu_id);
   if (kind === 'role') await manager.query("SELECT set_config('phoenix.egg_source_role_editor', '1', true)");
   await manager.query(`DELETE FROM ${table} WHERE ${key}=$1 AND NOT (menu_id=ANY($2::bigint[]))
@@ -54,5 +63,6 @@ export async function saveMenuGrants(manager: EntityManager, kind: 'role' | 'set
     WHERE p.${key}=$1 AND m.menu_code=$2 AND string_to_array(p.perm_codes,',') && ARRAY['E','A']
       AND (p.scope_type IS NULL OR p.scope_type NOT IN ('WAREHOUSE','FARM') OR NULLIF(p.scope_value,'') IS NULL)`,[id,EGG_SOURCE_MENU]);
   if (invalid.length) throw new BadRequestException('配置蛋品来源申请或审核时，须指定目标仓范围');
+  if (admin) await auditEggSourcePermissionChange(manager,admin,'EGG_SOURCE_LEGACY_GRANT',id,{kind,before,legacy});
   return written.length;
 }

@@ -1,3 +1,4 @@
+import { auditEggSourcePermissionChange,authorizeEggSourceRoleMutation,resetEggSourceAccountPassword,authorizeEggSourceUserScopeMutation } from '../../auth/egg-source-organization-grants';
 import { checkApprovedEggSource } from '../product-master/services/egg-source-change-facts';
 import { readEggSourceOwner, sourceClock, sourceDate } from '../product-master/services/egg-source-change-policy';
 import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
@@ -600,28 +601,33 @@ export class UsersBffController {
       const password_hash = await bcrypt.hash(password, 10);
       // G76：store_code 默认 null（不再 'ALL' 全局）——store_code 已降为 POS 行级专用；
       //   数据范围唯一源 = 组织绑定 sys_user_orgs（下方原子写入）。
-      const inserted = await this.em.query(
-        `INSERT INTO sys_user (username, password_hash, real_name, store_code, status, locale, note, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, 1, 'zh-CN', $5, now(), now()) RETURNING user_id`,
-        [username, password_hash, real_name_zh, store_code || null, user_type === 'TEST' ? 'TEST' : null],
-      );
-      const userId = inserted[0]?.user_id;
-      if (role && userId) {
-        const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code = $1`, [role]);
-        if (roleRow[0]) {
-          await this.em.query(
-            `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at) VALUES ($1, $2, true, now())
-             ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
-            [userId, roleRow[0].role_id],
-          );
+      return await this.em.transaction(async mgr=>{
+        const admin=role ? await authorizeEggSourceRoleMutation(mgr,req.user,[role]) : undefined;
+        const inserted = await mgr.query(
+          `INSERT INTO sys_user (username, password_hash, real_name, store_code, status, locale, note, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 1, 'zh-CN', $5, now(), now()) RETURNING user_id`,
+          [username, password_hash, real_name_zh, store_code || null, user_type === 'TEST' ? 'TEST' : null],
+        );
+        const userId = inserted[0]?.user_id;
+        if (role && userId) {
+          const roleRow = await mgr.query(`SELECT role_id FROM sys_role WHERE role_code = $1`, [role]);
+          if (roleRow[0]) {
+            await mgr.query(
+              `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at) VALUES ($1, $2, true, now())
+               ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
+              [userId, roleRow[0].role_id],
+            );
+          }
         }
-      }
-      // G76：原子写组织绑定（sys_user_orgs）→ 用户在创建时即挂到组织树，决定数据范围
-      if (Array.isArray(org_bindings) && userId) {
-        await this.writeUserOrgBindings(userId, org_bindings);
-      }
-      return { code: 200, msg: `用户 ${username} 创建成功`, data: { id: userId } };
+        // G76：原子写组织绑定（sys_user_orgs）→ 用户在创建时即挂到组织树，决定数据范围
+        if (Array.isArray(org_bindings) && userId) {
+          await this.writeUserOrgBindings(userId, org_bindings,mgr);
+        }
+        if (admin && userId) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',userId,{role});
+        return { code: 200, msg: `用户 ${username} 创建成功`, data: { id: userId } };
+      });
     } catch (e: any) {
+      if (e instanceof HttpException) throw e;
       if (e?.code === '23505') return { code: 409, msg: `用户名 "${username}" 已存在` };
       return { code: 500, msg: e?.message || '创建失败' };
     }
@@ -630,7 +636,7 @@ export class UsersBffController {
   /** PUT /api/users/:id — 更新基本信息（含组织绑定 org_bindings）*/
   @Put(':id')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-	  async updateUser(@Param('id') id: string, @Body() body: any) {
+	  async updateUser(@Param('id') id: string, @Body() body: any,@Req() req:any) {
 	    try {
 	      const editable = await this.ensureUserEditable(id);
 	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
@@ -642,20 +648,27 @@ export class UsersBffController {
       // G76：store_code 仅 POS 行级用；不再默认 'ALL'（空即空，范围由组织绑定决定）
       if (body.store_code   !== undefined) { fields.push(`store_code=$${idx++}`); params.push(body.store_code || null); }
       if (body.locale       !== undefined) { fields.push(`locale=$${idx++}`);     params.push(body.locale); }
-      if (fields.length) {
-        params.push(id);
-        await this.em.query(`UPDATE sys_user SET ${fields.join(', ')}, updated_at=now() WHERE user_id=$${idx}`, params);
-      }
-      // G76：组织绑定（数据范围唯一源）—— 传 org_bindings 则整组替换
-      if (Array.isArray(body.org_bindings)) {
-        await this.em.query(`DELETE FROM sys_user_orgs WHERE user_id=$1`, [id]);
-        await this.writeUserOrgBindings(Number(id), body.org_bindings);
-        // 变更范围 → bump perms_version 强制重算（DataScope 缓存 30s，bump 立即失效）
-        await this.em.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,1)+1 WHERE user_id=$1`, [id]);
-      }
+      await this.em.transaction(async mgr=>{
+        const replacesOrg=Array.isArray(body.org_bindings);
+        const admin=replacesOrg ? await authorizeEggSourceUserScopeMutation(mgr,req.user,id) : undefined;
+        if (fields.length) {
+          params.push(id);
+          await mgr.query(`UPDATE sys_user SET ${fields.join(', ')}, updated_at=now() WHERE user_id=$${idx}`,params);
+        }
+        if (replacesOrg) {
+          const before=admin ? await mgr.query('SELECT org_code,data_scope_level FROM sys_user_orgs WHERE user_id=$1',[id]) : undefined;
+          await mgr.query('DELETE FROM sys_user_orgs WHERE user_id=$1',[id]);
+          await this.writeUserOrgBindings(Number(id),body.org_bindings,mgr);
+          await mgr.query('UPDATE sys_user SET perms_version=COALESCE(perms_version,1)+1 WHERE user_id=$1',[id]);
+          if (admin) {
+            const after=await mgr.query('SELECT org_code,data_scope_level FROM sys_user_orgs WHERE user_id=$1',[id]);
+            await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_SCOPE',id,{before,after});
+          }
+        }
+      });
       if (!fields.length && !Array.isArray(body.org_bindings)) return { code: 400, msg: '无更新内容' };
       return { code: 200, msg: '用户信息已更新' };
-    } catch (e: any) { return { code: 500, msg: e?.message }; }
+    } catch (e: any) { if (e instanceof HttpException) throw e; return { code: 500, msg: e?.message }; }
   }
 
   /**
@@ -665,14 +678,15 @@ export class UsersBffController {
   private async writeUserOrgBindings(
     userId: number,
     bindings: Array<{ org_code?: string; scope_level?: string; is_primary?: boolean }>,
+    manager:EntityManager,
   ): Promise<void> {
     for (const b of bindings) {
       if (!b?.org_code) continue;
-      const orgRow = await this.em.query(
+      const orgRow = await manager.query(
         `SELECT id FROM sys_organizations WHERE org_code=$1 AND status='ACTIVE' LIMIT 1`, [b.org_code],
       );
       if (!orgRow[0]) continue;
-      await this.em.query(
+      await manager.query(
         `INSERT INTO sys_user_orgs (user_id, org_id, is_primary, data_scope_level, org_code)
          SELECT $1,$2,$3,$4,$5
          WHERE NOT EXISTS (SELECT 1 FROM sys_user_orgs WHERE user_id=$1 AND org_id=$2)`,
@@ -749,7 +763,7 @@ export class UsersBffController {
   /** PUT /api/users/:id/role — 设置主角色（保留已有副角色）*/
   @Put(':id/role')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-	  async setRole(@Param('id') id: string, @Body() body: any) {
+	  async setRole(@Param('id') id: string, @Body() body: any,@Req() req:any) {
 	    const { role } = body || {};
 	    if (!role) return { code: 400, msg: 'role 必填' };
 	    try {
@@ -759,6 +773,7 @@ export class UsersBffController {
       if (!roleRow[0]) return { code: 400, msg: `角色 ${role} 不存在` };
       const roleId = roleRow[0].role_id;
       await this.em.transaction(async (mgr) => {
+        const admin=await authorizeEggSourceRoleMutation(mgr,req.user,[role],id,false);
         // 清除旧 primary，再设新 primary；同一事务避免中途失败留下“无主角色”状态。
         await mgr.query(`UPDATE sys_user_role SET is_primary=false WHERE user_id=$1`, [id]);
         await mgr.query(
@@ -768,15 +783,16 @@ export class UsersBffController {
           [id, roleId],
         );
         await mgr.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`, [id]);
+        if (admin) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',id,{action:'setRole',roles:[role]});
       });
       return { code: 200, msg: '主角色已更新' };
-    } catch (e: any) { return { code: 500, msg: e?.message }; }
+    } catch (e: any) { if (e instanceof HttpException) throw e; return { code: 500, msg: e?.message }; }
   }
 
   /** PUT /api/users/:id/roles — 全量设置用户角色列表（多角色）*/
   @Put(':id/roles')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-	  async setRoles(@Param('id') id: string, @Body() body: any) {
+	  async setRoles(@Param('id') id: string, @Body() body: any,@Req() req:any) {
     // body: { roles: [{ role_code, is_primary, is_visible }] }
     const { roles } = body || {};
 	    if (!Array.isArray(roles)) return { code: 400, msg: 'roles 必须是数组' };
@@ -789,6 +805,7 @@ export class UsersBffController {
 
       // 事务：删旧 → 插新
       await this.em.transaction(async (mgr) => {
+        const admin=await authorizeEggSourceRoleMutation(mgr,req.user,resolved.map(row=>row.role_code),id,true);
         await mgr.query(`DELETE FROM sys_user_role WHERE user_id=$1`, [id]);
         for (const r of resolved) {
           await mgr.query(
@@ -801,9 +818,10 @@ export class UsersBffController {
           `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
           [id],
         );
+        if (admin) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',id,{action:'setRoles',roles:resolved.map(row=>row.role_code)});
       });
 	      return { code: 200, msg: '角色已更新', data: { count: resolved.length, roles: resolved } };
-	    } catch (e: any) {
+	    } catch (e: any) { if (e instanceof HttpException) throw e;
         if (e instanceof UserRoleAssignmentValidationError) return { code: 400, msg: e.message };
         return { code: 500, msg: e?.message };
       }
@@ -816,13 +834,14 @@ export class UsersBffController {
 	   */
 	  @Put(':id/role-visibility')
 	  @RequireMenu('MENU_SETTINGS_USER', 'E')
-	  async updateRoleVisibility(@Param('id') id: string, @Body() body: any) {
+	  async updateRoleVisibility(@Param('id') id: string, @Body() body: any,@Req() req:any) {
 		    const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
 		    if (!Array.isArray(items)) return { code: 400, msg: 'items 必须是数组' };
 		    try {
 		      const editable = await this.ensureUserEditable(id);
 		      if (!editable.ok) return { code: editable.code, msg: editable.msg };
 		      await this.em.transaction(async (mgr) => {
+        const admin=await authorizeEggSourceRoleMutation(mgr,req.user,items.flatMap(item=>typeof item?.role_code==='string'&&typeof item.is_visible==='boolean' ? [item.role_code] : []),id,false);
 	        for (const it of items) {
 	          if (typeof it?.role_code !== 'string' || typeof it?.is_visible !== 'boolean') continue;
 	          await mgr.query(
@@ -864,15 +883,16 @@ export class UsersBffController {
 	          `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
 	          [id],
 	        );
-	      });
+	        if (admin) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',id,{action:'updateRoleVisibility',roles:items.flatMap(item=>typeof item?.role_code==='string'&&typeof item.is_visible==='boolean' ? [item.role_code] : [])});
+      });
 	      return { code: 200, msg: '角色授权状态已更新', data: { id, updated: items.length } };
-	    } catch (e: any) { return { code: 500, msg: e?.message }; }
+	    } catch (e: any) { if (e instanceof HttpException) throw e; return { code: 500, msg: e?.message }; }
 	  }
 
 	  /** PUT /api/users/:id/password — 重置密码 */
   @Put(':id/password')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-	  async resetPassword(@Param('id') id: string, @Body() body: any) {
+	  async resetPassword(@Param('id') id: string, @Body() body: any,@Req() req?:any) {
 	    const { password } = body || {};
 	    if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
 	    try {
@@ -880,13 +900,10 @@ export class UsersBffController {
 	      if (!editable.ok) return { code: editable.code, msg: editable.msg };
 	      const bcrypt = await import('bcrypt');
       const hash = await bcrypt.hash(password, 10);
-      const res = await this.em.query(
-        `UPDATE sys_user SET password_hash=$1, updated_at=now() WHERE user_id=$2 RETURNING user_id`,
-        [hash, id],
-      );
+      const res=await resetEggSourceAccountPassword(this.em,req?.user??{},id,hash);
       if (!res[0]) return { code: 404, msg: '用户不存在' };
       return { code: 200, msg: '密码已重置' };
-    } catch (e: any) { return { code: 500, msg: e?.message }; }
+    } catch (e: any) { if (e instanceof HttpException) throw e; return { code: 500, msg: e?.message }; }
   }
 }
 

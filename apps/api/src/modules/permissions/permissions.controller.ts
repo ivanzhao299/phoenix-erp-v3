@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Patch, Param, Query, Body,
+  Controller, Get, Post, Put, Patch, Param, Query, Body, Req, HttpException,
   UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -112,14 +112,15 @@ export class PermissionsController {
    */
   @Put('role/:code/perms')
   @RequireMenu('MENU_SETTINGS_ROLE', 'E')
-  async setRolePerms(@Param('code') code: string, @Body() body: { perms: RoleMenuPermDto[] }) {
+  async setRolePerms(@Param('code') code: string, @Body() body: { perms: RoleMenuPermDto[] },@Req() req:any) {
     if (!body || !Array.isArray(body.perms)) {
       throw new BadRequestException('body.perms 必须是数组');
     }
     try {
-      const data = await this.svc.setRolePermissions(code, body.perms);
+      const data = await this.svc.setRolePermissions(code, body.perms,req.user);
       return { code: 200, data };
     } catch (e: any) {
+      if (e instanceof HttpException) throw e;
       throw new BadRequestException(e.message);
     }
   }
@@ -153,11 +154,12 @@ export class PermissionsController {
    */
   @Patch('role/:code/status')
   @RequireMenu('MENU_SETTINGS_ROLE', 'E')
-  async setRoleStatus(@Param('code') code: string, @Body() body: { status: string }) {
+  async setRoleStatus(@Param('code') code: string, @Body() body: { status: string },@Req() req:any) {
     try {
-      const data = await this.svc.setRoleStatus(code, body?.status);
+      const data = await this.svc.setRoleStatus(code, body?.status,req.user);
       return { code: 200, data };
     } catch (e: any) {
+      if (e instanceof HttpException) throw e;
       throw new BadRequestException(e.message);
     }
   }

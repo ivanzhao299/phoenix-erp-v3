@@ -43,6 +43,7 @@ describe('PermissionsService role permission snapshots', () => {
       find: jest.fn().mockResolvedValue([]),
       query: jest.fn(async (sql:string) => {
         if (sql.includes('FROM sys_role WHERE')) return [{ role_id:12 }];
+        if (sql.includes('FROM sys_menu WHERE menu_code=$1')) return [];
         if (sql.includes('FROM sys_menu WHERE')) return [{ menu_id:'31',menu_code:'MENU_FARM_MASTER' }];
         if (sql.includes('RETURNING menu_id')) return [{ menu_id:'31' }];
         if (sql.includes('RETURNING u.user_id')) return [{ user_id:7 },{ user_id:8 }];

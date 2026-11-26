@@ -10,7 +10,7 @@ import { sourceText } from '../services/egg-source-change-policy';
 import { EggHistoryReviewService } from '../services/egg-history-review.service';
 import { SourceSkuBlocked } from '../services/sku-availability.service';
 import type { ChangeListQuery } from '../services/egg-source-change-read';
-import { EggSourceChangeService,sourceContractVersion,sourceScopeFor,type SourceContractVersion } from '../services/egg-source-change.service';
+import { EggSourceChangeService,sourceContractVersion,type SourceContractVersion } from '../services/egg-source-change.service';
 
 
 @Controller('api/product-master/egg-sources')
@@ -64,9 +64,8 @@ export class EggSourceChangeController {
   }
 
   @Get('candidates/options')
-  async options(@Query('contractVersion') contract:unknown,@Req() req:any) {
-    await this.createScope(req,contract);
-    return { code:200,data:await this.service.candidateOptions() };
+  async options(@Query('houseCode') house:string,@Query('contractVersion') contract:unknown,@Req() req:any) {
+    return { code:200,data:await this.service.candidateOptions(house,sourceContractVersion(contract),await this.createScope(req,contract)) };
   }
 
   @Get('changes')
@@ -133,8 +132,8 @@ export class EggSourceChangeController {
   @Get('flock-plans')
   async flockPlans(@Query('houseCode') house:string,@Query('effectiveDate') date:string,
     @Query('contractVersion') version:unknown,@Req() req:any) {
-    const scope = sourceScopeFor(await this.createScope(req,version),sourceContractVersion(version));
-    return {code:200,data:await this.service.planOptions(house,date,scope,await this.access.flockScope(req.user))};
+    return {code:200,data:await this.service.planOptions(house,date,sourceContractVersion(version),
+      await this.createScope(req,version),await this.access.flockScope(req.user))};
   }
 
   @Post('preview')

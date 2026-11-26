@@ -1,3 +1,4 @@
+import { auditEggSourcePermissionChange,authorizeEggSourceRoleMutation,resetEggSourceAccountPassword } from '../../auth/egg-source-organization-grants';
 import {
   Controller, Get, Post, Put, Body, Param, Req, UseGuards,
   BadRequestException, ConflictException, NotFoundException,
@@ -196,7 +197,7 @@ export class SystemUsersController {
 
   @Post()
   @RequireMenu('MENU_SETTINGS_USER', 'C')
-  async create(@Body() body: any) {
+  async create(@Body() body: any,@Req() req:any) {
     const { username, real_name_zh, real_name_lo, role, store_code, password, locale } = body || {};
     if (!username || !real_name_zh) throw new BadRequestException('用户名和姓名为必填项');
     const pwErr = validatePassword(password);
@@ -223,6 +224,7 @@ export class SystemUsersController {
     const password_hash = await bcrypt.hash(password, 10);
 
     return await this.em.transaction(async (mgr) => {
+      const admin=role ? await authorizeEggSourceRoleMutation(mgr,req.user,[role]) : undefined;
       const inserted = await mgr.query(
         `INSERT INTO sys_user
            (username, password_hash, real_name, store_code, status, locale, note, created_at, updated_at)
@@ -248,6 +250,7 @@ export class SystemUsersController {
         );
       }
 
+      if (admin&&userId) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',userId,{role});
       return { code: 200, msg: `用户 ${username} 创建成功`, data: { id: userId } };
     });
   }
@@ -314,7 +317,7 @@ export class SystemUsersController {
 
   @Put(':id/role')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async setRole(@Param('id') id: string, @Body() body: any) {
+  async setRole(@Param('id') id: string, @Body() body: any,@Req() req:any) {
     const { role } = body || {};
     if (!role) throw new BadRequestException('role 必填');
     await this.ensureEditable(id);
@@ -327,6 +330,7 @@ export class SystemUsersController {
     const roleId = roleRows[0].role_id;
 
     return await this.em.transaction(async (mgr) => {
+      const admin=await authorizeEggSourceRoleMutation(mgr,req.user,[role],id);
       const exists = await mgr.query(
         `SELECT user_id FROM sys_user WHERE user_id = $1 LIMIT 1`,
         [id],
@@ -351,23 +355,21 @@ export class SystemUsersController {
         [id],
       );
 
+      if (admin) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',id,{action:'setRole',roles:[role]});
       return { code: 200, msg: '用户角色已更新', data: { id, role } };
     });
   }
 
   @Put(':id/password')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async resetPassword(@Param('id') id: string, @Body() body: any) {
+  async resetPassword(@Param('id') id: string, @Body() body: any,@Req() req?:any) {
     const { password } = body || {};
     const pwErr = validatePassword(password);
     if (pwErr) throw new BadRequestException(pwErr);
     await this.ensureEditable(id);
 
     const password_hash = await bcrypt.hash(password, 10);
-    const result = await this.em.query(
-      `UPDATE sys_user SET password_hash = $1, updated_at = now() WHERE user_id = $2 RETURNING user_id`,
-      [password_hash, id],
-    );
+    const result=await resetEggSourceAccountPassword(this.em,req?.user??{},id,password_hash);
     if (result.length === 0) throw new NotFoundException(`用户 ${id} 不存在`);
     return { code: 200, msg: '密码已重置' };
   }
@@ -401,7 +403,7 @@ export class SystemUsersController {
    */
   @Put(':id/role-visibility')
   @RequireMenu('MENU_SETTINGS_USER', 'E')
-  async updateRoleVisibility(@Param('id') id: string, @Body() body: any) {
+  async updateRoleVisibility(@Param('id') id: string, @Body() body: any,@Req() req:any) {
     const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('items 不能为空');
@@ -409,6 +411,7 @@ export class SystemUsersController {
     await this.ensureEditable(id);
 
     await this.em.transaction(async (mgr) => {
+      const admin=await authorizeEggSourceRoleMutation(mgr,req.user,items.flatMap(item=>typeof item?.role_code==='string'&&typeof item.is_visible==='boolean' ? [item.role_code] : []),id);
       for (const it of items) {
         if (typeof it?.role_code !== 'string' || typeof it?.is_visible !== 'boolean') continue;
         await mgr.query(
@@ -451,6 +454,7 @@ export class SystemUsersController {
         `UPDATE sys_user SET perms_version = COALESCE(perms_version,0) + 1, updated_at = now() WHERE user_id = $1`,
         [id],
       );
+      if (admin) await auditEggSourcePermissionChange(mgr,admin,'EGG_SOURCE_USER_ROLE',id,{action:'updateRoleVisibility',roles:items.flatMap(item=>typeof item?.role_code==='string'&&typeof item.is_visible==='boolean' ? [item.role_code] : [])});
     });
 
     return { code: 200, msg: '角色显示状态已更新', data: { id, updated: items.length } };
