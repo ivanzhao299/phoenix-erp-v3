@@ -9,7 +9,16 @@ import { captureRuntime, executionEnv } from './capture-production-runtime.mjs';
 import { CONTRACT, MIGRATION_PATHS } from './production-config-guard.mjs';
 
 const baseline = '24ce3f015e2ba96ecfadbdf1ddf4dc2eb9872428';
+const originalMerge = 'bb208ee3f6cbb9e4032969cc229bf5126ba45ec8';
 const seal = 'scripts/ops/egg-source-permissions-reviewed-head';
+const receiptSeal = 'scripts/ops/egg-source-permissions-receipt-reviewed-head';
+const receiptChanges = [
+  '.github/workflows/controlled-pending-migration-apply.yml',
+  'scripts/ops/egg-source-permissions-inspection-receipt.mjs',
+  'scripts/ops/egg-source-permissions-release.mjs',
+  'scripts/ops/egg-source-permissions-release.test.mjs',
+  receiptSeal,
+].sort();
 export const unit = '1795651200000-EggSourceIndependentPermissions';
 const migrationPath = 'apps/api/src/database/migrations/' + unit + '.ts';
 const expectedLedgerEntry = { timestamp: 1795651200000, name: 'EggSourceIndependentPermissions1795651200000' };
@@ -18,16 +27,26 @@ const hash = /^[a-f0-9]{64}$/;
 const hold = reason => { throw Error('EGG_SOURCE_PERMISSIONS_HOLD=' + reason); };
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 
-export function verifySource(target, git) {
-  if (!sha.test(target)) hold('TARGET_SHA');
+function verifySealedMerge(target, baseCommit, sealPath, git) {
   const parents = revision => git('show', '-s', '--format=%P', revision).split(' ');
   const [base, sealed, ...extra] = parents(target);
-  if (base !== baseline || !sha.test(sealed ?? '') || extra.length) hold('EXACT_MAIN_MERGE');
-  const reviewed = git('show', target + ':' + seal);
-  if (!sha.test(reviewed) || parents(sealed).join(' ') !== reviewed || git('show', reviewed + ':' + seal) !== 'PENDING'
-      || git('diff', '--no-renames', '--name-status', reviewed, sealed) !== 'M\t' + seal
+  if (base !== baseCommit || !sha.test(sealed ?? '') || extra.length) hold('EXACT_MAIN_MERGE');
+  const reviewed = git('show', target + ':' + sealPath);
+  if (!sha.test(reviewed) || parents(sealed).join(' ') !== reviewed || git('show', reviewed + ':' + sealPath) !== 'PENDING'
+      || git('diff', '--no-renames', '--name-status', reviewed, sealed) !== 'M\t' + sealPath
       || git('rev-parse', sealed + '^{tree}') !== git('rev-parse', target + '^{tree}')) hold('REVIEWED_TREE');
-  git('merge-base', '--is-ancestor', baseline, reviewed);
+  git('merge-base', '--is-ancestor', baseCommit, reviewed);
+  return reviewed;
+}
+
+export function verifySource(target, git) {
+  if (!sha.test(target)) hold('TARGET_SHA');
+  const reviewed = verifySealedMerge(originalMerge, baseline, seal, git);
+  if (target !== originalMerge) {
+    verifySealedMerge(target, originalMerge, receiptSeal, git);
+    const changed = git('diff', '--no-renames', '--name-only', originalMerge, target).split('\n').sort();
+    if (canonicalDigest(changed) !== canonicalDigest(receiptChanges)) hold('RECEIPT_ONLY_DIFF');
+  }
   if (git('diff', '--no-renames', '--name-status', baseline, target, '--', ...MIGRATION_PATHS) !== 'A\t' + migrationPath) hold('MIGRATION_SET');
   if (git('diff', '--no-renames', '--name-only', baseline, target, '--', ...CONTRACT.criticalFiles)) hold('CONFIG_FLOOR');
   const [mode, type, blob] = git('ls-tree', target, '--', migrationPath).split(/[ \t]/);

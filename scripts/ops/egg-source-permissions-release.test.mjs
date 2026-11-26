@@ -2,19 +2,36 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { unit, validateCatalog, verifyAppliedLedger, verifySource } from './egg-source-permissions-release.mjs';
+import { parseInspectionReceipt } from './egg-source-permissions-inspection-receipt.mjs';
 
 const base='24ce3f015e2ba96ecfadbdf1ddf4dc2eb9872428';
+const original='bb208ee3f6cbb9e4032969cc229bf5126ba45ec8';
 const target='a'.repeat(40), sealed='b'.repeat(40), reviewed='c'.repeat(40);
+const receiptSealed='f'.repeat(40), receiptReviewed='1'.repeat(40);
 const seal='scripts/ops/egg-source-permissions-reviewed-head';
+const receiptSeal='scripts/ops/egg-source-permissions-receipt-reviewed-head';
 const path='apps/api/src/database/migrations/'+unit+'.ts';
+const transportFiles = [
+  '.github/workflows/controlled-pending-migration-apply.yml',
+  'scripts/ops/egg-source-permissions-inspection-receipt.mjs',
+  'scripts/ops/egg-source-permissions-release.mjs',
+  'scripts/ops/egg-source-permissions-release.test.mjs',
+  receiptSeal,
+];
 
-function gitFixture({migration='A\t'+path,floor='',sealChange='M\t'+seal,firstParent=base}={}) {
+function gitFixture({migration='A\t'+path,floor='',sealChange='M\t'+seal,firstParent=base,
+ /****/ receiptFiles=transportFiles, receiptParent=original, receiptSealChange='M\t'+receiptSeal}={}) {
+  const parents = new Map([[original,firstParent+' '+sealed],[sealed,reviewed],
+    [target,receiptParent+' '+receiptSealed],[receiptSealed,receiptReviewed]]);
+  const seals = new Map([[original+':'+seal,reviewed],[reviewed+':'+seal,'PENDING'],
+    [target+':'+receiptSeal,receiptReviewed],[receiptReviewed+':'+receiptSeal,'PENDING']]);
   return (command,...args) => {
-    if (command==='show') {
-      if (args.includes('--format=%P')) return args.at(-1)===target ? firstParent+' '+sealed : reviewed;
-      return args[0]===target+':'+seal ? reviewed : 'PENDING';
+    if (command==='show') return args.includes('--format=%P') ? parents.get(args.at(-1)) : seals.get(args[0]);
+    if (command==='diff') {
+      if (args.includes('--name-only')) return args.includes('--') ? floor : receiptFiles.join('\n');
+      if (args.includes('--')) return migration;
+      return args.includes(receiptSealed) ? receiptSealChange : sealChange;
     }
-    if (command==='diff') return args.includes('--name-only') ? floor : args.includes('--') ? migration : sealChange;
     if (command==='rev-parse') return 'd'.repeat(40);
     if (command==='merge-base') return '';
     if (command==='ls-tree') return '100644 blob '+'e'.repeat(40)+'\t'+path;
@@ -23,11 +40,30 @@ function gitFixture({migration='A\t'+path,floor='',sealChange='M\t'+seal,firstPa
 }
 
 test('the sealed candidate binds the live baseline, preserved configuration floor and one migration',()=>{
-  assert.equal(verifySource(target,gitFixture()).migrations[0].path,path);
-  assert.throws(()=>verifySource(target,gitFixture({migration:'A\t'+path+'\nA\tother.ts'})),/MIGRATION_SET/);
-  assert.throws(()=>verifySource(target,gitFixture({floor:'docker-compose.yml'})),/CONFIG_FLOOR/);
-  assert.throws(()=>verifySource(target,gitFixture({sealChange:'M\tnew-app-file'})),/REVIEWED_TREE/);
-  assert.throws(()=>verifySource(target,gitFixture({firstParent:'2'.repeat(40)})),/EXACT_MAIN_MERGE/);
+  assert.equal(verifySource(original,gitFixture()).migrations[0].path,path);
+  assert.throws(()=>verifySource(original,gitFixture({migration:'A\t'+path+'\nA\tother.ts'})),/MIGRATION_SET/);
+  assert.throws(()=>verifySource(original,gitFixture({floor:'docker-compose.yml'})),/CONFIG_FLOOR/);
+  assert.throws(()=>verifySource(original,gitFixture({sealChange:'M\tnew-app-file'})),/REVIEWED_TREE/);
+  assert.throws(()=>verifySource(original,gitFixture({firstParent:'2'.repeat(40)})),/EXACT_MAIN_MERGE/);
+});
+test('the follow-up merge preserves the original approved source and allows only the sealed receipt change',()=>{
+  assert.deepEqual(verifySource(target,gitFixture()),{target,reviewed,baseline:base,migrations:[{path,blob:'e'.repeat(40)}]});
+  assert.throws(()=>verifySource(target,gitFixture({receiptParent:base})),/EXACT_MAIN_MERGE/);
+  assert.throws(()=>verifySource(target,gitFixture({receiptSealChange:'M\tnew-app-file'})),/REVIEWED_TREE/);
+  assert.throws(()=>verifySource(target,gitFixture({receiptFiles:[...transportFiles,'new-app-file']})),/RECEIPT_ONLY_DIFF/);
+});
+test('the artifact carries the two complete digests and discards other stdout',()=>{
+  const ledgerSha256='8'.repeat(64), scopedInspectionSha256='9'.repeat(64);
+  const complete=[
+    'LEDGER_SHA256='+ledgerSha256,'PENDING_MIGRATION_FILES= '+unit,
+    'SCOPED_INSPECTION_SHA256='+scopedInspectionSha256,'VET_BACKUP_VOLUME=VERIFIED','INSPECT=COMPLETE',
+    'RAW_UNRELATED_STDOUT=excluded',
+  ].join('\r\n');
+  assert.deepEqual(parseInspectionReceipt(complete,target,'77-1'),{target,run:'77-1',ledgerSha256,scopedInspectionSha256});
+  assert.throws(()=>parseInspectionReceipt(complete.replace(scopedInspectionSha256,'***'),target,'77-1'),/INVALID_SCOPED_INSPECTION_SHA256/);
+  assert.throws(()=>parseInspectionReceipt(complete+'\nLEDGER_SHA256='+ledgerSha256,target,'77-1'),/INVALID_LEDGER_SHA256/);
+  assert.throws(()=>parseInspectionReceipt(complete.replace('INSPECT=COMPLETE','INSPECT='),target,'77-1'),/INVALID_INSPECT/);
+  assert.throws(()=>parseInspectionReceipt(complete,'unbound','77-1'),/INVALID_IDENTITY/);
 });
 test('the receipt accepts only the exact new ledger entry',()=>{
   const before={legacy:[{name:'base'}],typeorm:[{name:'Other123',timestamp:123}]};

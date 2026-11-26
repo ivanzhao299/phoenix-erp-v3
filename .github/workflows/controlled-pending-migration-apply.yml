@@ -98,6 +98,7 @@ jobs:
           echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)" >> "$GITHUB_ENV"
           echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)" >> "$GITHUB_ENV"
       - name: Run ${{ inputs.phase }} over controlled SSH
+        id: controlled_remote
         uses: appleboy/ssh-action@v1
         env:
           TARGET_SHA: ${{ github.sha }}
@@ -123,6 +124,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           envs: TARGET_SHA,PHASE,AUDIT_SCOPE,EXPECTED_VET_INSPECTION_SHA256,VET_API_IMAGE,VET_CI_SHA256,EXPECTED_BEFORE_LEDGER_SHA256,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          capture_stdout: ${{ inputs.phase == 'inspect' && inputs.audit_scope == 'egg-source-permissions-1126' }}
           command_timeout: 20m
           script: |
             set -Eeuo pipefail
@@ -341,3 +343,19 @@ jobs:
             TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$MIGRATION_RUN_ID" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
               node "$STAGE/record-migration-apply-receipt.mjs" $MIGRATION_PATHS
             echo "MIGRATION_APPLY=COMMITTED"
+
+      - name: Write validated inspection receipt
+        if: inputs.phase == 'inspect' && inputs.audit_scope == 'egg-source-permissions-1126'
+        env:
+          REMOTE_STDOUT: ${{ steps.controlled_remote.outputs.stdout }}
+          INSPECTION_TARGET: ${{ github.sha }}
+          INSPECTION_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: node scripts/ops/egg-source-permissions-inspection-receipt.mjs "$RUNNER_TEMP/egg-source-permissions-inspection.json"
+      - name: Retain validated inspection receipt
+        if: inputs.phase == 'inspect' && inputs.audit_scope == 'egg-source-permissions-1126'
+        uses: actions/upload-artifact@v4
+        with:
+          name: egg-source-permissions-inspection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/egg-source-permissions-inspection.json
+          if-no-files-found: error
+          retention-days: 5
