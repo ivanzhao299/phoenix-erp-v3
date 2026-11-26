@@ -279,6 +279,9 @@ jobs:
               test "$MIGRATION_PATHS" = 'apps/api/src/database/migrations/1795658400000-EggSourceLegacyCreationGate.ts ' ||
                 { echo 'MIGRATION_APPLY=HOLD_EGG_SOURCE_LEGACY_CREATION_MIGRATION_SET'; exit 1; }
             fi
+            if [ "$PHASE" = apply ] && [[ "$PENDING_CLASSES $MIGRATION_PATHS" =~ 179565(8500000|8600000|8700000)- ]]; then
+              test "$AUDIT_SCOPE" = inventory-1127 || { echo 'MIGRATION_APPLY=HOLD_INVENTORY_SCOPE_REQUIRED'; exit 1; }
+            fi
             run_audit() {
               DAILY_EGG_PSQL_CMD="docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -tA -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'" \
                 node "$STAGE/audit-daily-egg-inbound.mjs" --output-dir "$STAGE/out" --report "$STAGE/out/REPORT.md" >/dev/null 2>&1 || test $? -eq 2
@@ -425,7 +428,11 @@ jobs:
             # Receipt recording is idempotent: it requires every changed
             # migration to be present in the production ledger and refuses
             # to overwrite an existing receipt.
-            TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$MIGRATION_RUN_ID" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
+            receipt_run="$MIGRATION_RUN_ID"
+            if [ "$AUDIT_SCOPE" = inventory-1127 ] && [ -n "$RECOVERY_APPLY_RUN" ]; then
+              receipt_run="$RECOVERY_APPLY_RUN"
+            fi
+            TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$receipt_run" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
               node "$STAGE/record-migration-apply-receipt.mjs" $MIGRATION_PATHS
             echo "MIGRATION_APPLY=COMMITTED"
 
