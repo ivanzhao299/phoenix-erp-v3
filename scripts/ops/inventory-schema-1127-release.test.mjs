@@ -67,6 +67,9 @@ test('checks old column compatibility and verified post-migration precision and 
   const wrongQty = structuredClone(postCatalog);
   wrongQty.columns.wms_inbound_items.qty = 'integer';
   assert.throws(() => validateCatalog(wrongQty, true), /RECEIPT_QUANTITIES/);
+  const roundedQty = structuredClone(preCatalog);
+  roundedQty.columns.wms_inbound_items.qty = 'numeric(18,0)';
+  assert.throws(() => validateCatalog(roundedQty, false), /RECEIPT_QUANTITIES/);
   const wrongTrigger = structuredClone(postCatalog);
   wrongTrigger.triggers.ledger_wms_close_capture[1] = 'D';
   assert.throws(() => validateCatalog(wrongTrigger, true), /CAPTURE_TRIGGERS/);

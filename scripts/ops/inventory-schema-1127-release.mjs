@@ -129,8 +129,11 @@ export function validateCatalog(catalog, after) {
     if (!required.every(name => Object.hasOwn(cols ?? {}, name))) hold('RECEIPT_COLUMNS');
     for (const name of ['qty', 'expected_qty', 'actual_qty', 'broken_qty']) {
       if (!cols[name]) continue;
-      const allowed = after ? /^(numeric|decimal)(\(|$)/ : /^(smallint$|integer$|bigint$|numeric(\(|$)|decimal(\(|$))/;
-      if (!allowed.test(cols[name])) hold('RECEIPT_QUANTITIES');
+      if (!after && /^(smallint|integer|bigint)$/.test(cols[name])) continue;
+      const decimal = /^(?:numeric|decimal)(?:\(([0-9]+),\s*(-?[0-9]+)\))?$/.exec(cols[name]);
+      if (!decimal || (decimal[1] !== undefined && (Number(decimal[2]) < 3 || Number(decimal[1]) <= Number(decimal[2])))) {
+        hold('RECEIPT_QUANTITIES');
+      }
     }
   }
   const actualTriggers = Object.entries(catalog.triggers).sort();
