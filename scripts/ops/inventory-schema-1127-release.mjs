@@ -48,6 +48,31 @@ export function verifySource(target, git) {
   return { target, application, baseline, reviewed: parents[1], migrations };
 }
 
+export const appliedTarget = '5cca99968a4beabb349f4e5102dee7bc8fe20f1d';
+const appliedRun = '45891816599-1';
+
+export function verifyWorkflowSource(target, git, recoveryRun) {
+  if (!recoveryRun) return verifySource(target, git);
+  if (recoveryRun !== appliedRun || !sha.test(target ?? '')) hold('RECOVERY_RUN');
+  const parents = git('show', '-s', '--format=%P', target).split(' ');
+  if (parents.length !== 2 || parents[0] !== appliedTarget || !sha.test(parents[1])
+      || git('rev-parse', parents[1] + '^{tree}') !== git('rev-parse', target + '^{tree}')) hold('RECOVERY_MERGE');
+  const allowed = releaseChanges.filter(file => file === helper || file === helper.replace('.mjs', '.test.mjs') || file.startsWith('.github/'));
+  const changed = git('diff', '--no-renames', '--name-only', appliedTarget, target).split('\n').sort();
+  if (canonicalDigest(changed) !== canonicalDigest(allowed)) hold('RECOVERY_TOOLING_SCOPE');
+  if (git('diff', '--no-renames', '--name-only', baseline, target, '--', ...CONTRACT.criticalFiles, ...MIGRATION_PATHS)
+      !== paths.join('\n')) hold('RECOVERY_APPLICATION_SCOPE');
+  return verifySource(appliedTarget, git);
+}
+
+const historicalBatchProjection = 'jsonb_agg(to_jsonb(b) ORDER BY b.batch_no)';
+export function inventoryAuditSql(after) {
+  if (!after) return auditSql;
+  const fragments = auditSql.split(historicalBatchProjection);
+  if (fragments.length !== 2) hold('HISTORICAL_AUDIT_PROJECTION');
+  return fragments.join("jsonb_agg(to_jsonb(b) - 'transfer_cost_currency' ORDER BY b.batch_no)");
+}
+
 const additions = units.map(unit => {
   const [timestamp, name] = unit.split('-');
   return { timestamp: Number(timestamp), name: name + timestamp };
@@ -106,7 +131,8 @@ SELECT jsonb_build_object(
 const afterSql = `
 SELECT jsonb_build_object(
   'enabledWarehouses',(SELECT count(*) FROM wms_daily_close_activation WHERE enabled),
-  'frozenDays',(SELECT count(*) FROM wms_daily_closes)
+  'frozenDays',(SELECT count(*) FROM wms_daily_closes),
+  'populatedTransferCost',(SELECT count(*) FROM inv_batches WHERE transfer_cost_currency IS NOT NULL)
 )::text;`;
 
 export function validateCatalog(catalog, after) {
@@ -147,7 +173,7 @@ export function validateCatalog(catalog, after) {
 function snapshot(expectedLedger, after) {
   const sql = ["BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;", "SET LOCAL search_path=public;",
     "SET LOCAL statement_timeout='30s';", "SET LOCAL lock_timeout='3s';", "SET LOCAL row_security=off;",
-    auditSql, confirmedDailyRowsSql + ';', LEDGER_SQL, catalogSql, ...(after ? [afterSql] : []), 'ROLLBACK;'].join('\n');
+    inventoryAuditSql(after), confirmedDailyRowsSql + ';', LEDGER_SQL, catalogSql, ...(after ? [afterSql] : []), 'ROLLBACK;'].join('\n');
   const output = execFileSync('docker', ['exec', '-i', '-e', 'PGOPTIONS=-c default_transaction_read_only=on',
     'phoenix-v3-db', 'sh', '-c', 'exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
   { input: sql, env: executionEnv(), encoding: 'utf8', timeout: 75000, maxBuffer: 20 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -157,7 +183,7 @@ function snapshot(expectedLedger, after) {
   if (hash(JSON.stringify(JSON.parse(ledger))) !== expectedLedger) hold('LEDGER_MOVED');
   const schema = JSON.parse(catalog);
   validateCatalog(schema, after);
-  if (after && Object.values(JSON.parse(newFacts)).some(value => value !== 0)) hold('WAREHOUSE_CLOSE_ENABLED');
+  if (after && Object.values(JSON.parse(newFacts)).some(value => value !== 0)) hold('NEW_INVENTORY_FIELDS_ALREADY_USED');
   if (JSON.parse(originalAudit).retired_duplicate_qty !== 0) hold('RETIRED_BATCH_STOCK');
   const facts = reviewConfirmedLegacyFacts({ originalAudit, dailyRowsRaw });
   return { originalConclusion: 'HOLD', stableAudit: facts.stableExactAuditSha256, historicalDaily: facts.dailyRowsSha256 };
@@ -178,7 +204,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const env = process.env;
     const git = (...args) => execFileSync('git', ['--no-replace-objects', '-c', 'safe.directory=' + process.cwd(),
       '-c', 'core.hooksPath=/dev/null', ...args], { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-    const reviewed = verifySource(env.TARGET_SHA, git);
+    const reviewed = verifyWorkflowSource(env.TARGET_SHA, git, env.RECOVERY_APPLY_RUN);
     const action = process.argv[2];
     if (action === 'source') console.log(JSON.stringify(reviewed));
     else if (action === 'inspect') {

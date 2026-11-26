@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { application, baseline, units, validateCatalog, verifyAppliedLedger, verifySource, withoutInventoryMigrations } from './inventory-schema-1127-release.mjs';
+import { application, baseline, inventoryAuditSql, units, validateCatalog, verifyAppliedLedger, verifySource, withoutInventoryMigrations } from './inventory-schema-1127-release.mjs';
 import { parseInspectionReceipt } from './egg-source-permissions-inspection-receipt.mjs';
 
 const entry = units.map(unit => {
@@ -91,4 +91,11 @@ test('the scoped application tree contains exactly these reviewed schema files',
   assert.deepEqual(git('diff', '--name-only', baseline, application, '--', 'apps/api/src/database/migrations').split('\n'),
     units.map(unit => 'apps/api/src/database/migrations/' + unit + '.ts'));
   assert.throws(() => verifySource(application, git), /EXACT_MAIN_MERGE/);
+});
+
+test('historical evidence compares the old batch projection after the additive migration', () => {
+  const before = inventoryAuditSql(false);
+  const after = inventoryAuditSql(true);
+  assert.match(after, /to_jsonb\(b\) - 'transfer_cost_currency'/);
+  assert.equal(after.replace(" - 'transfer_cost_currency'", ''), before);
 });

@@ -79,6 +79,7 @@ jobs:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
           AUDIT_SCOPE: ${{ inputs.audit_scope }}
+          RECOVERY_APPLY_RUN: ${{ inputs.recovery_apply_run }}
         run: |
           set -euo pipefail
           if [ "$AUDIT_SCOPE" = egg-source-1125 ]; then
@@ -92,7 +93,14 @@ jobs:
           elif [ "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 ]; then
             node scripts/ops/egg-source-legacy-creation-release.mjs source
           elif [ "$AUDIT_SCOPE" = inventory-1127 ]; then
-            node scripts/ops/inventory-schema-1127-release.mjs source
+            proof="$(node scripts/ops/inventory-schema-1127-release.mjs source)"
+            printf '%s\n' "$proof"
+            if [ -n "$RECOVERY_APPLY_RUN" ]; then
+              INVENTORY_RECOVERY_SOURCE="$(jq -er .target <<< "$proof")"
+              [[ "$INVENTORY_RECOVERY_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+              echo "INVENTORY_RECOVERY_SOURCE=$INVENTORY_RECOVERY_SOURCE" >> "$GITHUB_ENV"
+              export TARGET_SHA="$INVENTORY_RECOVERY_SOURCE"
+            fi
           else
             node scripts/ops/vet-1124-migration.mjs source
           fi
@@ -107,6 +115,7 @@ jobs:
           set -euo pipefail
           docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$GH_TOKEN"
           docker pull -q "$VET_API_IMAGE" >/dev/null
+          export TARGET_SHA="${INVENTORY_RECOVERY_SOURCE:-$TARGET_SHA}"
           VET_IMAGE_ID="$(docker image inspect "$VET_API_IMAGE" --format '{{.Id}}')" node scripts/ops/vet-1124-ci.mjs inventory
       - name: Validate the reviewed scoped inspection artifact
         if: inputs.phase == 'apply' && (inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127')
@@ -122,7 +131,7 @@ jobs:
           run_id="${INSPECTION_RUN%-*}"
           attempt="${INSPECTION_RUN#*-}"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$attempt" |
-            jq -e --arg sha "$GITHUB_SHA" --arg attempt "$attempt" '
+            jq -e --arg sha "${INVENTORY_RECOVERY_SOURCE:-$GITHUB_SHA}" --arg attempt "$attempt" '
               .head_sha==$sha and .head_branch=="main" and .event=="workflow_dispatch" and
               .path==".github/workflows/controlled-pending-migration-apply.yml" and
               .run_attempt==($attempt|tonumber) and .status=="completed" and .conclusion=="success"' >/dev/null
@@ -136,7 +145,7 @@ jobs:
           gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
             --name "$artifact-$INSPECTION_RUN" --dir "$evidence"
           [[ "$EXPECTED_BEFORE_LEDGER_SHA256" =~ ^[a-f0-9]{64}$ && "$EXPECTED_VET_INSPECTION_SHA256" =~ ^[a-f0-9]{64}$ ]]
-          jq -e --arg sha "$GITHUB_SHA" --arg run "$INSPECTION_RUN" \
+          jq -e --arg sha "${INVENTORY_RECOVERY_SOURCE:-$GITHUB_SHA}" --arg run "$INSPECTION_RUN" \
             --arg ledger "$EXPECTED_BEFORE_LEDGER_SHA256" --arg inspection "$EXPECTED_VET_INSPECTION_SHA256" '
               .=={target:$sha,run:$run,ledgerSha256:$ledger,scopedInspectionSha256:$inspection}' \
             "$evidence/egg-source-permissions-inspection.json" >/dev/null
@@ -158,6 +167,7 @@ jobs:
           VET_CI_SHA256: ${{ env.VET_CI_SHA256 }}
           EXPECTED_BEFORE_LEDGER_SHA256: ${{ inputs.expected_before_ledger_sha256 }}
           RECOVERY_APPLY_RUN: ${{ inputs.recovery_apply_run }}
+          INVENTORY_RECOVERY_SOURCE: ${{ env.INVENTORY_RECOVERY_SOURCE }}
           MIGRATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -173,7 +183,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: TARGET_SHA,PHASE,AUDIT_SCOPE,EXPECTED_VET_INSPECTION_SHA256,VET_API_IMAGE,VET_CI_SHA256,EXPECTED_BEFORE_LEDGER_SHA256,RECOVERY_APPLY_RUN,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: TARGET_SHA,PHASE,AUDIT_SCOPE,EXPECTED_VET_INSPECTION_SHA256,VET_API_IMAGE,VET_CI_SHA256,EXPECTED_BEFORE_LEDGER_SHA256,RECOVERY_APPLY_RUN,INVENTORY_RECOVERY_SOURCE,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           capture_stdout: ${{ inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127') }}
           command_timeout: 20m
           script: |
@@ -305,7 +315,7 @@ jobs:
             if [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 ]]; then
               if [ -n "$RECOVERY_APPLY_RUN" ]; then
                 test -z "$PENDING_CLASSES" || { echo 'MIGRATION_APPLY=HOLD_RECOVERY_WITH_PENDING'; exit 1; }
-                node "$STAGE/pending-migration-backup-paths.mjs" recover "$RECOVERY_APPLY_RUN"
+                TARGET_SHA="${INVENTORY_RECOVERY_SOURCE:-$TARGET_SHA}" node "$STAGE/pending-migration-backup-paths.mjs" recover "$RECOVERY_APPLY_RUN"
                 RUNNING_CHECKOUT="$(git_safe rev-parse HEAD)" AFTER_LEDGER="$LEDGER_JSON_LINE" \
                   node "$STAGE/$SCOPED_REVIEW_HELPER" recover
               else
@@ -432,7 +442,7 @@ jobs:
             if [ "$AUDIT_SCOPE" = inventory-1127 ] && [ -n "$RECOVERY_APPLY_RUN" ]; then
               receipt_run="$RECOVERY_APPLY_RUN"
             fi
-            TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$receipt_run" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
+            TARGET_SHA="${INVENTORY_RECOVERY_SOURCE:-$TARGET_SHA}" MIGRATION_RUN_ID="$receipt_run" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
               node "$STAGE/record-migration-apply-receipt.mjs" $MIGRATION_PATHS
             echo "MIGRATION_APPLY=COMMITTED"
 
