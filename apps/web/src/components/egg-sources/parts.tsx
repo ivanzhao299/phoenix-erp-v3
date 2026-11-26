@@ -119,14 +119,16 @@ export function PrecheckResult({ result,grades,specs }: {result:Precheck;grades:
   </section>;
 }
 
-export function WriteFeedback({ write,refresh }: {write:ReturnType<typeof useEggWrite>;refresh?:()=>void}) {
-  const { label } = useSourceText();
+export function WriteFeedback({ write,refresh,allowRetry = true }: {write:ReturnType<typeof useEggWrite>;refresh?:()=>void;allowRetry?:boolean}) {
+  const { label,time } = useSourceText();
   return <>
     {write.feedback&&<p role={write.feedback==='SAVED' ? 'status' : 'alert'} className={s.notice}>{label('write.'+write.feedback)}</p>}
     {write.pending&&<div className={s.actions}>
       {!write.feedback&&!write.busy&&<p className={s.hint}>{label('write.UNKNOWN')}</p>}
+      <p className={s.hint}>{label('receiptEscalation')} <code>{write.pendingKey}</code>
+        {write.sentAt && <> · {time(write.sentAt)}</>}</p>
       <button type="button" style={secondaryActionButton} disabled={write.busy} onClick={()=>void write.lookup()}>{label('checkReceipt')}</button>
-      {write.canRetry&&<button type="button" style={secondaryActionButton} disabled={write.busy} onClick={()=>void write.retry()}>
+      {allowRetry&&write.canRetry&&<button type="button" style={secondaryActionButton} disabled={write.busy} onClick={()=>void write.retry()}>
         {label('retrySameAction')}</button>}
     </div>}
     {write.feedback==='CONFLICT'&&refresh&&<button type="button" style={secondaryActionButton} onClick={refresh}>{label('refreshDetail')}</button>}

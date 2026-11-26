@@ -1,3 +1,4 @@
+import { EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
 import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { writeHenhouse } from './henhouse-write-policy';
 import { DataScopeContext } from '../org/services/data-scope.service';
@@ -574,6 +575,32 @@ export class GenericCrudService {
     }
   }
 
+  private isEggSourceConfigTable(table: string) {
+    return table==='sys_menu' || table==='sys_role_menu_permission';
+  }
+
+  private async protectEggSourceConfig(manager: EntityManager, table: string,
+    body: Record<string,unknown>, match?: { pkName:string; id:unknown }) {
+    if (table==='sys_menu') {
+      if (body.menu_code===EGG_SOURCE_MENU || body.route==='/master-data/egg-sources') {
+        throw new ForbiddenException('蛋品来源权限目录由受控迁移管理');
+      }
+      if (match && (await manager.query(`SELECT menu_id FROM sys_menu WHERE "${match.pkName}"=$1
+        AND menu_code=$2 FOR UPDATE`,[match.id,EGG_SOURCE_MENU])).length) {
+        throw new ForbiddenException('蛋品来源权限目录由受控迁移管理');
+      }
+    } else {
+      if (body.menu_id!==undefined && (await manager.query(
+        'SELECT 1 FROM sys_menu WHERE menu_id=$1 AND menu_code=$2 FOR SHARE',[body.menu_id,EGG_SOURCE_MENU])).length) {
+        throw new ForbiddenException('请通过角色与权限配置蛋品来源档案');
+      }
+      if (match && (await manager.query(`SELECT 1 FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
+        WHERE p."${match.pkName}"=$1 AND m.menu_code=$2 FOR UPDATE OF p`,[match.id,EGG_SOURCE_MENU])).length) {
+        throw new ForbiddenException('请通过角色与权限配置蛋品来源档案');
+      }
+    }
+  }
+
   async create(table: string, body: any) {
     if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
     if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
@@ -602,10 +629,14 @@ export class GenericCrudService {
         await assertOfficialInventoryBatches(manager, references.map(field => body[field]).filter((value): value is string => typeof value === 'string'));
         await manager.query(sql, values);
       });
+      else if (this.isEggSourceConfigTable(table)) await this.entityManager.transaction(async manager=>{
+        await this.protectEggSourceConfig(manager,table,body);
+        await manager.query(sql, values);
+      });
       else await this.entityManager.query(sql, values);
       return { msg: 'Created successfully' };
     } catch (e) {
-      if (e instanceof ConflictException) throw e;
+      if (e instanceof ConflictException || e instanceof ForbiddenException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -684,13 +715,14 @@ export class GenericCrudService {
           await lockTempProductionReferences(manager, references.flatMap(field => [current[field], body[field]]));
         await assertOfficialInventoryBatches(manager, references.flatMap(field => [current[field], body[field]]).filter((value): value is string => typeof value === 'string'));
         }
+        if (this.isEggSourceConfigTable(table)) await this.protectEggSourceConfig(manager,table,body,{ pkName,id });
         return manager.query(finalSql, values);
       };
-      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
+      const raw = references || this.isEggSourceConfigTable(table) ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) throw new BadRequestException('Record not found');
       return { msg: 'Updated successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException || e instanceof ForbiddenException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -724,16 +756,17 @@ export class GenericCrudService {
           await lockTempProductionReferences(manager, references.map(field => current[field]));
         await assertOfficialInventoryBatches(manager, references.map(field => current[field]).filter((value): value is string => typeof value === 'string'));
         }
+        if (this.isEggSourceConfigTable(table)) await this.protectEggSourceConfig(manager,table,{},{ pkName,id });
         return manager.query(sql, [id]);
       };
-      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
+      const raw = references || this.isEggSourceConfigTable(table) ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) {
         throw new BadRequestException('Record not found');
       }
       console.log(`[CRUD Delete] ✅ success`);
       return { msg: 'Deleted successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException || e instanceof ForbiddenException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);

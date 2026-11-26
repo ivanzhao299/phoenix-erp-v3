@@ -20,11 +20,16 @@ function nextDay(day:string) {
 
 export default function NewChange() {
   const account=useEggIdentity();
+  const router=useRouter();
   const house=useSearchParams().get('houseCode')||'';
   const {label,crumb}=useSourceText();
   const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
-  const warehouses=useEggRead<Option[]>(account,house ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
-  const options=useEggRead<Options>(account,house ? '/candidates/options' : null,validOptions);
+  const canCreate = !!workspace.data?.businessDay && !workspace.data.createBlocker;
+  const warehouses=useEggRead<Option[]>(account,canCreate ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
+  const options=useEggRead<Options>(account,canCreate ? '/candidates/options' : null,validOptions);
+  const write=useEggWrite(account,house,key=>'/change-requests/'+key+query({houseCode:house}),receipt=>{
+    router.push(root+'/changes/'+receipt.id+'?saved=1');
+  });
   return <MasterDataTemplate responsive title={label('newChange')} breadcrumb={crumb} content={<div className={s.stack}>
     <div className={s.actions}><Back href={root+query({houseCode:house,tab:'changes'})}/></div>
     {!house&&<EmptyState title={label('chooseHouse')}/>}
@@ -34,14 +39,16 @@ export default function NewChange() {
     {options.error&&<ReadFailure error={options.error} retry={options.reload}/>}
     {workspace.data&&<section className={s.section}><OwnerMeta owner={workspace.data.owner} day={workspace.data.businessDay} zone={workspace.data.zone}/></section>}
     {workspace.data?.createBlocker&&<p className={s.notice}>{label('problem.'+workspace.data.createBlocker)}</p>}
-    {workspace.data?.businessDay&&!workspace.data.createBlocker&&warehouses.data&&options.data&&
+    {house&&!canCreate&&<WriteFeedback write={write} allowRetry={false}/>}
+    {workspace.data?.businessDay&&canCreate&&warehouses.data&&options.data&&
       <NewForm key={JSON.stringify([account,house])} account={account} house={house} earliest={nextDay(workspace.data.businessDay)}
-        warehouses={warehouses.data} options={options.data}/>}
+        warehouses={warehouses.data} options={options.data} write={write}/>}
   </div>}/>;
 }
 
-function NewForm({account,house,earliest,warehouses,options}:{account:string;house:string;earliest:string;warehouses:Option[];options:Options}) {
-  const router=useRouter();
+function NewForm({account,house,earliest,warehouses,options,write}:{
+  account:string;house:string;earliest:string;warehouses:Option[];options:Options;write:ReturnType<typeof useEggWrite>
+}) {
   const {label,shell}=useSourceText();
   const [date,setDate]=useState(earliest);
   const [color,setColor]=useState<Shell>('STANDARD');
@@ -52,9 +59,6 @@ function NewForm({account,house,earliest,warehouses,options}:{account:string;hou
   const [nextId,setNextId]=useState(2);
   const [attempted,setAttempted]=useState(false);
   const plans=useEggRead<PlanOption[]>(account,date>=earliest ? '/flock-plans'+query({houseCode:house,effectiveDate:date}) : null,isPlanList);
-  const write=useEggWrite(account,house,key=>'/change-requests/'+key+query({houseCode:house}),receipt=>{
-    router.push(root+'/changes/'+receipt.id+'?saved=1');
-  });
   const requirements=useMemo(()=>items.map(({gradeCode,specCode})=>({gradeCode,specCode})),[items]);
   const input=useMemo<Input>(()=>({ houseCode:house,effectiveDate:date,targetClass:color,warehouseCode:warehouse,
     reason:reason.trim(),requirements,planDocument:linked||null }),[house,date,color,warehouse,reason,requirements,linked]);

@@ -40,9 +40,14 @@ describe('PermissionsService role permission snapshots', () => {
     };
     const conflictRepo = { find: jest.fn().mockResolvedValue([]) };
     const manager = {
-      delete: jest.fn().mockResolvedValue(undefined),
-      insert: jest.fn().mockResolvedValue(undefined),
-      query: jest.fn().mockResolvedValue([{ user_id: 7 }, { user_id: 8 }]),
+      find: jest.fn().mockResolvedValue([]),
+      query: jest.fn(async (sql:string) => {
+        if (sql.includes('FROM sys_role WHERE')) return [{ role_id:12 }];
+        if (sql.includes('FROM sys_menu WHERE')) return [{ menu_id:'31',menu_code:'MENU_FARM_MASTER' }];
+        if (sql.includes('RETURNING menu_id')) return [{ menu_id:'31' }];
+        if (sql.includes('RETURNING u.user_id')) return [{ user_id:7 },{ user_id:8 }];
+        return [];
+      }),
     };
     const dataSource = {
       query: jest.fn().mockResolvedValue([]),

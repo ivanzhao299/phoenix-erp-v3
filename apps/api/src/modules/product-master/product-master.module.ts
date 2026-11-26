@@ -9,6 +9,7 @@ import { LookupController } from './controllers/lookup.controller';
 import { MenuAdminController } from './controllers/menu-admin.controller';
 import { EggSourceChangeController } from './controllers/egg-source-change.controller';
 import { EggHistoryReviewService } from './services/egg-history-review.service';
+import { EggSourceAccessService } from './services/egg-source-access.service';
 import { EggSourceChangeService } from './services/egg-source-change.service';
 import { FileModule } from '../file/file.module';
 import { MasterDataCenterModule } from '../master-data/master-data-center.module';
@@ -35,7 +36,7 @@ import { MasterDataCenterModule } from '../master-data/master-data-center.module
     MenuAdminController,
     EggSourceChangeController,
   ],
-  providers: [ProductMasterService, SkuAvailabilityService, EggSourceChangeService, EggHistoryReviewService],
+  providers: [ProductMasterService, SkuAvailabilityService, EggSourceChangeService, EggHistoryReviewService, EggSourceAccessService],
   exports: [ProductMasterService, SkuAvailabilityService],
 })
 export class ProductMasterModule {}

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { EntityManager } from 'typeorm';
-import type { OrgScope } from '../../farm/farm.service';
+import type { ChangeScope } from './egg-source-change.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 export const SHELL_TYPES = {
@@ -55,11 +55,32 @@ export function sourceDigest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 }
 
-export function assertEggSourceScope(scope: OrgScope, owner: EggSourceOwner): void {
-  if (!scope.isGlobal && !scope.companyCodes?.includes(owner.companyCode)
-      && !scope.farmCodes?.includes(owner.farmCode) && !scope.siteCodes?.includes(owner.siteCode)) {
-    throw new ForbiddenException('鸡舍超出当前组织权限');
-  }
+function covers(scope: ChangeScope, owner: EggSourceOwner, warehouse?: string): boolean {
+  return (!scope.restrictedFarm || scope.restrictedFarm === owner.farmCode)
+    && (!scope.restrictedCompany || scope.restrictedCompany===owner.companyCode)
+    && (!scope.restrictedSite || scope.restrictedSite===owner.siteCode)
+    && (!warehouse || !scope.restrictedWarehouse || scope.restrictedWarehouse===warehouse)
+    && (scope.isGlobal || (
+      (scope.companyCodes?.includes(owner.companyCode) || scope.farmCodes?.includes(owner.farmCode) || scope.siteCodes?.includes(owner.siteCode))
+      && (!warehouse || scope.allowedWarehouses?.includes(warehouse))
+    )) === true;
+}
+
+export function canAccessEggSource(scope: ChangeScope, owner: EggSourceOwner, warehouse?: string): boolean {
+  return (scope.viewGrants ?? [scope]).some(grant => covers(grant, owner, warehouse))
+    && (!scope.actionGrants || scope.actionGrants.some(grant => covers(grant, owner, warehouse)));
+}
+
+export function assertEggSourceScope(scope: ChangeScope, owner: EggSourceOwner, warehouse?: string): void {
+  if (!canAccessEggSource(scope, owner, warehouse)) throw new ForbiddenException('鸡舍或目标仓超出当前授权范围');
+}
+
+export const sourceWarehouseFilter = "status='ACTIVE' AND domain='OPERATIONAL' AND (site_code=$3 OR NULLIF(site_code,'') IS NULL)";
+
+export async function eggSourceWarehouse(m: EntityManager, owner: EggSourceOwner, warehouse: string): Promise<boolean> {
+  const [row] = await m.query(`SELECT 1 FROM wms_warehouses WHERE warehouse_code=$1 AND company_code=$2
+    AND ${sourceWarehouseFilter} FOR SHARE`, [warehouse, owner.companyCode, owner.siteCode]);
+  return !!row;
 }
 
 /** Authoritative ownership. Include inactive houses for evidence reads, not fresh approvals. */

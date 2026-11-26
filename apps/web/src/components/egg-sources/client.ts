@@ -1,12 +1,13 @@
 'use client';
 
+import { EGG_SOURCE_MENU } from '@/lib/egg-source-permissions';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import { dispatchAuthExpired } from '@/lib/auth-dispatch';
 import { eggSourceEndpoint } from '@/lib/egg-source-api';
 
 export function useEggIdentity() {
-  const { canView,user } = usePermission('MENU_MD_PRODUCT');
+  const { canView,user } = usePermission(EGG_SOURCE_MENU);
   return canView ? identity(user) : '';
 }
 
@@ -63,7 +64,7 @@ export function useEggRead<T>(account:string,path:string|null,validate:(data:T)=
 }
 
 type Receipt = {id:string;state:string;version:number};
-type Pending = {key:string};
+type Pending = {key:string;sentAt?:string};
 
 function receiptIdentity(account:string) {
   try {
@@ -148,14 +149,14 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     }
   });
   return {
-    busy,feedback,resetFeedback:()=>setFeedback(null),pending:!!pending,canRetry:!!pending && retryContext===activeKey,
+    busy,feedback,resetFeedback:()=>setFeedback(null),pending:!!pending,pendingKey:pending?.key,sentAt:pending?.sentAt,canRetry:!!pending && retryContext===activeKey,
     send(path:string,input:Record<string,unknown>) {
       if (pending || inFlight.current || !active() || loadPending(storageKey)) return;
       const key = crypto.randomUUID();
       const json = JSON.stringify({ ...input,actionKey:key });
       body.current={ path,body:json,activeKey };
       setRetryContext(activeKey);
-      remember({ key });
+      remember({ key,sentAt:new Date().toISOString() });
       return transmit(path,json);
     },
     lookup() { return pending && perform(async () => {

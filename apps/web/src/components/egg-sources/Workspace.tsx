@@ -72,7 +72,7 @@ export default function Workspace() {
     {key:'effectiveDate',title:label('start')},
     {key:'shell',title:label('shell'),render:row=>shell(row.targetClass)},
     {key:'warehouse',title:label('warehouse'),render:row=>row.warehouseName||row.warehouseCode},
-    {key:'state',title:label('status'),render:row=><Badge value={row.state}/>},
+    {key:'state',title:label('status'),render:row=><><Badge value={row.state}/>{row.overdue && <small className={s.hint}> · {label('overdue')}</small>}</>},
     {key:'createdBy',title:label('createdBy'),render:row=>row.createdByName||row.createdBy},
     {key:'createdAt',title:label('createdAt'),render:row=>time(row.createdAt)},
     {key:'open',title:label('viewDetail'),render:action},
@@ -111,9 +111,12 @@ export default function Workspace() {
             <h2>{label(result.profiles.some(row=>row.status==='CURRENT')?'schedule':'noCurrent')}</h2>
             <p className={s.hint}>{label('scheduleBasis')}</p>
           </div>
-          {(result.pending.submitted>0||result.pending.revokeRequested>0)&&<div className={s.actions}>
+          {(result.pending.submitted>0||!!result.pending.expired||result.pending.revokeRequested>0)&&<div className={s.actions}>
             {result.pending.submitted>0&&<Link href={root+query({houseCode:house,tab:'changes',state:'SUBMITTED'})}>
               {label('status.SUBMITTED')} ({result.pending.submitted})
+            </Link>}
+            {!!result.pending.expired&&<Link href={root+query({houseCode:house,tab:'changes',state:'EXPIRED'})}>
+              {label('overdue')} ({result.pending.expired})
             </Link>}
             {result.pending.revokeRequested>0&&<Link href={root+query({houseCode:house,tab:'changes',state:'REVOKE_REQUESTED'})}>
               {label('status.REVOKE_REQUESTED')} ({result.pending.revokeRequested})
@@ -131,6 +134,7 @@ export default function Workspace() {
             <div className={s.fields}>
               <Field title={label('status')}>{attrs=><select {...attrs} name="state" style={inputField} defaultValue={filter.state??''}>
                 <option value="">{label('allStates')}</option>
+                <option value="EXPIRED">{label('overdue')}</option>
                 {states.map(state=><option key={state} value={state}>{label('status.'+state)}</option>)}
               </select>}</Field>
               <Field title={label('startFrom')}>{attrs=><input {...attrs} name="dateFrom" type="date" style={inputField} defaultValue={filter.dateFrom??''}/>}</Field>
@@ -150,7 +154,7 @@ export default function Workspace() {
               <div className={s.compact}>{changes.data.items.map(row=><article key={row.id} className={s.record}>
                 <Meta pairs={[[label('requestId'),<code key="id" title={row.id}>{row.id.slice(0,8)}…</code>],[label('start'),row.effectiveDate],
                   [label('shell'),shell(row.targetClass)],[label('warehouse'),row.warehouseName||row.warehouseCode],
-                  [label('status'),<Badge key="status" value={row.state}/>],[label('createdBy'),row.createdByName||row.createdBy],[label('createdAt'),time(row.createdAt)]]}/>
+                  [label('status'),<span key="status"><Badge value={row.state}/>{row.overdue && <small className={s.hint}> · {label('overdue')}</small>}</span>],[label('createdBy'),row.createdByName||row.createdBy],[label('createdAt'),time(row.createdAt)]]}/>
                 {action(row)}
               </article>)}</div>
             </>}

@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { resolveMenuGrants, saveMenuGrants } from '../permissions/save-menu-grants';
 
 /**
  * G118 权限集（PBAC 两层模型）服务。
@@ -32,7 +33,8 @@ export class PermissionSetsService {
     if (!head.length) throw new BadRequestException(`能力集 ${setCode} 不存在`);
     const set = head[0];
     const items = await this.ds.query(`
-      SELECT i.item_id, m.menu_code, m.menu_name_zh, i.perm_codes, i.deny_codes
+      SELECT i.item_id, m.menu_code, m.menu_name_zh, i.perm_codes,i.deny_codes,
+        CASE WHEN m.menu_code='MENU_MD_EGG_SOURCE' AND i.scope_type='WAREHOUSE' THEN i.scope_value END AS egg_warehouse_code
         FROM sys_permission_set_item i JOIN sys_menu m ON m.menu_id=i.menu_id
        WHERE i.set_id=$1 ORDER BY m.menu_code`, [set.set_id]);
     const roles = await this.ds.query(`
@@ -84,23 +86,21 @@ export class PermissionSetsService {
     return { ok: true };
   }
 
-  /** 覆盖明细（全删 + 全插），perm_codes 形如 'V,C,E' */
-  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string }>) {
-    const head = await this.ds.query(`SELECT set_id FROM sys_permission_set WHERE set_code=$1`, [setCode]);
-    if (!head.length) throw new BadRequestException(`能力集 ${setCode} 不存在`);
-    const setId = head[0].set_id;
-    await this.ds.query(`DELETE FROM sys_permission_set_item WHERE set_id=$1`, [setId]);
-    const valid = (items || []).filter((it) => it.menu_code && it.perm_codes);
-    if (valid.length) {
-      await this.ds.query(
-        `INSERT INTO sys_permission_set_item (set_id, menu_id, perm_codes)
-         SELECT $1, m.menu_id, v.perm_codes
-         FROM (VALUES ${valid.map((_, i) => `($${i * 2 + 2}::text,$${i * 2 + 3}::text)`).join(',')}) AS v(menu_code, perm_codes)
-         JOIN sys_menu m ON m.menu_code = v.menu_code`,
-        [setId, ...valid.flatMap((it) => [it.menu_code, it.perm_codes])]);
-    }
-    await this.bumpPerms(await this.affectedUserIds(setId));
-    return { ok: true, written: valid.length };
+  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string }>) {
+    return this.ds.transaction(async manager => {
+      const [head] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE', [setCode]);
+      if (!head) throw new BadRequestException(`能力集 ${setCode} 不存在`);
+      const grants = await resolveMenuGrants(manager, items);
+      const written = await saveMenuGrants(manager, 'set', head.set_id, grants);
+      await manager.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=NOW()
+        WHERE user_id IN (
+          SELECT user_id FROM sys_user_permission_set WHERE set_id=$1
+          UNION
+          SELECT ur.user_id FROM sys_role_permission_set rps JOIN sys_user_role ur ON ur.role_id=rps.role_id
+          WHERE rps.set_id=$1 AND COALESCE(ur.is_visible,true)
+        )`, [head.set_id]);
+      return { ok:true, written };
+    });
   }
 
   async assignRole(setCode: string, roleCode: string) {

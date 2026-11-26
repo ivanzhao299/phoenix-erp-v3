@@ -48,7 +48,7 @@ function ScopedDetail({account,id}:{account:string;id:string}) {
   const feedback=<div tabIndex={-1} id="egg-source-write-status">
     {params.get('saved')==='1'&&<p role="status" className={s.notice}>{label('saved')}</p>}
     {latestReceipt&&<p role="status" className={s.notice}>{label('actionSaved')} · {label('status.'+latestReceipt.state)} · {label('version')} {latestReceipt.version}</p>}
-    <WriteFeedback write={write} refresh={()=>{write.resetFeedback();read.reload();}}/>
+    <WriteFeedback write={write} allowRetry={!!detail?.allowedActions.length} refresh={()=>{write.resetFeedback();read.reload();}}/>
   </div>;
   if (!detail) return <MasterDataTemplate responsive title={label('detail')} breadcrumb={crumb}
     content={<div className={s.stack}><div className={s.actions}><Back href={returnHref}/></div>{feedback}
@@ -118,7 +118,8 @@ function ScopedDetail({account,id}:{account:string;id:string}) {
       ]}
       sidebar={<div className={s.stack}>
         <PageSection title={label('actions')}><div className={s.stack}>{feedback}
-          {detail.businessDay&&detail.effectiveDate<=detail.businessDay&&<p className={s.hint}>{label('dateReached')}</p>}
+          {detail.writesPaused&&<p role="status" className={s.notice}>{label('problem.WRITES_PAUSED')}</p>}
+          {detail.overdue&&<p role="status" className={s.notice}>{label('overdueDetail')}</p>}
           {detail.allowedActions.length ? actionButtons : <p className={s.hint}>{label('noActions')}</p>}
         </div></PageSection>
         <PageSection title={label('historyActions')}>

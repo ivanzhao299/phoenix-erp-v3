@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpException, InternalServerErrorException, Logger, Optional, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
-import { hasPerm } from '../../../auth/permissions.util';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpException, InternalServerErrorException, Logger, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
+import { EGG_SOURCE_MENU as menu, EggSourcePermission } from '../../../auth/egg-source-permissions';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { deriveOrgScope } from '../../farm/farm.service';
-import { DataScopeService } from '../../org/services/data-scope.service';
+import { EggSourceAccessService } from '../services/egg-source-access.service';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { sourceText } from '../services/egg-source-change-policy';
 import { EggHistoryReviewService } from '../services/egg-history-review.service';
@@ -10,14 +11,13 @@ import { SourceSkuBlocked } from '../services/sku-availability.service';
 import type { ChangeListQuery } from '../services/egg-source-change-read';
 import { EggSourceChangeService } from '../services/egg-source-change.service';
 
-const menu = 'MENU_MD_PRODUCT';
 
 @Controller('api/product-master/egg-sources')
 @UseGuards(MenuGuard,DataScopeGuard)
 @RequireMenu(menu,'V')
 export class EggSourceChangeController {
   constructor(private readonly service: EggSourceChangeService, private readonly history: EggHistoryReviewService,
-    @Optional() private readonly dataScopes?: DataScopeService) {}
+    private readonly access: EggSourceAccessService) {}
 
   private scope(req: any) {
     if (!req.dataScope) throw new ForbiddenException('当前组织权限未解析');
@@ -29,92 +29,75 @@ export class EggSourceChangeController {
     return sourceText(String(req.user?.userId ?? ''),'实名账号');
   }
 
-  private permitted(req: any, permission: 'V'|'E'|'A', targetMenu = menu) {
-    return hasPerm(req.user?.permissions,targetMenu,permission) ||
-      req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN';
+  private async accessScope(req: any, action: EggSourcePermission = 'V', manager?: EntityManager) {
+    const access = await this.access.resolve(req.user, action, manager);
+    return action === 'V' ? access.scope : { ...access.scope, actionGrants: action === 'E' ? access.edit : access.approve };
   }
 
-  private async relatedScope(req: any, targetMenu: string) {
-    if (!this.dataScopes || !this.permitted(req,'V',targetMenu)) return undefined;
-    const user = req.user;
-    const roles = user.roles ?? (user.role ? [user.role] : []);
-    const version = Number(user.perms_version);
-    try {
-      const dataScope = await this.dataScopes.resolve(String(user.userId??user.id??''),roles,targetMenu,
-        Number.isFinite(version) ? version : undefined);
-      return this.scope({ user,dataScope });
-    } catch (error) {
-      Logger.warn(`Linked document scope unavailable: ${targetMenu} (${error instanceof Error ? error.name : 'unknown'})`,
-        EggSourceChangeController.name);
-      return undefined;
-    }
-  }
-
-  private reader(req: any) {
-    const actor = req.user?.impersonatedBy ? null : String(req.user?.userId??'') || null;
-    return { scope:this.scope(req),actor,edit:!!actor && !!this.permitted(req,'E'),approve:!!actor && !!this.permitted(req,'A') };
+  private async reader(req: any) {
+    const access = await this.access.resolve(req.user);
+    return { scope: access.scope, actor: access.actor, edit: !!access.edit.length, approve: !!access.approve.length,
+      editGrants: access.edit, approveGrants: access.approve };
   }
 
   @Get('workspace')
   async workspace(@Query('houseCode') house:string,@Req() req:any) {
-    return { code:200,data:await this.service.workspace(house,this.reader(req)) };
+    return { code:200,data:await this.service.workspace(house,await this.reader(req)) };
   }
 
   @Get('candidates/houses')
   async houses(@Req() req:any) {
-    return { code:200,data:await this.service.candidateHouses(this.scope(req)) };
+    return { code:200,data:await this.service.candidateHouses(await this.accessScope(req)) };
   }
 
   @Get('candidates/warehouses')
+  @RequireMenu(menu,'E')
   async warehouses(@Query('houseCode') house:string,@Req() req:any) {
-    return { code:200,data:await this.service.candidateWarehouses(house,this.scope(req)) };
+    return { code:200,data:await this.service.candidateWarehouses(house,await this.accessScope(req,'E')) };
   }
 
   @Get('candidates/options')
-  async options() {
+  @RequireMenu(menu,'E')
+  async options(@Req() req:any) {
+    await this.accessScope(req,'E');
     return { code:200,data:await this.service.candidateOptions() };
   }
 
   @Get('changes')
   async list(@Query() query:ChangeListQuery,@Req() req:any) {
-    return { code:200,data:await this.service.changeList(query,this.scope(req)) };
+    return { code:200,data:await this.service.changeList(query,await this.accessScope(req)) };
   }
 
   @Get('changes/:id')
   async detail(@Param('id') id:string,@Req() req:any) {
-    const flock=await this.relatedScope(req,'MENU_FARM_DATA');
-    return { code:200,data:await this.service.changeDetail(id,{ ...this.reader(req),flock }) };
+    const flock=await this.access.flockScope(req.user);
+    return { code:200,data:await this.service.changeDetail(id,{ ...await this.reader(req),flock }) };
   }
 
   @Get('change-requests/:key')
   async draftReceipt(@Param('key') key:string,@Query('houseCode') house:string,@Req() req:any) {
-    return { code:200,data:await this.service.draftReceipt(key,house,this.scope(req),this.actor(req)) };
+    return { code:200,data:await this.service.draftReceipt(key,house,await this.accessScope(req),this.actor(req)) };
   }
 
   @Get('changes/:id/action-requests/:key')
   async actionReceipt(@Param('id') id:string,@Param('key') key:string,@Req() req:any) {
-    return { code:200,data:await this.service.actionReceipt(id,key,this.scope(req),this.actor(req)) };
+    return { code:200,data:await this.service.actionReceipt(id,key,await this.accessScope(req),this.actor(req)) };
   }
 
   @Post('precheck')
   @HttpCode(200)
   @RequireMenu(menu,'E')
   async precheck(@Body() body: Parameters<EggSourceChangeService['precheck']>[0],@Req() req: any) {
-    this.precheckActor(req);
-    return this.precheckResponse(() => this.service.precheck(body,this.scope(req)));
+    const scope = await this.accessScope(req,'E');
+    return this.precheckResponse(() => this.service.precheck(body,scope));
   }
 
   @Post('changes/:id/precheck')
   @HttpCode(200)
   @RequireMenu(menu,'E')
   async precheckDraft(@Param('id') id:string,@Req() req:any) {
-    const actor = this.precheckActor(req);
-    return this.precheckResponse(() => this.service.precheckDraft(id,this.scope(req),actor));
-  }
-
-  private precheckActor(req:any) {
-    if (!this.permitted(req,'V')) throw new ForbiddenException('缺少商品主数据查看权限');
-    return this.actor(req);
+    const scope = await this.accessScope(req,'E');
+    return this.precheckResponse(() => this.service.precheckDraft(id,scope,this.actor(req)));
   }
 
   private async precheckResponse(work:()=>Promise<unknown>) {
@@ -139,26 +122,27 @@ export class EggSourceChangeController {
 
   @Get()
   async timeline(@Query('houseCode') house: string,@Req() req: any) {
-    return { code:200,data:await this.service.timeline(house,this.scope(req),await this.relatedScope(req,'MENU_FARM_DATA')) };
+    return { code:200,data:await this.service.timeline(house,await this.accessScope(req),await this.access.flockScope(req.user)) };
   }
 
   @Get('flock-plans')
+  @RequireMenu(menu,'E')
   async flockPlans(@Query('houseCode') house:string,@Query('effectiveDate') date:string,@Req() req:any) {
-    return {code:200,data:await this.service.planOptions(house,date,this.scope(req),await this.relatedScope(req,'MENU_FARM_DATA'))};
+    return {code:200,data:await this.service.planOptions(house,date,await this.accessScope(req,'E'),await this.access.flockScope(req.user))};
   }
 
   @Post('preview')
+  @RequireMenu(menu,'E')
   async preview(@Body() body: Parameters<EggSourceChangeService['preview']>[0],@Req() req: any) {
-    const flock = await this.relatedScope(req,'MENU_FARM_DATA');
-    return { code:200,data:await this.safeWrite(() => this.service.preview(body,this.scope(req),flock)) };
+    const flock = await this.access.flockScope(req.user);
+    return { code:200,data:await this.safeWrite(async () => this.service.preview(body,await this.accessScope(req,'E'),flock)) };
   }
 
   @Post('changes')
   @RequireMenu(menu,'E')
   async create(@Body() body: Parameters<EggSourceChangeService['create']>[0],@Req() req: any) {
-    const flock = await this.relatedScope(req,'MENU_FARM_DATA');
-    const change=await this.service.create(body,this.scope(req),this.actor(req));
-    return { code:201,data:await this.service.safeLegacyChange(change,flock) };
+    const change=await this.service.create(body,await this.accessScope(req,'E'),this.actor(req),m=>this.accessScope(req,'E',m));
+    return { code:201,data:await this.service.safeLegacyChange(change,await this.access.flockScope(req.user)) };
   }
 
   @Post('changes/:id/actions/:action')
@@ -166,9 +150,8 @@ export class EggSourceChangeController {
   async edit(@Param('id') id: string,@Param('action') action: 'submit'|'cancel'|'request-revoke',
     @Body() body: Parameters<EggSourceChangeService['act']>[2],@Req() req: any) {
     if (!['submit','cancel','request-revoke'].includes(action)) throw new BadRequestException('未知制单动作');
-    const flock = await this.relatedScope(req,'MENU_FARM_DATA');
-    const receipt=await this.safeWrite(() => this.service.act(id,action,body,this.scope(req),this.actor(req)));
-    return { code:200,data:{ ...receipt,change:await this.service.safeLegacyChange(receipt.change,flock) } };
+    const receipt=await this.safeWrite(async () => this.service.act(id,action,body,await this.accessScope(req,'E'),this.actor(req),undefined,m=>this.accessScope(req,'E',m)));
+    return { code:200,data:{ ...receipt,change:await this.service.safeLegacyChange(receipt.change,await this.access.flockScope(req.user)) } };
   }
 
   @Post('changes/:id/reviews/:action')
@@ -176,12 +159,8 @@ export class EggSourceChangeController {
   async review(@Param('id') id: string,@Param('action') action: 'approve'|'reject'|'revoke'|'decline-revoke',
     @Body() body: Parameters<EggSourceChangeService['act']>[2],@Req() req: any) {
     if (!['approve','reject','revoke','decline-revoke'].includes(action)) throw new BadRequestException('未知审核动作');
-    if (!this.permitted(req,'A')) {
-      throw new ForbiddenException('缺少商品主数据审核权限');
-    }
-    const flock = await this.relatedScope(req,'MENU_FARM_DATA');
-    const receipt=await this.safeWrite(() => this.service.act(id,action,body,this.scope(req),this.actor(req)));
-    return { code:200,data:{ ...receipt,change:await this.service.safeLegacyChange(receipt.change,flock) } };
+    const receipt=await this.safeWrite(async () => this.service.act(id,action,body,await this.accessScope(req,'A'),this.actor(req),m=>this.access.flockScope(req.user,m),m=>this.accessScope(req,'A',m)));
+    return { code:200,data:{ ...receipt,change:await this.service.safeLegacyChange(receipt.change,await this.access.flockScope(req.user)) } };
   }
 
   @Post('history/:id/dispositions')

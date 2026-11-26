@@ -28,11 +28,13 @@ export interface PermSource {
   scope_type: string | null;  // 'STORE' | 'REGION' | 'FARM' | null
   scope_value: string | null; // 例 'S001' / null
   approval_level: number;     // 角色优先级；权限集合无角色时填 0
+  role_code?: string | null;
+  active_role?: boolean;
   source: 'role' | 'role_set' | 'user_set'; // 仅审计用
 }
 
 /** 解析 perm_codes 字符串到 Set<PermCode>；支持通配 '*' */
-function parseCodes(codes: string | null | undefined): Set<PermCode> {
+export function parseCodes(codes: string | null | undefined): Set<PermCode> {
   if (!codes) return new Set();
   const s = codes.trim();
   if (!s) return new Set();

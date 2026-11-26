@@ -1,3 +1,4 @@
+import { eggSourceWarehouse } from './egg-source-change-policy';
 import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { EggSourceOwner, EggShellClass, SHELL_TYPES, sourceClock } from './egg-source-change-policy';
@@ -66,9 +67,9 @@ export async function sourceUseBlockers(m: EntityManager, owner: EggSourceOwner,
 
 export async function verifySourceChangePlan(m: EntityManager, skus: SkuAvailabilityService, owner: EggSourceOwner,
   date: string, kind: EggShellClass, warehouseCode: string, requirements: SourceSkuRequirement[], planDocument?: string, diagnostics?: SourcePrecheckRow[]) {
-  const [warehouse] = await m.query(`SELECT warehouse_code FROM wms_warehouses WHERE warehouse_code=$1 AND company_code=$2
-    AND status='ACTIVE' AND domain='OPERATIONAL' FOR SHARE`, [warehouseCode, owner.companyCode]);
-  if (!warehouse) throw new SourcePlanBlocked('WAREHOUSE_UNAVAILABLE','目标仓须为本公司启用的操作仓');
+  if (!await eggSourceWarehouse(m,owner,warehouseCode)) {
+    throw new SourcePlanBlocked('WAREHOUSE_UNAVAILABLE','目标仓须为本公司、适用场站的启用操作仓');
+  }
   const scopes = await m.query(`SELECT id,state,first_production_date::text FROM production_cutover_scopes
     WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' FOR SHARE`, [owner.companyCode, owner.houseCode]);
   if (scopes.length > 1 || scopes.some((s: any) => s.state !== 'ACTIVE' || s.first_production_date > date)) {

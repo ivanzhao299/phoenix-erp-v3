@@ -1,4 +1,5 @@
 "use client";
+import { EGG_SOURCE_MENU } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -248,7 +249,7 @@ export const MENU: MenuItem[] = [
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },
     { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL" },
-    { id: "mdc-egg-sources", path: "/master-data/egg-sources", Icon: Egg, label: "蛋品来源档案", perm: "MENU_MD_PRODUCT" },
+    { id: "mdc-egg-sources", path: "/master-data/egg-sources", Icon: Egg, label: "蛋品来源档案", perm: EGG_SOURCE_MENU },
     { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT" },
     { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE" },
     { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING" },

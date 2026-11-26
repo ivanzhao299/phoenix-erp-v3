@@ -7,6 +7,8 @@
  *   - 权限矩阵：菜单 × V/C/E/D/A/X 三元组（PUT /api/permissions/role/{code}/perms）
  *   - 岗位冲突：基于 sys_role_conflict 的实时检测；新增 BLOCK 硬阻止，既存 BLOCK 允许只减不增
  */
+import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { EntityWorkspace, Panel } from "@/components/design-system";
@@ -19,7 +21,7 @@ import { Shield, Save, AlertTriangle, Lock, Grid, FileText } from "lucide-react"
 import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型定义（与列表页一致）─────────────────────────────────────────────
-interface MenuItem {
+interface MenuItem { actions?: string[];
   menu_code: string;
   menu_name_zh: string;
   menu_name_lo: string | null;
@@ -46,6 +48,7 @@ interface RoleRow {
 interface RolePerm {
   menu_code: string;
   perm_codes: string;
+  egg_warehouse_code?: string;
 }
 interface ConflictRule {
   id: number;
@@ -119,6 +122,9 @@ export default function RoleDetailPage() {
     description: "",
   });
   // perms: Map<menu_code, Set<perm_code>>
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [eggWarehouse, setEggWarehouse] = useState("");
+  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
 
   const isAdmin = roleCode === "ROLE_ADMIN";
@@ -126,6 +132,7 @@ export default function RoleDetailPage() {
   // ── 数据加载 ──────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
+    setPermissionsLoaded(false);
     try {
       // 1) 角色列表 → 找该角色
       const r = await apiGet("/api/crud/sys_role");
@@ -163,12 +170,17 @@ export default function RoleDetailPage() {
       if (found) {
         try {
           const pr = await apiGet(`/api/permissions/role/${found.role_code}/perms`);
-          const data: RolePerm[] = pr.data || [];
+          if (pr.code!==200 || !Array.isArray(pr.data)) throw new Error("Invalid permission response");
+          const data: RolePerm[] = pr.data;
           const p: Record<string, Set<string>> = {};
           for (const it of data) {
             p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
           }
           setPerms(p);
+          const warehouse = data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+          setEggWarehouse(warehouse);
+          setSavedEggWarehouse(warehouse);
+          setPermissionsLoaded(true);
           const writeGranted = new Set(Object.keys(p).filter(mc =>
             Array.from(p[mc] || []).some(code => ["C", "E", "D", "A"].includes(code)),
           ));
@@ -177,6 +189,8 @@ export default function RoleDetailPage() {
             .map((c: ConflictRule) => `${c.menu_a}|${c.menu_b}`)));
         } catch {
           setPerms({});
+          setPermissionsLoaded(false);
+          toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试"));
           setBaselineBlockKeys(new Set());
         }
       }
@@ -231,13 +245,14 @@ export default function RoleDetailPage() {
       return next;
     });
   };
-  const toggleMenuAll = (menuCode: string) => {
+  const toggleMenuAll = (menu: MenuItem) => {
+    const {menu_code:menuCode, actions=PERM_CODE_ORDER} = menu;
     if (!editable) return;
     setPerms(prev => {
       const next = { ...prev };
       const cur = next[menuCode];
-      const isAll = cur && PERM_CODE_ORDER.every(c => cur.has(c));
-      if (isAll) delete next[menuCode]; else next[menuCode] = new Set(PERM_CODE_ORDER);
+      const isAll = cur && actions.every(c => cur.has(c));
+      if (isAll) delete next[menuCode]; else next[menuCode] = new Set(actions);
       return next;
     });
   };
@@ -285,7 +300,8 @@ export default function RoleDetailPage() {
       // 2) 批量覆盖权限三元组
       const permsPayload = Object.entries(perms)
         .filter(([, set]) => set && set.size > 0)
-        .map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(",") }));
+        .map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(","),
+          egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined }));
       const setR = await apiPut(`/api/permissions/role/${role.role_code}/perms`, { perms: permsPayload });
       if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败", "权限保存失败"));
 
@@ -298,7 +314,7 @@ export default function RoleDetailPage() {
     }
   };
 
-  const editable = canEdit && !isAdmin;
+  const editable = canEdit && !isAdmin && permissionsLoaded;
 
   // ── Loading / not found ───────────────────────────────────────────────
   if (loading) {
@@ -453,21 +469,23 @@ export default function RoleDetailPage() {
                       <span title={menu.menu_code} style={{ fontWeight: set.size > 0 ? 600 : 400 }}>{menu.menu_name_zh}</span>
                     </div>
                     <div style={{ display: "flex", gap: 2 }}>
-                      {PERM_CODE_ORDER.map(c => {
+                      {(menu.actions ?? PERM_CODE_ORDER).map(c => {
                         const meta = PERM_CODE_META[c];
                         const on = set.has(c);
                         return (
-                          <button type="button" key={c} title={meta.tip} onClick={() => togglePerm(menu.menu_code, c)}
+                          <button type="button" key={c} title={menuActionLabel(menu.menu_code,c,meta.tip,t)} aria-pressed={on} onClick={() => togglePerm(menu.menu_code, c)}
                             style={{ minWidth: 22, height: 22, fontSize: 10, fontWeight: 700, borderRadius: 3, cursor: editable ? "pointer" : "not-allowed", border: `1px solid ${on ? meta.color : "var(--border)"}`, background: on ? meta.color : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)", transition: "all 0.1s", opacity: editable ? 1 : 0.7 }}>
-                            {c}
+                            {menuActionLabel(menu.menu_code,c,c,t)}
                           </button>
                         );
                       })}
                     </div>
-                    <button type="button" onClick={() => toggleMenuAll(menu.menu_code)}
-                      style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, border: "1px solid var(--border)", background: PERM_CODE_ORDER.every(c => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)", color: PERM_CODE_ORDER.every(c => set.has(c)) ? "white" : "var(--text-secondary)", cursor: editable ? "pointer" : "not-allowed", fontWeight: 600, opacity: editable ? 1 : 0.7 }}>
+                    <button type="button" onClick={() => toggleMenuAll(menu)}
+                      style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, border: "1px solid var(--border)", background: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)", color: (menu.actions ?? PERM_CODE_ORDER).every(c => set.has(c)) ? "white" : "var(--text-secondary)", cursor: editable ? "pointer" : "not-allowed", fontWeight: 600, opacity: editable ? 1 : 0.7 }}>
                       {t("ui.全选", "全选")}
                     </button>
+                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
+                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse} disabled={!editable}/></div>}
                   </div>
                 );
               })}

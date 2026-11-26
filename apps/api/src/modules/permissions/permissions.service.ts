@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { SysRoleEntity } from './entities/sys-role.entity';
@@ -7,6 +7,9 @@ import { SysUserRoleEntity } from './entities/sys-user-role.entity';
 import { SysRoleMenuPermissionEntity } from './entities/sys-role-menu-permission.entity';
 import { SysRoleConflictEntity } from './entities/sys-role-conflict.entity';
 import { resolvePermissions, PermSource } from '../../auth/permissions-resolver';
+
+import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
+import { resolveMenuGrants, saveMenuGrants } from './save-menu-grants';
 
 export interface MenuGroupNode {
   domain: string;
@@ -21,12 +24,14 @@ export interface MenuGroupNode {
     sort_order: number;
     /** UI 提示：该菜单是否敏感（建议二次确认） */
     sensitive: boolean;
+    actions?: readonly string[];
   }>;
 }
 
 export interface RoleMenuPermDto {
   menu_code: string;
   perm_codes: string;          // 例 "V,C,E"
+  egg_warehouse_code?: string;
 }
 
 type SodRule = Pick<SysRoleConflictEntity, 'menu_a' | 'menu_b' | 'severity'>;
@@ -59,6 +64,7 @@ export interface MatrixRoleRow {
 
 // ── 业务域分组元数据（按 sys_menu.domain 字段聚合）─────────────────────
 const DOMAIN_META: Record<string, { label_zh: string; color: string }> = {
+  MASTER:     { label_zh: '主数据中心',         color: '#475569' },
   COMMON:     { label_zh: '🏛️ 通用与决策',    color: '#6366f1' },
   FINANCE:    { label_zh: '💰 财务',           color: '#ec4899' },
   ORDER:      { label_zh: '📦 订单',           color: '#06b6d4' },
@@ -117,6 +123,7 @@ export class PermissionsService {
         icon: m.icon,
         sort_order: m.sort_order,
         sensitive: SENSITIVE_MENUS.has(m.menu_code),
+        actions: m.menu_code === EGG_SOURCE_MENU ? EGG_SOURCE_ACTIONS : undefined,
       });
     }
     return Array.from(byDomain.values());
@@ -201,68 +208,34 @@ export class PermissionsService {
     const role = await this.roleRepo.findOne({ where: { role_code: roleCode } });
     if (!role) return [];
     const rows = await this.dataSource.query(
-      `SELECT m.menu_code, rmp.perm_codes
+      `SELECT m.menu_code,rmp.perm_codes,
+         CASE WHEN m.menu_code='MENU_MD_EGG_SOURCE' AND rmp.scope_type='WAREHOUSE' THEN rmp.scope_value END AS egg_warehouse_code
        FROM sys_role_menu_permission rmp
        JOIN sys_menu m ON m.menu_id = rmp.menu_id
-       WHERE rmp.role_id = $1
+       WHERE rmp.role_id = $1 AND NULLIF(rmp.perm_codes,'') IS NOT NULL
        ORDER BY m.sort_order`,
       [role.role_id],
     );
-    return rows.map((r: any) => ({ menu_code: r.menu_code, perm_codes: r.perm_codes }));
+    return rows.map((r: any) => ({ menu_code: r.menu_code, perm_codes: r.perm_codes, egg_warehouse_code:r.egg_warehouse_code??undefined }));
   }
 
   // ── PUT /api/permissions/role/:code/perms  批量替换该角色的三元组 ──────
-  // 入参：[{menu_code, perm_codes}, ...]  以全量覆盖方式写入（删旧+插新，在事务内）
   async setRolePermissions(roleCode: string, perms: RoleMenuPermDto[]) {
-    const role = await this.roleRepo.findOne({ where: { role_code: roleCode } });
-    if (!role) throw new Error(`角色不存在: ${roleCode}`);
-
-    if (!Array.isArray(perms)) throw new Error('perms 必须是数组');
-
-    // 校验 perm_codes 合法性
-    const VALID_CODES = new Set(['V', 'C', 'E', 'D', 'A', 'X', '*']);
-    for (const p of perms) {
-      if (!p.menu_code || !p.perm_codes) {
-        throw new Error(`无效项: ${JSON.stringify(p)}`);
+    return this.dataSource.transaction(async mgr => {
+      const [role] = await mgr.query('SELECT role_id FROM sys_role WHERE role_code=$1 FOR UPDATE', [roleCode]);
+      if (!role) throw new BadRequestException(`角色不存在: ${roleCode}`);
+      const rows = await resolveMenuGrants(mgr, perms);
+      const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
+      const currentPerms: RoleMenuPermDto[] = await mgr.query(`SELECT m.menu_code,rmp.perm_codes
+        FROM sys_role_menu_permission rmp JOIN sys_menu m USING (menu_id) WHERE rmp.role_id=$1`, [role.role_id]);
+      const rules = await mgr.find(SysRoleConflictEntity);
+      const addedBlocks = newlyIntroducedBlockingConflicts(
+        currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
+        perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code), rules);
+      if (addedBlocks.length) {
+        throw new BadRequestException(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
       }
-      const codes = p.perm_codes.split(',').map(s => s.trim()).filter(Boolean);
-      for (const c of codes) {
-        if (!VALID_CODES.has(c)) throw new Error(`perm_codes 非法字符: ${c}（合法: V,C,E,D,A,X,*）`);
-      }
-    }
-
-    const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
-    const currentPerms = await this.getRolePermissions(roleCode);
-    const rules = await this.conflictRepo.find();
-    const addedBlocks = newlyIntroducedBlockingConflicts(
-      currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
-      perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
-      rules,
-    );
-    if (addedBlocks.length > 0) {
-      throw new Error(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
-    }
-
-    // 将 menu_code 转 menu_id（一次查询）
-    const allMenus = await this.menuRepo.find();
-    const menuCodeToId = new Map(allMenus.map(m => [m.menu_code, m.menu_id]));
-
-    // 事务：全量替换
-    return this.dataSource.transaction(async (mgr) => {
-      await mgr.delete(SysRoleMenuPermissionEntity, { role_id: role.role_id });
-      const rows: Partial<SysRoleMenuPermissionEntity>[] = [];
-      for (const p of perms) {
-        const menuId = menuCodeToId.get(p.menu_code);
-        if (!menuId) continue; // 静默跳过未知菜单
-        rows.push({
-          role_id: role.role_id,
-          menu_id: menuId,
-          perm_codes: p.perm_codes,
-        });
-      }
-      if (rows.length > 0) {
-        await mgr.insert(SysRoleMenuPermissionEntity, rows);
-      }
+      const written = await saveMenuGrants(mgr, 'role', role.role_id, rows);
       // 角色权限属于 JWT 快照。每次替换后必须使该角色所有有效用户的旧 token
       // 失效，否则数据库矩阵已更新但浏览器仍携带旧动作位，表现为按钮与接口不一致。
       const affected = await mgr.query(
@@ -281,7 +254,7 @@ export class PermissionsService {
       );
       return {
         role_code: roleCode,
-        written: rows.length,
+        written,
         invalidated_users: affected.length,
       };
     });
@@ -449,7 +422,7 @@ export class PermissionsService {
       JOIN sys_role r ON r.role_id = ur.role_id
       JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
       JOIN sys_menu m ON m.menu_id = rmp.menu_id
-      WHERE ur.user_id = $1
+      WHERE ur.user_id = $1 AND (m.menu_code<>$2 OR (COALESCE(ur.is_visible,true) AND r.status='ACTIVE'))
       UNION ALL
       SELECT m.menu_code, psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
              COALESCE(r.approval_level, 0) AS approval_level, 'role_set'::text AS source
@@ -458,7 +431,7 @@ export class PermissionsService {
       JOIN sys_role_permission_set rps ON rps.role_id = r.role_id
       JOIN sys_permission_set_item psi ON psi.set_id = rps.set_id
       JOIN sys_menu m ON m.menu_id = psi.menu_id
-      WHERE ur.user_id = $1
+      WHERE ur.user_id = $1 AND (m.menu_code<>$2 OR (COALESCE(ur.is_visible,true) AND r.status='ACTIVE'))
       UNION ALL
       SELECT m.menu_code, psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
              0 AS approval_level, 'user_set'::text AS source
@@ -467,7 +440,7 @@ export class PermissionsService {
       JOIN sys_menu m ON m.menu_id = psi.menu_id
       WHERE ups.user_id = $1
       `,
-      [userId],
+      [userId, EGG_SOURCE_MENU],
     );
 
     const merged = resolvePermissions(sources);

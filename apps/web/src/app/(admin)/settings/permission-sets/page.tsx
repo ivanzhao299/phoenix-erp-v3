@@ -5,6 +5,8 @@
  * 能力集 = 可复用的 菜单×操作 捆绑；角色/用户由能力集组合。
  * 运行时解析在 auth.service 三路并集（role / role_set / user_set）。
  */
+import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -19,13 +21,13 @@ interface SetRow {
   set_id: number; set_code: string; set_name_zh: string; description: string | null;
   item_count: number; role_count: number; user_count: number;
 }
-interface MenuItem { menu_code: string; menu_name_zh: string; sensitive: boolean; }
+interface MenuItem { actions?: string[]; menu_code: string; menu_name_zh: string; sensitive: boolean; }
 interface MenuGroup { domain: string; domain_label_zh: string; domain_color: string; menus: MenuItem[]; }
 interface RoleOpt { role_code: string; role_name_zh: string; status?: string; }
 interface UserOpt { id: string; username: string; real_name_zh: string | null; }
 interface SetDetail {
   set_code: string; set_name_zh: string; description: string | null;
-  items: Array<{ menu_code: string; menu_name_zh: string; perm_codes: string }>;
+  items: Array<{ menu_code: string; menu_name_zh: string; perm_codes: string; egg_warehouse_code?: string }>;
   roles: Array<{ role_code: string; role_name_zh: string }>;
   users: Array<{ user_id: string; username: string; real_name_zh: string | null }>;
 }
@@ -55,6 +57,8 @@ export default function PermissionSetsPage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [editCode, setEditCode] = useState<string | null>(null);
   const [form, setForm] = useState({ set_code: "PSET_", set_name_zh: "", description: "" });
+  const [eggWarehouse, setEggWarehouse] = useState("");
+  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [boundRoles, setBoundRoles] = useState<string[]>([]);
   const [boundUsers, setBoundUsers] = useState<string[]>([]);
@@ -85,7 +89,7 @@ export default function PermissionSetsPage() {
 
   const openNew = () => {
     setEditCode(null); setForm({ set_code: "PSET_", set_name_zh: "", description: "" });
-    setPerms({}); setBoundRoles([]); setBoundUsers([]); setCodeErr(""); setShowDrawer(true);
+    setPerms({}); setEggWarehouse(""); setSavedEggWarehouse(""); setBoundRoles([]); setBoundUsers([]); setCodeErr(""); setShowDrawer(true);
   };
   const openEdit = async (row: SetRow) => {
     setEditCode(row.set_code);
@@ -93,13 +97,17 @@ export default function PermissionSetsPage() {
     setCodeErr("");
     try {
       const r = await jget(`/api/permission-sets/${encodeURIComponent(row.set_code)}`);
+      if (r.code!==200 || !Array.isArray(r.data?.items)) throw new Error("Invalid permission response");
       const d: SetDetail = r.data;
       const p: Record<string, Set<string>> = {};
       for (const it of d.items || []) p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       setPerms(p);
+      const warehouse = d.items.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+      setEggWarehouse(warehouse);
+      setSavedEggWarehouse(warehouse);
       setBoundRoles((d.roles || []).map(x => x.role_code));
       setBoundUsers((d.users || []).map(x => String(x.user_id)));
-    } catch { setPerms({}); setBoundRoles([]); setBoundUsers([]); }
+    } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
     setShowDrawer(true);
   };
 
@@ -125,7 +133,8 @@ export default function PermissionSetsPage() {
         const r = await jsend("/api/permission-sets", "POST", { set_code: code, set_name_zh: form.set_name_zh, description: form.description || null });
         if (r.code && r.code !== 200) throw new Error(r.message || r.msg || t('ui.创建失败','创建失败'));
       }
-      const items = Object.entries(perms).filter(([, set]) => set.size > 0).map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(",") }));
+      const items = Object.entries(perms).filter(([, set]) => set.size > 0).map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(","),
+        egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined }));
       const ri = await jsend(`/api/permission-sets/${encodeURIComponent(code)}/items`, "PUT", { items });
       if (ri.code && ri.code !== 200) throw new Error(ri.message || t('ui.明细保存失败','明细保存失败'));
       toast.success(editCode ? t('ui.能力集已更新','能力集已更新') : t('ui.能力集已创建','能力集已创建'));
@@ -224,8 +233,10 @@ export default function PermissionSetsPage() {
                   return <div key={menu.menu_code} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, background: set.size > 0 ? `${group.domain_color}10` : "transparent" }}>
                     <span style={{ fontSize: 12, fontWeight: set.size > 0 ? 600 : 400 }}>{menu.menu_name_zh}</span>
                     <div style={{ display: "flex", gap: 2 }}>
-                      {PERM_ORDER.map(c => { const on = set.has(c); const m = PERM_META[c]; return <button type="button" key={c} title={m.label} onClick={() => togglePerm(menu.menu_code, c)} style={{ minWidth: 22, height: 22, fontSize: 10, fontWeight: 700, borderRadius: 3, cursor: "pointer", border: `1px solid ${on ? m.color : "var(--border)"}`, background: on ? m.color : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)" }}>{c}</button>; })}
+                      {(menu.actions ?? PERM_ORDER).map(c => { const on = set.has(c); const m = PERM_META[c]; return <button type="button" key={c} title={menuActionLabel(menu.menu_code,c,m.label,t)} aria-pressed={on} onClick={() => togglePerm(menu.menu_code, c)} style={{ minWidth: 22, height: 22, fontSize: 10, fontWeight: 700, borderRadius: 3, cursor: "pointer", border: `1px solid ${on ? m.color : "var(--border)"}`, background: on ? m.color : "var(--bg-card)", color: on ? "white" : "var(--text-secondary)" }}>{menuActionLabel(menu.menu_code,c,c,t)}</button>; })}
                     </div>
+                    {menu.menu_code===EGG_SOURCE_MENU && (set.has('E') || set.has('A')) &&
+                      <div style={{gridColumn:'1 / -1'}}><PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/></div>}
                   </div>;
                 })}
               </div>

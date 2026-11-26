@@ -1,4 +1,5 @@
 'use client';
+import { EGG_SOURCE_MENU } from '@/lib/egg-source-permissions';
 import Link from 'next/link';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,7 +15,7 @@ export function SourceProfileBanner({ profile, loading, error, houseCode, style,
   context?: 'report'|'inbound';
 }) {
   const { t } = useLanguage();
-  const {canView}=usePermission('MENU_MD_PRODUCT');
+  const {canView}=usePermission(EGG_SOURCE_MENU);
   const link=canView?<Link href={{pathname:'/master-data/egg-sources', query:{houseCode}}}>
     {t('eggSources.title','蛋品来源档案')}</Link>:null;
   if (!houseCode) return null;
