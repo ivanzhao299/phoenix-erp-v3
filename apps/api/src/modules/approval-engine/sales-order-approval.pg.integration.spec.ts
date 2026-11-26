@@ -188,9 +188,13 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
       { batch: secondBatch, qty: 3 },
     ]);
 
+    await runner.manager.query(
+      `UPDATE sal_sales_orders SET status='ALLOCATED',fulfillment_warehouse_code='PG-WH',warehouse_governance_pending=false
+        WHERE id=$1 AND status='APPROVED'`, [order.id],
+    );
     const [delivery] = await runner.manager.query(
-      `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty)
-       VALUES($1,'PG-IT','LOADING',1,5) RETURNING id`, [deliveryNo],
+      `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty,fulfillment_warehouse_code)
+       VALUES($1,'PG-IT','LOADING',1,5,'PG-WH') RETURNING id`, [deliveryNo],
     );
     await runner.manager.query(
       `INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
