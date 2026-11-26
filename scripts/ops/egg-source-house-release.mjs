@@ -9,7 +9,16 @@ import { captureRuntime, executionEnv } from './capture-production-runtime.mjs';
 import { CONTRACT, MIGRATION_PATHS } from './production-config-guard.mjs';
 
 const baseline = '2deff2c343eb012a16d6f0ac4e305533c96705f5';
+const originalMerge = '779d78aaec96f7a54b9f43c763d3c5a60c19b489';
 const seal = 'scripts/ops/egg-source-house-reviewed-head';
+const preflightSeal = 'scripts/ops/egg-source-house-preflight-reviewed-head';
+const preflightFiles = [
+  '.github/workflows/controlled-pending-migration-apply.yml',
+  'scripts/ops/egg-source-house-release.mjs',
+  'scripts/ops/egg-source-house-release.test.mjs',
+  'scripts/ops/vet-1124-migration.test.mjs',
+  preflightSeal,
+].sort();
 export const unit = '1795654800000-EggSourceHouseContract';
 const migrationPath = 'apps/api/src/database/migrations/' + unit + '.ts';
 export const expectedLedgerEntry = { timestamp: 1795654800000, name: 'EggSourceHouseContract1795654800000' };
@@ -32,7 +41,12 @@ function verifySealedMerge(target, baseCommit, sealPath, git) {
 
 export function verifySource(target, git) {
   if (!sha.test(target)) hold('TARGET_SHA');
-  const reviewed = verifySealedMerge(target, baseline, seal, git);
+  const approvedApplication = verifySealedMerge(originalMerge, baseline, seal, git);
+  const reviewed = target===originalMerge ? approvedApplication : verifySealedMerge(target,originalMerge,preflightSeal,git);
+  if (target!==originalMerge) {
+    const changed = git('diff','--no-renames','--name-only',originalMerge,target).split('\n').sort();
+    if (canonicalDigest(changed)!==canonicalDigest(preflightFiles)) hold('PREFLIGHT_ONLY_DIFF');
+  }
   if (git('diff', '--no-renames', '--name-status', baseline, target, '--', ...MIGRATION_PATHS) !== 'A\t' + migrationPath) hold('MIGRATION_SET');
   if (git('diff', '--no-renames', '--name-only', baseline, target, '--', ...CONTRACT.criticalFiles)) hold('CONFIG_FLOOR');
   const [mode, type, blob] = git('ls-tree', target, '--', migrationPath).split(/[ \t]/);

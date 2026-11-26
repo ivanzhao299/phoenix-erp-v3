@@ -90,7 +90,7 @@ jobs:
           else
             node scripts/ops/vet-1124-migration.mjs source
           fi
-          node --test scripts/ops/egg-source-house-release.test.mjs scripts/ops/egg-source-permissions-release.test.mjs scripts/ops/production-ui-schema-release.test.mjs scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
+          node --test --test-reporter=tap scripts/ops/egg-source-house-release.test.mjs scripts/ops/egg-source-permissions-release.test.mjs scripts/ops/production-ui-schema-release.test.mjs scripts/ops/egg-source-release.test.mjs scripts/ops/vet-1124-backup-volume.test.mjs scripts/ops/vet-1124-migration.test.mjs scripts/ops/production-maintenance-backup-paths.test.mjs scripts/ops/production-maintenance-pending-backup.test.mjs
           node scripts/ops/vet-1124-ci.mjs hosted-log-reader
       - name: Match the official API digest to every reviewed migration
         if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125' || inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126'
