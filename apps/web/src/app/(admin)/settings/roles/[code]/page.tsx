@@ -7,6 +7,7 @@
  *   - 权限矩阵：菜单 × V/C/E/D/A/X 三元组（PUT /api/permissions/role/{code}/perms）
  *   - 岗位冲突：基于 sys_role_conflict 的实时检测；新增 BLOCK 硬阻止，既存 BLOCK 允许只减不增
  */
+import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -419,6 +420,8 @@ export default function RoleDetailPage() {
 
   // ── Tab 2：权限矩阵 ───────────────────────────────────────────────────
   const matrixTab = (
+    <>
+      {!isAdmin&&<EggSourceOrganizationGrants subject="role" code={roleCode}/>}
     <Panel title={t("ui.菜单CRUD权限", "菜单 × CRUD 权限")} icon={<Grid size={14} />}
       extra={
         <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--status-special-bg-medium)", color: "var(--color-primary)", fontWeight: 600 }}>
@@ -494,6 +497,7 @@ export default function RoleDetailPage() {
         ))}
       </div>
     </Panel>
+    </>
   );
 
   // ── Tab 3：岗位冲突 ───────────────────────────────────────────────────

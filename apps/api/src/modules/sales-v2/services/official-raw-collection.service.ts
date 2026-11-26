@@ -1,3 +1,4 @@
+import { eggSourceWarehouse } from '../../product-master/services/egg-source-change-policy';
 import { checkApprovedEggSource, requireEggProductDomain } from '../../product-master/services/egg-source-change-facts';
 import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from '@nestjs/common';
@@ -103,12 +104,19 @@ export class OfficialRawCollectionService {
     const approval = await checkApprovedEggSource(m,profile);
     const outputs = [];
     if (approval) {
-      if (approval.warehouse !== d.warehouse_code) throw new ConflictException('当前仓库与来源档案审批不一致');
+      if (approval.contractVersion===1 && approval.warehouse !== d.warehouse_code) throw new ConflictException('当前仓库与来源档案审批不一致');
+      if (approval.contractVersion===2 && !await eggSourceWarehouse(m,profile,d.warehouse_code)) {
+        throw new ConflictException('正式原始收蛋须使用本公司适用场站的启用操作仓');
+      }
       for (const gradeCode of [...new Set(sources.map((row: Fact) => row.gradeCode as string))].sort()) {
         const items = approval.snapshot.items.filter(item => item.gradeCode === gradeCode);
         if (!items.length) throw new ConflictException(`来源档案审批未覆盖实际收蛋等级 ${gradeCode}`);
         for (const item of items) {
           const sku = await this.skus.assertUsable(item.skuCode,{ ...profile, sourceProfileCode:profile.profileCode,usage:'stock' },m);
+          if (approval.contractVersion===2 && (sku.skuCode!==item.skuCode || sku.productCode!==item.productCode
+            || sku.gradeCode!==item.gradeCode || sku.specCode!==item.specCode)) {
+            throw new ConflictException('当前 SKU 与来源档案冻结的品目、等级和规格不一致');
+          }
           const domainId = await requireEggProductDomain(m,profile,d.scope_id,d.warehouse_code,sku.productCode);
           outputs.push({ gradeCode, productCode:sku.productCode, skuCode:sku.skuCode, domainId });
         }
@@ -116,7 +124,8 @@ export class OfficialRawCollectionService {
     }
     return {quantity:total,source,profile:{profileCode:profile.profileCode,productMode:profile.productMode,varietyCode:profile.varietyCode,
       houseCode:profile.houseCode,farmCode:profile.farmCode,siteCode:profile.siteCode??null,
-      ...(approval ? { effectiveDate:profile.effectiveDate, approvalId:approval.approvalId, outputs, approvedSkus:approval.snapshot.items } : {})},
+      ...(approval ? { effectiveDate:profile.effectiveDate, approvalId:approval.approvalId, outputs, approvedSkus:approval.snapshot.items,
+        ...(approval.contractVersion===2 ? {sourceContractVersion:2} : {}) } : {})},
       handoverHash:handover.content_hash,sources};
   }
   async create(input:RawCollectionInput){

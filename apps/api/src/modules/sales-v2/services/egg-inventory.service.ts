@@ -1,3 +1,4 @@
+import { eggSourceWarehouse } from '../../product-master/services/egg-source-change-policy';
 import { assertApprovedEggSku, checkApprovedEggSource } from '../../product-master/services/egg-source-change-facts';
 import { officialInventoryPredicate, officialInventoryWritablePredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
 import { qualifyFormalProductionBatch, recordFormalProductionSources } from '../../wms/formal-production-context';
@@ -635,6 +636,9 @@ export class EggInventoryService {
         const approval=await checkApprovedEggSource(mgr,source);
         if (approval && !params.warehouseCode) throw new ConflictException('来源档案须使用已批准的实际仓');
         assertApprovedEggSku(approval,available,params.warehouseCode);
+        if (approval?.contractVersion===2 && !await eggSourceWarehouse(mgr,source,params.warehouseCode!)) {
+          throw new ConflictException('生产库存须使用本公司适用场站的启用操作仓');
+        }
         if (available.productCode !== productCode || available.varietyCode !== source.varietyCode) {
           throw new BadRequestException('已验证 SKU/产品品种发生不一致，禁止创建库存');
         }

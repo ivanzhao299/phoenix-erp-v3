@@ -6,6 +6,7 @@ import { SysMenuEntity } from './entities/sys-menu.entity';
 import { SysUserRoleEntity } from './entities/sys-user-role.entity';
 import { SysRoleMenuPermissionEntity } from './entities/sys-role-menu-permission.entity';
 import { SysRoleConflictEntity } from './entities/sys-role-conflict.entity';
+import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants,lockEggSourceGrantEditor } from '../../auth/egg-source-organization-grants';
 import { resolvePermissions, PermSource } from '../../auth/permissions-resolver';
 
 import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
@@ -222,6 +223,7 @@ export class PermissionsService {
   // ── PUT /api/permissions/role/:code/perms  批量替换该角色的三元组 ──────
   async setRolePermissions(roleCode: string, perms: RoleMenuPermDto[]) {
     return this.dataSource.transaction(async mgr => {
+      await lockEggSourceGrantEditor(mgr);
       const [role] = await mgr.query('SELECT role_id FROM sys_role WHERE role_code=$1 FOR UPDATE', [roleCode]);
       if (!role) throw new BadRequestException(`角色不存在: ${roleCode}`);
       const rows = await resolveMenuGrants(mgr, perms);
@@ -443,7 +445,8 @@ export class PermissionsService {
       [userId, EGG_SOURCE_MENU],
     );
 
-    const merged = resolvePermissions(sources);
+    const houseGrants = await loadEggSourceOrganizationGrants(this.dataSource,userId);
+    const merged = addEggSourceHouseSessionPermissions(resolvePermissions(sources),sources,houseGrants);
 
     // 触发的 RACI 冲突（基于最终持有的 menu_codes 集合）
     const heldMenus = merged.map((p) => p.split(':')[0]);
@@ -459,6 +462,7 @@ export class PermissionsService {
       data: {
         user: userRows[0],
         permissions: merged,            // 与 JWT 中一致的 ["MENU_CODE:V,C,E", ...] 数组
+        egg_source_organization_grants: houseGrants,
         sources_raw: sources,           // 三路原始记录，方便审计排错
         conflicts_triggered: conflicts, // 命中的红线（仅 BLOCK/WARN 级别的展示）
       },

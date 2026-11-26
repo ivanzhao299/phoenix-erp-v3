@@ -2,9 +2,11 @@ import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/c
 import { DataSource, EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU, EggSourcePermission } from '../../../auth/egg-source-permissions';
 import { loadPermissionSources } from '../../../auth/permission-sources';
+import { eggSourceHouseDenials,loadEggSourceOrganizationGrants,type EggSourceHouseAction } from '../../../auth/egg-source-organization-grants';
 import { PermSource, resolvePermissions, parseCodes } from '../../../auth/permissions-resolver';
 import { hasPerm } from '../../../auth/permissions.util';
 import { deriveOrgScope } from '../../farm/farm.service';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
 import type { ChangeScope } from './egg-source-change.service';
 
@@ -14,43 +16,72 @@ export type EggSourceAccount = { userId?: string | number; perms_version?: numbe
 export class EggSourceAccessService {
   constructor(private readonly db: DataSource, private readonly dataScopes: DataScopeService) {}
 
-  async resolve(user: EggSourceAccount | undefined, required: EggSourcePermission = 'V', manager = this.db.manager) {
+  async resolve(user: EggSourceAccount | undefined, required: EggSourceHouseAction = 'V',
+    manager = this.db.manager, contract?:1|2) {
     const id = String(user?.userId ?? '');
     if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) {
       throw new ForbiddenException('蛋品来源档案需要有效的实名账号');
     }
-    const inTransaction = manager.queryRunner?.isTransactionActive;
     const [account] = await manager.query(`SELECT perms_version FROM sys_user WHERE user_id=$1 AND status=1
-      ${inTransaction ? 'FOR SHARE' : ''}`, [id]);
-    const [roles, sources] = await Promise.all([
-      manager.query(`SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
-        WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'`, [id]),
-      loadPermissionSources(manager, id, { activeRolesOnly: true }),
-    ]);
+      ${manager.queryRunner?.isTransactionActive ? 'FOR SHARE' : ''}`, [id]);
     if (!account) throw new ForbiddenException('账号已停用');
-    const admin = roles.some((role: { role_code: string }) => role.role_code === 'ROLE_ADMIN');
-    const permissions = admin ? ['*'] : resolvePermissions(sources);
     const current = Number.isSafeInteger(user?.perms_version) && user?.perms_version === Number(account.perms_version);
     if (required !== 'V' && !current) {
       throw new UnauthorizedException({ subcode: 'PERMS_CHANGED', message: '权限已变化，请以本人账号重新登录' });
     }
     if (required !== 'V' && user?.impersonatedBy) throw new ForbiddenException('须以本人身份申请或审核');
-    if (!hasPerm(permissions, EGG_SOURCE_MENU, 'V') || !hasPerm(permissions, EGG_SOURCE_MENU, required)) {
-      throw new ForbiddenException('缺少蛋品来源档案的查看或当前操作权限');
-    }
-
-    const grants = (action: EggSourcePermission) =>
-      this.scopesFor(manager,id,EGG_SOURCE_MENU,action,sources,admin,true);
-    const canWrite = current && !user?.impersonatedBy;
-    const [view, edit, approve] = await Promise.all([
-      grants('V'), canWrite && required !== 'A' ? grants('E') : [],
-      canWrite && required !== 'E' ? grants('A') : [],
+    const [roles, sources, organizationGrants] = await Promise.all([
+      manager.query(`SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
+        WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'`, [id]),
+      loadPermissionSources(manager, id, { activeRolesOnly: true }),
+      contract===1 ? [] : loadEggSourceOrganizationGrants(manager,id),
     ]);
-    if (!view.length || (required === 'E' && !edit.length) || (required === 'A' && !approve.length)) {
-      throw new ForbiddenException('蛋品来源档案的授权范围无法确认');
+    const admin = roles.some((role: { role_code: string }) => role.role_code === 'ROLE_ADMIN');
+    const canWrite = current && !user?.impersonatedBy;
+    const legacyGrants = (action: EggSourcePermission) =>
+      contract===2 ? [] : this.scopesFor(manager,id,EGG_SOURCE_MENU,action,sources,admin,true);
+    const [view, edit, approve] = await Promise.all([
+      legacyGrants('V'), canWrite ? legacyGrants('E') : [], canWrite ? legacyGrants('A') : [],
+    ]);
+    const restrictions = { COMPANY:'restrictedCompany',FARM:'restrictedFarm',SITE:'restrictedSite',HOUSE:'restrictedHouse' } as const;
+    const denials = eggSourceHouseDenials(sources);
+    let houseGrants: (action:EggSourceHouseAction)=>ChangeScope[] = ()=>[];
+    if (contract!==1 && (admin || organizationGrants.length)) {
+      const resolver = manager.queryRunner?.isTransactionActive ? this.dataScopes.withManager(manager) : this.dataScopes;
+      const dataScope = await resolver.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin);
+      const base = deriveOrgScope({dataScope});
+      const [sites,farms]: {code:string;company_code:string}[][] = admin ? [[],[]] : await Promise.all([
+        manager.query(`SELECT org_code AS code,company_code FROM sys_organizations
+          WHERE org_type='SITE' AND status='ACTIVE' AND org_code=ANY($1)`,[base.siteCodes??[]]),
+        manager.query(`SELECT f.farm_code AS code,f.company_code FROM sys_user_farm_scopes uf
+          JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code) WHERE uf.user_id=$1 AND f.status='ACTIVE'`,[id]),
+      ]);
+      houseGrants = action => admin ? [base] : denials.has(action) ? [] : organizationGrants
+        .filter(row=>row.actions.includes(action))
+        .map(row=>({ ...base,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
+          farmCodes:farms.filter(f=>f.company_code===row.company_code).map(f=>f.code),
+          siteCodes:sites.filter(site=>site.company_code===row.company_code).map(site=>site.code) }));
+    }
+    const houseView = houseGrants('V');
+    const houseCreate = canWrite ? houseGrants('C') : [];
+    const houseEdit = canWrite ? houseGrants('E') : [];
+    const houseApprove = canWrite ? houseGrants('A') : [];
+    const legacy = { V:view,C:[],E:edit,A:approve };
+    const house = { V:houseView,C:houseCreate,E:houseEdit,A:houseApprove };
+    if (!(view.length&&legacy[required].length) && !(houseView.length&&house[required].length)) {
+      throw new ForbiddenException('缺少蛋品来源档案的查看或当前操作范围');
     }
     const scope = this.union(view);
-    return { scope, edit, approve, actor: user?.impersonatedBy ? null : id };
+    scope.houseScope = this.union(houseView);
+    scope.visibilityScope = this.union([...view,...houseView]);
+    if (required!=='V') {
+      scope.actionGrants = legacy[required];
+      scope.houseScope.actionGrants = house[required];
+    }
+    const warehouseScope = contract===undefined
+      ? await this.dataScopes.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin)
+      : undefined;
+    return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, actor:user?.impersonatedBy ? null : id };
   }
 
   async flockScope(user: EggSourceAccount | undefined, manager = this.db.manager): Promise<ChangeScope | undefined> {

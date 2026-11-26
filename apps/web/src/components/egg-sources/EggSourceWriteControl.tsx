@@ -9,9 +9,8 @@ import { useSourceText } from './parts';
 import s from './EggSources.module.css';
 
 type WriteControl = { writes_enabled: boolean; changed_at: string; changed_by: string|null; change_reason: string|null };
-const endpoint = '/sys/menu-registry/egg-source-write-control';
-
-export function EggSourceWriteControl() {
+export function EggSourceWriteControl({houseContract=false}:{houseContract?:boolean}) {
+  const endpoint = houseContract ? '/sys/menu-registry/egg-source-house-write-control' : '/sys/menu-registry/egg-source-write-control';
   const { t } = useLanguage();
   const { time } = useSourceText();
   const fieldId = useId();
@@ -51,7 +50,7 @@ export function EggSourceWriteControl() {
     } finally { setBusy(false); }
   }
 
-  const title=t('eggSources.writeControl.title','来源变更写入控制');
+  const title=houseContract ? t('eggSources.houseWriteControl','新版来源写入控制') : t('eggSources.writeControl.title','来源变更写入控制');
   return <>
     <button type="button" style={secondaryActionButton} onClick={()=>{ setOpen(true); setReason(''); void read(); }}>{title}</button>
     <RightDrawer open={open} title={title} onClose={()=>{if (!busy) setOpen(false);}}>

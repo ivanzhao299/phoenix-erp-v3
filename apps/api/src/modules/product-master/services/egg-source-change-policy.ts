@@ -56,7 +56,8 @@ export function sourceDigest(value: unknown): string {
 }
 
 function covers(scope: ChangeScope, owner: EggSourceOwner, warehouse?: string): boolean {
-  return (!scope.restrictedFarm || scope.restrictedFarm === owner.farmCode)
+  return (!scope.restrictedHouse || scope.restrictedHouse===owner.houseCode)
+    && (!scope.restrictedFarm || scope.restrictedFarm === owner.farmCode)
     && (!scope.restrictedCompany || scope.restrictedCompany===owner.companyCode)
     && (!scope.restrictedSite || scope.restrictedSite===owner.siteCode)
     && (!warehouse || !scope.restrictedWarehouse || scope.restrictedWarehouse===warehouse)

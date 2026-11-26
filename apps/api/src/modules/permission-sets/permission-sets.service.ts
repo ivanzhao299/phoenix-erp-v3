@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
+import { lockEggSourceGrantEditor,requireEggSourceAdministrator,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
 import { resolveMenuGrants, saveMenuGrants } from '../permissions/save-menu-grants';
 
 /**
@@ -73,21 +74,21 @@ export class PermissionSetsService {
     return { ok: true };
   }
 
-  async remove(setCode: string) {
-    const head = await this.ds.query(`SELECT set_id FROM sys_permission_set WHERE set_code=$1`, [setCode]);
-    if (!head.length) return { ok: true };
-    const setId = head[0].set_id;
-    const affected = await this.affectedUserIds(setId);
-    await this.ds.query(`DELETE FROM sys_user_permission_set WHERE set_id=$1`, [setId]);
-    await this.ds.query(`DELETE FROM sys_role_permission_set WHERE set_id=$1`, [setId]);
-    await this.ds.query(`DELETE FROM sys_permission_set_item WHERE set_id=$1`, [setId]);
-    await this.ds.query(`DELETE FROM sys_permission_set WHERE set_id=$1`, [setId]);
-    await this.bumpPerms(affected);
-    return { ok: true };
+  async remove(setCode: string, actor?:EggSourceGrantActor) {
+    return this.changeBindings(setCode,actor,async (manager,setId)=>{
+      const affected = await manager.query(`SELECT user_id FROM sys_user_permission_set WHERE set_id=$1
+        UNION SELECT ur.user_id FROM sys_role_permission_set rps JOIN sys_user_role ur USING(role_id) WHERE rps.set_id=$1`,[setId]);
+      await manager.query('DELETE FROM sys_user_permission_set WHERE set_id=$1',[setId]);
+      await manager.query('DELETE FROM sys_role_permission_set WHERE set_id=$1',[setId]);
+      await manager.query('DELETE FROM sys_permission_set_item WHERE set_id=$1',[setId]);
+      await manager.query('DELETE FROM sys_permission_set WHERE set_id=$1',[setId]);
+      await this.bumpPerms(manager,affected.map((row:{user_id:number})=>row.user_id));
+    },true);
   }
 
   async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string }>) {
     return this.ds.transaction(async manager => {
+      await lockEggSourceGrantEditor(manager);
       const [head] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE', [setCode]);
       if (!head) throw new BadRequestException(`能力集 ${setCode} 不存在`);
       const grants = await resolveMenuGrants(manager, items);
@@ -103,63 +104,61 @@ export class PermissionSetsService {
     });
   }
 
-  async assignRole(setCode: string, roleCode: string) {
-    const [setId, roleId] = await this.resolveSetRole(setCode, roleCode);
-    await this.ds.query(
-      `INSERT INTO sys_role_permission_set (role_id, set_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [roleId, setId]);
-    await this.bumpPerms(await this.usersOfRole(roleId));
-    return { ok: true };
+  assignRole(setCode:string,roleCode:string,actor?:EggSourceGrantActor) {
+    return this.changeRoleBinding(setCode,roleCode,actor,true);
   }
 
-  async unassignRole(setCode: string, roleCode: string) {
-    const [setId, roleId] = await this.resolveSetRole(setCode, roleCode);
-    await this.ds.query(`DELETE FROM sys_role_permission_set WHERE role_id=$1 AND set_id=$2`, [roleId, setId]);
-    await this.bumpPerms(await this.usersOfRole(roleId));
-    return { ok: true };
+  unassignRole(setCode:string,roleCode:string,actor?:EggSourceGrantActor) {
+    return this.changeRoleBinding(setCode,roleCode,actor,false);
   }
 
-  async assignUser(setCode: string, userId: number) {
-    const setId = await this.resolveSet(setCode);
-    await this.ds.query(
-      `INSERT INTO sys_user_permission_set (user_id, set_id, granted_at) VALUES ($1,$2,NOW()) ON CONFLICT DO NOTHING`, [userId, setId]);
-    await this.bumpPerms([userId]);
-    return { ok: true };
+  assignUser(setCode:string,userId:number,actor?:EggSourceGrantActor) {
+    return this.changeUserBinding(setCode,userId,actor,true);
   }
 
-  async unassignUser(setCode: string, userId: number) {
-    const setId = await this.resolveSet(setCode);
-    await this.ds.query(`DELETE FROM sys_user_permission_set WHERE user_id=$1 AND set_id=$2`, [userId, setId]);
-    await this.bumpPerms([userId]);
-    return { ok: true };
+  unassignUser(setCode:string,userId:number,actor?:EggSourceGrantActor) {
+    return this.changeUserBinding(setCode,userId,actor,false);
   }
 
-  // ── 内部 ────────────────────────────────────────────────────────────
-  private async resolveSet(setCode: string): Promise<number> {
-    const r = await this.ds.query(`SELECT set_id FROM sys_permission_set WHERE set_code=$1`, [setCode]);
-    if (!r.length) throw new BadRequestException(`能力集 ${setCode} 不存在`);
-    return r[0].set_id;
+  private changeRoleBinding(setCode:string,roleCode:string,actor:EggSourceGrantActor|undefined,enabled:boolean) {
+    return this.changeBindings(setCode,actor,async (manager,setId)=>{
+      const [role] = await manager.query('SELECT role_id FROM sys_role WHERE role_code=$1',[roleCode]);
+      if (!role) throw new BadRequestException(`角色 ${roleCode} 不存在`);
+      await manager.query(enabled
+        ? 'INSERT INTO sys_role_permission_set(role_id,set_id) VALUES($1,$2) ON CONFLICT DO NOTHING'
+        : 'DELETE FROM sys_role_permission_set WHERE role_id=$1 AND set_id=$2',[role.role_id,setId]);
+      const users = await manager.query('SELECT user_id FROM sys_user_role WHERE role_id=$1',[role.role_id]);
+      await this.bumpPerms(manager,users.map((row:{user_id:number})=>row.user_id));
+    });
   }
-  private async resolveSetRole(setCode: string, roleCode: string): Promise<[number, number]> {
-    const setId = await this.resolveSet(setCode);
-    const r = await this.ds.query(`SELECT role_id FROM sys_role WHERE role_code=$1`, [roleCode]);
-    if (!r.length) throw new BadRequestException(`角色 ${roleCode} 不存在`);
-    return [setId, r[0].role_id];
+
+  private changeUserBinding(setCode:string,userId:number,actor:EggSourceGrantActor|undefined,enabled:boolean) {
+    return this.changeBindings(setCode,actor,async (manager,setId)=>{
+      await manager.query(enabled
+        ? 'INSERT INTO sys_user_permission_set(user_id,set_id,granted_at) VALUES($1,$2,NOW()) ON CONFLICT DO NOTHING'
+        : 'DELETE FROM sys_user_permission_set WHERE user_id=$1 AND set_id=$2',[userId,setId]);
+      await this.bumpPerms(manager,[userId]);
+    });
   }
-  /** 受能力集影响的用户（直绑 ∪ 经角色绑） */
-  private async affectedUserIds(setId: number): Promise<number[]> {
-    const rows = await this.ds.query(`
-      SELECT user_id FROM sys_user_permission_set WHERE set_id=$1
-      UNION
-      SELECT ur.user_id FROM sys_role_permission_set rps JOIN sys_user_role ur ON ur.role_id=rps.role_id WHERE rps.set_id=$1`, [setId]);
-    return rows.map((x: any) => Number(x.user_id));
+
+  private changeBindings(setCode:string,actor:EggSourceGrantActor|undefined,
+    change:(manager:EntityManager,setId:number)=>Promise<void>,allowMissing=false) {
+    return this.ds.transaction(async manager=>{
+      await lockEggSourceGrantEditor(manager);
+      const [set] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE',[setCode]);
+      if (!set && !allowMissing) throw new BadRequestException(`能力集 ${setCode} 不存在`);
+      if (set) {
+        const [managed] = await manager.query('SELECT 1 FROM md_egg_source_organization_grants WHERE set_id=$1 LIMIT 1',[set.set_id]);
+        // Ordinary sets retain the existing role/permission-set administration policy.
+        if (managed) await requireEggSourceAdministrator(manager,actor);
+        await change(manager,set.set_id);
+      }
+      return {ok:true};
+    });
   }
-  private async usersOfRole(roleId: number): Promise<number[]> {
-    const rows = await this.ds.query(`SELECT user_id FROM sys_user_role WHERE role_id=$1`, [roleId]);
-    return rows.map((x: any) => Number(x.user_id));
-  }
-  private async bumpPerms(userIds: number[]) {
-    if (!userIds?.length) return;
-    await this.ds.query(
-      `UPDATE sys_user SET perms_version = COALESCE(perms_version,0)+1, updated_at=NOW() WHERE user_id = ANY($1)`, [userIds]);
+
+  private async bumpPerms(manager:EntityManager,userIds:number[]) {
+    if (!userIds.length) return;
+    await manager.query('UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1,updated_at=NOW() WHERE user_id=ANY($1)',[userIds]);
   }
 }

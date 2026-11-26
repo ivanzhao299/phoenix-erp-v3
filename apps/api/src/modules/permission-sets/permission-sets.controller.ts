@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Put, Delete, Param, Body, UseGuards, BadRequestException,
+  Controller, Get, Post, Patch, Put, Delete, Param, Body, Req, UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -40,8 +40,8 @@ export class PermissionSetsController {
 
   @Delete(':code')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'D')
-  async remove(@Param('code') code: string) {
-    return { code: 200, data: await this.svc.remove(code) };
+  async remove(@Param('code') code: string,@Req() req:any) {
+    return { code: 200, data: await this.svc.remove(code,req.user) };
   }
 
   /** 覆盖明细 body: { items: [{menu_code, perm_codes}] } */
@@ -54,29 +54,29 @@ export class PermissionSetsController {
 
   @Post(':code/roles/:roleCode')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
-  async assignRole(@Param('code') code: string, @Param('roleCode') roleCode: string) {
-    return { code: 200, data: await this.svc.assignRole(code, roleCode) };
+  async assignRole(@Param('code') code: string, @Param('roleCode') roleCode: string,@Req() req:any) {
+    return { code: 200, data: await this.svc.assignRole(code, roleCode,req.user) };
   }
 
   @Delete(':code/roles/:roleCode')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
-  async unassignRole(@Param('code') code: string, @Param('roleCode') roleCode: string) {
-    return { code: 200, data: await this.svc.unassignRole(code, roleCode) };
+  async unassignRole(@Param('code') code: string, @Param('roleCode') roleCode: string,@Req() req:any) {
+    return { code: 200, data: await this.svc.unassignRole(code, roleCode,req.user) };
   }
 
   @Post(':code/users/:userId')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
-  async assignUser(@Param('code') code: string, @Param('userId') userId: string) {
+  async assignUser(@Param('code') code: string, @Param('userId') userId: string,@Req() req:any) {
     const uid = Number(userId);
     if (!uid) throw new BadRequestException('userId 必须是数字');
-    return { code: 200, data: await this.svc.assignUser(code, uid) };
+    return { code: 200, data: await this.svc.assignUser(code, uid,req.user) };
   }
 
   @Delete(':code/users/:userId')
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
-  async unassignUser(@Param('code') code: string, @Param('userId') userId: string) {
+  async unassignUser(@Param('code') code: string, @Param('userId') userId: string,@Req() req:any) {
     const uid = Number(userId);
     if (!uid) throw new BadRequestException('userId 必须是数字');
-    return { code: 200, data: await this.svc.unassignUser(code, uid) };
+    return { code: 200, data: await this.svc.unassignUser(code, uid,req.user) };
   }
 }

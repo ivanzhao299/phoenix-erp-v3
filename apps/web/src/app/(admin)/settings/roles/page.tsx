@@ -16,6 +16,7 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
+import { EggSourceHouseRollout,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
@@ -718,10 +719,12 @@ export default function RoleManagementPage() {
   }}>
       <PageHeader title={t("ui.角色与权限管理", "角色与权限管理")} subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线", "数据可见性第1层·功能权限：角色 × 菜单 × 操作（查/创/改/删/审/导）+ 岗位分离红线（第2层范围见「数据范围规则」，第3层组织见「用户管理」）")} breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.角色与权限", "角色与权限")]} actions={<div style={{
       display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "flex-end",
       gap: "8px"
     }}>
             {isSuper && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
-              <EggSourceWriteControl/>}
+              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/></>}
             {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
               <Shield size={14} /> {t('breeding.lifecycle.register')}
             </button>}
@@ -942,6 +945,7 @@ export default function RoleManagementPage() {
 
       {/* ── 编辑/新建 抽屉 ───────────────────────────────────────────── */}
       <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit", "编辑")}：${editCode}` : t("ui.新建角色", "新建角色")} width="620px">
+        {editCode&&<EggSourceOrganizationGrants subject="role" code={editCode}/>}
         <div style={{
         display: "flex",
         flexDirection: "column",
