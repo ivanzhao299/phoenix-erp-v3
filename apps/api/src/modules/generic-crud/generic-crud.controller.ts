@@ -1,3 +1,6 @@
+import { InjectEntityManager } from '@nestjs/typeorm';
+import { EntityManager } from 'typeorm';
+import { removeEggSourceManagedRole } from '../../auth/egg-source-organization-grants';
 import {
   Controller,
   Get,
@@ -13,6 +16,7 @@ import {
   BadRequestException,
   Header,
   GoneException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
@@ -32,6 +36,7 @@ export class GenericCrudController {
     private readonly dataScopeService: DataScopeService,
     private readonly wmsService: WmsService,
     private readonly cls: ClsService,
+    @InjectEntityManager() private readonly roleManager?:EntityManager,
   ) {}
 
   /**
@@ -787,7 +792,10 @@ export class GenericCrudController {
     if (table === 'wms_transfer') {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
     }
-    if (table==='sys_role') return {code:200,msg:await this.crudService.removeRole(idColumn,id,req.user)};
+    if (table==='sys_role') {
+      if (!this.roleManager) throw new ServiceUnavailableException('角色配置服务暂不可用');
+      return {code:200,msg:await removeEggSourceManagedRole(this.roleManager,idColumn,id,req.user)};
+    }
     const result = await this.crudService.remove(table, idColumn, id).catch(this.eggSourceConfigError);
     return { code: 200, msg: result.msg };
   }
