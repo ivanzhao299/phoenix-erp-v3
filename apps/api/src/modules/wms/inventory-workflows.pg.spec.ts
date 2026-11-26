@@ -6,8 +6,9 @@ import { DeliveryOrdersService } from '../sales-v2/services/delivery-orders.serv
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { SalesOrderLifecycleService } from '../sales-v2/services/sales-order-lifecycle.service';
 import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
+import { QualityService } from '../quality/quality.service';
 import { readPosAllocationTrace } from '../traceability/pos-allocation-trace';
-import { readOutboundTrace } from '../traceability/inventory-lineage';
+import { readInventoryLineage, readOutboundTrace } from '../traceability/inventory-lineage';
 import { WmsService } from './wms.service';
 import { WarehouseDailyCloseService } from './warehouse-daily-close.service';
 
@@ -178,6 +179,13 @@ pg('inventory workflows against the complete migration chain', () => {
     expect(first.total).toBe(2);
     expect(second.rows[0]).toMatchObject({ batch_no: batchB, qty: '7.000' });
     expect(second.nextCursor).toBeNull();
+    const quality = new QualityService(db.manager);
+    await expect(quality.traceForward(batchA, scope as any)).resolves.toMatchObject({
+      sales: [{ batch_no: batchA, qty: '3.000' }],
+    });
+    await expect(quality.traceBackward({ sale_no: sale }, scope as any)).resolves.toMatchObject({
+      traces: [{ batch_no: batchA, recall_assessment: { can_recall: null } }],
+    });
   });
 
   it('applies one atomic transfer under retry and rejects reuse with a different quantity', async () => {
@@ -202,6 +210,13 @@ pg('inventory workflows against the complete migration chain', () => {
       { warehouse_code: warehouse, qty: -0.125, cost_change: null },
       { warehouse_code: target, qty: 0.125, cost_change: null },
     ]);
+    const both = { ...scope, allowedWarehouseCodes: [warehouse, target] } as any;
+    const [edge] = await readInventoryLineage(db, batch, both);
+    expect(edge).toMatchObject({ parent_batch_no: batch, kind: 'TRANSFER', document_no: transfer, downstream: true });
+    await expect(readInventoryLineage(db, [edge.child_batch_no], both)).resolves.toEqual([
+      expect.objectContaining({ parent_batch_no: batch, child_batch_no: edge.child_batch_no, upstream: true }),
+    ]);
+    await expect(readInventoryLineage(db, batch, scope as any)).resolves.toEqual([]);
   });
 
   it('corrects physical, available, precision and ledger together, then replays the first receipt', async () => {

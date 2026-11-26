@@ -9,10 +9,10 @@ export async function readInventoryLineage(
   if (!rootBatchNos.length) return [];
   return ds.query(`
     WITH RECURSIVE visible AS NOT MATERIALIZED (
-      SELECT batch_no,company_code,warehouse_code,source_no FROM inv_batches
+      SELECT batch_no::text AS batch_no,company_code,warehouse_code,source_no FROM inv_batches
        WHERE $2::boolean OR (company_code=ANY($3::text[]) AND warehouse_code=ANY($4::text[]))
     ), edges AS NOT MATERIALIZED (
-      SELECT i.source_batch_no AS parent_batch_no,dst.batch_no AS child_batch_no,
+      SELECT p.batch_no AS parent_batch_no,c.batch_no AS child_batch_no,
              'TRANSFER' AS kind,t.transfer_no AS document_no,false AS mixed,dst.qty::text AS quantity
         FROM wms_transfer_items i JOIN wms_transfer t ON t.transfer_no=i.transfer_no AND t.status IN ('RECEIVED','COMPLETED')
         JOIN LATERAL (VALUES (i.target_batch_no,i.received_qty),(i.damaged_batch_no,i.damaged_qty))
@@ -20,7 +20,7 @@ export async function readInventoryLineage(
         JOIN visible p ON p.batch_no=i.source_batch_no AND p.warehouse_code=t.from_warehouse
         JOIN visible c ON c.batch_no=dst.batch_no AND c.warehouse_code=t.to_warehouse AND c.source_no=t.transfer_no
       UNION ALL
-      SELECT i.parent_batch_no,o.batch_no,'CONVERSION',d.document_no,
+      SELECT p.batch_no,c.batch_no,'CONVERSION',d.document_no,
              EXISTS(SELECT 1 FROM production_conversion_inputs other WHERE other.document_id=d.id AND other.id<>i.id),NULL::text
         FROM production_conversion_inputs i
         JOIN production_conversion_documents d ON d.id=i.document_id AND d.state='POSTED'
