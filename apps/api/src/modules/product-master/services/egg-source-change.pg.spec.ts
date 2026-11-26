@@ -349,7 +349,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
       const applicant=await token(21), reviewer=await token(22), legacy=await token(23), reviewOnly=await token(24);
       const http=request(testApp.getHttpServer());
       const admin=await token(26,{roles:['ROLE_ADMIN'],permissions:['*']});
-      const nonAdminWithMenu=await token(22,{permissions:['MENU_SETTINGS_MENU_REGISTRY:E']});
+      const nonAdminWithMenu=await token(22,{permissions:['MENU_SETTINGS_MENU_REGISTRY:V,E']});
       const control=(auth:string,expectedEnabled:boolean,enabled:boolean)=>http.post('/api/sys/menu-registry/egg-source-write-control')
         .auth(auth,{type:'bearer'}).send({expectedEnabled,enabled,reason:'Verified technical cutover'});
       const requestKey=randomUUID();
@@ -360,10 +360,14 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await create(reviewer).expect(403);
       await create(await token(21,{perms_version:undefined})).expect(401);
       await create(await token(21,{impersonatedBy:'99'})).expect(403);
+      const readControl=(auth:string)=>http.get('/api/sys/menu-registry/egg-source-write-control').auth(auth,{type:'bearer'});
+      await readControl(nonAdminWithMenu).expect(403);
+      expect((await readControl(admin).expect(200)).body.data).toMatchObject({writes_enabled:false,changed_by:null});
       await control(nonAdminWithMenu,false,true).expect(403);
       const reopened=await control(admin,false,true).expect(201);
       expect(reopened.body.data).toMatchObject({writes_enabled:true,changed_by:'26',change_reason:'Verified technical cutover'});
       await control(admin,false,true).expect(409);
+      expect((await readControl(admin).expect(200)).body.data).toEqual(reopened.body.data);
       // Even after reopening, legacy code without the transaction marker cannot write.
       await expect(db.query("UPDATE md_egg_source_changes SET version=version+1"))
         .rejects.toMatchObject({driverError:{code:'42501'}});

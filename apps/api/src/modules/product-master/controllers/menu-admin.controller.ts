@@ -46,22 +46,39 @@ export class MenuAdminController {
     return { menuCode, installed };
   }
 
+  private async requireEggSourceAdministrator(manager: EntityManager, user: {
+    userId?: number|string; impersonatedBy?: unknown; perms_version?: number;
+  } = {}) {
+    const id = String(user.userId??'');
+    if (!/^[1-9][0-9]{0,18}$/.test(id) || user.impersonatedBy) throw new ForbiddenException('须由实名系统管理员操作');
+    const [account] = await manager.query(`SELECT u.perms_version FROM sys_user u JOIN sys_user_role ur USING (user_id)
+      JOIN sys_role r USING (role_id) WHERE u.user_id=$1 AND u.status=1 AND COALESCE(ur.is_visible,true)
+      AND r.role_code='ROLE_ADMIN' AND r.status='ACTIVE' FOR SHARE OF u,ur,r`, [id]);
+    if (!account || !Number.isSafeInteger(user.perms_version) || user.perms_version!==Number(account.perms_version)) {
+      throw new ForbiddenException('须由重新登录的有效系统管理员操作');
+    }
+    return id;
+  }
+
+  @Get('egg-source-write-control')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'V')
+  async eggSourceWriteControl(@Req() req: any) {
+    await this.requireEggSourceAdministrator(this.em, req.user);
+    const [data] = await this.em.query(`SELECT writes_enabled,changed_at,changed_by,change_reason
+      FROM md_egg_source_write_control WHERE id=1`);
+    if (!data) throw new ConflictException('蛋品来源写开关未登记');
+    return { code:200,data };
+  }
+
   @Post('egg-source-write-control')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY', 'E')
   async setEggSourceWriteControl(@Req() req: any,
     @Body() body: { expectedEnabled:boolean; enabled:boolean; reason:string }) {
-    const id = String(req.user?.userId??'');
-    if (!/^[1-9][0-9]{0,18}$/.test(id) || req.user?.impersonatedBy) throw new ForbiddenException('须由实名系统管理员操作');
     const reason = typeof body?.reason==='string' ? body.reason.trim() : '';
     if (!reason || reason.length>500 || typeof body?.enabled!=='boolean' || typeof body?.expectedEnabled!=='boolean'
       || body.enabled===body.expectedEnabled) throw new BadRequestException('须提供当前状态、目标状态和变更依据');
     return this.em.transaction(async manager=>{
-      const [account] = await manager.query(`SELECT u.perms_version FROM sys_user u JOIN sys_user_role ur USING (user_id)
-        JOIN sys_role r USING (role_id) WHERE u.user_id=$1 AND u.status=1 AND COALESCE(ur.is_visible,true)
-        AND r.role_code='ROLE_ADMIN' AND r.status='ACTIVE' FOR SHARE OF u,ur,r`, [id]);
-      if (!account || !Number.isSafeInteger(req.user?.perms_version) || req.user.perms_version!==Number(account.perms_version)) {
-        throw new ForbiddenException('须由重新登录的有效系统管理员操作');
-      }
+      const id = await this.requireEggSourceAdministrator(manager,req.user);
       const rows = await manager.query(`WITH changed AS (UPDATE md_egg_source_write_control
         SET writes_enabled=$1,ever_enabled=ever_enabled OR $1,changed_by=$2,change_reason=$3,changed_at=clock_timestamp()
         WHERE id=1 AND writes_enabled=$4 RETURNING writes_enabled,changed_at,changed_by,change_reason)

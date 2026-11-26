@@ -16,6 +16,7 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
+import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
 import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -287,7 +288,7 @@ const apiPatch = (path: string, body: Record<string, unknown>) => fetch(path, {
 export default function RoleManagementPage() {
   const toast = useToast();
   const router = useRouter();
-  const { isSuper } = usePermission();
+  const { isSuper, user } = usePermission();
   const [registeringFlockActions, setRegisteringFlockActions] = useState(false);
   const {
     t
@@ -719,6 +720,8 @@ export default function RoleManagementPage() {
       display: "flex",
       gap: "8px"
     }}>
+            {isSuper && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
+              <EggSourceWriteControl/>}
             {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
               <Shield size={14} /> {t('breeding.lifecycle.register')}
             </button>}
