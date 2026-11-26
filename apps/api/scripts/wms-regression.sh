@@ -172,12 +172,19 @@ assert_eq "T5.3 LOSS 流水 +1" "1" "$LOSS_LEDGER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T6: A6 日结端点 GET/POST"
-R6=$(curl -s -o /tmp/r6.json -w '%{http_code}' -X GET "$API/api/stocktake/daily-close?warehouse_code=$WH_A&date=$(TZ=Asia/Singapore date +%Y-%m-%d)" \
+cyan "▶ T6: 仓级日结的采集首日与影子核对"
+CAPTURE_DAY=$($PSQL $DB -tA -c "SELECT (initialized_at AT TIME ZONE 'Asia/Singapore')::date FROM wms_close_capture_epoch;")
+CLOSE_DAY=$($PSQL $DB -tA -c "SELECT (initialized_at AT TIME ZONE 'Asia/Singapore')::date+1 FROM wms_close_capture_epoch;")
+R6=$(curl -s -o /tmp/r6.json -w '%{http_code}' "$API/api/stocktake/daily-close?warehouse_code=$WH_A&date=$CLOSE_DAY" \
   -H "Authorization: Bearer $TOKEN")
 assert_ok "T6.1 GET daily-close summary 200" "$R6"
 CLOSE_SUMMARY=$(node -pe "const {data}=JSON.parse(require('node:fs').readFileSync('/tmp/r6.json','utf8')); Array.isArray(data?.totals?.units) && data.eligible===false")
 assert_eq "T6.2 仓库返回业务日实物汇总，影子核对禁止封账" "true" "$CLOSE_SUMMARY"
+R6_HISTORY=$(curl -s -o /tmp/r6_history.json -w '%{http_code}' "$API/api/stocktake/daily-close?warehouse_code=$WH_A&date=$CAPTURE_DAY" \
+  -H "Authorization: Bearer $TOKEN")
+assert_ok "T6.3 GET 采集未满一日的历史状态" "$R6_HISTORY"
+CLOSE_HISTORY=$(node -pe "const {data}=JSON.parse(require('node:fs').readFileSync('/tmp/r6_history.json','utf8')); data?.historical===true && data.totals===null")
+assert_eq "T6.4 采集未满一日时明确待核且无快照" "true" "$CLOSE_HISTORY"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
