@@ -1148,7 +1148,7 @@ describe('WmsService inventory read queries', () => {
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-2', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 3 }];
-      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 4, qty_available: 4, status: 'AVAILABLE', warehouse_code: 'WH-A', store_code: 'ALL', company_code: null }];
+      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 4, qty_available: 4, unit: '件', status: 'AVAILABLE', warehouse_code: 'WH-A', store_code: 'ALL', company_code: null }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
@@ -1167,7 +1167,7 @@ describe('WmsService inventory read queries', () => {
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-SOURCE', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 1 }];
-      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 1, qty_available: 1, status: 'AVAILABLE', warehouse_code: 'WH-A' }];
+      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 1, qty_available: 1, unit: '件', status: 'AVAILABLE', warehouse_code: 'WH-A' }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
@@ -1227,7 +1227,7 @@ describe('WmsService inventory read queries', () => {
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("SET status='COMPLETED'"), expect.anything());
   });
 
-  it('requires every received discrepancy to link a loss or adjustment document', async () => {
+  it('requires every received discrepancy to have a disposition receipt', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
@@ -1238,7 +1238,7 @@ describe('WmsService inventory read queries', () => {
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
     const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
     await expect(service.completeTransfer('TR-4', { resolutions: [] }, { username: 'manager' }))
-      .rejects.toThrow('必须关联报损或调整单号');
+      .rejects.toThrow('必须提供独立处置凭证');
   });
 
   it('complete requires target warehouse scope', async () => {

@@ -44,7 +44,8 @@ for (const identity of ['admin', 'inout-only', 'issue-only', 'no-create']) {
 }
 
 test('PDA checks every saved allocation and displays the durable loading receipt', async ({ page }) => {
-  await authenticateMockPage(page, { username: 'shipping-fixture', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] });
+  const operator = { id: '9001', username: 'shipping-fixture', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
+  await authenticateMockPage(page, operator);
   const path = '/api/v2/sales/delivery/warehouse-loading';
   const header = { id: '91', delivery_no: 'DO-FIXTURE', fulfillment_warehouse_code: 'WH-FIXTURE', status: 'LOADING' };
   const items = [
@@ -77,7 +78,7 @@ test('PDA checks every saved allocation and displays the durable loading receipt
   await page.getByLabel('扫码核对批次').nth(0).fill('BATCH-A');
   await page.getByLabel('实装数量').nth(0).fill('6');
   await submit.click();
-  await expect(page.getByRole('alert')).toHaveText('请逐行核对批次及实装数量');
+  await expect(page.getByText('请逐行核对批次及实装数量', { exact: true })).toBeVisible();
   expect(requests).toEqual([]);
   await page.getByLabel('扫码核对批次').nth(1).fill('BATCH-B');
   await page.getByLabel('实装数量').nth(1).fill('4');
