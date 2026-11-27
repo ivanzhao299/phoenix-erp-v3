@@ -473,9 +473,11 @@ export class DeliveryOrdersService {
     const sumsByLine = new Map<string, number>();
     for (const row of rows) {
       if (row.company_code !== delivery.company_code || row.order_status !== 'ALLOCATED'
-        || row.warehouse_governance_pending || row.order_warehouse !== delivery.fulfillment_warehouse_code
         || row.linked_order_no !== row.order_no || row.linked_order_status !== 'LOADED') {
         throw new ConflictException('配送单包含其他公司或未分配订单');
+      }
+      if (row.warehouse_governance_pending || row.order_warehouse !== delivery.fulfillment_warehouse_code) {
+        throw new ConflictException('销售订单与配送单履约仓不一致');
       }
       if (row.quantity_snapshot) savedQuantity({ ...row, qty: row.line_qty });
       const ticks = row.qty == null ? 0 : quantityTicks(row.qty, '已分配量');
