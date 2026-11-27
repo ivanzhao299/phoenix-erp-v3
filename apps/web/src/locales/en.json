@@ -7371,6 +7371,7 @@
   "mob.dlv.err_exception_qty": "Please enter exception quantity (must be greater than 0)",
   "mob.dlv.submit_failed": "Submit failed, please retry",
   "mob.dlv.exception_recorded": "Exception Recorded",
+  "mob.dlv.exception_pending_review": "The exception has been recorded and is awaiting review.",
   "mob.dlv.return_order_created": "Return order created automatically, please wait for warehouse processing",
   "mob.dlv.returning": "Returning…",
   "mob.dlv.exception_product": "Exception Item",

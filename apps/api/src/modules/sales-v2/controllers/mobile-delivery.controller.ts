@@ -5,6 +5,7 @@ import {
 import { ClsService }              from 'nestjs-cls';
 import { MenuGuard, RequireMenu }  from '../../../common/guards/menu.guard';
 import { DataScopeGuard }          from '../../org/guards/data-scope.guard';
+import { CreateReceiptDto, ExceptionReceiptDto } from '../dto/delivery.dto';
 import { DeliveryOrdersService }   from '../services/delivery-orders.service';
 import { ReceiptsService }         from '../services/receipts.service';
 import { ReturnOrdersService }     from '../services/return-orders.service';
@@ -133,7 +134,7 @@ export class MobileDeliveryController {
 
   @Post('orders/:id/sign')
   @RequireMenu(MENU, 'C')
-  async sign(@Param('id') id: string, @Body() dto: any) {
+  async sign(@Param('id') id: string, @Body() dto: CreateReceiptDto) {
     const result = await this.receiptsSvc.createSigned(id, dto);
     if (result.replayed) return result;
     // 签收完成 Push
@@ -148,25 +149,8 @@ export class MobileDeliveryController {
 
   @Post('orders/:id/sign-exception')
   @RequireMenu(MENU, 'C')
-  async signException(@Param('id') id: string, @Body() body: {
-    deliveryItemId:   string;
-    receivedQty:      number;
-    exceptionQty:     number;
-    exceptionType:    string;
-    signedBy?:        string;
-    remark?:          string;
-    photoUrls?:       string[];
-  }) {
-    // 1. 创建异常签收记录
-    const receipt = await this.receiptsSvc.createException(id, {
-      deliveryItemId: body.deliveryItemId,
-      receivedQty:    body.receivedQty,
-      exceptionQty:   body.exceptionQty,
-      exceptionType:  body.exceptionType,
-      signedBy:       body.signedBy,
-      remark:         body.remark,
-      photoUrls:      body.photoUrls,
-    } as any);
+  async signException(@Param('id') id: string, @Body() body: ExceptionReceiptDto) {
+    const receipt = await this.receiptsSvc.createException(id, body);
 
     const result = await this.receiptsSvc.resolveExceptionReturn(String(receipt.id), this.returnsSvc);
     if (receipt.replayed) return { receipt, ...result };

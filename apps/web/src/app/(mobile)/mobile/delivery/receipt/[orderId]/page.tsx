@@ -201,6 +201,7 @@ export default function ReceiptPage({
     setSubmitting(true);
     setSubmitError('');
     try {
+      let disposition: string | undefined;
       if (exQty === 0) {
         await apiPost(`/api/v2/mobile/delivery/orders/${orderId}/sign`, {
           deliveryItemId: selectedItem.id,
@@ -210,21 +211,20 @@ export default function ReceiptPage({
           photoUrls: photos.length > 0 ? photos : undefined
         });
       } else {
-        await apiPost(`/api/v2/mobile/delivery/orders/${orderId}/sign-exception`, {
+        const response = await apiPost(`/api/v2/mobile/delivery/orders/${orderId}/sign-exception`, {
           deliveryItemId: selectedItem.id,
           signedBy: signedBy.trim(),
           receivedQty: rcvQty,
           exceptionQty: exQty,
           exceptionType,
           remark: remark.trim() || undefined,
-          photoUrls: photos.length > 0 ? photos : undefined,
-          customerCode: selectedItem.customerCode ?? order?.customerCode,
-          companyCode: selectedItem.companyCode ?? order?.companyCode,
-          productCode: selectedItem.productCode,
-          productName: selectedItem.productName
+          photoUrls: photos.length > 0 ? photos : undefined
         });
+        disposition = response.resolutionStatus;
       }
-      alert(exQty > 0 ? t('mob.dlv.exception_sign_submitted', '异常签收已提交') : t('mob.dlv.sign_success', '签收成功'));
+      alert(exQty === 0 ? t('mob.dlv.sign_success', '签收成功')
+        : disposition === 'RETURN_CREATED' ? t('mob.dlv.return_order_created', '已自动创建退货单，请等待仓库处理')
+        : t('mob.dlv.exception_pending_review', '异常已登记，等待核对处置。'));
       router.push(`/mobile/delivery/orders/${orderId}`);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : t('mob.dlv.submit_failed', '提交失败，请重试'));

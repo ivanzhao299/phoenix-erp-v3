@@ -5,6 +5,7 @@ import { InventorySourceModeService } from '../sales-v2/services/inventory-sourc
 import { DeliveryOrdersService } from '../sales-v2/services/delivery-orders.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { SalesOrderLifecycleService } from '../sales-v2/services/sales-order-lifecycle.service';
+import { StoreReplenishmentService } from '../store-pos/services/store-replenishment.service';
 import { ReturnOrdersService } from '../sales-v2/services/return-orders.service';
 import { ReceiptsService } from '../sales-v2/services/receipts.service';
 import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
@@ -326,6 +327,66 @@ pg('inventory workflows against the complete migration chain', () => {
     expect(retries[0].resolutionStatus).toBe('RETURN_CREATED');
     const [ret] = await db.query(`SELECT sales_order_item_id::text,returned_qty::float FROM sal_return_items WHERE return_order_id=$1`, [retries[0].returnOrder.id]);
     expect(ret).toEqual({ sales_order_item_id: String(line), returned_qty: 2 });
+  });
+
+  it('signs historical arrivals only after matching independently recorded loading evidence', async () => {
+    const actor = { get: (key: string) => key === 'dataScope' ? scope : { userId: 100, username: 'fixture' } } as any;
+    const receiver = new ReceiptsService(db, actor, { receiveWithAr: jest.fn() } as any, new SalesOrderLifecycleService(db));
+    const orderNo = 'INVENTORY-HISTORIC-SIGN';
+    const deliveryNo = 'INVENTORY-HISTORIC-ARRIVAL';
+    const batchNo = 'INVENTORY-HISTORIC-BATCH';
+    const [{ id: order }] = await db.query(`INSERT INTO sal_sales_orders(order_no,company_code,status)
+      VALUES($1,$2,'DELIVERED') RETURNING id`, [orderNo, company]);
+    const [{ id: delivery }] = await db.query(`INSERT INTO sal_delivery_orders(delivery_no,company_code,status)
+      VALUES($1,$2,'ARRIVED') RETURNING id`, [deliveryNo, company]);
+    const [{ id: item }] = await db.query(`INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
+      VALUES($1,$2,$3,3,'DELIVERED') RETURNING id`, [delivery, order, orderNo]);
+    const dto = { deliveryItemId: String(item), receivedQty: 3 };
+    await db.query(`INSERT INTO inv_batches(batch_no,qty,qty_available,warehouse_code,company_code,unit,status)
+      VALUES($1,1,1,$2,$3,'kg','AVAILABLE')`, [batchNo, warehouse, company]);
+    await db.query(`INSERT INTO inv_ledger(batch_no,company_code,ref_no,change_type,qty_change,note)
+      VALUES($1,$2,$3,'FIFO_OUT',-3,$4)`, [batchNo, company, deliveryNo, '装车出库 delivery='+deliveryNo+' order='+orderNo+' batch='+batchNo]);
+    await expect(receiver.createSigned(String(delivery), dto)).rejects.toMatchObject({ status: 409 });
+    await db.query(`INSERT INTO sal_order_lifecycle_events(event_id,sales_order_id,order_no,event_type,actor_type,source_module,source_ref_type,source_ref_id,source_ref_no)
+      VALUES($1,$2,$3,'OUTBOUND_CONFIRMED','USER','WMS','DELIVERY',$4,$5)`, [randomUUID(), order, orderNo, String(delivery), deliveryNo]);
+    await expect(receiver.createSigned(String(delivery), dto)).resolves.toMatchObject({ received_qty: '3.00' });
+  });
+
+  it('rolls back WMS dispatch if the linked store request cannot advance', async () => {
+    const wms = new WmsService(db.manager, cls);
+    const service = new StoreReplenishmentService(db, cls, { listMembershipStores: async () => [] } as any, wms);
+    const user = { userId: 100, username: 'fixture' };
+    const transferNo = 'INVENTORY-STORE-XFER';
+    const batchNo = 'INVENTORY-STORE-BATCH';
+    const storeCode = 'INVENTORY-STORE-FIX';
+    const destination = 'INVENTORY-STORE-DEST';
+    await db.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,domain)
+      VALUES($1,'Store replenishment destination',$2,'GENERAL','OPERATIONAL')`, [destination, company]);
+    const [store] = await db.query(`INSERT INTO store_master(store_code,store_name,company_code)
+      VALUES($1,'Replenishment test store',$2) RETURNING id`, [storeCode, company]);
+    await db.query(`INSERT INTO inv_batches(batch_no,qty,qty_available,warehouse_code,company_code,unit,status)
+      VALUES($1,9,9,$2,$3,'kg','AVAILABLE')`, [batchNo, warehouse, company]);
+    await db.query(`INSERT INTO wms_transfer(transfer_no,from_warehouse,to_warehouse,qty,status)
+      VALUES($1,$2,$3,2,'PENDING')`, [transferNo, warehouse, destination]);
+    await db.query(`INSERT INTO wms_transfer_items(transfer_no,source_batch_no,expected_qty) VALUES($1,$2,2)`, [transferNo, batchNo]);
+    const [request] = await db.query(`INSERT INTO store_replenishment_requests
+      (request_no,store_id,company_code,source_warehouse_code,target_warehouse_code,requested_by,transfer_no,status)
+      VALUES('INVENTORY-STORE-REQUEST',$1,$2,$3,$4,'fixture',$5,'APPROVED') RETURNING id`, [store.id, company, warehouse, destination, transferNo]);
+    await expect(wms.dispatchTransfer(transferNo, user)).rejects.toThrow('请从门店补货流程');
+    const actualDispatch = wms.dispatchTransfer.bind(wms);
+    const failure = jest.spyOn(wms, 'dispatchTransfer').mockImplementationOnce(async (...args) => {
+      const result = await actualDispatch(...args);
+      expect(result.status).toBe('IN_TRANSIT');
+      await args[2]!.query("SELECT CAST('fixture rejection' AS int)");
+      return result;
+    });
+    try {
+      await expect(service.dispatch(Number(request.id), user)).rejects.toThrow('fixture rejection');
+    } finally { failure.mockRestore(); }
+    const [still] = await db.query(`SELECT t.status,r.status AS request_status,b.qty::float
+      FROM wms_transfer t JOIN store_replenishment_requests r USING(transfer_no) JOIN inv_batches b ON b.batch_no=$2 WHERE t.transfer_no=$1`, [transferNo,batchNo]);
+    expect(still).toEqual({ status: 'PENDING', request_status: 'APPROVED', qty: 9 });
+    await expect(service.dispatch(Number(request.id), user)).resolves.toMatchObject({ status: 'IN_TRANSIT' });
   });
 
   it('returns only the POS quantity allocated to each visible batch, with stable receipt pagination', async () => {

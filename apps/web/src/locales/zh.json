@@ -7348,6 +7348,7 @@
   "mob.dlv.err_exception_qty": "请填写异常数量（须大于0）",
   "mob.dlv.submit_failed": "提交失败，请重试",
   "mob.dlv.exception_recorded": "异常已记录",
+  "mob.dlv.exception_pending_review": "异常已登记，等待核对处置。",
   "mob.dlv.return_order_created": "已自动创建退货单，请等待仓库处理",
   "mob.dlv.returning": "正在返回…",
   "mob.dlv.exception_product": "异常商品",

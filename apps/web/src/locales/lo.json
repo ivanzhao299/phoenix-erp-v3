@@ -7371,6 +7371,7 @@
   "mob.dlv.err_exception_qty": "ກະລຸນາໃສ່ຈຳນວນຜິດປົກກະຕິ (ຕ້ອງຫຼາຍກວ່າ 0)",
   "mob.dlv.submit_failed": "ສົ່ງບໍ່ສຳເລັດ, ກະລຸນາລອງໃໝ່",
   "mob.dlv.exception_recorded": "ບັນທຶກຜິດປົກກະຕິແລ້ວ",
+  "mob.dlv.exception_pending_review": "ບັນທຶກຂໍ້ຜິດປົກກະຕິແລ້ວ ແລະກຳລັງລໍຖ້າການກວດສອບ.",
   "mob.dlv.return_order_created": "ສ້າງໃບສົ່ງຄືນອັດຕະໂນມັດແລ້ວ, ກະລຸນາລໍຖ້າສາງດຳເນີນການ",
   "mob.dlv.returning": "ກຳລັງກັບຄືນ…",
   "mob.dlv.exception_product": "ສິນຄ້າຜິດປົກກະຕິ",
