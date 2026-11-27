@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
@@ -11,7 +11,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Plus, X } from "lucide-react";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { WarehouseSelector, UserSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { WarehouseSelector, UserSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 import {
   receiptScopeFromPurchaseOrder,
@@ -80,6 +80,7 @@ interface PoOrderItem {
   unit?: string;
 }
 interface PoOrderDetail extends ReceiptPurchaseOrderScope {
+  id: string;
   poNo?: string;
   items?: PoOrderItem[];
 }
@@ -124,14 +125,6 @@ function hdr() {
     Authorization: `Bearer ${getToken()}`
   };
 }
-const emptyItem = (): ReceiptItem => ({
-  itemName: "",
-  expectedQty: 0,
-  actualQty: 0,
-  rejectedQty: 0,
-  qualityStatus: "PASS"
-});
-
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function ReceiptsPage() {
@@ -164,9 +157,15 @@ export default function ReceiptsPage() {
   const [formReceiver, setFormReceiver] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
   const [formRemark, setFormRemark] = useState("");
-  const [formItems, setFormItems] = useState<ReceiptItem[]>([emptyItem()]);
+  const [formItems, setFormItems] = useState<ReceiptItem[]>([]);
   const [formSaving, setFormSaving] = useState(false);
   const [poItemsLoading, setPoItemsLoading] = useState(false);
+  const [poItemsError, setPoItemsError] = useState(false);
+  const [loadedPoId, setLoadedPoId] = useState("");
+  const detailRequest = useRef(0);
+  const canSubmit = !!formPoId && loadedPoId === formPoId && !poItemsLoading && !poItemsError
+    && !!formWh && formItems.some(item => item.actualQty > 0 || item.rejectedQty > 0);
+
 
   // ── Detail drawer ─────────────────────────────────────────────────────────
   const [detail, setDetail] = useState<Receipt | null>(null);
@@ -223,32 +222,30 @@ export default function ReceiptsPage() {
 
   // ── Load PO items for pre-fill ─────────────────────────────────────────────
   const loadPoItems = async (poId: string) => {
+    const request = ++detailRequest.current;
+    setFormItems([]);
+    setLoadedPoId("");
+    setPoItemsError(false);
+    setPoItemsLoading(!!poId);
     if (!poId) return;
-    setPoItemsLoading(true);
     try {
-      const res = await fetch(`/api/v2/procurement/orders/${poId}`, {
-        headers: hdr()
-      });
-      if (!res.ok) return;
+      const res = await fetch(`/api/v2/procurement/receipts/eligible-orders/${poId}`, { headers: hdr() });
+      if (!res.ok) throw new Error(String(res.status));
       const po: PoOrderDetail = await res.json();
+      if (request !== detailRequest.current) return;
+      if (String(po.id) !== poId) throw new Error('Order response does not match selection');
       setFormPoScope(receiptScopeFromPurchaseOrder(po));
       if (po.poNo) setFormPoNo(po.poNo);
-      const poItems: PoOrderItem[] = po.items ?? [];
-      if (poItems.length > 0) {
-        setFormItems(poItems.map(i => ({
-          poItemId: i.id,
-          itemCode: i.itemCode,
-          itemName: i.itemName,
-          spec: i.spec,
-          expectedQty: Number(i.qty) - Number(i.receivedQty),
-          actualQty: 0,
-          rejectedQty: 0,
-          unit: i.unit,
-          qualityStatus: "PASS"
-        })));
-      }
-    } catch {/* ignore */} finally {
-      setPoItemsLoading(false);
+      setFormItems((po.items ?? []).map(i => ({
+        poItemId: i.id, itemCode: i.itemCode, itemName: i.itemName, spec: i.spec,
+        expectedQty: Math.max(0, Number(i.qty) - Number(i.receivedQty)),
+        actualQty: 0, rejectedQty: 0, unit: i.unit, qualityStatus: "PASS",
+      })));
+      setLoadedPoId(poId);
+    } catch {
+      if (request === detailRequest.current) setPoItemsError(true);
+    } finally {
+      if (request === detailRequest.current) setPoItemsLoading(false);
     }
   };
   const loadPoOptions = useCallback(async () => {
@@ -275,10 +272,17 @@ export default function ReceiptsPage() {
     setFormPoId(poId);
     setFormPoNo(selected?.poNo ?? '');
     setFormPoScope({});
-    if (selected) void loadPoItems(selected.id);
-    else setFormItems([emptyItem()]);
+    setFormShipId("");
+    setFormShipNo("");
+    setFormWh("");
+    void loadPoItems(selected?.id ?? "");
+  };
+  const closeForm = () => {
+    void loadPoItems("");
+    setFormOpen(false);
   };
   const openNew = () => {
+    void loadPoItems("");
     setFormPoId("");
     setFormPoNo("");
     setFormPoScope({});
@@ -288,20 +292,13 @@ export default function ReceiptsPage() {
     setFormReceiver("");
     setFormDate(new Date().toISOString().slice(0, 10));
     setFormRemark("");
-    setFormItems([emptyItem()]);
     setFormOpen(true);
   };
 
   // ── Save new receipt ───────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formPoId || !formPoNo) {
-      toast.error(t('prc2.err_po_required', "请选择可收货的采购订单"));
-      return;
-    }
-    if (formItems.length === 0) {
-      toast.error(t('prc2.err_at_least_one_item', "请至少添加一行收货明细"));
-      return;
-    }
+    if (!canSubmit || formSaving) return;
+    const request = detailRequest.current;
     setFormSaving(true);
     try {
       const res = await fetch("/api/v2/procurement/receipts", {
@@ -317,12 +314,12 @@ export default function ReceiptsPage() {
           receiverName: formReceiver || undefined,
           receiptDate: formDate,
           remark: formRemark || undefined,
-          items: formItems
+          items: formItems.filter(item => item.actualQty > 0 || item.rejectedQty > 0)
         })
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success(t('prc2.receipt_create_success', "收货单创建成功"));
-      setFormOpen(false);
+      if (request === detailRequest.current) closeForm();
       loadList(1);
     } catch (e) {
       toast.error(String(e));
@@ -398,7 +395,6 @@ export default function ReceiptsPage() {
       [field]: value
     } : it));
   };
-  const addItem = () => setFormItems(prev => [...prev, emptyItem()]);
   const removeItem = (idx: number) => setFormItems(prev => prev.filter((_, i) => i !== idx));
   const totalPages = Math.ceil(total / pageSize);
   // 明细单元格输入框（与全局 .inp 同档，企业级留白）
@@ -562,7 +558,7 @@ export default function ReceiptsPage() {
         </div>}
 
       {/* ── New Receipt Drawer ── */}
-      <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title={t('prc2.new_receipt', "新建收货单")} width={880}>
+      <RightDrawer open={formOpen} onClose={closeForm} title={t('prc2.new_receipt', "新建收货单")} width={880}>
         {/* G158：重表单仅 open 时挂载 */}
         {formOpen && <div style={{
         padding: "8px 28px 28px"
@@ -607,7 +603,7 @@ export default function ReceiptsPage() {
               <div className={s.field}>
                 <label className={s.lbl}>{t('prc2.warehouse', "仓库")}</label>
                 {/* G4-B：仓库主数据(wms_warehouses，仅 ACTIVE) */}
-                <WarehouseSelector value={formWh} onChange={setFormWh} />
+                <WarehouseSelector value={formWh} onChange={setFormWh} companyCode={formPoScope.companyCode} />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>{t('prc2.receiver', "收货人")}</label>
@@ -639,11 +635,11 @@ export default function ReceiptsPage() {
                 fontSize: 12
               }}>{t('prc2.loading_dots3', "加载中...")}</span>}
               </div>
-              <button className={s.btnSecondary} onClick={addItem} style={{
-              fontSize: 13,
-              padding: "7px 14px",
-              whiteSpace: "nowrap"
-            }}>{t('prc2.add_row', "+ 添加行")}</button>
+              {poItemsError && <div role="alert">
+                {t('prc2.receipt_order_load_failed', "无法加载订单明细")}
+                <button className={s.btnSecondary} onClick={() => void loadPoItems(formPoId)}>{t('prc2.retry', "重试")}</button>
+              </div>}
+              {loadedPoId && !formItems.length && <span role="status">{t('prc2.no_receivable_order_lines', "没有可收货明细")}</span>}
             </div>
             <div style={{
             overflowX: "auto",
@@ -701,15 +697,7 @@ export default function ReceiptsPage() {
                       <td style={{
                     padding: "8px"
                   }}>
-                        {/* 物料主数据（mst_materials runtime）选择，自动带出 material_name/spec/unit */}
-                        <MaterialSelector value={item.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
-                      setItemField(idx, "itemName", o?.raw?.material_name ?? o?.raw?.name ?? "");
-                      setItemField(idx, "spec", o?.raw?.spec ?? "");
-                      setItemField(idx, "unit", o?.raw?.unit ?? "");
-                    }} style={{
-                      fontSize: 13,
-                      padding: "5px 8px"
-                    }} />
+                        <span>{item.itemName} {item.itemCode}</span>
                       </td>
                       <td style={{
                     padding: "8px"
@@ -717,7 +705,7 @@ export default function ReceiptsPage() {
                         <input type="number" style={{
                       ...cellInp,
                       textAlign: "right"
-                    }} value={item.expectedQty} onChange={e => setItemField(idx, "expectedQty", Number(e.target.value))} min={0} step="0.0001" />
+                    }} value={item.expectedQty} readOnly min={0} step="0.0001" />
                       </td>
                       <td style={{
                     padding: "8px"
@@ -738,7 +726,7 @@ export default function ReceiptsPage() {
                       <td style={{
                     padding: "8px"
                   }}>
-                        <input style={cellInp} value={item.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder={t('prc2.unit', "单位")} />
+                        <input style={cellInp} value={item.unit ?? ""} readOnly placeholder={t('prc2.unit', "单位")} />
                       </td>
                       <td style={{
                     padding: "8px"
@@ -801,8 +789,8 @@ export default function ReceiptsPage() {
           </div>
 
           <div className={s.drawerFooter}>
-            <button className={s.btnSecondary} onClick={() => setFormOpen(false)}>{t('prc2.cancel', "取消")}</button>
-            <button className={s.btnPrimary} onClick={handleSave} disabled={formSaving}>
+            <button className={s.btnSecondary} onClick={closeForm}>{t('prc2.cancel', "取消")}</button>
+            <button className={s.btnPrimary} onClick={handleSave} disabled={formSaving || !canSubmit}>
               {formSaving ? t('prc2.saving_dots3', "保存中...") : t('prc2.create_receipt', "创建收货单")}
             </button>
           </div>

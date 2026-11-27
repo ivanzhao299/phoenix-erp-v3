@@ -21,6 +21,12 @@ export class ReceiptsController {
     return this.svc.listEligiblePurchaseOrders(keyword);
   }
 
+  @Get('receipts/eligible-orders/:id')
+  @RequireMenu('MENU_PRC2_RECEIPT', 'V')
+  eligibleOrder(@Param('id') id: string) {
+    return this.svc.getEligiblePurchaseOrder(id);
+  }
+
   @Get('receipts')
   @RequireMenu('MENU_PRC2_RECEIPT', 'V')
   list(@Query() q: QueryReceiptDto) { return this.svc.list(q); }

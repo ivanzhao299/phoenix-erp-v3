@@ -1,3 +1,5 @@
+import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
+import { MasterDataRuntimeService } from './master-data-runtime.service';
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -89,6 +91,8 @@ function normalizeCode(value: string | undefined | null) {
 export class MasterDataCenterController {
   constructor(
     private readonly codeGen: CodeGeneratorService,
+    private readonly runtime: MasterDataRuntimeService,
+    private readonly dataScope: DataScopeService,
     private readonly audit: MasterDataAuditService,
     private readonly refs: MasterDataReferencesService, // G5.5-C
     private readonly dictGov: DictGovernanceService,    // G5.5-D
@@ -173,6 +177,20 @@ export class MasterDataCenterController {
   ) {
     const menu = REFERENCE_OBJECT_TO_MENU[normalizeCode(objectType)] ?? 'MENU_MD_AUDIT';
     this.assertMasterDataPermission(req, menu, 'V');
+    if (normalizeCode(objectType) === 'SUPPLIER') {
+      await this.runtime.get('supplier', objectCode);
+      const roles: string[] = req.user.roles ?? [req.user.role];
+      const scopes = new Map<string, DataScopeContext>();
+      for (const [table, domainMenu] of [
+        ['prc2_purchase_orders', 'MENU_PRC2_ORDER'], ['fin_ap_invoices', 'MENU_FIN2_AP'],
+        ['prc2_ap_ledger', 'MENU_PRC2_PAYMENT'], ['prc2_payments', 'MENU_PRC2_PAYMENT'],
+      ]) {
+        if (roles.includes('ROLE_ADMIN') || hasPerm(req.user.permissions, domainMenu, 'V')) {
+          scopes.set(table, await this.dataScope.resolve(String(req.user.userId ?? req.user.id), roles, domainMenu));
+        }
+      }
+      return this.refs.compute(objectType, objectCode, undefined, scopes);
+    }
     return this.refs.compute(objectType, objectCode);
   }
 

@@ -22,7 +22,7 @@ describe('procurement P0 contracts', () => {
     const source = read('src/app/(admin)/procurement2/dashboard/page.tsx');
     expect(source).not.toContain('应付余额 (CNY)');
     expect(source).not.toContain('已付金额 (CNY)');
-    expect(source).toContain('应付余额（原币合计）');
-    expect(source).toContain('已付金额（本位币）');
+    expect(source).toContain('summary.apByCurrency?.map');
+    expect(source).toContain('summary.paymentByCurrency?.map');
   });
 });

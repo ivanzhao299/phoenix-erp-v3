@@ -217,15 +217,4 @@ export class FinanceV2Controller {
       pageSize: pageSize ? Number(pageSize) : 20,
     });
   }
-
-  /**
-   * GET /api/v2/finance/ap/summary
-   * AP 汇总统计（用于 Dashboard 和 AP 页面头部）
-   */
-  @Get('ap/summary')
-  @RequireMenu('MENU_FIN2_AP', 'V')
-  getApSummary(@Query('companyCode') companyCode?: string) {
-    const codes = companyCode ? [companyCode] : undefined;
-    return this.apAdapter.getApSummary(codes);
-  }
 }

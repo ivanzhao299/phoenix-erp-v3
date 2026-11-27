@@ -128,12 +128,8 @@ type FormState = {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
-  bankName: string;
-  bankAccountName: string;
-  bankAccountNo: string;
   taxNo: string;
   address: string;
-  creditDays: string;
   remark: string;
 };
 const DEF: FormState = {
@@ -152,12 +148,8 @@ const DEF: FormState = {
   contactName: "",
   contactPhone: "",
   contactEmail: "",
-  bankName: "",
-  bankAccountName: "",
-  bankAccountNo: "",
   taxNo: "",
   address: "",
-  creditDays: "30",
   remark: ""
 };
 
@@ -255,12 +247,8 @@ export default function SuppliersPage() {
       contactName: row.contactName ?? "",
       contactPhone: row.contactPhone ?? "",
       contactEmail: row.contactEmail ?? "",
-      bankName: row.bankName ?? "",
-      bankAccountName: row.bankAccountName ?? "",
-      bankAccountNo: row.bankAccountNo ?? "",
       taxNo: row.taxNo ?? "",
       address: row.address ?? "",
-      creditDays: String(row.creditDays ?? 30),
       remark: row.remark ?? ""
     });
     setDrawerOpen(true);
@@ -312,12 +300,8 @@ export default function SuppliersPage() {
         contactName: form.contactName || undefined,
         contactPhone: form.contactPhone || undefined,
         contactEmail: form.contactEmail || undefined,
-        bankName: form.bankName || undefined,
-        bankAccountName: form.bankAccountName || undefined,
-        bankAccountNo: form.bankAccountNo || undefined,
         taxNo: form.taxNo || undefined,
         address: form.address || undefined,
-        creditDays: Number(form.creditDays) || 30,
         remark: form.remark || undefined
       };
       if (editing) {
@@ -566,12 +550,12 @@ export default function SuppliersPage() {
                   padding: "3px 8px",
                   fontSize: 11
                 }} onClick={() => openEdit(row)}>{t('ui.编辑','编辑')}</button>
-                    <button type="button" className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary} style={{
+                    {["ACTIVE", "INACTIVE"].includes(row.status) && <button type="button" className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary} style={{
                   padding: "3px 8px",
                   fontSize: 11
                 }} onClick={() => toggleStatus(row)}>
                       {row.status === "ACTIVE" ? t('ui.停用','停用') : t('ui.启用','启用')}
-                    </button>
+                    </button>}
                   </td>
                 </tr>;
           })}
@@ -850,25 +834,6 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>{t('ui.账期（天）','账期（天）')}</label>
-              <input type="number" value={form.creditDays} onChange={e => setF("creditDays", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none",
-              boxSizing: "border-box"
-            }} />
-            </div>
-            <div>
-              <label style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              display: "block",
-              marginBottom: 4
             }}>{t('ui.税务号（TIN）','税务号（TIN）')}</label>
               <input value={form.taxNo} onChange={e => setF("taxNo", e.target.value)} style={{
               width: "100%",
@@ -883,51 +848,6 @@ export default function SuppliersPage() {
             }} />
             </div>
           </div>
-          <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10
-        }}>
-            <div>
-              <label style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              display: "block",
-              marginBottom: 4
-            }}>{t('ui.开户银行','开户银行')}</label>
-              <input value={form.bankName} onChange={e => setF("bankName", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none",
-              boxSizing: "border-box"
-            }} />
-            </div>
-            <div>
-              <label style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              display: "block",
-              marginBottom: 4
-            }}>{t('ui.银行账号','银行账号')}</label>
-              <input value={form.bankAccountNo} onChange={e => setF("bankAccountNo", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none",
-              boxSizing: "border-box"
-            }} />
-            </div>
-          </div>
-
           <div style={{
           display: "flex",
           gap: 10,

@@ -1253,6 +1253,15 @@ export class WmsService {
     return managerOverride ? execute(managerOverride) : this.em.transaction(execute);
   }
 
+  async assertPurchaseReceiptWarehouseCompany(manager: EntityManager, warehouseCode: string, companyCode?: string) {
+    await this.lockWarehouseCompany(manager, warehouseCode, companyCode);
+  }
+
+  async resolvePurchaseReceiptUnit(manager: EntityManager, itemCode: string, companyCode: string) {
+    const identity = await this.resolveInventoryItem(manager, itemCode, '', companyCode);
+    return identity.unit;
+  }
+
   /**
    * G84 采购收货入库 — 供采购模块在其「收货确认」事务内调用，统一写 inv_batches/inv_ledger。
    * 守护：库存唯一写入口（CLAUDE.md #6）；批次状态 AVAILABLE 取自 INV_STOCK_STATUS（#7）。
@@ -1264,6 +1273,7 @@ export class WmsService {
     ctx: {
       refNo: string;             // 收货单号（→ inv_ledger.ref_no 可追溯）
       warehouseCode?: string;
+      companyCode?: string;
       storeCode?: string;
       operator?: string;
       inboundDate?: string | null;
@@ -1299,7 +1309,7 @@ export class WmsService {
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
     await this.assertPurchaseReceiptWarehouseUsage(manager, warehouseCode);
     await this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
-    const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
+    const companyCode = await this.lockWarehouseCompany(manager, warehouseCode, ctx.companyCode);
     const batchNos: string[] = [];
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
@@ -1317,6 +1327,9 @@ export class WmsService {
         it.skuCode !== undefined ? 'SKU' : this.nonEmptyString(it.itemType),
         companyCode,
       );
+      if (ctx.companyCode && it.unit !== identity.unit) {
+        throw new BadRequestException(`采购收货物料 ${suppliedCode} 的收货单位须与库存基础单位 ${identity.unit} 一致`);
+      }
       const productCode = identity.productCode;
       const skuCode = identity.skuCode;
       const inventoryClass = resolveInventoryClass(identity.gradeCode);

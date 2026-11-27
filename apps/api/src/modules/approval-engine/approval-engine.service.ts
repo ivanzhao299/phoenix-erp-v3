@@ -1,3 +1,4 @@
+import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 import {
   Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef, Logger,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
 import { BackgroundTaskService } from '../background-control/background-task.service';
 import { AssignmentResolverService, ApproverType } from '../workflow/assignment-resolver.service';
+import { Prc2ApprovalEntity } from '../procurement-v2/entities/prc2-approval.entity';
 import { ALL_PERM_CODES, hasPerm, PermCode } from '../../auth/permissions.util';
 
 export interface StartApprovalParams {
@@ -328,7 +330,7 @@ export class ApprovalEngineService {
     if (!rule) {
       // 无规则 → 默认 fail-safe：禁止自动批准，禁止提交
       // 仅当 ADMIN/SYSOPS 在 sys_configs 显式开启危险开关 workflow.fail_open_enabled=true 时才放行（生产不建议）
-      if (!(await this.isFailOpenEnabled(mgr))) {
+      if (this.isProcurementDecision(params.bizType) || !(await this.isFailOpenEnabled(mgr))) {
         throw new BadRequestException('当前业务未配置审批规则，请先在审批规则中配置后再提交。');
       }
       // ⚠ fail-open 危险开关已显式开启：保留旧的无规则自动通过行为
@@ -349,7 +351,7 @@ export class ApprovalEngineService {
 
     if (ruleSteps.length === 0) {
       // 规则存在但无步骤 → 同样默认 fail-safe，禁止自动批准
-      if (!(await this.isFailOpenEnabled(mgr))) {
+      if (this.isProcurementDecision(params.bizType) || !(await this.isFailOpenEnabled(mgr))) {
         throw new BadRequestException('当前业务的审批规则未配置任何审批步骤，请先在审批规则中补全步骤后再提交。');
       }
       // ⚠ fail-open 危险开关已显式开启：保留旧的无步骤自动通过行为
@@ -623,11 +625,64 @@ export class ApprovalEngineService {
     }
   }
 
+  private isProcurementDecision(bizType: string): boolean {
+    return ['PR', 'PO', 'PAYMENT'].includes(bizType);
+  }
+
+  private async lockProcurementDecision(mgr: EntityManager, instance: WfApprovalInstanceEntity) {
+    const table = this.bizRegistry.getTableName(instance.bizType);
+    const [document] = await mgr.query(`SELECT status, company_code, project_code FROM ${table} WHERE id = $1 FOR UPDATE`, [instance.bizId]);
+    if (!document || !['SUBMITTED', 'PENDING_APPROVAL'].includes(document.status)) {
+      throw new ConflictException('采购单据已变更，不能继续审批');
+    }
+    new DataScopeHelper(this.cls).assertWritableOwnership(
+      { companyCode: document.company_code, projectCode: document.project_code }, '采购审批单据',
+    );
+    const active = await this.getPendingProcurementInstance(instance.bizType, instance.bizId, mgr);
+    if (!active || String(active.id) !== String(instance.id)) {
+      throw new ConflictException('采购待审实例已变更，请刷新');
+    }
+    return document.status as string;
+  }
+
+  async getPendingProcurementInstance(bizType: string, bizId: string, mgr?: EntityManager) {
+    const repo = mgr ? mgr.getRepository(WfApprovalInstanceEntity) : this.instanceRepo;
+    const instances = await repo.find({ where: { bizType, bizId, status: 'PENDING' }, take: 2 });
+    if (instances.length > 1) throw new ConflictException('存在多个待审实例，请核对审批记录');
+    return instances[0];
+  }
+
+  async cancelPendingProcurementInstance(bizType: string, bizId: string, mgr: EntityManager): Promise<boolean> {
+    const instance = await this.getPendingProcurementInstance(bizType, bizId, mgr);
+    if (!instance) return false;
+    await this.cancelInstance(instance.id, mgr, false);
+    return true;
+  }
+
+  private async recordProcurementDecision(
+    mgr: EntityManager, instance: WfApprovalInstanceEntity, step: WfApprovalInstanceStepEntity, finished: boolean,
+  ) {
+    if (instance.bizType === 'PO' && finished) {
+      await mgr.query(
+        `UPDATE prc2_purchase_orders SET approval_status=$1, approved_by=$2, approved_at=$3 WHERE id=$4`,
+        [step.status, step.status === 'APPROVED' ? step.actorUserId : null,
+          step.status === 'APPROVED' ? step.actedAt : null, instance.bizId],
+      );
+    }
+    await mgr.insert(Prc2ApprovalEntity, {
+      bizType: instance.bizType, bizId: instance.bizId, bizNo: instance.bizNo,
+      approvalNode: finished ? step.action! : `STEP_${step.stepNo}`,
+      action: step.action!, approverId: step.actorUserId!, approverName: step.actorUsername!,
+      comment: step.comment ?? undefined,
+    });
+  }
+
   // ── 审批当前步骤 ─────────────────────────────────────────────────────────
 
   async approveStep(
     instanceId: string,
     comment?: string,
+    expectedStepNo?: number,
   ): Promise<{ finished: boolean; approved: boolean; currentStepNo?: number; totalSteps?: number }> {
     return this.ds.transaction(async mgr => {
       const { userId, userName, roles } = this.currentUser();
@@ -641,6 +696,11 @@ export class ApprovalEngineService {
         throw new ConflictException(`审批实例已结束（状态：${instance.status}），不可继续操作`);
       }
 
+      const procurement = this.isProcurementDecision(instance.bizType);
+      if ((expectedStepNo !== undefined || procurement)
+        && (expectedStepNo ?? 1) !== instance.currentStepNo) {
+        throw new ConflictException('审批步骤已变更，请刷新待办');
+      }
       const step = await mgr.findOne(WfApprovalInstanceStepEntity, {
         where: { instanceId, stepNo: instance.currentStepNo },
       });
@@ -651,6 +711,9 @@ export class ApprovalEngineService {
 
       // 严格角色校验（Phase B：ADMIN 不自动绕过）
       this.validateApprover(step, userId, roles);
+      const expectedStatus = procurement ? await this.lockProcurementDecision(mgr, instance)
+        : instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined;
+
 
       // 防止同一用户重复审批同一步骤
       if (step.actorUserId && step.actorUserId === userId) {
@@ -670,6 +733,8 @@ export class ApprovalEngineService {
 
       const isLastStep = instance.currentStepNo >= instance.totalSteps;
 
+      if (procurement) await this.recordProcurementDecision(mgr, instance, step, isLastStep);
+
       if (isLastStep) {
         instance.status     = 'APPROVED';
         instance.finishedAt = new Date();
@@ -677,7 +742,7 @@ export class ApprovalEngineService {
         const bizStatus = this.bizRegistry.getApprovedStatus(instance.bizType);
         await this.updateBizStatus(
           instance.bizType, instance.bizId, bizStatus, mgr,
-          instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
+          expectedStatus,
         );
 
         // onApproved 回调（同一事务）
@@ -732,7 +797,7 @@ export class ApprovalEngineService {
 
   // ── 拒绝当前步骤 ─────────────────────────────────────────────────────────
 
-  async rejectStep(instanceId: string, comment?: string): Promise<void> {
+  async rejectStep(instanceId: string, comment?: string, expectedStepNo?: number): Promise<void> {
     return this.ds.transaction(async mgr => {
       const { userId, userName, roles } = this.currentUser();
 
@@ -745,6 +810,11 @@ export class ApprovalEngineService {
         throw new ConflictException(`审批实例已结束（状态：${instance.status}）`);
       }
 
+      const procurement = this.isProcurementDecision(instance.bizType);
+      if ((expectedStepNo !== undefined || procurement)
+        && (expectedStepNo ?? 1) !== instance.currentStepNo) {
+        throw new ConflictException('审批步骤已变更，请刷新待办');
+      }
       const step = await mgr.findOne(WfApprovalInstanceStepEntity, {
         where: { instanceId, stepNo: instance.currentStepNo },
       });
@@ -753,6 +823,9 @@ export class ApprovalEngineService {
 
       // 严格角色校验（Phase B）
       this.validateApprover(step, userId, roles);
+      const expectedStatus = procurement ? await this.lockProcurementDecision(mgr, instance)
+        : instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined;
+
 
       step.status         = 'REJECTED';
       step.action         = 'REJECT';
@@ -774,8 +847,10 @@ export class ApprovalEngineService {
       const rejectedStatus = this.bizRegistry.getRejectedStatus(instance.bizType);
       await this.updateBizStatus(
         instance.bizType, instance.bizId, rejectedStatus, mgr,
-        instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
+        expectedStatus,
       );
+
+      if (procurement) await this.recordProcurementDecision(mgr, instance, step, true);
 
       // onRejected 回调（同一事务）
       const rejectedCfg = this.bizRegistry.get(instance.bizType);
@@ -810,10 +885,13 @@ export class ApprovalEngineService {
 
       const cancelledStatus = this.bizRegistry.getCancelledStatus(instance.bizType);
       if (syncBusiness && cancelledStatus) {
-        await this.updateBizStatus(
-          instance.bizType, instance.bizId, cancelledStatus, em,
-          instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
-        );
+        const procurement = this.isProcurementDecision(instance.bizType);
+        const expected = procurement ? await this.lockProcurementDecision(em, instance)
+          : instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined;
+        await this.updateBizStatus(instance.bizType, instance.bizId, cancelledStatus, em, expected);
+        if (instance.bizType === 'PO') {
+          await em.query("UPDATE prc2_purchase_orders SET approval_status='CANCELLED' WHERE id=$1", [instance.bizId]);
+        }
       }
       await em.query(
         `UPDATE wf_approval_instance_steps
@@ -1080,9 +1158,11 @@ export class ApprovalEngineService {
     const table = this.bizRegistry.getTableName(bizType);
     if (!table) return;
     const rows = await mgr.query(
-      `UPDATE ${table} SET status = $1, updated_at = NOW()
-       WHERE id = $2${expectedStatus ? ' AND status = $3' : ''}
-       RETURNING id`,
+      `WITH changed AS (
+         UPDATE ${table} SET status = $1, updated_at = NOW()
+         WHERE id = $2${expectedStatus ? ' AND status = $3' : ''}
+         RETURNING id
+       ) SELECT id FROM changed`,
       expectedStatus ? [status, bizId, expectedStatus] : [status, bizId],
     );
     if (expectedStatus && rows.length === 0) {

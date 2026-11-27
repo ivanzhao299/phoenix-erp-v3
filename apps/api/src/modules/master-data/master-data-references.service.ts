@@ -1,3 +1,4 @@
+import { DataScopeContext } from '../org/services/data-scope.service';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -53,7 +54,14 @@ const REFERENCE_MAP: Record<string, Array<{
     // FIX UAT-1 2026-06-04: 实际表名 prc2_purchase_orders / prc2_payments
     { refTable: 'prc2_purchase_orders', refDocType: '采购订单',   fkColumn: 'supplier_code', noField: 'po_no',  linkPattern: '/procurement2/orders?keyword=:code' },
     { refTable: 'fin_ap_invoices',      refDocType: 'AP 发票',    fkColumn: 'supplier_code', noField: 'ap_no',  linkPattern: '/finance2/ap?keyword=:code' },
-    { refTable: 'prc2_payments',        refDocType: '采购付款单', fkColumn: 'payee_name',    noField: 'pay_no', linkPattern: '/procurement2/payments?keyword=:code' },
+    { refTable: 'prc2_ap_ledger', refDocType: '采购应付', fkColumn: 'supplier_code', noField: 'ap_no', linkPattern: '/procurement2/payments?keyword=:code' },
+    { refTable: 'prc2_payments', refDocType: '采购付款单', fkColumn: 'payee_name', noField: 'pay_no',
+      linkPattern: '/procurement2/payments?keyword=:code', predicate: `payee_name = $1 OR payee_id IN
+        (SELECT id FROM prc2_suppliers WHERE supplier_code=$1) OR EXISTS (
+        SELECT 1 FROM prc2_payment_allocations allocation
+        LEFT JOIN prc2_purchase_orders po ON po.id=allocation.po_id
+        LEFT JOIN prc2_ap_ledger ap ON ap.id=allocation.ap_id
+        WHERE allocation.payment_id=prc2_payments.id AND (po.supplier_code=$1 OR ap.supplier_code=$1))` },
   ],
   PROJECT: [
     // FIX UAT-1 2026-06-04: 表名对齐
@@ -147,11 +155,11 @@ export class MasterDataReferencesService {
     }
   }
 
-  async compute(objectType: string, objectCode: string, manager: EntityManager = this.em): Promise<ReferenceReport> {
+  async compute(objectType: string, objectCode: string, manager: EntityManager = this.em, scopes?: ReadonlyMap<string, DataScopeContext>): Promise<ReferenceReport> {
     const normalizedType = objectType.toUpperCase();
     const mappings = REFERENCE_MAP[normalizedType] ?? [];
     // Product/material safety checks fail closed; keep unrelated historical display behavior unchanged.
-    const query = <T>(sql: string, params: any[]) => ['MATERIAL','PRODUCT'].includes(normalizedType)
+    const query = <T>(sql: string, params: any[]) => ['MATERIAL','PRODUCT','SUPPLIER'].includes(normalizedType)
       ? manager.query(sql, params) as Promise<T[]> : this.safe<T>(sql, params);
     const references: ReferenceItem[] = [];
     let total = 0;
@@ -162,16 +170,28 @@ export class MasterDataReferencesService {
     }
 
     for (const m of mappings) {
-      const predicate = m.predicate ?? `${m.fkColumn} = $1`;
+      const scope = scopes?.get(m.refTable);
+      if (scopes && !scope) continue;
+      const params: unknown[] = [referenceValue];
+      const filters = [`(${m.predicate ?? `${m.fkColumn} = $1`})`];
+      if (scope && !scope.isGlobal) {
+        params.push(scope.allowedCompanyCodes);
+        filters.push(`company_code = ANY($${params.length}::text[])`);
+        if (scope.scopeLevel === 'PROJECT' && scope.allowedProjectCodes.length) {
+          params.push(scope.allowedProjectCodes);
+          filters.push(`project_code = ANY($${params.length}::text[])`);
+        }
+      }
+      const predicate = filters.join(' AND ');
       const cntRows = await query<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM ${m.refTable} WHERE (${predicate})`,
-        [referenceValue],
+        `SELECT COUNT(*)::text AS c FROM ${m.refTable} WHERE ${predicate}`,
+        params,
       );
       const count = parseInt(cntRows[0]?.c ?? '0', 10);
       if (count > 0) {
         const exRows = await query<{ no: string }>(
-          `SELECT ${m.noField} AS no FROM ${m.refTable} WHERE (${predicate}) ORDER BY created_at DESC NULLS LAST LIMIT 5`,
-          [referenceValue],
+          `SELECT ${m.noField} AS no FROM ${m.refTable} WHERE ${predicate} ORDER BY created_at DESC NULLS LAST LIMIT 5`,
+          params,
         );
         references.push({
           refTable: m.refTable,

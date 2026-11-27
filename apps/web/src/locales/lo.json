@@ -16272,5 +16272,21 @@
   "ui.销售单号": "ເລກໃບສັ່ງຂາຍ",
   "ui.门店逐批销售": "ການຂາຍໃນຮ້ານຕາມແຕ່ລະລັອດ",
   "ui.隔离冻结": "ກັກກັນ ຫຼື ອາຍັດ",
-  "ui.预留": "ຈອງໄວ້"
+  "ui.预留": "ຈອງໄວ້",
+  "fin2.ap.pay_failed": "ການຊໍາລະບໍ່ສຳເລັດ",
+  "fin2.ap.payment_account": "ບັນຊີຊໍາລະເງິນ",
+  "fin2.ap.payment_amount": "ຈຳນວນເງິນຊໍາລະ",
+  "fin2.ap.payment_date": "ວັນທີຊໍາລະ",
+  "fin2.ap.post_payment": "ຢືນຢັນການຊໍາລະ",
+  "fin2.ap.kpi_unpaid_balance": "ຍອດຄ້າງຊໍາລະ",
+  "md.document_load_failed": "ໂຫຼດເອກະສານບໍ່ສຳເລັດ",
+  "md.retry": "ລອງໃໝ່",
+  "prc2.supplier_volume_by_currency": "ຍອດຊື້ຕາມຜູ້ສະໜອງ · 20 ອັນດັບແຕ່ລະສະກຸນເງິນ",
+  "prc2.receipt_order_load_failed": "ໂຫຼດລາຍການໃບສັ່ງຊື້ບໍ່ສຳເລັດ",
+  "prc2.retry": "ລອງໃໝ່",
+  "prc2.no_receivable_order_lines": "ບໍ່ມີລາຍການລໍຖ້າຮັບ",
+  "md.supplier_bank_name": "ຊື່ທະນາຄານ",
+  "md.supplier_account_holder": "ຊື່ເຈົ້າຂອງບັນຊີ",
+  "md.supplier_account_number": "ເລກບັນຊີ",
+  "md.supplier_swift": "SWIFT"
 }

@@ -92,7 +92,7 @@ describe('ReceiptsService purchase warehouse usage guard', () => {
 
   function buildConfirmService(receiptItem: Record<string, unknown>, poItem: Record<string, unknown> | null) {
     const po = {
-      id: 'po-1', poNo: 'PO-1', status: 'APPROVED', companyCode: 'COMP-LAO-AGRI', projectCode: 'PRJ-1',
+      id: 'po-1', poNo: 'PO-1', status: 'APPROVED', companyCode: 'COMP-LAO-AGRI', projectCode: 'PRJ-1', receivedQty: 0,
     };
     const receipt = {
       id: 'rcp-1', receiptNo: 'RCV-1', status: 'DRAFT', warehouseCode: 'WH-1',
@@ -148,7 +148,7 @@ describe('ReceiptsService purchase warehouse usage guard', () => {
 
   it('locks the receipt row before checking status to serialize concurrent confirmation', async () => {
     const { service, mgr } = buildConfirmService(
-      { itemName: 'Feed' },
+      { itemName: 'Feed', actualQty: 1 },
       null,
     );
 

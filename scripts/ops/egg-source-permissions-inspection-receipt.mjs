@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const pendingByScope = {
+  'procurement-ap-1128': /^1795719000000-EnsureFinanceApPaymentAllocations$/,
   'egg-source-operations-1127': /^1795659000000-EggSourceOperationReceipts$/,
   'egg-source-retirement-1127': /^1795658900000-EggSourceCutoverEvidence$/,
   'egg-source-standard-1127': /^1795658800000-EggSourceStandardGrants$/,

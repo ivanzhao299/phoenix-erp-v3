@@ -16272,5 +16272,21 @@
   "ui.销售单号": "Sales order number",
   "ui.门店逐批销售": "Store sales by batch",
   "ui.隔离冻结": "Quarantined or frozen",
-  "ui.预留": "Reserved"
+  "ui.预留": "Reserved",
+  "fin2.ap.pay_failed": "Payment failed",
+  "fin2.ap.payment_account": "Payment account",
+  "fin2.ap.payment_amount": "Payment amount",
+  "fin2.ap.payment_date": "Payment date",
+  "fin2.ap.post_payment": "Post payment",
+  "fin2.ap.kpi_unpaid_balance": "Outstanding balance",
+  "md.document_load_failed": "Could not load documents",
+  "md.retry": "Retry",
+  "prc2.supplier_volume_by_currency": "Supplier spend · top 20 by currency",
+  "prc2.receipt_order_load_failed": "Could not load order lines",
+  "prc2.retry": "Retry",
+  "prc2.no_receivable_order_lines": "No remaining lines to receive",
+  "md.supplier_bank_name": "Bank name",
+  "md.supplier_account_holder": "Account holder",
+  "md.supplier_account_number": "Account number",
+  "md.supplier_swift": "SWIFT"
 }

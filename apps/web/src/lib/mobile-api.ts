@@ -671,6 +671,7 @@ export interface InstanceDetail {
   formSubmissionId?: string | null;
   formCode?:         string | null;
   formSubmission?:   FormSubmissionSnapshot | null;   // Phase I
+  currentStepNo?: number;
 }
 
 export interface InstanceStep {
@@ -731,12 +732,12 @@ export const approvalApi = {
     wfGet<InstanceDetail>(`/api/approval/instances/${instanceId}`),
 
   /** 审批通过 */
-  approveInstance: (instanceId: string, comment?: string): Promise<unknown> =>
-    wfPost(`/api/approval/instances/${instanceId}/approve`, { comment: comment ?? '' }),
+  approveInstance: (instanceId: string, comment?: string, expectedStepNo?: number): Promise<unknown> =>
+    wfPost(`/api/approval/instances/${instanceId}/approve`, { comment: comment ?? '', expectedStepNo }),
 
   /** 审批拒绝（comment 必填） */
-  rejectInstance: (instanceId: string, comment: string): Promise<unknown> =>
-    wfPost(`/api/approval/instances/${instanceId}/reject`, { comment }),
+  rejectInstance: (instanceId: string, comment: string, expectedStepNo?: number): Promise<unknown> =>
+    wfPost(`/api/approval/instances/${instanceId}/reject`, { comment, expectedStepNo }),
 
   /** 转交候选人（后端按角色权限与 DataScope 过滤） */
   getReassignCandidates: (instanceId: string): Promise<ApprovalReassignCandidate[]> =>

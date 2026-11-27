@@ -5,16 +5,15 @@ import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage"
 import { LoadingSkeleton } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
+import { usePermission } from "@/hooks/usePermission";
 import { SUPPLIER_FIELDS } from "../../_fields";
 
 /**
  * g200p-2:编辑供应商全屏页
  */
-const toArr = (v: any): any[] =>
-  Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
-
 export default function SupplierEditPage() {
   const { t } = useLanguage();
+  const { isSuper } = usePermission("MENU_MD_SUPPLIER");
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -24,16 +23,8 @@ export default function SupplierEditPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await request<any>(`/master-data/runtime/supplier`);
-        const list = toArr(r);
-        const match = (x: any) => String(x.supplier_code ?? x.code) === code;
-        let found = list.find(match) || null;
-        if (!found) {
-          const r2 = await request<any>(`/master-data/runtime/supplier/active`).catch(() => null);
-          found = toArr(r2).find(match) || null;
-        }
-        if (!found) setNotFound(true);
-        else setRow(found);
+        const found = await request<Record<string, unknown>>(`/master-data/runtime/supplier/${encodeURIComponent(code)}`);
+        setRow(found);
       } catch {
         setNotFound(true);
       } finally {
@@ -55,7 +46,12 @@ export default function SupplierEditPage() {
       title={t('md.entity_supplier','供应商')}
       codeKey="supplier_code"
       nameKey="supplier_name"
-      fields={SUPPLIER_FIELDS}
+      fields={isSuper ? [...SUPPLIER_FIELDS,
+        { key: "bank_name", label: t("md.supplier_bank_name", "银行名称"), group: "财务设置" },
+        { key: "bank_account_name", label: t("md.supplier_account_holder", "银行账户名称"), group: "财务设置" },
+        { key: "bank_account_no", label: t("md.supplier_account_number", "银行账号"), group: "财务设置" },
+        { key: "bank_swift", label: t("md.supplier_swift", "SWIFT"), group: "财务设置" },
+      ] : SUPPLIER_FIELDS}
       listRoute="/master-data/suppliers"
       mode="edit"
       initialRow={row}

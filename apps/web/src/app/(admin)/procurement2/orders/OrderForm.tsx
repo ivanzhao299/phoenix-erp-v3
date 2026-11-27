@@ -275,7 +275,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           qty: parseFloat(String(it.qty)),
           unit: it.unit?.trim() || undefined,
           unitPrice: parseFloat(String(it.unitPrice)) || 0,
-          amount: parseFloat(String(it.amount)) || 0,
+          amount: String(it.amount ?? "").trim() ? Number(it.amount) : undefined,
           warehouseCode: it.warehouseCode?.trim() || undefined
         }))
       };

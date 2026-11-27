@@ -13,18 +13,18 @@ import { currencySymbol } from "@/lib/currency";
 import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
+interface CurrencyAmount { currencyCode: string; amount: number }
 interface Summary {
-  poCount: number;
-  poAmount: number;
-  apOpenAmount: number;
-  apPaidAmount: number;
-  paymentAmount: number;
-  shareholderFundAmount: number;
-  shareholderFundCount: number;
-  shipmentTotalCount: number;
-  shipmentInTransitCount: number;
-  pendingPrCount: number;
-  pendingPoApprovalCount: number;
+  poCount: number | null;
+  poByCurrency: CurrencyAmount[] | null;
+  apByCurrency: CurrencyAmount[] | null;
+  paymentByCurrency: CurrencyAmount[] | null;
+  fundByCurrency: CurrencyAmount[] | null;
+  shareholderFundCount: number | null;
+  shipmentTotalCount: number | null;
+  shipmentInTransitCount: number | null;
+  pendingPrCount: number | null;
+  pendingPoApprovalCount: number | null;
 }
 interface AgingRow {
   bucket: string;
@@ -43,8 +43,6 @@ interface ProjectCostRow {
   currencyCode: string;
   poCount: number;
   poAmount: number;
-  paidAmount: number;
-  balance: number;
   budgetAmount: number | null;
   budgetCurrency: string | null;
 }
@@ -80,7 +78,6 @@ interface SupplierRow {
   poAmount: number;
   receivedQty: number;
   paidAmount: number;
-  openApAmount: number;
 }
 
 // ── 格式化工具 ───────────────────────────────────────────────────────────────
@@ -209,12 +206,13 @@ export default function ProcurementDashboardPage() {
       gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
       gap: 14
     }}>
-          <KpiCardV2 title={t('prc2.kpi_po_count', '采购订单数')} value={fmt(summary.poCount)} subValue={`${t('prc2.contract_amount', '合同金额')} ${fmt(summary.poAmount, 2)}`} icon={Package} accentColor="blue" />
-          <KpiCardV2 title={t('prc2.kpi_ap_balance_original', '应付余额（原币合计）')} value={fmt(summary.apOpenAmount, 2)} subValue={t('prc2.ap_pending', '待付账款')} icon={AlertTriangle} accentColor="red" />
-          <KpiCardV2 title={t('prc2.kpi_paid_amount_base', '已付金额（本位币）')} value={fmt(summary.paymentAmount, 2)} subValue={t('prc2.payment_total', '付款合计')} icon={DollarSign} accentColor="green" />
-          <KpiCardV2 title={t('prc2.kpi_shareholder_fund', '股东资金')} value={fmt(summary.shareholderFundAmount, 2)} subValue={`${t('prc2.total_label', '共')} ${summary.shareholderFundCount} ${t('prc2.records_unit', '笔')}`} icon={Users} accentColor="violet" />
-          <KpiCardV2 title={t('prc2.kpi_in_transit', '在途运单')} value={fmt(summary.shipmentInTransitCount)} subValue={`${t('prc2.shipment_total', '运单总数')} ${summary.shipmentTotalCount}`} icon={Truck} accentColor="amber" />
-          <KpiCardV2 title={t('prc2.kpi_pending_approval', '待审批')} value={fmt(summary.pendingPoApprovalCount)} subValue={`${t('prc2.pending_pr', '待审采购申请')} ${summary.pendingPrCount}`} icon={Clock} accentColor="cyan" />
+          {summary.poCount != null && <KpiCardV2 title={t('prc2.kpi_po_count', '采购订单数')} value={fmt(summary.poCount)} icon={Package} accentColor="blue" />}
+          {summary.poByCurrency?.map(row => <KpiCardV2 key={`po-${row.currencyCode}`} title={`${t('prc2.contract_amount', '合同金额')} · ${row.currencyCode}`} value={fmt(row.amount, 2)} icon={Package} accentColor="blue" />)}
+          {summary.apByCurrency?.map(row => <KpiCardV2 key={`ap-${row.currencyCode}`} title={`${t('prc2.ap_pending', '待付账款')} · ${row.currencyCode}`} value={fmt(row.amount, 2)} icon={AlertTriangle} accentColor="red" />)}
+          {summary.paymentByCurrency?.map(row => <KpiCardV2 key={`pay-${row.currencyCode}`} title={`${t('prc2.payment_total', '付款合计')} · ${row.currencyCode}`} value={fmt(row.amount, 2)} icon={DollarSign} accentColor="green" />)}
+          {summary.fundByCurrency?.map(row => <KpiCardV2 key={`fund-${row.currencyCode}`} title={`${t('prc2.kpi_shareholder_fund', '股东资金')} · ${row.currencyCode}`} value={fmt(row.amount, 2)} icon={Users} accentColor="violet" />)}
+          {summary.shipmentInTransitCount != null && <KpiCardV2 title={t('prc2.kpi_in_transit', '在途运单')} value={fmt(summary.shipmentInTransitCount)} subValue={`${t('prc2.shipment_total', '运单总数')} ${summary.shipmentTotalCount}`} icon={Truck} accentColor="amber" />}
+          {(summary.pendingPoApprovalCount != null || summary.pendingPrCount != null) && <KpiCardV2 title={t('prc2.kpi_pending_approval', '待审批')} value={fmt((summary.pendingPoApprovalCount ?? 0) + (summary.pendingPrCount ?? 0))} icon={Clock} accentColor="cyan" />}
         </div>}
 
       {/* ── Row: AP Aging + Shipment Status ── */}
@@ -291,7 +289,7 @@ export default function ProcurementDashboardPage() {
                 <th>{t('prc2.period', '期间')}</th><th>{t('prc2.currency', '货币')}</th>
                 <th className={u.tar}>{t('prc2.count', '笔数')}</th>
                 <th className={u.tar}>{t('prc2.amount_original', '原币金额')}</th>
-                <th className={u.tar}>{t('prc2.amount_base', '折合本位币')}</th>
+                <th className={u.tar}>{t('prc2.amount_original', '原币金额')}</th>
               </tr></thead>
               <tbody>
                 {payTrend.map((r, i) => <tr key={i}>
@@ -299,7 +297,7 @@ export default function ProcurementDashboardPage() {
                     <td>{r.currencyCode}</td>
                     <td className={u.tar}>{fmt(r.paymentCount)}</td>
                     <td className={u.tar}>{fmt(r.amountOriginal, 2)}</td>
-                    <td className={u.tar}>{fmt(r.amountBase, 2)}</td>
+                    <td className={u.tar}>{fmt(r.amountOriginal, 2)}</td>
                   </tr>)}
               </tbody>
             </table>
@@ -320,13 +318,11 @@ export default function ProcurementDashboardPage() {
                 <th className={u.tar}>{t('prc2.contract_amount', '合同金额')}</th>
                 <th className={u.tar}>{t('prc2.budget', '预算')}</th>
                 <th className={u.tar}>{t('prc2.budget_used', '预算占用')}</th>
-                <th className={u.tar}>{t('prc2.paid', '已付')}</th>
-                <th className={u.tar}>{t('prc2.balance', '余额')}</th>
               </tr></thead>
               <tbody>
                 {projectCost.map((r, i) => {
               const hasBudget = r.budgetAmount != null && r.budgetAmount > 0;
-              const usedPct = hasBudget ? r.poAmount / r.budgetAmount! * 100 : null;
+              const usedPct = hasBudget ? r.budgetCurrency === r.currencyCode ? r.poAmount / r.budgetAmount! * 100 : null : null;
               return <tr key={i}>
                     <td>
                       <div className={u.fw500}>{r.projectName}</div>
@@ -345,14 +341,6 @@ export default function ProcurementDashboardPage() {
                 color: usedPct == null ? undefined : usedPct >= 100 ? "var(--status-danger)" : usedPct >= 80 ? "var(--status-warning)" : undefined,
                 fontWeight: usedPct != null && usedPct >= 80 ? 600 : undefined
               }}>{usedPct == null ? "—" : `${fmt(usedPct, 1)}%`}</td>
-                    <td style={{
-                textAlign: "right",
-                color: "var(--color-success)"
-              }}>{fmt(r.paidAmount, 2)}</td>
-                    <td style={{
-                textAlign: "right",
-                color: r.balance > 0 ? "var(--color-warning)" : undefined
-              }}>{fmt(r.balance, 2)}</td>
                   </tr>;
             })}
               </tbody>
@@ -375,21 +363,21 @@ export default function ProcurementDashboardPage() {
         }}>{t('prc2.empty_no_data', '暂无数据')}</div> : <table className={s.table}>
               <thead><tr>
                 <th>{t('prc2.shareholder', '股东')}</th><th>{t('prc2.type', '类型')}</th><th>{t('prc2.currency', '货币')}</th>
-                <th className={u.tar}>{t('prc2.amount_base', '折合本位币')}</th>
+                <th className={u.tar}>{t('prc2.amount_original', '原币金额')}</th>
               </tr></thead>
               <tbody>
                 {shareholder.map((r, i) => <tr key={i}>
                     <td>{r.shareholderName}</td>
                     <td>{r.fundNature || "—"}</td>
                     <td>{r.currencyCode}</td>
-                    <td className={u.tar}>{fmt(r.totalBase, 2)}</td>
+                    <td className={u.tar}>{fmt(r.totalOriginal, 2)}</td>
                   </tr>)}
               </tbody>
             </table>}
         </Panel>
 
         {/* 供应商绩效 */}
-        <Panel title={t('prc2.supplier_perf_top20', '供应商绩效 TOP 20')} icon={<BarChart2 size={15} color="var(--color-primary)" />}>
+        <Panel title={t('prc2.supplier_volume_by_currency', '供应商采购额 · 各币种前 20')} icon={<BarChart2 size={15} color="var(--color-primary)" />}>
           {supplier.length === 0 ? <div style={{
           textAlign: "center",
           color: "var(--color-text-3)",
@@ -399,7 +387,6 @@ export default function ProcurementDashboardPage() {
                 <thead><tr>
                   <th>{t('prc2.supplier', '供应商')}</th><th className={u.tar}>{t('prc2.kpi_po_count', '采购订单数')}</th>
                   <th className={u.tar}>{t('prc2.contract_amount_short', '合同额')}</th>
-                  <th className={u.tar}>{t('prc2.pending_ap', '待付AP')}</th>
                 </tr></thead>
                 <tbody>
                   {supplier.map((r, i) => <tr key={i}>
@@ -412,10 +399,6 @@ export default function ProcurementDashboardPage() {
                       </td>
                       <td className={u.tar}>{fmt(r.poCount)}</td>
                       <td className={u.tar}>{fmt(r.poAmount, 2)}</td>
-                      <td style={{
-                  textAlign: "right",
-                  color: r.openApAmount > 0 ? "var(--color-warning)" : undefined
-                }}>{fmt(r.openApAmount, 2)}</td>
                     </tr>)}
                 </tbody>
               </table>

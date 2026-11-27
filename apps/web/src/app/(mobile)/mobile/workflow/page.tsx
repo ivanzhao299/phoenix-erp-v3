@@ -447,11 +447,11 @@ function ActionSheet({
     setErr('');
     try {
       if (selectedMode === 'approve') {
-        await approvalApi.approveInstance(task.instanceId, comment.trim() || undefined);
+        await approvalApi.approveInstance(task.instanceId, comment.trim() || undefined, task.stepNo ?? task.currentStepNo ?? undefined);
         haptic('success');
         toast.success(tr('mob.sys.approved_ok', '审批已通过'));
       } else if (selectedMode === 'reject') {
-        await approvalApi.rejectInstance(task.instanceId, comment.trim());
+        await approvalApi.rejectInstance(task.instanceId, comment.trim(), task.stepNo ?? task.currentStepNo ?? undefined);
         haptic('success');
         toast.success(tr('mob.sys.marked_rejected', '已标记为不同意'));
       } else {
@@ -1162,9 +1162,9 @@ export default function WorkflowPage() {
           projectCode: null,
           projectName: null,
           requiredRole: null,
-          stepNo: null,
+          stepNo: d.currentStepNo ?? null,
           totalSteps: d.steps?.length ?? null,
-          currentStepNo: null,
+          currentStepNo: d.currentStepNo ?? null,
           startedBy: d.startedBy ?? null,
           status: d.status,
           createdAt: d.startedAt ?? '',
