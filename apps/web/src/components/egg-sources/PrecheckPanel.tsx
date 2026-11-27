@@ -13,8 +13,8 @@ function valid(result:Precheck) {
       && listOf<Precheck['rows'][number]['issues'][number]>(row.issues,issue=>typeof issue.layer==='string' && typeof issue.code==='string'));
 }
 
-export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate,disabled,placement,refreshWorkspace}:{
-  account:string;input:Pick<Input,'houseCode'|'warehouseCode'|'targetClass'|'effectiveDate'>;draftId?:string;grades?:Option[];specs?:Option[];validate?:()=>boolean;disabled?:boolean;placement?:'button';refreshWorkspace?:()=>void
+export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate,disabled,placement,onCreationProblem}:{
+  account:string;input:Pick<Input,'houseCode'|'warehouseCode'|'targetClass'|'effectiveDate'>;draftId?:string;grades?:Option[];specs?:Option[];validate?:()=>boolean;disabled?:boolean;placement?:'button';onCreationProblem?:(problem:string)=>void
 }) {
   const { label }=useSourceText();
   const current=useRef<AbortController|null>(null);
@@ -37,18 +37,20 @@ export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate
     } catch (error) {
       if (controller.signal.aborted) return;
       const status=error instanceof EggError ? error.status : 0;
-      const problem=error instanceof EggError && sourceCreationProblem(error.subcode) ? 'problem.'+error.subcode : null;
-      setState({input,account,failure:problem??(status===400?'precheckInputError':[401,403,404].includes(status)?'readDenied':'precheckError')});
+      const problem=error instanceof EggError && sourceCreationProblem(error.subcode) ? error.subcode : null;
+      if (problem&&onCreationProblem) {
+        onCreationProblem(problem);
+        return;
+      }
+      setState({input,account,failure:problem ? 'problem.'+problem
+        : status===400?'precheckInputError':[401,403,404].includes(status)?'readDenied':'precheckError'});
     }
   }
   return <>
     <button type="button" style={secondaryActionButton} disabled={disabled||visible?.busy} onClick={()=>void run()}>
       {label(visible?.busy?'runningPrecheck':'preview')}
     </button>
-    {visible?.failure&&<p role="alert" className={s.error}>{label(visible.failure)}
-      {visible.failure.startsWith('problem.')&&refreshWorkspace&&<>{' '}
-        <button type="button" style={secondaryActionButton} onClick={refreshWorkspace}>{label('refreshWorkspace')}</button></>}
-    </p>}
+    {visible?.failure&&<p role="alert" className={s.error}>{label(visible.failure)}</p>}
     {visible?.result&&<div className={placement ? s.fullActionWidth : undefined}><PrecheckResult result={visible.result} grades={grades} specs={specs}/>
       {visible.result.readiness&&<p role="status" className={s.hint}>{label('readiness.'+visible.result.readiness.status)}
         {visible.result.readiness.code&&' · '+label('problem.'+visible.result.readiness.code)}</p>}</div>}

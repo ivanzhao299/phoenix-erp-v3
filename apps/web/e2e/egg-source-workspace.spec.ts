@@ -277,3 +277,31 @@ test('checks the original V1 key after rollout before allowing another draft',as
   await expect(page.getByLabel('目标仓库')).toHaveCount(0);
   expect(writes).toBe(0);
 });
+
+test('locks an old form when precheck rejects its creation policy',async({page})=>{
+  await fixture(page);
+  let switched=false;
+  let releaseWorkspace=()=>{};
+  const waitForWorkspace=new Promise<void>(resolve=>{releaseWorkspace=resolve;});
+  await page.route(url=>url.pathname===api+'/workspace',async route=>{
+    if (switched) await waitForWorkspace;
+    return route.fulfill({json:{code:200,data:{...workspace,createContractVersion:switched?2:1}}});
+  });
+  await page.route(url=>url.pathname===api+'/precheck',route=>route.fulfill({
+    status:409,json:{subcode:'SOURCE_CONTRACT_CHANGED'},
+  }));
+  await page.goto(base+'/new?houseCode=H1');
+  await fillForm(page);
+  await page.getByRole('button',{name:'预检 SKU 与库存范围'}).click();
+  const refresh=page.getByRole('button',{name:'刷新工作区'});
+  const save=page.getByRole('button',{name:'保存草稿'});
+  await expect(refresh).toBeVisible();
+  await expect(save).toHaveCount(0);
+  switched=true;
+  await refresh.click();
+  await expect(save).toHaveCount(0);
+  releaseWorkspace();
+  await expect(save).toBeVisible();
+  await expect(page.getByLabel('目标仓库')).toHaveCount(0);
+  await expect(page.getByLabel('依据',{exact:true})).toHaveValue('Fixture change');
+});

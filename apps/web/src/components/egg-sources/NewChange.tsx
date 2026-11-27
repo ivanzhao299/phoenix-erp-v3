@@ -37,6 +37,7 @@ export default function NewChange() {
   const house=useSearchParams().get('houseCode')||'';
   const key=JSON.stringify([account,house]);
   const [local,setLocal]=useState<{key:string;version:1|2|null;draft:FormDraft}>();
+  const [precheckProblem,setPrecheckProblem]=useState<{key:string;code:string}>();
   const {label,crumb}=useSourceText();
   const workspace=useEggRead<Workspace>(account,house ? '/workspace'+query({houseCode:house}) : null,isWorkspace);
   const status=workspace.data ? creationStatus(workspace.data) : null;
@@ -53,7 +54,8 @@ export default function NewChange() {
     path:(key,company)=>'/change-requests/'+key+'/legacy-resolution'+query({houseCode:house,companyCode:company}),
     onNotCommitted:workspace.reload,
   });
-  const changed=sourceCreationProblem(write.problem);
+  const problem=precheckProblem?.key===key ? precheckProblem.code : write.problem;
+  const changed=sourceCreationProblem(problem);
   const retiredPolicy=write.feedback==='V1_NOT_COMMITTED'&&!houseContract;
   const canCreate=!!status?.allowed&&!changed&&!retiredPolicy;
   const warehouses=useEggRead<Option[]>(account,canCreate&&!houseContract ? '/candidates/warehouses'+query({houseCode:house}) : null,isOptionList);
@@ -70,8 +72,8 @@ export default function NewChange() {
       <OwnerMeta owner={workspace.data.owner} day={workspace.data.businessDay} zone={workspace.data.zone}/>
       <SourceCreationStatus workspace={workspace.data} onRefresh={workspace.reload}/>
     </section>}
-    {changed&&<p role="alert" className={s.notice}>{label('problem.'+write.problem)}{' '}
-      <button type="button" style={secondaryActionButton} onClick={()=>{write.resetFeedback();workspace.reload();}}>{label('refreshWorkspace')}</button></p>}
+    {changed&&<p role="alert" className={s.notice}>{label('problem.'+problem)}{' '}
+      <button type="button" style={secondaryActionButton} onClick={()=>{setPrecheckProblem(undefined);write.resetFeedback();workspace.reload();}}>{label('refreshWorkspace')}</button></p>}
     {house&&!formReady&&<WriteFeedback write={write} allowRetry={false}/>}
     {retiredPolicy&&workspace.data&&<button type="button" style={secondaryActionButton} onClick={workspace.reload}>
       {label('refreshWorkspace')}
@@ -79,13 +81,13 @@ export default function NewChange() {
     {workspace.data?.businessDay&&canCreate&&(houseContract||warehouses.data)&&options.data&&
       <NewForm key={JSON.stringify([account,house,version])} account={account} house={house} company={workspace.data.owner.companyCode}
         earliest={nextDay(workspace.data.businessDay)} warehouses={warehouses.data??[]} options={options.data}
-        houseContract={houseContract} continuation={workspace.data.continuation} write={write} draft={draft} updateDraft={updateDraft} refreshWorkspace={workspace.reload}/>}
+        houseContract={houseContract} continuation={workspace.data.continuation} write={write} draft={draft} updateDraft={updateDraft} onCreationProblem={code=>setPrecheckProblem({key,code})}/>}
   </div>}/>;
 }
 
-function NewForm({account,house,company,earliest,warehouses,options,houseContract,continuation,write,draft,updateDraft,refreshWorkspace}:{
+function NewForm({account,house,company,earliest,warehouses,options,houseContract,continuation,write,draft,updateDraft,onCreationProblem}:{
   account:string;house:string;company:string;earliest:string;warehouses:Option[];options:Options;houseContract:boolean;
-  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>;draft:FormDraft;updateDraft:(values:Partial<FormDraft>)=>void;refreshWorkspace:()=>void
+  continuation:Workspace['continuation'];write:ReturnType<typeof useEggWrite>;draft:FormDraft;updateDraft:(values:Partial<FormDraft>)=>void;onCreationProblem:(code:string)=>void
 }) {
   const {label,shell}=useSourceText();
   const {color,warehouse,reason,linked,items,nextId,continueOld}=draft;
@@ -187,7 +189,7 @@ function NewForm({account,house,company,earliest,warehouses,options,houseContrac
         {attrs=><textarea {...attrs} required style={inputField} value={reason} maxLength={2000} disabled={locked} onChange={e=>updateDraft({reason:e.target.value})}/>}
       </Field></section>
       <div className={s.actions}>
-        <PrecheckPanel placement="button" account={account} input={input} grades={options.grades} specs={options.specs} validate={validate} disabled={locked} refreshWorkspace={refreshWorkspace}/>
+        <PrecheckPanel placement="button" account={account} input={input} grades={options.grades} specs={options.specs} validate={validate} disabled={locked} onCreationProblem={onCreationProblem}/>
         <button type="submit" style={primaryActionButton} disabled={locked}>{label('save')}</button>
       </div>
       <p className={s.hint}>{label(complete?'draftHelp':houseContract?'completeHouseFields':'completeFields')}</p>
