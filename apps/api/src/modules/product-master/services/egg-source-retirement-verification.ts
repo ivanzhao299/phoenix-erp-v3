@@ -11,11 +11,11 @@ import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 type Participants={house:string;maker:string;reviewer:string};
 type PublicState={id:string;house:string;expiresAt:string;digest:string;makerSigned:boolean;reviewerSigned:boolean;consumed:boolean};
 type Snapshot=Awaited<ReturnType<typeof snapshot>>;
-type Challenge=PublicState & {snapshot:Snapshot;participants:Participants;reason:string};
+type Challenge=PublicState & {snapshot:Snapshot;participants:Participants;reason:string;bindingVersion?:2};
 
 export async function lockEggSourceRetirementRoster(m:EntityManager) {
   await m.query("SET LOCAL lock_timeout='5s'");
-  await m.query(`LOCK TABLE brd_houses,${OrgOwnershipService.FARM_TABLE},md_egg_source_profiles IN SHARE MODE`);
+  await m.query(`LOCK TABLE brd_houses,${OrgOwnershipService.FARM_TABLE},md_egg_source_profiles,sys_organizations IN SHARE MODE`);
 }
 
 export function eligibleEggSourceHouses(siteParameter:string) {
@@ -101,7 +101,8 @@ function participant(verification:Challenge,user?:EggSourceAccount) {
 
 async function validate(m:EntityManager,access:EggSourceAccessService,verification:Challenge,lock=false) {
   const [clock]=await m.query('SELECT clock_timestamp() < $1::timestamptz AS valid',[verification.expiresAt]);
-  if (!clock?.valid || sourceDigest(await snapshot(m,access,verification.participants,lock))!==verification.digest) {
+  if (!clock?.valid || verification.bindingVersion!==2 ||
+      sourceDigest({ snapshot:await snapshot(m,access,verification.participants,lock), reason:verification.reason })!==verification.digest) {
     throw new ConflictException('开通状态、账号权限、验收版本或核验有效期已变化，请重新发起核验');
   }
 }
@@ -120,8 +121,8 @@ export async function beginEggSourceVerification(m:EntityManager,access:EggSourc
   const frozen=await snapshot(m,access,participants,true);
   const [clock]=await m.query("SELECT clock_timestamp()+interval '30 minutes' AS expires_at");
   const expiresAt=new Date(Math.min(new Date(clock.expires_at).getTime(),Date.parse(frozen.proof.expiresAt))).toISOString();
-  const data:Challenge={id,house:participants.house,expiresAt,digest:sourceDigest(frozen),makerSigned:false,
-    reviewerSigned:false,consumed:false,snapshot:frozen,participants,reason};
+  const data:Challenge={id,house:participants.house,expiresAt,digest:sourceDigest({snapshot:frozen,reason}),makerSigned:false,
+    reviewerSigned:false,consumed:false,snapshot:frozen,participants,reason,bindingVersion:2};
   await recordCutover(m,id,'VERIFY',actor,input,data);
   return state(m,data);
 }
@@ -155,19 +156,15 @@ export async function signEggSourceVerification(m:EntityManager,access:EggSource
   return state(m,data);
 }
 
-export async function consumeEggSourceVerification(m:EntityManager,access:EggSourceAccessService,user:EggSourceGrantActor,
-  idRaw:unknown,keyRaw:unknown,reason:string) {
-  const data=await challenge(m,sourceUuid(idRaw,'核验号'));
-  const key=cutoverKey(keyRaw);
-  await lockVerification(m,data.house);
-  const actor=await requireEggSourceAdministrator(m,user);
-  const input={id:data.id,reason};
-  const replay=await cutoverReplay(m,key,'RETIRE',actor,input);
-  if (replay) return {replay:true,actor,challengeId:data.id};
-  await lockEggSourceRetirementRoster(m);
+export async function verifyRetirementChallenge(m:EntityManager,access:EggSourceAccessService,
+  command:{ id:string; digest:string; companyCode:string; houseCode:string; signedReason:string }) {
+  const data=await challenge(m,command.id);
+  if (data.digest!==command.digest || data.house!==command.houseCode || data.reason!==command.signedReason ||
+      data.snapshot.owner.companyCode!==command.companyCode) {
+    throw new ConflictException({code:'RETIREMENT_EVIDENCE_CHANGED',message:'所选鸡舍或依据与双岗核验不一致，请重新核对'});
+  }
   await validate(m,access,data,true);
   const status=await state(m,data);
   if (!status.makerSigned||!status.reviewerSigned||status.consumed) throw new ConflictException('须由两个独立账号完成同一核验');
-  await recordCutover(m,key,'RETIRE',actor,input,{...status,reason,consumed:true},data.id);
-  return {replay:false,actor,challengeId:data.id};
+  return status;
 }

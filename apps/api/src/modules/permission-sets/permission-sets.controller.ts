@@ -1,7 +1,8 @@
 import {
-  Controller, Get, Post, Patch, Put, Delete, Param, Body, Req, UseGuards, BadRequestException,
+  Controller, Get, Post, Patch, Put, Delete, Param, Body, Req, UseGuards, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { hasPerm } from '../../auth/permissions.util';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PermissionSetsService } from './permission-sets.service';
 
@@ -24,6 +25,21 @@ export class PermissionSetsController {
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'V')
   async detail(@Param('code') code: string) {
     return { code: 200, data: await this.svc.detail(code) };
+  }
+
+  @Post('configuration')
+  @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'C')
+  async createConfiguration(@Body() body:Parameters<PermissionSetsService['saveConfiguration']>[1] & {set_code:string}, @Req() req:any) {
+    if (req.user.role!=='ROLE_ADMIN' && !req.user.roles?.includes('ROLE_ADMIN') && !hasPerm(req.user.permissions,'MENU_SETTINGS_PERMISSION_SET','E')) {
+      throw new ForbiddenException('保存能力集明细需要编辑权限');
+    }
+    return {code:200,data:await this.svc.saveConfiguration(body?.set_code,body,true,req.user)};
+  }
+
+  @Put(':code/configuration')
+  @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
+  async saveConfiguration(@Param('code') code:string, @Body() body:Parameters<PermissionSetsService['saveConfiguration']>[1], @Req() req:any) {
+    return {code:200,data:await this.svc.saveConfiguration(code,body,false,req.user)};
   }
 
   @Post()
@@ -49,7 +65,7 @@ export class PermissionSetsController {
   @RequireMenu('MENU_SETTINGS_PERMISSION_SET', 'E')
   async setItems(@Param('code') code: string, @Body() body: { items: Array<{ menu_code: string; perm_codes: string }> },@Req() req:any) {
     if (!body || !Array.isArray(body.items)) throw new BadRequestException('body.items 必须是数组');
-    return { code: 200, data: await this.svc.setItems(code, body.items,req.user) };
+    return { code: 200, data: await this.svc.setItems(code, body.items) };
   }
 
   @Post(':code/roles/:roleCode')

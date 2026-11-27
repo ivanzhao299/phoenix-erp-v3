@@ -1,4 +1,4 @@
-import { BadRequestException,ForbiddenException } from '@nestjs/common';
+import { BadRequestException,ConflictException,ForbiddenException } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU } from './egg-source-permissions';
 import { parseCodes, type PermSource } from './permissions-resolver';
@@ -217,6 +217,9 @@ export async function removeEggSourceManagedRole(entityManager:EntityManager,col
     if (!role) throw new BadRequestException('角色不存在');
     if (role.role_code==='ROLE_ADMIN') throw new ForbiddenException('系统管理员角色不可删除');
     const admin=await authorizeEggSourceRoleMutation(manager,actor,[role.role_code]);
+    const legacy=await manager.query(`SELECT 1 FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
+      WHERE p.role_id=$1 AND m.menu_code=$2 AND NULLIF(p.perm_codes,'') IS NOT NULL`,[role.role_id,EGG_SOURCE_MENU]);
+    if (legacy.length) throw new ConflictException('请先通过旧版清理入口撤回蛋品来源办理权限');
     const users=await manager.query('SELECT user_id FROM sys_user_role WHERE role_id=$1',[role.role_id]);
     await manager.query('DELETE FROM sys_role WHERE role_id=$1',[role.role_id]);
     if (users.length) await manager.query('UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1 WHERE user_id=ANY($1)',

@@ -56,14 +56,17 @@ it.each(['unknown','rejected','saved'] as const)('retains correct rollout state 
   const confirmed={...old,house_code:'H2',company_code:'CO',enabled:false,revision:'new',change_reason:'Approved pause'};
   let writes=0;
   let refreshes=0;
-  request.mockImplementation(async (path:string,opts?:{method?:string})=>{
+  let requestId='';
+  request.mockImplementation(async (path:string,opts?:{method?:string;body?:string})=>{
     if (path.includes('/egg-source-organizations?')) return {data:[{code:'H1',name:'First',companyCode:'CO'},{code:'H2',name:'Second',companyCode:'CO'}]};
     if (opts?.method==='PUT') {
       writes++;
+      requestId=JSON.parse(opts.body??'{}').requestId;
       if (outcome==='unknown') throw Error('Connection interrupted');
       if (outcome==='rejected') throw Object.assign(Error('Changed by another administrator'),{status:409});
-      return {data:confirmed};
+      return {data:{requestId,status:'RECORDED',rollout:confirmed}};
     }
+    if (path.includes('/egg-source-operation-receipts/')) throw Object.assign(Error('Receipt not found'),{status:404});
     if (path.endsWith('/egg-source-house-rollouts')) {
       refreshes++;
       if (outcome==='saved'&&refreshes===2) throw Error('Refresh failed');
@@ -94,27 +97,32 @@ it.each(['unknown','rejected','saved'] as const)('retains correct rollout state 
     await button('eggSources.organizationFind');
     await setValue('select','H1');
     expect(host.textContent).not.toContain('Moved');
-    await act(async()=>host.querySelector<HTMLInputElement>('input[type=checkbox]')?.click());
+    const actionSelector=()=>`select[id="${host.querySelectorAll('select')[1].id}"]`;
+    await setValue(actionSelector(),'pause');
     await setValue('textarea','Wrong house');
     await button('eggSources.rolloutReview');
     expect(host.textContent).toContain('CO · H1');
     await setValue('select','H2');
     expect(host.textContent).not.toContain('CO · H1');
-    expect(host.querySelector('textarea')?.value).toBe('');
-    expect(host.querySelector<HTMLInputElement>('input[type=checkbox]')?.checked).toBe(false);
-    await act(async()=>host.querySelector<HTMLInputElement>('input[type=checkbox]')?.click());
+    expect(host.querySelector('textarea')).toBeNull();
+    expect(host.querySelectorAll('select')[1]?.value).toBe('');
+    await setValue(actionSelector(),'pause');
     await setValue('textarea','Approved pause');
     await button('eggSources.rolloutReview');
     expect(host.textContent).toContain('CO · H2');
     await button('eggSources.houseRolloutPause');
     expect(writes).toBe(1);
-    if (outcome==='unknown') expect(host.textContent).toContain('eggSources.rolloutWriteUnknown CO · H2');
+    if (outcome==='unknown') {
+      expect(host.textContent).toContain('eggSources.operationPending · '+requestId);
+      await button('eggSources.operationLookup');
+      expect(host.textContent).toContain('eggSources.operationPending · '+requestId);
+    }
     if (outcome==='rejected') expect(host.textContent).toContain('Changed by another administrator');
     if (outcome==='saved') expect(host.textContent).toContain('eggSources.rolloutRecorded');
     await button('eggSources.writeControl.refresh');
     expect(writes).toBe(1);
-    expect(refreshes).toBe(outcome==='saved'?3:2);
-    if (outcome!=='rejected') expect(host.textContent).toContain('Approved pause');
+    expect(refreshes).toBe(3);
+    if (outcome==='saved') expect(host.textContent).toContain('Approved pause');
   } finally {
     await act(async()=>root.unmount());
     host.remove();

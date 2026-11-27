@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const pendingByScope = {
+  'egg-source-operations-1127': /^1795659000000-EggSourceOperationReceipts$/,
   'egg-source-retirement-1127': /^1795658900000-EggSourceCutoverEvidence$/,
   'egg-source-standard-1127': /^1795658800000-EggSourceStandardGrants$/,
   'egg-source-permissions-1126': /^1795651200000-EggSourceIndependentPermissions$/,

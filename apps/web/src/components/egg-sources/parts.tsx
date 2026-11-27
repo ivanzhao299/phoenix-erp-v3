@@ -116,7 +116,7 @@ export function PrecheckResult({ result,grades,specs }: {result:Precheck;grades:
     return found ? `${option(found)} (${code})` : code;
   };
   return <section aria-label={label('precheckResult')} className={s.section}>
-    <h2>{label('precheckResult')}</h2>
+    <h2>{label('precheckCombination')}</h2>
     <p role="status" className={s.notice}>{label(result.status==='READY' ? 'precheckReady' : 'precheckBlocked')}</p>
     {!!result.problems.length&&<ul>{result.problems.map(problem=><li key={problem}>{label('problem.'+problem)}</li>)}</ul>}
     <ul className={s.events}>{result.rows.map(row=><li className={s.record} key={JSON.stringify([row.gradeCode,row.specCode])}>

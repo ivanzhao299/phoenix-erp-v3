@@ -17,11 +17,10 @@
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
 import { EggSourceLegacyCleanup } from '@/components/egg-sources/EggSourceCutover';
-import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
+import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants,LegacySourceGrantSummary } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
-import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -376,8 +375,9 @@ export default function RoleManagementPage() {
   });
   // perms: Map<menu_code, Set<perm_code>>
   const [eggWarehouse, setEggWarehouse] = useState("");
-  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
-  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
+  const [revision,setRevision]=useState('');
+  const [priorBlocked,setPriorBlocked]=useState<Set<string>>(()=>new Set());
+  const editorGeneration=useRef(0);
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [codeError, setCodeError] = useState("");
 
@@ -466,7 +466,7 @@ export default function RoleManagementPage() {
     }));
     return conflicts.filter(c => writeGranted.has(c.menu_a) && writeGranted.has(c.menu_b));
   }, [perms, conflicts, WRITE_PERM_CODES]);
-  const hasBlockingConflict = currentConflicts.some(c => c.severity === "BLOCK");
+  const hasBlockingConflict = currentConflicts.some(c => c.severity === 'BLOCK' && !priorBlocked.has(c.menu_a+'|'+c.menu_b));
 
   // ── 敏感权限计数 ─────────────────────────────────────────────────────
   // 只有对敏感菜单持有写权限（C/E/D/A）时才计入，纯 View 不算敏感风险
@@ -493,7 +493,9 @@ export default function RoleManagementPage() {
   }, [form.role_code, validateCode, showDrawer]);
 
   // ── 操作 ────────────────────────────────────────────────────────────
+  const closeEditor=()=>{++editorGeneration.current;setShowDrawer(false);};
   const openNew = () => {
+    ++editorGeneration.current;setRevision('');setPriorBlocked(new Set());
     setEditCode(null);
     const defaultType = "COMMON";
     setForm({
@@ -506,67 +508,42 @@ export default function RoleManagementPage() {
     });
     setPerms({});
     setEggWarehouse("");
-    setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline());
     setCodeError("");
     setShowDrawer(true);
   };
-  const openEdit = async (role: RoleRow) => {
-    setEditCode(role.role_code);
-    setForm({
-      role_code: role.role_code,
-      role_name_zh: role.role_name_zh,
-      role_name_lo: role.role_name_lo || "",
-      role_type: role.role_type,
-      approval_level: role.approval_level,
-      description: role.description || ""
-    });
-    // 加载该角色现有的菜单权限三元组
+  async function openRoleEditor(role:RoleRow,copy:boolean) {
+    const generation=++editorGeneration.current;
+    setShowDrawer(false);
     try {
-      const r = await apiGet(`/api/permissions/role/${role.role_code}/perms`);
-      if (r.code!==200 || !Array.isArray(r.data)) throw new Error(r.message || t("eggSources.permission.loadFailed","权限明细加载失败，请重试"));
-      const data: RolePerm[] = r.data;
-      const p: Record<string, Set<string>> = {};
-      for (const it of data) {
-        p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
+      const response=await apiGet(`/api/permissions/role/${encodeURIComponent(role.role_code)}/configuration`);
+      if (generation!==editorGeneration.current) return;
+      const configuration=response.data;
+      if (response.code!==200 || configuration?.role?.role_code!==role.role_code ||
+          !Array.isArray(configuration.perms) || typeof configuration.revision!=='string') throw new Error('Invalid role configuration');
+      const saved:RoleRow=configuration.role;
+      const grants:RolePerm[]=configuration.perms;
+      const configured:Record<string,Set<string>>={};
+      for (const grant of grants) {
+        if (!copy||grant.menu_code!==EGG_SOURCE_MENU) configured[grant.menu_code]=new Set(grant.perm_codes.split(',').map(code=>code.trim()).filter(Boolean));
       }
-      setPerms(p);
-      const legacyGrant=data.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
-      const warehouse=legacyGrant?.egg_warehouse_code??'';
-      setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
-      setEggWarehouse(warehouse);
-      setSavedEggWarehouse(warehouse);
-    } catch (e: any) {
-      toast.error(t("ui.加载角色权限失败", "加载角色权限失败") + ": " + e.message);
-      return;
+      setEditCode(copy?null:role.role_code);setRevision(copy?'':configuration.revision);
+      setForm({
+        role_code:copy?'ROLE_':saved.role_code,
+        role_name_zh:copy?saved.role_name_zh+' '+t('ui.副本','副本'):saved.role_name_zh,
+        role_name_lo:saved.role_name_lo||'',role_type:saved.role_type,approval_level:saved.approval_level,
+        description:copy?`（${t('ui.复制自','复制自')} ${saved.role_code}）${saved.description||''}`:saved.description||'',
+      });
+      setPerms(configured);setEggWarehouse(copy?'':grants.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code??'');
+      const writes=(menu:string)=>[...configured[menu]??[]].some(action=>WRITE_PERM_CODES.has(action));
+      setPriorBlocked(new Set(copy?[]:conflicts.filter(rule=>rule.severity==='BLOCK'&&writes(rule.menu_a)&&writes(rule.menu_b))
+        .map(rule=>rule.menu_a+'|'+rule.menu_b)));
+      setCodeError(copy?t('ui.请填入新的角色代码','请填入新的角色代码'):'');setShowDrawer(true);
+    } catch {
+      if (generation===editorGeneration.current) toast.error(t('eggSources.permission.loadFailed','权限明细加载失败，请重试'));
     }
-    setCodeError("");
-    setShowDrawer(true);
-  };
-  const openCopy = async (role: RoleRow) => {
-    setEditCode(null);
-    setForm({
-      role_code: "ROLE_",
-      role_name_zh: role.role_name_zh + " " + t("ui.副本", "副本"),
-      role_name_lo: role.role_name_lo || "",
-      role_type: role.role_type,
-      approval_level: role.approval_level,
-      description: `（${t("ui.复制自", "复制自")} ${role.role_code}）${role.description || ""}`
-    });
-    try {
-      const r = await apiGet(`/api/permissions/role/${role.role_code}/perms`);
-      if (r.code!==200 || !Array.isArray(r.data)) throw new Error(r.message || t("eggSources.permission.loadFailed","权限明细加载失败，请重试"));
-      const data: RolePerm[] = r.data;
-      const p: Record<string, Set<string>> = {};
-      for (const it of data.filter(grant=>grant.menu_code!==EGG_SOURCE_MENU)) {
-        p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
-      }
-      setPerms(p);
-      setEggWarehouse("");
-      setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline());
-    } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
-    setCodeError(t("ui.请填入新的角色代码", "请填入新的角色代码"));
-    setShowDrawer(true);
-  };
+  }
+  const openEdit=(role:RoleRow)=>openRoleEditor(role,false);
+  const openCopy=(role:RoleRow)=>openRoleEditor(role,true);
 
   // 切换单菜单单权限码
   const togglePerm = (menuCode: string, code: string) => {
@@ -622,6 +599,7 @@ export default function RoleManagementPage() {
 
   // 保存
   const handleSubmit = async () => {
+    if (!showDrawer || loading || (editCode && !revision)) return;
     if (!editCode) {
       const err = validateCode(form.role_code);
       if (err) {
@@ -639,36 +617,23 @@ export default function RoleManagementPage() {
       toast.error(t("ui.存在BLOCK级岗位分离冲突无法保存请先取消冲突菜单的权限", "存在 BLOCK 级岗位分离冲突，无法保存。请先取消冲突菜单的权限。"));
       return;
     }
+    const generation=editorGeneration.current;
     setLoading(true);
     try {
-      // 1) 写入/更新 sys_role 主表
-      const roleBody = {
-        role_code: form.role_code.toUpperCase(),
-        role_name_zh: form.role_name_zh,
-        role_name_lo: form.role_name_lo || null,
-        role_type: form.role_type,
-        approval_level: form.approval_level,
-        description: form.description || null
+      const role_code=form.role_code.toUpperCase();
+      const payload={
+        ...form,role_code,role_name_lo:form.role_name_lo||null,description:form.description||null,
+        perms:Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
+          .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')})),
+        ...(editCode?{expectedRevision:revision}:{}),
       };
-      if (editCode) {
-        await apiPut(`/api/crud/sys_role/${editCode}?pk=role_code`, roleBody);
-      } else {
-        const r = await apiPost("/api/crud/sys_role", roleBody);
-        if (r.code && r.code !== 200) throw new Error(r.msg || t("ui.角色保存失败", "角色保存失败"));
-      }
-
-      // 2) 批量覆盖三元组到 sys_role_menu_permission
-      const permsPayload=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
-        .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
-      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
-      if (legacy) permsPayload.push(legacy);
-      const setR = await apiPut(`/api/permissions/role/${roleBody.role_code}/perms`, {
-        perms: permsPayload
-      });
-      if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败", "权限保存失败"));
+      const response=editCode
+        ? await apiPut(`/api/permissions/role/${encodeURIComponent(editCode)}/configuration`,payload)
+        : await apiPost('/api/permissions/role/configuration',payload);
+      if (response.code!==200) throw new Error(response.message||response.msg||t('ui.权限保存失败','权限保存失败'));
       toast.success(editCode ? t("ui.角色与权限已更新", "角色与权限已更新") : t("ui.角色已创建", "角色已创建"));
-      setShowDrawer(false);
-      loadAll();
+      if (generation===editorGeneration.current) closeEditor();
+      void loadAll();
     } catch (e: any) {
       toast.error(e.message || t("ui.保存失败", "保存失败"));
     } finally {
@@ -945,7 +910,7 @@ export default function RoleManagementPage() {
       </div>
 
       {/* ── 编辑/新建 抽屉 ───────────────────────────────────────────── */}
-      <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit", "编辑")}：${editCode}` : t("ui.新建角色", "新建角色")} width="620px">
+      <RightDrawer open={showDrawer} onClose={closeEditor} title={editCode ? `${t("common.edit", "编辑")}：${editCode}` : t("ui.新建角色", "新建角色")} width="620px">
         <div style={{
         display: "flex",
         flexDirection: "column",
@@ -1284,16 +1249,9 @@ export default function RoleManagementPage() {
               }}>
                     {group.menus.map(menu => {
                   const set = perms[menu.menu_code] || new Set<string>();
-                  if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
+                  if (menu.menu_code===EGG_SOURCE_MENU) return showDrawer ? <EggSourceOrganizationGrants
                     key={menu.menu_code} subject="role" code={editCode || undefined} name={menu.menu_name_zh}
-                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
-                          aria-pressed={set.has(code)} disabled={false} title={menuActionLabel(menu.menu_code,code,code,t)}
-                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
-                      </div>
-                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/>}
-                    </div>}/>;
+                    legacy={<LegacySourceGrantSummary actions={set} warehouse={eggWarehouse}/>}/> : null;
                   return <div key={menu.menu_code} style={{
                     display: "grid",
                     gridTemplateColumns: "1fr auto auto",
@@ -1362,7 +1320,7 @@ export default function RoleManagementPage() {
           gap: 8,
           marginTop: 8
         }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setShowDrawer(false)}>{t("common.cancel", "取消")}</button>
+            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={closeEditor}>{t("common.cancel", "取消")}</button>
             <button type="button" className={s.btnPrimaryGrad} style={{
             flex: 2
           }} onClick={handleSubmit} disabled={loading || !editCode && !!codeError || hasBlockingConflict}>

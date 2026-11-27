@@ -138,7 +138,7 @@ export class EggSourceAccessService {
     return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, sessionRestriction,siteBindings,denials:[...denials], actor:user?.impersonatedBy ? null : id };
   }
 
-  async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string,includeLegacy=false) {
+  async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string,includeLegacy=false,lockAccount=!includeLegacy) {
     const [account] = await manager.query(`SELECT u.user_id::text AS id,u.perms_version FROM sys_user u WHERE u.username=$1
       AND u.status=1 AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
         WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')`,[username]);
@@ -148,7 +148,7 @@ export class EggSourceAccessService {
     const subject={userId:account.id,perms_version:Number(account.perms_version)};
     let access:Awaited<ReturnType<EggSourceAccessService['resolve']>>|undefined;
     try {
-      access=await this.resolve(subject,'V',manager,includeLegacy?undefined:2,undefined,!includeLegacy,true);
+      access=await this.resolve(subject,'V',manager,includeLegacy?undefined:2,undefined,lockAccount,true);
     } catch (error) {
       if (error instanceof BadRequestException && /^SITE .+ 映射了多个 ACTIVE 农场/.test(error.message)) return {accountId:account.id as string,actions,origins,diagnostics:['SITE_FARM_MAPPING_UNRESOLVED']};
       if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;

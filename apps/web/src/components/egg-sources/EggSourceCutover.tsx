@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback,useEffect,useState } from 'react';
+import { useCallback,useEffect,useRef,useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RightDrawer } from '@/components/ui/RightDrawer';
 import { inputField,primaryActionButton,secondaryActionButton } from '@/components/design-system/cockpit-styles';
@@ -166,7 +166,7 @@ function VerificationStatus({status}:{status:Verification}) {
 }
 
 export function EggSourceVerificationSetup({house,reason,onReady,disabled}:{house:string;reason:string;
-  onReady:(id:string)=>void;disabled:boolean}) {
+  onReady:(verification:Verification|null)=>void;disabled:boolean}) {
   const {label}=useSourceText();
   const [maker,setMaker]=useState('');
   const [reviewer,setReviewer]=useState('');
@@ -175,10 +175,15 @@ export function EggSourceVerificationSetup({house,reason,onReady,disabled}:{hous
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [pending,setPending]=useState<{requestId:string;house:string;maker:string;reviewer:string;reason:string}|null>(null);
+  const mounted=useRef(false);
+  useEffect(()=>{
+    mounted.current=true;
+    return ()=>{mounted.current=false;};
+  },[]);
 
   async function submit() {
     const body=pending??{requestId:crypto.randomUUID(),house,maker:maker.trim(),reviewer:reviewer.trim(),reason:reason.trim()};
-    setBusy(true);setPending(body);setError('');onReady('');
+    setBusy(true);setPending(body);setError('');onReady(null);
     try {
       const {data}=await post<Verification>(verification,body);
       setActive(data);setManualId(data.id);setPending(null);
@@ -187,11 +192,14 @@ export function EggSourceVerificationSetup({house,reason,onReady,disabled}:{hous
   }
 
   async function refresh() {
-    setBusy(true);setError('');onReady('');
+    setBusy(true);setError('');onReady(null);
     try {
       const {data}=await request<{data:Verification}>(verification+'/'+encodeURIComponent(manualId.trim()),options);
+      if (!mounted.current) return;
       setActive(data);
-      if (!data.consumed&&data.makerSigned&&data.reviewerSigned) onReady(data.id);
+      if (data.house!==house||data.reason!==reason.trim()) {
+        setError(label('problem.RETIREMENT_EVIDENCE_CHANGED'));
+      } else if (!data.consumed&&data.makerSigned&&data.reviewerSigned) onReady(data);
     } catch(error) {setError(failure(error,label('writeControl.failed')));setActive(null);}
     finally {setBusy(false);}
   }
@@ -212,7 +220,7 @@ export function EggSourceVerificationSetup({house,reason,onReady,disabled}:{hous
     {pending&&<button type="button" style={secondaryActionButton} disabled={busy} onClick={()=>setPending(null)}>
       {label('writeControl.refresh')}</button>}
     <Field title={label('cutover.verificationId')}>{attrs=><input {...attrs} style={inputField} disabled={busy}
-      value={manualId} maxLength={36} onChange={event=>{onReady('');setManualId(event.target.value);}}/>}</Field>
+      value={manualId} maxLength={36} onChange={event=>{onReady(null);setManualId(event.target.value);}}/>}</Field>
     <button type="button" style={secondaryActionButton} disabled={busy||!manualId.trim()} onClick={()=>void refresh()}>
       {label('cutover.checkSignatures')}</button>
     {error&&<p role="alert" className={s.error}>{error}</p>}
