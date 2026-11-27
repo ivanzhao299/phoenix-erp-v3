@@ -16272,5 +16272,17 @@
   "ui.销售单号": "销售单号",
   "ui.门店逐批销售": "门店逐批销售",
   "ui.隔离冻结": "隔离冻结",
-  "ui.预留": "预留"
+  "ui.预留": "预留",
+  "fin2.ap.pay_failed": "付款失败",
+  "fin2.ap.payment_account": "付款账户",
+  "fin2.ap.payment_amount": "付款金额",
+  "fin2.ap.payment_date": "付款日期",
+  "fin2.ap.post_payment": "确认付款核销",
+  "fin2.ap.kpi_unpaid_balance": "待付余额",
+  "md.document_load_failed": "单据加载失败",
+  "md.retry": "重试",
+  "prc2.supplier_volume_by_currency": "供应商采购额 · 各币种前 20",
+  "prc2.receipt_order_load_failed": "无法加载订单明细",
+  "prc2.retry": "重试",
+  "prc2.no_receivable_order_lines": "没有可收货明细"
 }
