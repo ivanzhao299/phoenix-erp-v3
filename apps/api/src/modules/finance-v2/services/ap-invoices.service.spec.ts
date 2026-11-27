@@ -101,6 +101,7 @@ describe('ApInvoicesService status labels', () => {
           balance_amount_original: '20.00',
         },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     const service = buildService(query);
 
@@ -196,7 +197,7 @@ describe('ApInvoicesService status labels', () => {
 
   it('pays an AP invoice by writing allocation, updating invoice status, and appending AP_PAYMENT cash transaction', async () => {
     const currentYm = new Date().toISOString().slice(0, 7).replace('-', '');
-    const generatedAllocNo = `APA-${currentYm}-00001`;
+    const generatedAllocNo = `APA-${currentYm}-00021`;
     const qrQuery = jest
       .fn()
       .mockResolvedValueOnce([
@@ -218,6 +219,7 @@ describe('ApInvoicesService status labels', () => {
           payment_status: 'PARTIAL',
         },
       ])
+      .mockResolvedValueOnce([{ has_allocations: true, has_legacy_payments: false }])
       .mockResolvedValueOnce([
         {
           id: '30',
@@ -230,7 +232,7 @@ describe('ApInvoicesService status labels', () => {
           status: 'ACTIVE',
         },
       ])
-      .mockResolvedValueOnce([{ cnt: 0 }])
+      .mockResolvedValueOnce([{ id: '21' }])
       .mockResolvedValueOnce([{ id: '21', alloc_no: generatedAllocNo }])
       .mockResolvedValueOnce([]);
     const dsQuery = jest
@@ -255,7 +257,8 @@ describe('ApInvoicesService status labels', () => {
           currency_code: 'CNY',
           payment_date: '2026-07-13',
         },
-      ]);
+      ])
+      .mockResolvedValueOnce([]);
     const applyBalance = jest.fn().mockResolvedValue(75);
     const writeTransaction = jest.fn().mockResolvedValue({ id: '501' });
     const { service, qr, cashAccSvc, cashTxnSvc } = buildPayService({
@@ -304,6 +307,30 @@ describe('ApInvoicesService status labels', () => {
     }));
   });
 
+  it('rejects replay of a legacy allocation even if the canonical table also exists', async () => {
+    const qrQuery = jest.fn()
+      .mockResolvedValueOnce([{ id: '9', company_code: 'COMP-LAO-AGRI', source_type: 'MANUAL' }])
+      .mockResolvedValueOnce([{ has_allocations: true, has_legacy_payments: true }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: '20' }]);
+    const { service, qr, cashAccSvc } = buildPayService({ qrQuery });
+
+    await expect(service.payInvoice('9', {
+      cashAccountId: '30',
+      paymentDate: '2026-07-13',
+      amountOriginal: 25,
+      referenceNo: 'FIN-AP-replay',
+    })).rejects.toMatchObject({ status: 409 });
+
+    expect(qrQuery).toHaveBeenNthCalledWith(
+      4,
+      expect.stringContaining('FROM fin_ap_payments WHERE invoice_id=$1 AND reference_no=$2'),
+      ['9', 'FIN-AP-replay'],
+    );
+    expect(qr.rollbackTransaction).toHaveBeenCalled();
+    expect(cashAccSvc.applyBalance).not.toHaveBeenCalled();
+  });
+
   it('rolls back AP payment when amount exceeds current invoice balance', async () => {
     const qrQuery = jest.fn().mockResolvedValueOnce([
       {
@@ -320,7 +347,7 @@ describe('ApInvoicesService status labels', () => {
         status: 'PARTIALLY_PAID',
         payment_status: 'PARTIAL',
       },
-    ]);
+    ]).mockResolvedValueOnce([{ has_allocations: true, has_legacy_payments: false }]);
     const writeTransaction = jest.fn();
     const { service, qr, cashTxnSvc } = buildPayService({
       qrQuery,
@@ -337,6 +364,6 @@ describe('ApInvoicesService status labels', () => {
     expect(qr.commitTransaction).not.toHaveBeenCalled();
     expect(qr.release).toHaveBeenCalled();
     expect(cashTxnSvc.writeTransaction).not.toHaveBeenCalled();
-    expect(qrQuery).toHaveBeenCalledTimes(1);
+    expect(qrQuery).toHaveBeenCalledTimes(2);
   });
 });

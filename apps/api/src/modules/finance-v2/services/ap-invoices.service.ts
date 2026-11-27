@@ -1,6 +1,6 @@
 import {
   Injectable, Logger, NotFoundException,
-  ForbiddenException, BadRequestException, ConflictException,
+  ForbiddenException, BadRequestException, ConflictException, ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
@@ -94,42 +94,6 @@ export class ApInvoicesService {
     return `${prefix}${seq}`;
   }
 
-  /** 生成分配编号 */
-  private async genAllocNo(): Promise<string> {
-    const ym   = new Date().toISOString().slice(0, 7).replace('-', '');
-    const pre  = `APA-${ym}-`;
-    const row  = await this.ds.query(
-      `SELECT COUNT(*) AS cnt FROM fin_ap_payment_allocations WHERE alloc_no LIKE $1`,
-      [`${pre}%`],
-    );
-    const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
-    return `${pre}${seq}`;
-  }
-
-  /** 生成分配编号（事务内） */
-  private async genAllocNoIn(qr: import('typeorm').QueryRunner): Promise<string> {
-    const ym   = new Date().toISOString().slice(0, 7).replace('-', '');
-    const pre  = `APA-${ym}-`;
-    const row  = await qr.query(
-      `SELECT COUNT(*) AS cnt FROM fin_ap_payment_allocations WHERE alloc_no LIKE $1`,
-      [`${pre}%`],
-    );
-    const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
-    return `${pre}${seq}`;
-  }
-
-  /** 生成旧 AP payment 编号（兼容历史表） */
-  private async genLegacyPaymentNoIn(qr: import('typeorm').QueryRunner): Promise<string> {
-    const ym   = new Date().toISOString().slice(0, 7).replace('-', '');
-    const pre  = `PAY-${ym}-`;
-    const row  = await qr.query(
-      `SELECT COUNT(*) AS cnt FROM fin_ap_payments WHERE payment_no LIKE $1`,
-      [`${pre}%`],
-    );
-    const seq = String(Number(row[0]?.cnt ?? 0) + 1).padStart(5, '0');
-    return `${pre}${seq}`;
-  }
-
   /** DataScope WHERE 子句 */
   private scopeWhere(alias: string, params: any[]): string {
     const user = this.currentUser();
@@ -185,30 +149,26 @@ export class ApInvoicesService {
   }
 
   private async loadPaymentAllocations(invoiceId: string): Promise<any[]> {
-    try {
-      return await this.ds.query(
-        `SELECT id, alloc_no, amount_original, currency_code,
-                payment_date, payment_method, reference_no, remark, created_at
-         FROM fin_ap_payment_allocations WHERE invoice_id = $1 ORDER BY payment_date DESC`,
-        [invoiceId],
-      );
-    } catch (err) {
-      if (!this.isUndefinedTableError(err)) throw err;
-      this.logger.warn('[AP] fin_ap_payment_allocations missing; falling back to legacy fin_ap_payments for invoice detail');
-    }
-
-    try {
-      return await this.ds.query(
-        `SELECT id, payment_no AS alloc_no, amount AS amount_original, currency_code,
-                payment_date, payment_method, reference_no, note AS remark, created_at
-         FROM fin_ap_payments WHERE invoice_id = $1 ORDER BY payment_date DESC`,
-        [invoiceId],
-      );
-    } catch (err) {
-      if (!this.isUndefinedTableError(err)) throw err;
-      this.logger.warn('[AP] no AP payment history table is available; returning invoice detail without allocations');
-      return [];
-    }
+    const load = async (sql: string): Promise<any[]> => {
+      try {
+        return await this.ds.query(sql, [invoiceId]);
+      } catch (err) {
+        if (!this.isUndefinedTableError(err)) throw err;
+        return [];
+      }
+    };
+    const [allocations, legacyPayments] = await Promise.all([
+      load(`SELECT id, alloc_no, amount_original, currency_code,
+                  payment_date, payment_method, reference_no, remark, created_at
+           FROM fin_ap_payment_allocations WHERE invoice_id = $1`),
+      load(`SELECT id, payment_no AS alloc_no, amount AS amount_original, currency_code,
+                  payment_date, payment_method, reference_no, note AS remark, created_at
+           FROM fin_ap_payments WHERE invoice_id = $1`),
+    ]);
+    return [...allocations, ...legacyPayments].sort((a, b) =>
+      String(b.payment_date).localeCompare(String(a.payment_date)) ||
+      String(b.alloc_no).localeCompare(String(a.alloc_no)),
+    );
   }
 
   // ── 1. 列表 ───────────────────────────────────────────────────────────────
@@ -539,12 +499,25 @@ export class ApInvoicesService {
       if (inv.source_type === 'PO') {
         throw new BadRequestException('采购订单来源应付请通过采购付款管理执行');
       }
+      // Check relation availability before running SQL that could abort the payment transaction.
+      const [{ has_allocations, has_legacy_payments }] = await qr.query(`
+        SELECT to_regclass('fin_ap_payment_allocations') IS NOT NULL AS has_allocations,
+               to_regclass('fin_ap_payments') IS NOT NULL AS has_legacy_payments
+      `);
+      const paymentTables = [
+        ...(has_allocations ? ['fin_ap_payment_allocations'] : []),
+        ...(has_legacy_payments ? ['fin_ap_payments'] : []),
+      ];
+      const [paymentTable] = paymentTables;
+      if (!paymentTable) throw new ServiceUnavailableException('应付核销存储尚未初始化');
       if (dto.referenceNo?.startsWith('FIN-AP-')) {
-        const [existing] = await qr.query(
-          'SELECT id FROM fin_ap_payment_allocations WHERE invoice_id=$1 AND reference_no=$2 LIMIT 1',
-          [id, dto.referenceNo],
-        );
-        if (existing) throw new ConflictException('此付款操作已核销，请刷新应付明细');
+        for (const table of paymentTables) {
+          const [existing] = await qr.query(
+            `SELECT id FROM ${table} WHERE invoice_id=$1 AND reference_no=$2 LIMIT 1`,
+            [id, dto.referenceNo],
+          );
+          if (existing) throw new ConflictException('此付款操作已核销，请刷新应付明细');
+        }
       }
       if (!['OPEN', 'PARTIALLY_PAID'].includes(inv.status)) {
         throw new BadRequestException(`状态 ${inv.status} 不允许付款`);
@@ -586,51 +559,53 @@ export class ApInvoicesService {
       const amountBase = dto.amountBase ?? Math.round(amount * exRate * 100) / 100;
       const baseCurrency = dto.baseCurrency ?? 'CNY';
 
-      let paymentRow: any;
-      try {
-        const allocNo = await this.genAllocNoIn(qr);
+      const [{ id: paymentId }] = await qr.query(
+        "SELECT nextval(pg_get_serial_sequence($1, 'id')) AS id",
+        [paymentTable],
+      );
+      const month = new Date().toISOString().slice(0, 7).replace('-', '');
+      const paymentNo = `${has_allocations ? 'APA' : 'PAY'}-${month}-${String(paymentId).padStart(5, '0')}`;
+      let paymentRow: { id: string; alloc_no: string };
+      if (has_allocations) {
         [paymentRow] = await qr.query(
           `INSERT INTO fin_ap_payment_allocations (
              alloc_no, invoice_id, company_code, company_name,
              currency_code, amount_original, exchange_rate, amount_base, base_currency,
              payment_date, payment_method, bank_account, reference_no,
-             cash_account_id, remark, created_by, updated_by
+             cash_account_id, remark, created_by, updated_by, id
            ) VALUES (
              $1,$2,$3,$4,
              $5,$6,$7,$8,$9,
              $10,$11,$12,$13,
-             $14,$15,$16,$16
+             $14,$15,$16,$16,$17
            )
            RETURNING id, alloc_no`,
           [
-            allocNo, id, inv.company_code, inv.company_name ?? null,
+            paymentNo, id, inv.company_code, inv.company_name ?? null,
             inv.currency_code, amount, exRate, amountBase, baseCurrency,
             dto.paymentDate, dto.paymentMethod ?? null, acc.account_code, dto.referenceNo ?? null,
-            acc.id, dto.remark ?? null, user.userId,
+            acc.id, dto.remark ?? null, user.userId, paymentId,
           ],
         );
-      } catch (err) {
-        if (!this.isUndefinedTableError(err)) throw err;
-        this.logger.warn('[AP] fin_ap_payment_allocations missing; writing legacy fin_ap_payments record');
-        const paymentNo = await this.genLegacyPaymentNoIn(qr);
+      } else {
         [paymentRow] = await qr.query(
           `INSERT INTO fin_ap_payments (
              payment_no, invoice_id, company_code, supplier_code,
              payment_date, amount, currency_code, exchange_rate,
              payment_method, bank_account, reference_no, note,
-             cash_account_id, created_by, updated_by
+             cash_account_id, created_by, updated_by, id
            ) VALUES (
              $1,$2,$3,$4,
              $5,$6,$7,$8,
              $9,$10,$11,$12,
-             $13,$14,$14
+             $13,$14,$14,$15
            )
            RETURNING id, payment_no AS alloc_no`,
           [
             paymentNo, id, inv.company_code, inv.supplier_code ?? '',
             dto.paymentDate, amount, inv.currency_code, exRate,
             dto.paymentMethod ?? null, acc.account_code, dto.referenceNo ?? null, dto.remark ?? null,
-            acc.id, user.userId,
+            acc.id, user.userId, paymentId,
           ],
         );
       }
@@ -689,6 +664,9 @@ export class ApInvoicesService {
       return this.findById(id);
     } catch (err) {
       await qr.rollbackTransaction();
+      if ((err as { code?: string } | null)?.code === '40001') {
+        throw new ConflictException('应付或资金账户已变更，请刷新后重试');
+      }
       this.logger.error(`[AP] payInvoice 事务回滚: ${(err as Error).message}`);
       throw err;
     } finally {

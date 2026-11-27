@@ -605,7 +605,7 @@ function DetailDrawer({
               {detail.allocations.length === 0 ? (
                 <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>{t('fin2.ap.no_payment_records', '暂无付款记录')}</div>
               ) : detail.allocations.map(a => (
-                <div key={a.id} style={recordRow('success')}>
+                <div key={a.alloc_no} style={recordRow('success')}>
                   <div>
                     <div style={{ fontFamily: MONO_FONT, color: 'var(--status-success)', fontWeight: 600, marginBottom: 2 }}>{a.alloc_no}</div>
                     <div className="text-text-muted" style={{ fontSize: 11 }}>

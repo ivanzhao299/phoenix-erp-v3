@@ -666,9 +666,9 @@ export class MasterDataRuntimeService {
   async get(type: string, code: string): Promise<any> {
     const c = this.cfg(type);
     const params = [code];
-    const visible = type === 'supplier' ? await this.supplierReadScope(params) : '1=1';
+    const visibility = type === 'supplier' ? ` AND (${await this.supplierReadScope(params)})` : '';
     const [row] = await this.ds.query(
-      `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} WHERE base.${c.codeCol}  = $1 AND (${visible}) LIMIT 1`,
+      `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} WHERE base.${c.codeCol} = $1${visibility} LIMIT 1`,
       params,
     );
     if (!row) throw new NotFoundException(`主数据不存在：${type}/${code}`);
