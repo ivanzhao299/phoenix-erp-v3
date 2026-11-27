@@ -16,6 +16,7 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
+import { EggSourceLegacyCleanup } from '@/components/egg-sources/EggSourceCutover';
 import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
@@ -721,30 +722,26 @@ export default function RoleManagementPage() {
     flexDirection: "column",
     gap: "24px"
   }}>
-      <PageHeader title={t("ui.角色与权限管理", "角色与权限管理")} subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线", "数据可见性第1层·功能权限：角色 × 菜单 × 操作（查/创/改/删/审/导）+ 岗位分离红线（第2层范围见「数据范围规则」，第3层组织见「用户管理」）")} breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.角色与权限", "角色与权限")]} actions={<div style={{
-      display: "flex",
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-      gap: "8px"
-    }}>
-            {rolesForSession.includes('ROLE_ADMIN') && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
-              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/><EggSourceLegacyCreationGate/></>}
-            {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
-              <Shield size={14} /> {t('breeding.lifecycle.register')}
-            </button>}
-            {deprecatedCount > 0 && <button type="button" style={secondaryActionButton} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
-              {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
-            </button>}
-            <button type="button" style={secondaryActionButton} onClick={() => setShowWhoCan(true)}>
-              <Users size={14} /> {t("ui.谁能干X反查", "谁能干X")}
-            </button>
-            <button type="button" style={secondaryActionButton} onClick={openMatrix}>
-              <Grid size={14} /> {t("ui.权限矩阵全景", "权限矩阵全景")}
-            </button>
-            <button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
-              <Plus size={14} /> {t("ui.新建角色", "新建角色")}
-            </button>
-          </div>} />
+      <PageHeader title={t("ui.角色与权限管理", "角色与权限管理")} subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线", "数据可见性第1层·功能权限：角色 × 菜单 × 操作（查/创/改/删/审/导）+ 岗位分离红线（第2层范围见「数据范围规则」，第3层组织见「用户管理」）")} breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.角色与权限", "角色与权限")]} />
+      <div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
+        {rolesForSession.includes('ROLE_ADMIN') && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
+          <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/><EggSourceLegacyCleanup/><EggSourceLegacyCreationGate/></>}
+        {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
+          <Shield size={14} /> {t('breeding.lifecycle.register')}
+        </button>}
+        {deprecatedCount > 0 && <button type="button" style={secondaryActionButton} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
+          {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
+        </button>}
+        <button type="button" style={secondaryActionButton} onClick={() => setShowWhoCan(true)}>
+          <Users size={14} /> {t("ui.谁能干X反查", "谁能干X")}
+        </button>
+        <button type="button" style={secondaryActionButton} onClick={openMatrix}>
+          <Grid size={14} /> {t("ui.权限矩阵全景", "权限矩阵全景")}
+        </button>
+        <button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
+          <Plus size={14} /> {t("ui.新建角色", "新建角色")}
+        </button>
+      </div>
 
       {/* 顶部统计胶囊 */}
       <div className={s.statsRow}>

@@ -1,0 +1,168 @@
+name: Egg source cutover release evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_run:
+        description: Completed full production deployment run ID for this revision
+        type: string
+        required: true
+      install_proof:
+        description: Install the verified image evidence on the running API and Web
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  accept:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      proof: ${{ steps.proof.outputs.json }}
+      identity: ${{ steps.proof.outputs.identity }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - name: Bind deployment and pull published image digests
+        env:
+          RUN: ${{ inputs.deploy_run }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN" =~ ^[1-9][0-9]*$ ]]
+          release=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN")
+          printf '%s\n' "$release" |
+            jq -e --arg sha "$GITHUB_SHA" '
+              .head_branch=="main" and .head_sha==$sha and .path==".github/workflows/deploy.yml" and
+              .event=="workflow_dispatch" and .status=="completed" and .conclusion=="success"' >/dev/null
+          attempt=$(jq -er ".run_attempt | select(.>=1)" <<<"$release")
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/attempts/$attempt/jobs" |
+            jq -es '
+              [.[].jobs[] | select(.name=="Deploy · full" and .conclusion=="success") | .steps[] | select(.name=="Deploy via SSH" and .conclusion=="success")] | length==1' >/dev/null
+          echo "VERIFIED_DEPLOY_RUN=$RUN/$attempt" >> "$GITHUB_ENV"
+          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<<"$GH_TOKEN"
+          for service in api web; do
+            repo="ghcr.io/${GITHUB_REPOSITORY,,}/$service"
+            tagged="$repo:sha-$GITHUB_SHA"
+            docker pull "$tagged" >/dev/null
+            image=$(docker image inspect "$tagged" --format '{{json .RepoDigests}}' |
+              jq -er --arg prefix "$repo@" '[.[]|select(startswith($prefix))] | if length==1 then .[0] else error("ambiguous digest") end')
+            [[ "${image##*@}" =~ ^sha256:[a-f0-9]{64}$ ]]
+            test "$(docker image inspect "$image" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$GITHUB_SHA"
+            echo "${service^^}_CANDIDATE=$image" >> "$GITHUB_ENV"
+          done
+      - name: Install locked fixture dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify published API and Web with isolated PostgreSQL and Chromium
+        run: bash scripts/test/egg-source-published-candidate.sh "$RUNNER_TEMP/egg-source-candidate-evidence"
+      - name: Record tested images
+        id: proof
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/egg-source-candidate-evidence"
+          node --input-type=module - "$output" <<'JS'
+          import {createHash} from 'node:crypto';
+          import {readFileSync,writeFileSync,appendFileSync} from 'node:fs';
+          const env=process.env, root=process.argv[2];
+          const proof={commit:env.GITHUB_SHA,apiDigest:env.API_CANDIDATE.split('@')[1],webDigest:env.WEB_CANDIDATE.split('@')[1],
+            run:env.GITHUB_RUN_ID+'/'+env.GITHUB_RUN_ATTEMPT,deployRun:env.VERIFIED_DEPLOY_RUN,resultDigest:createHash('sha256').update(readFileSync(root+'/jest.json')).digest('hex'),
+            expiresAt:new Date(Date.now()+12*60*60*1000).toISOString()};
+          const identity=createHash('sha256').update([proof.commit,proof.apiDigest,proof.webDigest,proof.run,proof.deployRun,proof.resultDigest].join('|')).digest('hex');
+          const json=JSON.stringify(proof);
+          writeFileSync(root+'/proof.json',json+'\n');
+          appendFileSync(env.GITHUB_OUTPUT,'json='+Buffer.from(json).toString('base64')+'\nidentity='+identity+'\n');
+          JS
+      - name: Retain acceptance proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: egg-source-candidate-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/egg-source-candidate-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+  install:
+    if: inputs.install_proof == true
+    needs: accept
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prepare reviewed production bootstrap
+        run: |
+          set -euo pipefail
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+      - name: Install evidence on the verified running image pair
+        uses: appleboy/ssh-action@v1
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          PROOF_B64: ${{ needs.accept.outputs.proof }}
+          RELEASE_IDENTITY: ${{ needs.accept.outputs.identity }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+          GHCR_LOGIN_USER: ${{ github.repository_owner }}
+          GHCR_LOGIN_TOKEN: ${{ github.token }}
+        with:
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: TARGET_SHA,PROOF_B64,RELEASE_IDENTITY,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN
+          script: |
+            set -Eeuo pipefail
+            umask 077
+            unset MODERN_SCHEMA_BODY_SUPERVISED
+            cd /data/phoenix-erp
+            export DEPLOY_REPO_ROOT=/data/phoenix-erp
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ && "$RELEASE_IDENTITY" =~ ^[a-f0-9]{64}$ && "$PROOF_B64" =~ ^[A-Za-z0-9+/=]+$ ]]
+            test "$(git -c safe.directory=/data/phoenix-erp rev-parse HEAD)" = "$TARGET_SHA"
+            test "$(git -c safe.directory=/data/phoenix-erp ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
+            for marker in transaction.json policy-transition.json cutover-pending.json schema-release-pending.json; do
+              test ! -e "$STATE_DIR/$marker" && test ! -L "$STATE_DIR/$marker"
+            done
+            proof=$(printf '%s' "$PROOF_B64" | base64 -d)
+            test "$(jq -er .commit <<<"$proof")" = "$TARGET_SHA"
+            test "$(node -e 'const p=JSON.parse(process.argv[1]);console.log(require("node:crypto").createHash("sha256").update([p.commit,p.apiDigest,p.webDigest,p.run,p.deployRun,p.resultDigest].join("|")).digest("hex"))' "$proof")" = "$RELEASE_IDENTITY"
+            docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<<"$GHCR_LOGIN_TOKEN" >/dev/null
+            for service in api web; do
+              digest=$(jq -er --arg key "${service}Digest" '.[$key]' <<<"$proof")
+              [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+              image="ghcr.io/ivanzhao299/phoenix-erp-v3/$service@$digest"
+              docker pull -q "$image" >/dev/null
+              container="phoenix-v3-$service"
+              test "$(docker inspect "$container" --format '{{.State.Running}}')" = true
+              test "$(docker inspect "$container" --format '{{.Image}}')" = "$(docker image inspect "$image" --format '{{.Id}}')"
+              test "$(docker image inspect "$image" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
+            done
+            printf '%s' "$RELEASE_IDENTITY" | docker exec -i -u 0 phoenix-v3-web sh -ec '
+              t=$(mktemp /etc/phoenix-egg-source-release-identity.XXXXXX); trap '\''rm -f "$t"'\'' EXIT
+              cat > "$t"; chmod 0444 "$t"; mv -f "$t" /etc/phoenix-egg-source-release-identity'
+            test "$(docker exec -u phoenix phoenix-v3-api curl -fsS --max-time 3 http://web:3000/egg-source-release-identity)" = "$RELEASE_IDENTITY"
+            printf '%s' "$proof" | docker exec -i -u 0 phoenix-v3-api sh -ec '
+              t=$(mktemp /etc/phoenix-egg-source-cutover.json.XXXXXX); trap '\''rm -f "$t"'\'' EXIT
+              cat > "$t"; chmod 0444 "$t"; mv -f "$t" /etc/phoenix-egg-source-cutover.json'
+            echo 'EGG_SOURCE_CUTOVER_RELEASE_EVIDENCE=VERIFIED_IMAGE_PAIR'

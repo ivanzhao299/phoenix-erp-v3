@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { notArchived } from './egg-source-cutover-ledger';
 import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import type { OrgScope } from '../../farm/farm.service';
@@ -153,7 +154,7 @@ export class EggSourceChangeService {
       const changes: ChangeRow[] = await m.query(`SELECT ${changeFields} FROM md_egg_source_changes c
         WHERE company_code=$1 AND farm_code=$2 AND site_code=$3 AND house_code=$4
         AND ((c.contract_version=1 AND ($5::boolean OR c.payload->>'warehouseCode'=ANY($6::text[])))
-          OR (c.contract_version=2 AND $7::boolean))
+          OR (c.contract_version=2 AND $7::boolean)) AND ${notArchived}
         ORDER BY c.created_at DESC,c.id DESC LIMIT 100`, changeArgs(owner,scope));
       const ids=changes.flatMap(change=>{
         const id = change.payload.planDocument ?? change.approval?.snapshot?.planned?.documentId;

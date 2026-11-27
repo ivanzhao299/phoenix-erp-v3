@@ -1,11 +1,14 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Post, Get, Param, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { readEggSourceReleaseEvidence } from '../services/egg-source-cutover-release';
+import { beginEggSourceVerification,consumeEggSourceVerification,eggSourceGovernedSites,eligibleEggSourceHouses,lockEggSourceRetirementRoster,readEggSourceVerification } from '../services/egg-source-retirement-verification';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, NotFoundException, Post, Get, Param, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { archiveLegacyBatch,legacyCleanupInventory,withdrawLegacyGrant } from '../services/egg-source-legacy-cleanup';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU } from '../../../auth/egg-source-permissions';
 import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceHouseAction,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
 import { requireEggSourceAdministrator,lockEggSourceGrantEditor,withEggSourceGrantEditorSnapshot } from '../../../auth/egg-source-organization-grants';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
-import { canAccessEggSource,lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
+import { canAccessEggSource,lockEggSourceHouse,lockEggSourcePackagingChain,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText,sourceUuid } from '../services/egg-source-change-policy';
 import { EggSourceAccessService } from '../services/egg-source-access.service';
 import { candidateWarehouses,houseCreationFacts,sourceCreationPrerequisite,sourceCreationReadiness,sourceCreatePolicy } from '../services/egg-source-change-read';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
@@ -127,10 +130,9 @@ export class MenuAdminController {
     if (!gate) throw new ConflictException('蛋品来源写入控制未登记');
     const houses: {house_code:string}[] = gate.enabled ? await m.query(`SELECT h.house_code FROM brd_houses h
       JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code)
-      WHERE h.status='ACTIVE' AND h.house_type='LAYER' AND f.status='ACTIVE'
-        AND EXISTS (SELECT 1 FROM md_egg_source_profiles p WHERE p.company_code=f.company_code)
+      WHERE ${eligibleEggSourceHouses('$1')}
         AND NOT EXISTS (SELECT 1 FROM md_egg_source_house_rollouts r WHERE r.company_code=f.company_code AND r.house_code=h.house_code)
-      ORDER BY h.house_code`) : [];
+      ORDER BY h.house_code`,[eggSourceGovernedSites]) : [];
     const [pilot]=await m.query(`SELECT 1 FROM md_egg_source_house_rollouts r JOIN md_egg_source_changes c
       ON c.company_code=r.company_code AND c.house_code=r.house_code
       JOIN md_egg_source_change_events e ON e.change_id=c.id AND e.action='approve'
@@ -143,25 +145,81 @@ export class MenuAdminController {
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
   async getLegacyCreation(@Req() req:any) {
     await requireEggSourceAdministrator(this.em,req.user);
-    return {code:200,data:await this.legacyCreationState(this.em)};
+    const data=await this.legacyCreationState(this.em);
+    return {code:200,data:{...data,verificationAvailable:data.enabled&&!!await readEggSourceReleaseEvidence()}};
   }
 
   @Post('egg-source-legacy-creation')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
-  async retireLegacyCreation(@Req() req:any,@Body() body:{confirmed:boolean;reason:string}) {
+  async retireLegacyCreation(@Req() req:any,
+    @Body() body:{confirmed:boolean;reason:string;verificationId?:unknown;requestId?:unknown}) {
     const reason=sourceText(body?.reason,'业务切换依据',500);
     if (body.confirmed!==true) throw new BadRequestException('须核对业务切换清单');
     return this.em.transaction(async m=>{
-      const actor=await requireEggSourceAdministrator(m,req.user);
+      const verified=body.verificationId===undefined ? null :
+        await consumeEggSourceVerification(m,this.sourceAccess,req.user,body.verificationId,body.requestId,reason);
+      const actor=verified?.actor??await requireEggSourceAdministrator(m,req.user);
+      if (!verified) {
+        await lockEggSourcePackagingChain(m);
+        await lockEggSourceRetirementRoster(m);
+      }
       const before=await this.legacyCreationState(m,true);
       if (!before.enabled) return {code:200,data:before};
       if (!before.available || before.unclassified.length) throw new ConflictException('须核对全局开关及逐舍开通或暂停状态');
-      if (!before.pilotVerified) throw new ConflictException('至少一个鸡舍完成新版办理验收后才能关闭旧版新建');
+      if (!before.pilotVerified&&!verified) throw new ConflictException('至少一个鸡舍完成新版办理验收后才能关闭旧版新建');
       await m.query('UPDATE md_egg_source_write_control SET legacy_creates_enabled=false WHERE id=1');
       const after={...before,enabled:false};
-      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_LEGACY_CREATION','1',before,{...after,reason});
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_LEGACY_CREATION','1',before,
+        {...after,reason,verificationId:verified?.challengeId??null});
       return {code:200,data:after};
     });
+  }
+
+  @Post('egg-source-legacy-verification')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async beginLegacyVerification(@Req() req:any,@Body() body:Parameters<typeof beginEggSourceVerification>[3]) {
+    return {code:200,data:await this.em.transaction(m=>beginEggSourceVerification(m,this.sourceAccess,req.user,body))};
+  }
+
+  @Get('egg-source-legacy-verification/:id')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
+  async readLegacyVerification(@Req() req:any,@Param('id') id:string) {
+    return this.em.transaction('REPEATABLE READ',async m=>{
+      await requireEggSourceAdministrator(m,req.user,false);
+      return {code:200,data:await readEggSourceVerification(m,this.sourceAccess,id,req.user,true)};
+    });
+  }
+
+  @Get('egg-source-legacy-cleanup')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
+  async legacyCleanup(@Req() req:any) {
+    return this.em.transaction('REPEATABLE READ',async m=>{
+      await requireEggSourceAdministrator(m,req.user,false);
+      return {code:200,data:await legacyCleanupInventory(m)};
+    });
+  }
+
+  @Get('egg-source-legacy-cleanup/receipts/:id')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
+  async legacyCleanupReceipt(@Req() req:any,@Param('id') id:string) {
+    await requireEggSourceAdministrator(this.em,req.user,false);
+    const [data]=await this.em.query(`SELECT kind,receipt,created_at FROM md_egg_source_cutover_records
+      WHERE request_id=$1 AND kind IN ('ARCHIVE','UNARCHIVE','LEGACY_GRANT')`,[sourceUuid(id,'操作请求号')]);
+    if (!data) throw new NotFoundException('未找到归档或撤权回执');
+    return {code:200,data};
+  }
+
+  @Post('egg-source-legacy-cleanup/archive')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async archiveLegacy(@Req() req:any,@Body() body:Parameters<typeof archiveLegacyBatch>[2]) {
+    return {code:200,data:await this.em.transaction(m=>archiveLegacyBatch(m,req.user,body))};
+  }
+
+  @Post('egg-source-legacy-cleanup/grants/:kind/:code')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async withdrawLegacy(@Req() req:any,@Param('kind') kind:string,@Param('code') code:string,
+    @Body() body:Parameters<typeof withdrawLegacyGrant>[4]) {
+    return {code:200,data:await this.em.transaction(m=>withdrawLegacyGrant(m,req.user,kind,code,body))};
   }
 
   @Get('egg-source-house-rollouts')
@@ -196,7 +254,7 @@ export class MenuAdminController {
         scope:access.scope,actor:access.actor,edit:!!access.edit.length,approve:!!access.approve.length,
         editGrants:access.edit,houseCreateGrants:access.houseCreate,sessionRestriction:access.sessionRestriction,
       },policy,facts.house,facts.businessDay) : policy.blocker??'NO_CREATE_PERMISSION';
-      return {code:200,data:{eligibleAccount:!!accountId,actions,origins,
+      return {code:200,data:{eligibleAccount:!!accountId,actions,origins,diagnostics:result.diagnostics,denials:result.denials??[],
         current:{...policy,createReason,businessDay:facts.businessDay,...facts.house},
         legacy:{view:legacyView,warehouses:legacyActions},
       }};
@@ -216,7 +274,7 @@ export class MenuAdminController {
       await lockEggSourceGrantEditor(m);
       const actor = await requireEggSourceAdministrator(m,req.user);
       await lockEggSourceHouse(m,house);
-      const owner = await readEggSourceOwner(m,house,body.enabled,true);
+      const owner = await readEggSourceOwner(m,house,body.enabled,true,!body.enabled);
       if (body.companyCode!==undefined && sourceText(body.companyCode,'确认公司',64)!==owner.companyCode) {
         throw new ConflictException('鸡舍所属公司已变化，请重新选择');
       }

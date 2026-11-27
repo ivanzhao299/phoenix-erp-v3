@@ -6,6 +6,7 @@ import { inputField,primaryActionButton,secondaryActionButton } from '@/componen
 import { usePermission } from '@/hooks/usePermission';
 import request,{type ApiError} from '@/lib/api-client';
 import { Field,useSourceText } from './parts';
+import { EggSourceVerificationSetup } from './EggSourceCutover';
 import s from './EggSources.module.css';
 
 const endpoint='/sys/menu-registry';
@@ -205,20 +206,25 @@ function GrantRow({path,standardPath,name,legacy}:{path?:string;standardPath?:st
 export function EggSourceLegacyCreationGate() {
   const {label}=useSourceText();
   const [open,setOpen]=useState(false);
-  const [state,setState]=useState<{enabled:boolean; available:boolean; pilotVerified:boolean; unclassified:string[]}|null>(null);
+  const [state,setState]=useState<{enabled:boolean; available:boolean; pilotVerified:boolean; verificationAvailable?:boolean; unclassified:string[]}|null>(null);
   const [working,setWorking]=useState(false);
   const [failed,setFailed]=useState(false);
   const [reason,setReason]=useState('');
   const [confirmed,setConfirmed]=useState(false);
+  const [house,setHouse]=useState('');
+  const [verificationId,setVerificationId]=useState('');
+  const [operationId,setOperationId]=useState('');
   const path=endpoint+'/egg-source-legacy-creation';
   async function read(retire=false) {
     setWorking(true);setFailed(false);
+    const key=operationId||crypto.randomUUID();
+    if (retire) setOperationId(key);
     try {
-      const {data}=await request<{data:{enabled:boolean;available:boolean;pilotVerified:boolean;unclassified:string[]}}>(path,retire ? {
-        method:'POST',body:JSON.stringify({reason:reason.trim(),confirmed}),silent:true,bindSession:true,retry:false,
+      const {data}=await request<{data:{enabled:boolean;available:boolean;pilotVerified:boolean; verificationAvailable?:boolean;unclassified:string[]}}>(path,retire ? {
+        method:'POST',body:JSON.stringify({reason:reason.trim(),confirmed,...(verificationId?{verificationId,requestId:key}:{})}),silent:true,bindSession:true,retry:false,
       } : {silent:true,bindSession:true,cache:'no-store'});
-      setState(data);setReason('');setConfirmed(false);
-    } catch {setState(null);setFailed(true);}
+      setState(data);setReason('');setConfirmed(false);setOperationId('');setVerificationId('');
+    } catch {if (!retire) setState(null);setFailed(true);}
     finally {setWorking(false);}
   }
   return <>
@@ -230,13 +236,17 @@ export function EggSourceLegacyCreationGate() {
         {state&&<p role="status">{label(state.enabled?'legacyGateOpen':'legacyGateRetired')}</p>}
         {!!state?.enabled&&<>
           {!state.available&&<p>{label('legacyGateNeedsWrite')}</p>}
-          {!state.pilotVerified&&<p>{label('legacyGateNeedsPilot')}</p>}
+          {!state.pilotVerified&&!state.verificationAvailable&&<p>{label('legacyGateNeedsPilot')}</p>}
           {!!state.unclassified.length&&<p>{label('legacyGateUnclassified')} {state.unclassified.join('、')}</p>}
           <Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField}
-            maxLength={500} value={reason} onChange={event=>setReason(event.target.value)} disabled={working}/>}</Field>
+            maxLength={500} value={reason} onChange={event=>{setReason(event.target.value);setOperationId('');}} disabled={working}/>}</Field>
+          {state.verificationAvailable&&state.available&&!state.unclassified.length&&<>
+            <ScopePicker scope="HOUSE" value={house} onPick={setHouse} disabled={working}/>
+            <EggSourceVerificationSetup house={house} reason={reason} onReady={id=>{setVerificationId(id);setOperationId('');}} disabled={working}/>
+          </>}
           <label><input type="checkbox" checked={confirmed} disabled={working}
             onChange={event=>setConfirmed(event.target.checked)}/> {label('legacyGateConfirm')}</label>
-          <button type="button" style={primaryActionButton} disabled={working||!state.available||!state.pilotVerified||!reason.trim()||!confirmed||!!state.unclassified.length}
+          <button type="button" style={primaryActionButton} disabled={working||!state.available||(!state.pilotVerified&&!verificationId)||!reason.trim()||!confirmed||!!state.unclassified.length}
             onClick={()=>void read(true)}>{label('legacyGateRetire')}</button>
         </>}
       </div>
@@ -247,6 +257,8 @@ export function EggSourceLegacyCreationGate() {
 type HouseGrantResult = {
   actions:string[];
   eligibleAccount?:boolean;
+  diagnostics?:string[];
+  denials?:string[];
   current?:{version:1|2;rollout:'OPEN'|'PAUSED'|'UNREGISTERED';globalWrites:boolean;houseWrites:boolean;
     legacyCreation:boolean;legacyClosed:boolean;createReason:string|null;businessDay:string|null};
   legacy?:{view:boolean;warehouses:{code:string;name:string;actions:string[]}[]};
@@ -262,6 +274,7 @@ function AccountAccess({result}:{result:HouseGrantResult}) {
   const {label}=useSourceText();
   const {current,legacy}=result;
   return <>
+    {result.diagnostics?.map(code=><p role="status" key={code}>{label('cutover.'+code)}{code==='EXPLICIT_DENIAL'&&result.denials?.length?' '+result.denials.join(' / '):''}</p>)}
     {result.eligibleAccount===false&&<p>{label('problem.HOUSE_ROLES_NOT_READY')}</p>}
     {current&&<>
       <p>{label(current.version===1?'creationV1':'creationV2')} · {label('rollout.'+current.rollout)}
