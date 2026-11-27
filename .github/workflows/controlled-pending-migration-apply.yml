@@ -24,7 +24,7 @@ on:
       audit_scope:
         description: 'Choose the ordinary gate or the exact approved candidate scope'
         type: choice
-        options: [ordinary, vet-1124, egg-source-1125, production-ui-1125, egg-source-permissions-1126, egg-source-house-1126, egg-source-legacy-creation-1126, inventory-1127, egg-source-standard-1127, egg-source-retirement-1127, egg-source-operations-1127]
+        options: [ordinary, vet-1124, egg-source-1125, production-ui-1125, egg-source-permissions-1126, egg-source-house-1126, egg-source-legacy-creation-1126, inventory-1127, egg-source-standard-1127, egg-source-retirement-1127, egg-source-operations-1127, procurement-ap-1128]
         default: ordinary
       inspection_run:
         description: 'Receipt-bound egg-source scopes: reviewed inspection run id-attempt'
@@ -59,6 +59,7 @@ jobs:
       (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-legacy-creation-1126' && inputs.approve_production == 'APPLY-EGG-SOURCE-LEGACY-CREATION-20261126') ||
       (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-retirement-1127' && inputs.approve_production == 'APPLY-EGG-SOURCE-RETIREMENT-20261127') ||
       (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-operations-1127' && inputs.approve_production == 'APPLY-EGG-SOURCE-OPERATIONS-20261127') ||
+      (inputs.phase == 'apply' && inputs.audit_scope == 'procurement-ap-1128' && inputs.approve_production == 'APPLY-PROCUREMENT-AP-20261128') ||
       (inputs.phase == 'apply' && inputs.audit_scope == 'egg-source-standard-1127' && inputs.approve_production == 'APPLY-EGG-SOURCE-STANDARD-20261127') ||
       (inputs.phase == 'apply' && inputs.audit_scope == 'inventory-1127' && inputs.approve_production == 'APPLY-INVENTORY-SCHEMA-20261127') ||
       (inputs.phase == 'apply' && (inputs.audit_scope == 'ordinary' || inputs.audit_scope == 'vet-1124') && inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103')
@@ -77,7 +78,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
       - name: Verify exact scoped candidate and official main CI
-        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125' || inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127'
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125' || inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -99,6 +100,9 @@ jobs:
             node scripts/ops/egg-source-retirement-release.mjs source
           elif [ "$AUDIT_SCOPE" = egg-source-operations-1127 ]; then
             node scripts/ops/egg-source-operations-release.mjs source
+          elif [ "$AUDIT_SCOPE" = procurement-ap-1128 ]; then
+            node scripts/ops/procurement-ap-schema-release.mjs source
+            node --test scripts/ops/procurement-ap-schema-release.test.mjs
           elif [ "$AUDIT_SCOPE" = egg-source-standard-1127 ]; then
             node scripts/ops/egg-source-standard-release.mjs source
           elif [ "$AUDIT_SCOPE" = inventory-1127 ]; then
@@ -125,7 +129,7 @@ jobs:
         if: inputs.audit_scope == 'egg-source-operations-1127'
         run: node --test scripts/ops/egg-source-operations-release.test.mjs
       - name: Match the official API digest to every reviewed migration
-        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125' || inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127'
+        if: inputs.audit_scope == 'vet-1124' || inputs.audit_scope == 'egg-source-1125' || inputs.audit_scope == 'production-ui-1125' || inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128'
         env:
           TARGET_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -136,7 +140,7 @@ jobs:
           export TARGET_SHA="${INVENTORY_RECOVERY_SOURCE:-$TARGET_SHA}"
           VET_IMAGE_ID="$(docker image inspect "$VET_API_IMAGE" --format '{{.Id}}')" node scripts/ops/vet-1124-ci.mjs inventory
       - name: Validate the reviewed scoped inspection artifact
-        if: inputs.phase == 'apply' && (inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127')
+        if: inputs.phase == 'apply' && (inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128')
         env:
           GH_TOKEN: ${{ github.token }}
           AUDIT_SCOPE: ${{ inputs.audit_scope }}
@@ -160,6 +164,7 @@ jobs:
             inventory-1127) artifact=inventory-schema-inspection ;;
             egg-source-retirement-1127) artifact=egg-source-retirement-inspection ;;
             egg-source-operations-1127) artifact=egg-source-operations-inspection ;;
+            procurement-ap-1128) artifact=procurement-ap-inspection ;;
             egg-source-standard-1127) artifact=egg-source-standard-inspection ;;
             *) exit 22 ;;
           esac
@@ -205,16 +210,16 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           envs: TARGET_SHA,PHASE,AUDIT_SCOPE,EXPECTED_VET_INSPECTION_SHA256,VET_API_IMAGE,VET_CI_SHA256,EXPECTED_BEFORE_LEDGER_SHA256,RECOVERY_APPLY_RUN,INVENTORY_RECOVERY_SOURCE,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
-          capture_stdout: ${{ inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127') }}
+          capture_stdout: ${{ inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128') }}
           command_timeout: 20m
           script: |
             set -Eeuo pipefail
             umask 077
             case "$PHASE" in inspect|apply) ;; *) exit 22 ;; esac
-            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125|production-ui-1125|egg-source-permissions-1126|egg-source-house-1126|egg-source-legacy-creation-1126|inventory-1127|egg-source-standard-1127|egg-source-retirement-1127|egg-source-operations-1127) ;; *) exit 22 ;; esac
+            case "$AUDIT_SCOPE" in ordinary|vet-1124|egg-source-1125|production-ui-1125|egg-source-permissions-1126|egg-source-house-1126|egg-source-legacy-creation-1126|inventory-1127|egg-source-standard-1127|egg-source-retirement-1127|egg-source-operations-1127|procurement-ap-1128) ;; *) exit 22 ;; esac
             if [ -n "$RECOVERY_APPLY_RUN" ]; then
               test "$PHASE" = apply
-              [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 ]]
+              [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 || "$AUDIT_SCOPE" = procurement-ap-1128 ]]
               [[ "$RECOVERY_APPLY_RUN" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
             fi
             cd /data/phoenix-erp
@@ -271,6 +276,7 @@ jobs:
                 inventory-1127) SCOPED_REVIEW_HELPER=inventory-schema-1127-release.mjs ;;
                 egg-source-retirement-1127) SCOPED_REVIEW_HELPER=egg-source-retirement-release.mjs ;;
                 egg-source-operations-1127) SCOPED_REVIEW_HELPER=egg-source-operations-release.mjs ;;
+                procurement-ap-1128) SCOPED_REVIEW_HELPER=procurement-ap-schema-release.mjs ;;
                 egg-source-standard-1127) SCOPED_REVIEW_HELPER=egg-source-standard-release.mjs ;;
               esac
               if [ "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 ]; then
@@ -323,6 +329,13 @@ jobs:
               test "$MIGRATION_PATHS" = 'apps/api/src/database/migrations/1795658900000-EggSourceCutoverEvidence.ts ' ||
                 { echo 'MIGRATION_APPLY=HOLD_EGG_SOURCE_RETIREMENT_MIGRATION_SET'; exit 1; }
             fi
+            if [[ "$PENDING_CLASSES $MIGRATION_PATHS" == *1795719000000-EnsureFinanceApPaymentAllocations* ]]; then
+              test "$AUDIT_SCOPE" = procurement-ap-1128 || { echo 'MIGRATION_APPLY=HOLD_PROCUREMENT_AP_SCOPE_REQUIRED'; exit 1; }
+            fi
+            if [ "$AUDIT_SCOPE" = procurement-ap-1128 ]; then
+              test "$MIGRATION_PATHS" = 'apps/api/src/database/migrations/1795719000000-EnsureFinanceApPaymentAllocations.ts ' ||
+                { echo 'MIGRATION_APPLY=HOLD_PROCUREMENT_AP_MIGRATION_SET'; exit 1; }
+            fi
             if [[ "$PENDING_CLASSES $MIGRATION_PATHS" == *1795659000000-EggSourceOperationReceipts* ]]; then
               test "$AUDIT_SCOPE" = egg-source-operations-1127 || { echo 'MIGRATION_APPLY=HOLD_EGG_SOURCE_OPERATIONS_SCOPE_REQUIRED'; exit 1; }
             fi
@@ -360,7 +373,7 @@ jobs:
             verify_vet_backup_volume() {
               node --input-type=module -e "import {physicalParent,physicalPins} from '$STAGE/vet-1124-backup-volume.mjs'; physicalPins(physicalParent); console.log('VET_BACKUP_VOLUME=VERIFIED')"
             }
-            if [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 ]]; then
+            if [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 || "$AUDIT_SCOPE" = procurement-ap-1128 ]]; then
               if [ -n "$RECOVERY_APPLY_RUN" ]; then
                 for service in phoenix-v3-api phoenix-v3-web; do
                   test "$(docker inspect "$service" --format '{{.State.Running}}')" = true
@@ -456,7 +469,7 @@ jobs:
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
               if [ -n "$SCOPED_REVIEW_HELPER" ]; then
-                if [ "$AUDIT_SCOPE" = production-ui-1125 ] || [ "$AUDIT_SCOPE" = egg-source-permissions-1126 ] || [ "$AUDIT_SCOPE" = egg-source-house-1126 ] || [ "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 ] || [ "$AUDIT_SCOPE" = inventory-1127 ] || [ "$AUDIT_SCOPE" = egg-source-standard-1127 ] || [ "$AUDIT_SCOPE" = egg-source-retirement-1127 ] || [ "$AUDIT_SCOPE" = egg-source-operations-1127 ]; then
+                if [ "$AUDIT_SCOPE" = production-ui-1125 ] || [ "$AUDIT_SCOPE" = egg-source-permissions-1126 ] || [ "$AUDIT_SCOPE" = egg-source-house-1126 ] || [ "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 ] || [ "$AUDIT_SCOPE" = inventory-1127 ] || [ "$AUDIT_SCOPE" = egg-source-standard-1127 ] || [ "$AUDIT_SCOPE" = egg-source-retirement-1127 ] || [ "$AUDIT_SCOPE" = egg-source-operations-1127 ] || [ "$AUDIT_SCOPE" = procurement-ap-1128 ]; then
                   for service in phoenix-v3-api phoenix-v3-web; do
                     test "$(docker inspect "$service" --format '{{.State.Running}}')" = true || {
                       echo 'PRODUCTION_UI_SCHEMA_HOLD=BASELINE_SERVICE_STOPPED'
@@ -481,7 +494,7 @@ jobs:
             else
               echo 'MIGRATION_APPLY=MIGRATIONS_ALREADY_APPLIED_RECORDING_RECEIPTS'
             fi
-            if [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 ]]; then
+            if [[ "$AUDIT_SCOPE" = egg-source-house-1126 || "$AUDIT_SCOPE" = egg-source-legacy-creation-1126 || "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 || "$AUDIT_SCOPE" = procurement-ap-1128 ]]; then
               proof_ledger="${LEDGER_JSON_LINE_AFTER:-$LEDGER_JSON_LINE}"
               current_ledger="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
               test "$current_ledger" = "$proof_ledger" || { echo 'MIGRATION_APPLY=HOLD_AFTER_LEDGER_MOVED'; exit 1; }
@@ -490,7 +503,7 @@ jobs:
             # migration to be present in the production ledger and refuses
             # to overwrite an existing receipt.
             receipt_run="$MIGRATION_RUN_ID"
-            if [[ "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 ]] && [ -n "$RECOVERY_APPLY_RUN" ]; then
+            if [[ "$AUDIT_SCOPE" = inventory-1127 || "$AUDIT_SCOPE" = egg-source-standard-1127 || "$AUDIT_SCOPE" = egg-source-retirement-1127 || "$AUDIT_SCOPE" = egg-source-operations-1127 || "$AUDIT_SCOPE" = procurement-ap-1128 ]] && [ -n "$RECOVERY_APPLY_RUN" ]; then
               receipt_run="$RECOVERY_APPLY_RUN"
             fi
             TARGET_SHA="${INVENTORY_RECOVERY_SOURCE:-$TARGET_SHA}" MIGRATION_RUN_ID="$receipt_run" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
@@ -498,7 +511,7 @@ jobs:
             echo "MIGRATION_APPLY=COMMITTED"
 
       - name: Write validated inspection receipt
-        if: inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127')
+        if: inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128')
         env:
           REMOTE_STDOUT: ${{ steps.controlled_remote.outputs.stdout }}
           INSPECTION_TARGET: ${{ github.sha }}
@@ -506,10 +519,10 @@ jobs:
           INSPECTION_SCOPE: ${{ inputs.audit_scope }}
         run: node scripts/ops/egg-source-permissions-inspection-receipt.mjs "$RUNNER_TEMP/egg-source-permissions-inspection.json"
       - name: Retain validated inspection receipt
-        if: inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127')
+        if: inputs.phase == 'inspect' && (inputs.audit_scope == 'egg-source-permissions-1126' || inputs.audit_scope == 'egg-source-house-1126' || inputs.audit_scope == 'egg-source-legacy-creation-1126' || inputs.audit_scope == 'inventory-1127' || inputs.audit_scope == 'egg-source-standard-1127' || inputs.audit_scope == 'egg-source-retirement-1127' || inputs.audit_scope == 'egg-source-operations-1127' || inputs.audit_scope == 'procurement-ap-1128')
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.audit_scope == 'egg-source-operations-1127' && 'egg-source-operations-inspection' || inputs.audit_scope == 'egg-source-retirement-1127' && 'egg-source-retirement-inspection' || inputs.audit_scope == 'egg-source-standard-1127' && 'egg-source-standard-inspection' || inputs.audit_scope == 'inventory-1127' && 'inventory-schema-inspection' || inputs.audit_scope == 'egg-source-legacy-creation-1126' && 'egg-source-legacy-creation-inspection' || inputs.audit_scope == 'egg-source-house-1126' && 'egg-source-house-inspection' || 'egg-source-permissions-inspection' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ inputs.audit_scope == 'procurement-ap-1128' && 'procurement-ap-inspection' || inputs.audit_scope == 'egg-source-operations-1127' && 'egg-source-operations-inspection' || inputs.audit_scope == 'egg-source-retirement-1127' && 'egg-source-retirement-inspection' || inputs.audit_scope == 'egg-source-standard-1127' && 'egg-source-standard-inspection' || inputs.audit_scope == 'inventory-1127' && 'inventory-schema-inspection' || inputs.audit_scope == 'egg-source-legacy-creation-1126' && 'egg-source-legacy-creation-inspection' || inputs.audit_scope == 'egg-source-house-1126' && 'egg-source-house-inspection' || 'egg-source-permissions-inspection' }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/egg-source-permissions-inspection.json
           if-no-files-found: error
           retention-days: 5
