@@ -90,7 +90,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   supplier: {
     table: 'prc2_suppliers', codeCol: 'supplier_code', nameCol: 'supplier_name',
     prefix: 'SUP', objectType: 'SUPPLIER',
-    writableCols: ['supplier_name','supplier_name_en','supplier_name_lo','supply_category','sourcing_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
+    writableCols: ['supplier_name','supplier_name_en','supplier_name_lo','supply_category','sourcing_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','bank_name','bank_account_name','bank_account_no','bank_swift','address','remark','effective_date','expire_date'],
     // G92：关键字段=名称/类型/税号/币种/账期/账期天数，扩展=联系人/邮箱/电话/地址/国家/备注
     keyFields: ['supplier_name','supplier_type','tax_no','default_currency','payment_terms','credit_days'],
   },
@@ -241,7 +241,7 @@ const FIELD_CHANGE_BIZ = 'MD_FIELD_CHANGE';
 //   其余字段仍走 G93 自动校验网关即时生效。仅对 live(ACTIVE/FROZEN) 记录生效；草稿态编辑不拦。
 const SENSITIVE_APPROVAL_FIELDS: Record<string, string[]> = {
   customer: ['credit_limit', 'payment_terms'],
-  supplier: ['credit_days', 'payment_terms'],
+  supplier: ['credit_days', 'payment_terms', 'bank_name', 'bank_account_name', 'bank_account_no', 'bank_swift'],
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -697,6 +697,13 @@ export class MasterDataRuntimeService {
       dto={...dto};
       for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
     }
+    if (type === 'supplier') {
+      const bankFields = ['bank_name', 'bank_account_name', 'bank_account_no', 'bank_swift'];
+      const bankInput = bankFields.some(field => dto[field] !== undefined && dto[field] !== '');
+      if (bankInput) {
+        throw new BadRequestException('请先建档，再提交银行信息审核');
+      }
+    }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
       ? String(dto[c.codeCol] || '').trim()
@@ -732,6 +739,13 @@ export class MasterDataRuntimeService {
     if (type === 'material') {
       dto={...dto};
       for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
+    }
+    if (type === 'supplier') {
+      const bankFields = ['bank_name', 'bank_account_name', 'bank_account_no', 'bank_swift'];
+      const bankInput = bankFields.some(field => dto[field] !== undefined && dto[field] !== '');
+      if (bankInput) {
+        throw new BadRequestException('请先建档，再提交银行信息审核');
+      }
     }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
@@ -799,6 +813,14 @@ export class MasterDataRuntimeService {
       dto={...dto};
       for (const key of ['vet_kind','vet_withdraw_days']) if(dto[key]==='') dto[key]=null;
     }
+    if (type === 'supplier') {
+      const bankFields = ['bank_name', 'bank_account_name', 'bank_account_no', 'bank_swift'];
+      const bankInput = bankFields.some(field => dto[field] !== undefined && dto[field] !== '');
+      if (bankInput) {
+        const user = this.cls.get('user');
+        if (user && !(user.roles ?? [user.role]).includes('ROLE_ADMIN')) throw new ForbiddenException('银行信息需由授权管理员提交审核');
+      }
+    }
     const c = this.cfg(type);
     if (type === 'sku') {
       await new SkuWriter(this.ds, this.codeGen, this.audit).update(code, dto, operator);
@@ -825,7 +847,7 @@ export class MasterDataRuntimeService {
 
     // G126：拆分「财务敏感字段」与「普通字段」。敏感字段仅对 live(ACTIVE/FROZEN) 记录拦截转审批。
     const sensitive = SENSITIVE_APPROVAL_FIELDS[type] ?? [];
-    const live = ['ACTIVE', 'FROZEN'].includes(String(before.status));
+    const live = type === 'supplier' || ['ACTIVE', 'FROZEN'].includes(String(before.status));
     const sensitiveChanges: Record<string, any> = {};
     const normalChanges: Record<string, any> = {};
     for (const col of changedCols) {

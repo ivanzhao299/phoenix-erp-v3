@@ -1253,16 +1253,21 @@ export class WmsService {
     return managerOverride ? execute(managerOverride) : this.em.transaction(execute);
   }
 
+  async assertPurchaseReceiptWarehouseCompany(manager: EntityManager, warehouseCode: string, companyCode?: string) {
+    await this.lockWarehouseCompany(manager, warehouseCode, companyCode);
+  }
+
+  async resolvePurchaseReceiptUnit(manager: EntityManager, itemCode: string, companyCode: string) {
+    const identity = await this.resolveInventoryItem(manager, itemCode, '', companyCode);
+    return identity.unit;
+  }
+
   /**
    * G84 采购收货入库 — 供采购模块在其「收货确认」事务内调用，统一写 inv_batches/inv_ledger。
    * 守护：库存唯一写入口（CLAUDE.md #6）；批次状态 AVAILABLE 取自 INV_STOCK_STATUS（#7）。
    * 与调用方同一事务（传入 manager），保证收货确认与库存入账原子一致。
    * 数量保留最多三位小数；物料/SKU 身份从统一主数据解析。
    */
-  async assertPurchaseReceiptWarehouseCompany(manager: EntityManager, warehouseCode: string, companyCode?: string) {
-    await this.lockWarehouseCompany(manager, warehouseCode, companyCode);
-  }
-
   async inboundFromReceipt(
     manager: EntityManager,
     ctx: {

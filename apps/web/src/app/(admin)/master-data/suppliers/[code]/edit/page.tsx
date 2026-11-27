@@ -5,6 +5,7 @@ import { MasterDataFormPage } from "@/components/master-data/MasterDataFormPage"
 import { LoadingSkeleton } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
+import { usePermission } from "@/hooks/usePermission";
 import { SUPPLIER_FIELDS } from "../../_fields";
 
 /**
@@ -12,6 +13,7 @@ import { SUPPLIER_FIELDS } from "../../_fields";
  */
 export default function SupplierEditPage() {
   const { t } = useLanguage();
+  const { isSuper } = usePermission("MENU_MD_SUPPLIER");
   const params = useParams();
   const code = decodeURIComponent(String(params?.code || ""));
   const [row, setRow] = useState<Record<string, any> | null>(null);
@@ -44,7 +46,12 @@ export default function SupplierEditPage() {
       title={t('md.entity_supplier','供应商')}
       codeKey="supplier_code"
       nameKey="supplier_name"
-      fields={SUPPLIER_FIELDS}
+      fields={isSuper ? [...SUPPLIER_FIELDS,
+        { key: "bank_name", label: "银行名称", group: "财务设置" },
+        { key: "bank_account_name", label: "银行账户名称", group: "财务设置" },
+        { key: "bank_account_no", label: "银行账号", group: "财务设置" },
+        { key: "bank_swift", label: "SWIFT", group: "财务设置" },
+      ] : SUPPLIER_FIELDS}
       listRoute="/master-data/suppliers"
       mode="edit"
       initialRow={row}

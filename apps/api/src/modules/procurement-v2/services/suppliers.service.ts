@@ -105,6 +105,10 @@ export class SuppliersService {
 
   /** 新建 */
   async create(dto: CreateSupplierDto): Promise<Prc2SupplierEntity> {
+    if (dto.bankName || dto.bankAccountName || dto.bankAccountNo || dto.bankSwift) {
+      throw new BadRequestException('银行信息请在主数据中心完成审核');
+    }
+
     this.scopeHelper.assertWritableOwnership(
       { companyCode: dto.ownerCompanyCode, projectCode: dto.ownerProjectCode },
       '采购供应商',
@@ -167,9 +171,9 @@ export class SuppliersService {
     if (dto.contactName     !== undefined) item.contactName     = dto.contactName;
     if (dto.contactPhone    !== undefined) item.contactPhone    = dto.contactPhone;
     if (dto.contactEmail    !== undefined) item.contactEmail    = dto.contactEmail;
-    if (dto.bankName        !== undefined) item.bankName        = dto.bankName;
-    if (dto.bankAccountName !== undefined) item.bankAccountName = dto.bankAccountName;
-    if (dto.bankAccountNo   !== undefined) item.bankAccountNo   = dto.bankAccountNo;
+    if ([dto.bankName, dto.bankAccountName, dto.bankAccountNo].some(value => value !== undefined)) {
+      throw new BadRequestException('银行信息请在主数据中心完成审核');
+    }
     if (dto.taxNo           !== undefined) item.taxNo           = dto.taxNo;
     if (dto.address         !== undefined) item.address         = dto.address;
     if (dto.status !== undefined && dto.status !== item.status) {

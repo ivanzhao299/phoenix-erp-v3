@@ -168,7 +168,7 @@ export class ReceiptsService {
     }
     if ((actual > 0 && !orderLine.itemCode?.trim())
       || (item.itemCode && item.itemCode !== orderLine.itemCode)
-      || (item.unit && item.unit !== orderLine.unit)) {
+      || (item.unit && orderLine.unit && item.unit !== orderLine.unit)) {
       throw new BadRequestException(`物料「${item.itemName}」编码或单位与采购订单不一致`);
     }
   }
@@ -304,7 +304,8 @@ export class ReceiptsService {
       const orderLines = await mgr.find(Prc2OrderItemEntity, { where: { poId: po.id } });
       const byId = new Map(orderLines.map(line => [String(line.id), line]));
       const seen = new Set<string>();
-      const receiptLines = dto.items.map(item => {
+      const receiptLines = [];
+      for (const item of dto.items) {
         const key = String(item.poItemId);
         const line = byId.get(key);
         if (!line || seen.has(key)) throw new BadRequestException('收货明细须属于当前采购订单且不能重复');
@@ -313,9 +314,10 @@ export class ReceiptsService {
           { companyCode: po.companyCode, projectCode: line.projectCode ?? po.projectCode }, '采购收货单明细',
         );
         this.validateReceiptLine(item, line);
-        return { ...item, itemCode: line.itemCode, itemName: line.itemName, spec: line.spec, unit: line.unit,
-          projectId: line.projectId, projectCode: line.projectCode, projectName: line.projectName };
-      });
+        const unit = line.unit || (item.actualQty > 0 ? await this.wms.resolvePurchaseReceiptUnit(mgr, line.itemCode, po.companyCode) : undefined);
+        receiptLines.push({ ...item, itemCode: line.itemCode, itemName: line.itemName, spec: line.spec, unit,
+          projectId: line.projectId, projectCode: line.projectCode, projectName: line.projectName });
+      }
 
       const prefix    = `RCV2-${format(new Date(), 'yyyyMMdd')}-`;
       const receiptNo = await genNo(mgr, prefix, Prc2ReceiptEntity as never, 'r', 'receiptNo');
@@ -439,8 +441,14 @@ export class ReceiptsService {
           { companyCode: po.companyCode, projectCode: poi.projectCode ?? po.projectCode }, '采购收货单明细',
         );
         this.validateReceiptLine(item, poi);
-        if (Number(item.actualQty) > 0 && (!item.itemCode || item.unit !== poi.unit)) {
-          throw new BadRequestException('历史收货明细缺少可核对的物料编码或单位，请重新建立收货单');
+        if (Number(item.actualQty) > 0) {
+          if (!item.itemCode) throw new BadRequestException('历史收货明细缺少可核对的物料编码，请重新建立收货单');
+          const unit = poi.unit || await this.wms.resolvePurchaseReceiptUnit(mgr, poi.itemCode, po.companyCode);
+          if (item.unit && item.unit !== unit) throw new BadRequestException('历史收货明细的物料单位与订单不一致');
+          if (!item.unit) {
+            item.unit = unit;
+            await mgr.update(Prc2ReceiptItemEntity, { id: item.id }, { unit });
+          }
         }
         const newReceivedQty = (this.quantityUnits(poi.receivedQty) + this.quantityUnits(item.actualQty)) / 10000;
         unitPriceByPoItem.set(

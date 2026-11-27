@@ -57,9 +57,9 @@ describePg('procurement transaction controls on PostgreSQL', () => {
     }
   });
 
-  it('serializes two receipts competing for the same order quantity', async () => {
+  it('serializes competing receipts and persists the inventory unit for historical rows', async () => {
     const po = await db.getRepository(Prc2PurchaseOrderEntity).save({ poNo: 'PO-TEST', subject: 'Feed', companyCode, status: 'APPROVED', planQty: 10 });
-    const line = await db.getRepository(Prc2OrderItemEntity).save({ poId: po.id, poNo: po.poNo, itemCode: 'FEED', itemName: 'Feed', unit: 'kg', qty: 10, unitPrice: 1 });
+    const line = await db.getRepository(Prc2OrderItemEntity).save({ poId: po.id, poNo: po.poNo, itemCode: 'FEED', itemName: 'Feed', qty: 10, unitPrice: 1 });
     const receiptRepo = db.getRepository(Prc2ReceiptEntity);
     const receiptItems = db.getRepository(Prc2ReceiptItemEntity);
     const receipts = await Promise.all(['A', 'B'].map(async suffix => {
@@ -68,7 +68,7 @@ describePg('procurement transaction controls on PostgreSQL', () => {
         receiptDate: '2026-11-28', status: 'DRAFT',
       });
       await receiptItems.save({
-        receiptId: receipt.id, poItemId: line.id, itemCode: 'FEED', itemName: 'Feed', unit: 'kg',
+        receiptId: receipt.id, poItemId: line.id, itemCode: 'FEED', itemName: 'Feed',
         expectedQty: 10, actualQty: 6, rejectedQty: 0, qualityStatus: 'PASS',
       });
       return receipt;
@@ -78,6 +78,7 @@ describePg('procurement transaction controls on PostgreSQL', () => {
       db.getRepository(Prc2OrderItemEntity), db.getRepository(Prc2ApprovalEntity), db, cls as never, scope as never,
       {
         assertPurchaseReceiptWarehouseUsage: async () => {},
+        resolvePurchaseReceiptUnit: async () => 'kg',
         inboundFromReceipt: async (manager: DataSource['manager'], input: { refNo: string; items: { qty: number }[] }) => {
           await manager.query(`INSERT INTO ${schema}.fixture_stock VALUES ($1,$2)`, [input.refNo, input.items[0].qty]);
         },
@@ -89,6 +90,8 @@ describePg('procurement transaction controls on PostgreSQL', () => {
     expect(Number(current.receivedQty)).toBe(6);
     expect(current.status).toBe('PARTIALLY_RECEIVED');
     expect(await db.query(`SELECT quantity FROM ${schema}.fixture_stock`)).toEqual([{ quantity: '6' }]);
+    const confirmed = await receiptRepo.findOneByOrFail({ status: 'CONFIRMED' });
+    await expect(receiptItems.findOneByOrFail({ receiptId: confirmed.id })).resolves.toMatchObject({ unit: 'kg' });
   });
 
   it('rejects stale approval steps and records one final AP', async () => {
