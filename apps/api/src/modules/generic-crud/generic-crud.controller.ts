@@ -632,8 +632,9 @@ export class GenericCrudController {
     await this.assertBreedingDestination(table, body, tableScope);
     
     // Auto populate store_code if not present, and auto populated created_by
-    if (table === 'wms_stocktake') delete body.store_code;
-    if (!['brd_houses', 'wms_stocktake'].includes(table) && !body.store_code && req.user?.storeCode) {
+    if (table === 'wms_stocktake') {
+      delete body.store_code;
+    } else if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
         body.store_code = req.user.storeCode;
     }
     // G17：wms_outbound/inbound 走 site_code 隔离 — 自动注入 site_code
