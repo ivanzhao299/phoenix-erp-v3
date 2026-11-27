@@ -1250,8 +1250,9 @@ export class EggInventoryService {
     deliveryId: string,
     requestedQty: number,
     mgr?: EntityManager,
+    expectedWarehouse?: string,
   ): Promise<number> {
-    if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
+    if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager, expectedWarehouse));
     const q = mgr.query.bind(mgr);
     positiveQuantity(requestedQty,'出库基础数量');
     const requestedTicks = quantityTicks(requestedQty, '出库基础数量');
@@ -1281,6 +1282,9 @@ export class EggInventoryService {
       const available = quantityTicks(allocation.reserved_qty, '订单预留')
         - quantityTicks(allocation.outbound_qty, '已出库') - quantityTicks(allocation.released_qty, '已释放');
       if (available <= 0) continue;
+      if (expectedWarehouse && allocation.warehouse_code !== expectedWarehouse) {
+        throw new ConflictException('装车批次不属于配送单履约仓');
+      }
       const allocationAuthority=allocation.quantity_snapshot&&authority&&allocation.warehouse_code===authority.warehouseCode
         &&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],allocation.quantity_snapshot)?authority:undefined;
       if(allocationAuthority)allocationAuthorities.set(allocation.id,allocationAuthority);

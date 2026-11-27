@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -121,10 +121,24 @@ const TITLE_KEY_MAP: Record<string, string> = {
 const RAIL_W = "56px";
 const FULL_W = "220px";
 
+const narrowInventoryViewport = '(max-width: 720px)';
+function subscribeToViewport(listener: () => void) {
+  if (typeof window.matchMedia !== 'function') return () => {};
+  const query = window.matchMedia(narrowInventoryViewport);
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout, hasPermission } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const narrow = useSyncExternalStore(subscribeToViewport,
+    () => window.matchMedia?.(narrowInventoryViewport)?.matches ?? false, () => false);
+  const narrowInventory = narrow && (pathname === '/warehouse' || pathname.startsWith('/warehouse/')
+    || ['/quality/forward', '/quality/backward'].includes(pathname));
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
+  const mobileMenuOpen = narrowInventory && mobileMenuPath === pathname;
 
   // Three-state sidebar
   const [pinned, setPinned] = useState(() => {
@@ -190,16 +204,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className={styles.shell} style={{ "--sidebar-w": pinned ? FULL_W : RAIL_W } as React.CSSProperties}>
+    <div className={[styles.shell, narrowInventory && styles.narrowInventory].filter(Boolean).join(" ")}
+      style={{ "--sidebar-w": !narrowInventory && pinned ? FULL_W : RAIL_W } as React.CSSProperties}>
       {/* Spacer div — controls content area width when pinned */}
-      <div style={{ width: pinned ? FULL_W : RAIL_W, flexShrink: 0, transition: "width 220ms ease" }} />
+      <div style={{ width: !narrowInventory && pinned ? FULL_W : RAIL_W, flexShrink: 0, transition: "width 220ms ease" }} />
 
       {/* Sidebar (absolutely positioned) */}
       <Sidebar
-        pinned={pinned}
-        hovered={hovered}
-        onHoverEnter={() => { if (!pinned) setHovered(true); }}
-        onHoverLeave={() => { if (!pinned) setHovered(false); }}
+        pinned={!narrowInventory && pinned}
+        hovered={narrowInventory ? mobileMenuOpen : hovered}
+        onHoverEnter={() => { if (!narrowInventory && !pinned) setHovered(true); }}
+        onHoverLeave={() => { if (!narrowInventory && !pinned) setHovered(false); }}
       />
 
       {/* Main */}
@@ -212,10 +227,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Pin button — lucide icon */}
             <button
 type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinActive : ""}`}
-              onClick={togglePin}
-              title={pinned ? t('layout.collapse_sidebar', '收起侧边栏') : t('layout.pin_sidebar', '固定展开侧边栏')}
+              onClick={() => narrowInventory ? setMobileMenuPath(mobileMenuOpen ? null : pathname) : togglePin()}
+              aria-expanded={narrowInventory ? mobileMenuOpen : pinned}
+              title={(narrowInventory ? mobileMenuOpen : pinned) ? t('layout.collapse_sidebar', '收起侧边栏') : t('layout.pin_sidebar', '固定展开侧边栏')}
             >
-              {pinned
+              {(narrowInventory ? mobileMenuOpen : pinned)
                 ? <PanelLeftClose size={15} />
                 : <PanelLeftOpen  size={15} />}
             </button>

@@ -3,9 +3,6 @@ export type WarehousePermissionChecker = (menuCode?: string | null, permCode?: s
 export type WarehouseDashboardAccess = {
   canViewWarehouse: boolean;
   canViewInout: boolean;
-  canLoadZones: boolean;
-  canLoadInbounds: boolean;
-  canLoadOutbounds: boolean;
   canLoadBatches: boolean;
 };
 
@@ -16,9 +13,6 @@ export function getWarehouseDashboardAccess(hasPermission: WarehousePermissionCh
   return {
     canViewWarehouse,
     canViewInout,
-    canLoadZones: canViewWarehouse,
-    canLoadInbounds: canViewWarehouse,
-    canLoadOutbounds: canViewWarehouse,
     canLoadBatches: canViewWarehouse,
   };
 }

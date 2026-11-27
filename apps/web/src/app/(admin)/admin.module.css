@@ -160,3 +160,10 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+.narrowInventory .header { height: auto; min-height: 56px; padding: 6px 10px; flex-wrap: wrap; gap: 6px 12px; }
+.narrowInventory .headerLeft, .narrowInventory .headerRight { min-width: 0; gap: 8px; }
+.narrowInventory .headerRight { flex-wrap: wrap; }
+.narrowInventory .userChip > div + div, .narrowInventory .logoutBtn span { display: none; }
+.narrowInventory .headerSelect { max-width: 84px; }
+.narrowInventory .content { padding: 12px; }

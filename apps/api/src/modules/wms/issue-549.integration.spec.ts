@@ -55,6 +55,7 @@ describe('issue 549 inbound identity integration contracts', () => {
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_DP_MEDICINE', operator: 'admin', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-11-13' }];
         }
+        if (sql.includes('SELECT domain FROM wms_warehouses')) return [{ domain: 'OPERATIONAL' }];
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) return [{ type: 'MEDICINE', domain: 'OPERATIONAL' }];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes("SELECT 'SKU' AS item_type FROM product_skus")) return [{ item_type: 'MATERIAL' }];
@@ -92,6 +93,7 @@ describe('issue 549 inbound identity integration contracts', () => {
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_DP_MEDICINE', operator: 'admin', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-11-13' }];
         }
+        if (sql.includes('SELECT domain FROM wms_warehouses')) return [{ domain: 'OPERATIONAL' }];
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) return [{ type: 'MEDICINE', domain: 'OPERATIONAL' }];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('FROM wms_inbound_items')) return [];

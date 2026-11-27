@@ -93,3 +93,64 @@ test('PDA checks every saved allocation and displays the durable loading receipt
   await expect(page.getByText('11 · BATCH-A · 6 kg · 301')).toBeVisible();
   expect(requests).toHaveLength(1);
 });
+
+test('handset stocktake preserves decimal input after a stale version and reload', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const operator = { id: '92', sub: '92', username: 'stocktake-fixture', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
+  await authenticateMockPage(page, operator);
+  const batchNo = 'COUNT-FIXTURE-01';
+  let version = '101';
+  const submissions: Array<{ request_key: string; lines: unknown[] }> = [];
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/stocktake/batches')) return route.fulfill({
+      json: { code: 200, data: [{ batch_no: batchNo, batch_version: version, qty: 8, unit: 'kg', status: 'AVAILABLE' }] },
+    });
+    if (path.endsWith('/stocktake/pda-count')) {
+      submissions.push(route.request().postDataJSON());
+      if (submissions.length === 1) {
+        version = '102';
+        return route.fulfill({ status: 409, json: { message: '盘点期间库存变化' } });
+      }
+      if (submissions.length === 2) return route.fulfill({ json: {} });
+      return route.fulfill({ json: { code: 200, applied: 1, results: [{ batch_no: batchNo, stocktake_no: 'DC-FIXTURE', act_qty: 7.125 }] } });
+    }
+    return route.fulfill({ json: [] });
+  });
+  const enterTerminal = async () => {
+    const fullscreen = page.getByText('点击进入全屏模式');
+    if (await fullscreen.isVisible().catch(() => false)) await fullscreen.click();
+  };
+  await page.goto('/terminal/wms/stocktake');
+  await enterTerminal();
+  const scan = page.getByRole('textbox', { name: '请扫描批次条码' });
+  const count = page.getByRole('textbox', { name: new RegExp(batchNo) });
+  const submit = page.getByRole('button', { name: /确认盘点/ });
+  await expect(scan).toBeVisible();
+  await scan.fill(batchNo);
+  await scan.press('Enter');
+  await count.fill('7.125');
+  const box = await count.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  await submit.click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('盘点期间库存变化');
+  await page.reload();
+  await enterTerminal();
+  await expect(count).toHaveValue('7.125');
+  await submit.click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('重新扫码');
+  expect(submissions).toHaveLength(1);
+  await scan.fill(batchNo);
+  await scan.press('Enter');
+  await expect(scan).toHaveValue('');
+  await expect(count).toHaveValue('7.125');
+  await submit.click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('未收到完整盘点回执');
+  await expect(count).toHaveValue('7.125');
+  await page.getByRole('button', { name: '核对上次提交' }).click();
+  await expect(page.getByRole('main').getByRole('status')).toContainText('盘点完成');
+  expect(submissions).toHaveLength(3);
+  expect(submissions[2]).toEqual(submissions[1]);
+  expect(submissions[0].request_key).not.toBe(submissions[1].request_key);
+  expect(submissions[1].lines).toEqual([{ batch_no: batchNo, batch_version: '102', counted_qty: '7.125' }]);
+});

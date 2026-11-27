@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
+import styles from '../workstation.module.css';
 import { PackagePlus, ScanLine, RefreshCw } from 'lucide-react';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import { invalidateBatchLookups } from '@/lib/request-cache';
@@ -62,6 +64,10 @@ const POLL_MS = 8000;
 export default function WmsInboundTerminalPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
+  const { hasPermission } = useAuth();
+  const canConfirm = hasPermission('MENU_WMS_INOUT', 'E');
+  const taskInFlight = useRef(false);
+  const sending = useRef(false);
 
   const [tasks, setTasks] = useState<InboundTask[]>([]);
   const [selected, setSelected] = useState<(InboundTask & { items: InboundItem[] }) | null>(null);
@@ -91,6 +97,8 @@ export default function WmsInboundTerminalPage() {
   }, [fetchList]);
 
   const openTask = useCallback(async (taskNo: string) => {
+    if (sending.current || taskInFlight.current) return;
+    taskInFlight.current = true;
     setLoadingTask(true);
     setError('');
     try {
@@ -105,7 +113,7 @@ export default function WmsInboundTerminalPage() {
       setNumTarget(items.length ? { lineNo: items[0].line_no, field: 'actual' } : null);
       setNumKey(k => k + 1);
     } catch { setError(t('terminal.wms_load_fail', '加载失败，请重试')); }
-    finally { setLoadingTask(false); }
+    finally { taskInFlight.current = false; setLoadingTask(false); }
   }, [t]);
 
   const handleScan = () => {
@@ -120,7 +128,8 @@ export default function WmsInboundTerminalPage() {
   };
 
   const confirm = async () => {
-    if (!selected || submitting) return;
+    if (!canConfirm || !selected || sending.current || taskInFlight.current) return;
+    sending.current = true;
     setSubmitting(true);
     setError('');
     try {
@@ -133,8 +142,9 @@ export default function WmsInboundTerminalPage() {
         };
       });
       const { ok, json } = await api('/api/inbound/confirm', { method: 'POST', body: JSON.stringify({ task_no: selected.task_no, items }) });
-      if (!ok || (json?.code && json.code >= 400)) {
-        const msg = json?.msg || (Array.isArray(json?.errors) ? json.errors.join('；') : '') || t('terminal.wms_confirm_fail', '入库确认失败');
+      if (!ok || json?.code !== 200 || json.data?.task_no !== selected.task_no
+        || json.data.status !== 'COMPLETED' || !Array.isArray(json.data.items) || json.data.items.length !== items.length) {
+        const msg = json?.message || json?.msg || (Array.isArray(json?.errors) ? json.errors.join('；') : '') || t('terminal.wms_confirm_fail', '入库确认失败');
         setError(msg);
         return;
       }
@@ -146,7 +156,7 @@ export default function WmsInboundTerminalPage() {
       void fetchList();
       setTimeout(() => setToast(''), 3000);
     } catch { setError(t('terminal.wms_net_err', '网络错误，请重试')); }
-    finally { setSubmitting(false); }
+    finally { sending.current = false; setSubmitting(false); }
   };
 
   const numInitial = numTarget ? (edits[numTarget.lineNo]?.[numTarget.field] ?? '') : '';
@@ -172,22 +182,24 @@ export default function WmsInboundTerminalPage() {
             {t('terminal.wms_reconciliation_pending', '外部对账待核验')}
           </span>
         </div>
-        {toast && <div style={{ fontSize: 14, fontWeight: 700, color: T.GRN }}>✓ {toast}</div>}
+        {toast && <div role="status" style={{ fontSize: 14, fontWeight: 700, color: T.GRN }}>✓ {toast}</div>}
       </div>
 
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+      <div className={styles.workspace}>
         {/* ① 待入库单列表 */}
-        <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.BOR}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className={styles.picker} style={{ borderRight: `1px solid ${T.BOR}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* 扫码输入 */}
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.BOR}`, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.BG, border: `1px solid ${T.BOR}`, borderRadius: 10, padding: '8px 12px' }}>
               <ScanLine size={18} color={T.ACC} />
               <input
-                value={scan}
+                value={scan} disabled={submitting || loadingTask}
                 onChange={e => setScan(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleScan(); }}
+                className={styles.scanInput}
+                aria-label={t('terminal.wms_scan_ph', '扫描/输入入库单号')}
                 placeholder={t('terminal.wms_scan_ph', '扫描/输入入库单号')}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: T.TXT, fontSize: 15 }}
+                style={{ flex: 1, background: 'transparent', border: 'none', color: T.TXT, fontSize: 15 }}
               />
             </div>
           </div>
@@ -205,7 +217,7 @@ export default function WmsInboundTerminalPage() {
             ) : tasks.map(task => {
               const active = selected?.task_no === task.task_no;
               return (
-                <button key={task.task_no} type="button" onClick={() => openTask(task.task_no)} style={{
+                <button key={task.task_no} type="button" disabled={submitting || loadingTask} onClick={() => openTask(task.task_no)} style={{
                   display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 12,
                   border: `1.5px solid ${active ? T.ACC : T.BOR}`, background: active ? `${T.ACC}14` : T.CARD,
                   cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
@@ -222,7 +234,8 @@ export default function WmsInboundTerminalPage() {
         </div>
 
         {/* ② 明细录入 */}
-        <div style={{ flex: 1, overflow: 'hidden', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+        <div className={styles.work} style={{ overflow: 'hidden', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {error && <div role="alert" style={{ fontSize: 13, color: T.RED, fontWeight: 600, flexShrink: 0 }}>⚠️ {error}</div>}
           {!selected ? (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: T.MUT }}>
               <span style={{ fontSize: 36 }}>←</span>
@@ -242,27 +255,26 @@ export default function WmsInboundTerminalPage() {
                     const isActive = numTarget?.lineNo === it.line_no && numTarget?.field === field;
                     const val = e[field];
                     return (
-                      <button type="button" onClick={() => { setNumTarget({ lineNo: it.line_no, field }); setNumKey(k => k + 1); }} style={{
-                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, padding: '8px 12px',
-                        borderRadius: 10, border: `1px solid ${isActive ? accent : val ? `${accent}55` : T.BOR}`,
-                        background: isActive ? `${accent}14` : T.CARD, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-                      }}>
-                        <span style={{ fontSize: 10, color: T.MUT, alignSelf: 'flex-start' }}>{label}</span>
-                        <span style={{ fontSize: 24, fontWeight: 800, color: val ? accent : T.BOR, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                          {val || (isActive ? '0' : '—')}
-                        </span>
-                      </button>
+                      <label className={styles.quantityField}>
+                        <span style={{ fontSize: 12, color: T.MUT }}>{label}</span>
+                        <input aria-label={label + ' ' + (it.batch_no || it.product_code)} inputMode="decimal" value={val}
+                          disabled={!canConfirm || submitting}
+                          onFocus={() => { setNumTarget({ lineNo: it.line_no, field }); setNumKey(k => k + 1); }}
+                          onChange={event => setField(it.line_no, field, event.target.value)}
+                          style={{ color: accent, background: T.BG, borderRadius: 8, padding: '6px 8px',
+                            border: `1px solid ${isActive ? accent : T.BOR}` }} />
+                      </label>
                     );
                   };
                   return (
-                    <div key={it.line_no} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div key={it.line_no} className={styles.line} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatMasterData(it as unknown as Record<string, unknown>, 'product_name', it.product_code, lang)}{it.spec_code ? ` · ${it.spec_code}` : ''}</div>
                         <div style={{ fontSize: 11, color: T.MUT }}>
                           {t('terminal.wms_planned', '计划')} {it.planned_qty ?? 0} {it.unit || ''}{it.batch_no ? ` · ${t('terminal.wms_batch', '批')} ${it.batch_no}` : ''}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, width: 240, flexShrink: 0 }}>
+                      <div className={styles.quantityGroup}>
                         {cell('actual', t('terminal.wms_actual', '实收'), T.GRN)}
                         {cell('broken', t('terminal.wms_broken', '破损'), 'var(--status-warning)')}
                       </div>
@@ -270,31 +282,31 @@ export default function WmsInboundTerminalPage() {
                   );
                 })}
               </div>
-              {error && <div style={{ fontSize: 13, color: T.RED, fontWeight: 600, flexShrink: 0 }}>⚠️ {error}</div>}
             </>
           )}
         </div>
 
         {/* ③ 数字键盘 */}
-        <TerminalNumPadPanel
+        <div className={styles.keypad}><TerminalNumPadPanel
+          allowDecimal
           label={t('terminal.wms_input', '录入数量')}
           value={numTarget ? (numTarget.field === 'broken' ? t('terminal.wms_broken', '破损') : t('terminal.wms_actual', '实收')) : '—'}
           accentColor={numAccent}
           numpadKey={`${numTarget?.lineNo ?? 'x'}-${numTarget?.field ?? 'x'}-${numKey}`}
           numpadInitial={numInitial}
           onChange={val => { if (numTarget) setField(numTarget.lineNo, numTarget.field, val); }}
-          disabled={!numTarget}
+          disabled={!numTarget || !canConfirm || submitting}
           warning={!selected ? `← ${t('terminal.wms_pick_task_short', '请先选择入库单')}` : undefined}
-        />
+        /></div>
       </div>
 
       {/* Bottom bar */}
-      <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+      <div className={styles.actions} style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button type="button" onClick={() => router.push('/terminal/home')} style={{ padding: '9px 20px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
           {t('common.back', '返回')}
         </button>
         <div style={{ flex: 1 }} />
-        <button type="button" onClick={confirm} disabled={!selected || selected.items.length === 0 || submitting} style={{
+        <button type="button" onClick={confirm} disabled={!canConfirm || !selected || selected.items.length === 0 || submitting || loadingTask} style={{
           padding: '11px 48px', borderRadius: 10, border: 'none',
           background: selected && selected.items.length > 0 ? T.ACC : T.BOR,
           color: selected && selected.items.length > 0 ? 'var(--bg-page)' : T.MUT,

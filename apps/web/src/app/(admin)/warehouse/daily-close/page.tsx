@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import request from '@/lib/api-client';
@@ -13,6 +14,7 @@ type Totals = {
     correction: string; reserved: string; released: string; closing: string }>;
   unresolved: number;
   late_events: number;
+  continuity_gaps?: number;
 };
 type CloseState = {
   company: string; today?: string; nextDay?: string; version?: string; eligible?: boolean; enabled?: boolean; historical?: boolean;
@@ -32,6 +34,8 @@ export default function WarehouseDailyClosePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const lastRequest = useRef<{ scope: string; key: string } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,14 +65,21 @@ export default function WarehouseDailyClosePage() {
     if (!data?.eligible || !data.version || loading || saving) return;
     setSaving(true);
     setError('');
+    const scope = JSON.stringify([warehouse, date, data.version]);
+    if (lastRequest.current?.scope !== scope) lastRequest.current = { scope, key: crypto.randomUUID() };
+    const params = new URLSearchParams({ warehouse_code: warehouse, date });
     try {
       const response = await request<{ data: CloseState }>('/stocktake/daily-close', {
         method: 'POST',
-        body: JSON.stringify({ warehouse_code: warehouse, date, version: data.version, request_key: crypto.randomUUID() }),
+        body: JSON.stringify({ warehouse_code: warehouse, date, version: data.version, request_key: lastRequest.current.key }),
       });
       setData(response.data);
     } catch (err) {
-      setData(null);
+      try {
+        const live = await request<{ data: CloseState }>('/stocktake/daily-close?' + params);
+        setData(live.data);
+        if (live.data.closed) return;
+      } catch { /* keep the last preview until it can be reread */ }
       setError(err instanceof Error ? err.message : t('ui.日结失败', '日结失败'));
     } finally {
       setSaving(false);
@@ -93,23 +104,36 @@ export default function WarehouseDailyClosePage() {
       <button type="button" style={secondaryActionButton} disabled={saving || !warehouse || !date}
         onClick={() => { setData(null); setRefresh(n => n + 1); }}>{t('ui.刷新', '刷新')}</button>
       {canApprove('MENU_WMS_INOUT') && !data?.closed && <button type="button" style={primaryActionButton}
-        disabled={!data?.eligible || loading || saving || Boolean(error)} onClick={close}>{t('ui.确认日结', '确认日结')}</button>}
+        disabled={!data?.eligible || loading || saving} onClick={() => setConfirming(true)}>{t('ui.确认日结', '确认日结')}</button>}
     </div>
+    <ModalV2 open={confirming} title={t('ui.确认日结', '确认日结')} onClose={() => setConfirming(false)}
+      footer={<>
+        <button type="button" style={secondaryActionButton} onClick={() => setConfirming(false)}>{t('common.cancel', '取消')}</button>
+        <button type="button" style={primaryActionButton} disabled={!data?.eligible || saving}
+          onClick={() => { setConfirming(false); void close(); }}>{t('common.confirm', '确认')}</button>
+      </>}>
+      {warehouses.find(item => item.warehouse_code === warehouse)?.warehouse_name || warehouse} · {date}
+    </ModalV2>
     {error && <p role="alert">{error}</p>}
     {loading && <p>{t('ui.加载中', '加载中')}</p>}
     {data?.enabled === false && <p>{t('ui.当前仓仅开放日结核对', '当前仓仅开放日结核对')}</p>}
     {data?.historical && <p>{t('ui.该日早于仓级日结采集起点，历史库存待核', '该日早于仓级日结采集起点，历史库存待核')}</p>}
-    {data?.closed && <p>{t('ui.已日结', '已日结')} · WDC-{date.replaceAll('-', '')}-{data.closed.id}</p>}
+    {data?.closed && <p role="status">{t('ui.已日结', '已日结')} · WDC-{date.replaceAll('-', '')}-{data.closed.id}
+      {' · '}{data.closed.closed_by}{' · '}{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short',
+        timeZone: 'Asia/Singapore' }).format(new Date(data.closed.closed_at))}</p>}
     {data?.nextDay && !data.closed && <p>{t('ui.下一待关业务日', '下一待关业务日')} · {data.nextDay}</p>}
-    {totals && <div style={{ overflowX: 'auto' }}>
+    {totals && <div>
       {totals.unresolved > 0 && <p role="alert">{t('ui.待核对账差异', '待核对账差异')} · {totals.unresolved}</p>}
       {totals.late_events > 0 && <p>{t('ui.迟到事件', '迟到事件')} · {totals.late_events}</p>}
-      <table style={{ width: '100%', textAlign: 'left' }}>
+      {!!totals.continuity_gaps && <p role="status">{t('ui.期初与上日期末不一致', '期初与上日期末不一致')} · {totals.continuity_gaps}</p>}
+      <div role="region" aria-label={t('ui.日结对账', '日结对账')} tabIndex={0} style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', minWidth: 560, textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
         <thead><tr>{columns.map(([key, label]) => <th key={key}>{label}</th>)}</tr></thead>
         <tbody>{totals.units.map(row => <tr key={row.unit ?? 'UNKNOWN'}>
           {columns.map(([key]) => <td key={key}>{row[key] ?? t('ui.待核', '待核')}</td>)}
         </tr>)}</tbody>
       </table>
+      </div>
     </div>}
   </div>;
 }

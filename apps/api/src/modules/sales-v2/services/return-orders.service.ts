@@ -96,10 +96,11 @@ export class ReturnOrdersService {
     }
   }
 
-  private async genReturnNo(): Promise<string> {
+  private async genReturnNo(manager: EntityManager): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `RET-${today}-`;
-    const [row]  = await this.ds.query(
+    await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', ['sales-return:' + prefix]);
+    const [row] = await manager.query(
       `SELECT COUNT(*) AS cnt FROM sal_return_orders WHERE return_no LIKE $1`,
       [`${prefix}%`],
     );
@@ -287,7 +288,7 @@ export class ReturnOrdersService {
       /** Phase H5: 可选 SKU，优先从原销售明细自动继承 */
       skuCode?:          string;
     }>;
-  }) {
+  }, manager?: EntityManager) {
     if (body.salesOrderNo && !body.salesOrderId) throw new BadRequestException('请关联原销售订单及明细，不能仅用订单号代替原单计量核验');
     if (!body.items?.length) {
       throw new BadRequestException('退货单至少需要一条明细');
@@ -300,7 +301,7 @@ export class ReturnOrdersService {
 
     const originalIds = body.items.map(i => i.salesOrderItemId).filter(Boolean);
     if (new Set(originalIds).size !== originalIds.length) throw new BadRequestException('同一原单明细请合并为一行退货');
-    return this.ds.transaction(async db => {
+    const save = async (db: EntityManager) => {
     // 原行锁使累计可退额度检查与退货单写入原子化。
     for (const itemId of [...new Set(body.items.map(i => i.salesOrderItemId).filter(Boolean))].sort()) {
       await db.query('SELECT id FROM sal_order_items WHERE id=$1 FOR UPDATE', [itemId]);
@@ -405,7 +406,7 @@ export class ReturnOrdersService {
       });
     }
 
-    const returnNo = await this.genReturnNo();
+    const returnNo = await this.genReturnNo(db);
     const subtotal = normalizedItems.reduce((s, it) => s + Math.round((it.valuationSnapshot ? it.returnedQty / it.valuationSnapshot.originalBaseQty * it.valuationSnapshot.originalAmount : it.returnedQty * it.unitPrice)*100)/100, 0);
     const operator = this.currentUser;
 
@@ -479,7 +480,8 @@ export class ReturnOrdersService {
       });
     }
     return { ...ret, items: await db.query('SELECT * FROM sal_return_items WHERE return_order_id=$1 ORDER BY id', [ret.id]) };
-    });
+    };
+    return manager ? save(manager) : this.ds.transaction(save);
   }
 
   // ── 4. 提交 ─────────────────────────────────────────────────────────────────

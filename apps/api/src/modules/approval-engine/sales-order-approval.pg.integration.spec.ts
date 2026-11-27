@@ -139,9 +139,9 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
        VALUES($1,'PG-PRODUCT',$2,5,20,100,20,20)`, [order.id, skuCode],
     );
     await runner.manager.query(
-      `INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,qty,qty_available,status,expire_date,legacy_source)
-       VALUES($1,'PG-IT','PG-WH','PG-PRODUCT',$3,2,2,'AVAILABLE',CURRENT_DATE + 1,NULL),
-             ($2,'PG-IT','PG-WH','PG-PRODUCT',$3,6,6,'AVAILABLE',CURRENT_DATE + 2,NULL)`,
+      `INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,qty,qty_available,status,expire_date,legacy_source,unit)
+       VALUES($1,'PG-IT','PG-WH','PG-PRODUCT',$3,2,2,'AVAILABLE',CURRENT_DATE + 1,NULL,'枚'),
+             ($2,'PG-IT','PG-WH','PG-PRODUCT',$3,6,6,'AVAILABLE',CURRENT_DATE + 2,NULL,'枚')`,
       [firstBatch, secondBatch, skuCode],
     );
     const scopedCls = {
@@ -267,17 +267,19 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     const deliveryNo = `DV-PG-CON-${suffix}`;
     const batchNo = `B-PG-CON-${suffix}`;
     await runner.commitTransaction();
+    await ds.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,status,domain)
+      VALUES('PG-WH','PG integration farm warehouse','PG-IT','EGG_FARM','ACTIVE','OPERATIONAL') ON CONFLICT(warehouse_code) DO NOTHING`);
     const [order] = await ds.query(
-      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount)
-       VALUES($1,'PG-IT','LAK','ALLOCATED',100) RETURNING id`, [orderNo],
+      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount,fulfillment_warehouse_code)
+       VALUES($1,'PG-IT','LAK','ALLOCATED',100,'PG-WH') RETURNING id`, [orderNo],
     );
     const [item] = await ds.query(
       `INSERT INTO sal_order_items(sales_order_id,product_code,qty,unit_price,amount,resolved_unit_price,actual_unit_price,allocated_batch_no,allocated_qty)
        VALUES($1,'PG-PRODUCT',4,25,100,25,25,$2,4) RETURNING id`, [order.id, batchNo],
     );
     await ds.query(
-      `INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,qty,qty_available,status,expire_date,legacy_source)
-       VALUES($1,'PG-IT','PG-WH','PG-PRODUCT',10,6,'AVAILABLE',CURRENT_DATE+1,NULL)`, [batchNo],
+      `INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,qty,qty_available,status,expire_date,legacy_source,unit)
+       VALUES($1,'PG-IT','PG-WH','PG-PRODUCT',10,6,'AVAILABLE',CURRENT_DATE+1,NULL,'枚')`, [batchNo],
     );
     const [reservationLedger] = await ds.query(
       `INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,store_code,ref_no,note,company_code)
@@ -289,8 +291,8 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
        VALUES($1,$2,4,$3,'PG-TEST') RETURNING id`, [item.id, batchNo, reservationLedger.id],
     );
     const [delivery] = await ds.query(
-      `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty)
-       VALUES($1,'PG-IT','LOADING',1,2) RETURNING id`, [deliveryNo],
+      `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty,fulfillment_warehouse_code)
+       VALUES($1,'PG-IT','LOADING',1,2,'PG-WH') RETURNING id`, [deliveryNo],
     );
     await ds.query(
       `INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)

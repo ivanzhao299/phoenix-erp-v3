@@ -52,6 +52,8 @@ function fixture(options: Options = {}) {
     if (sql.includes('FROM information_schema.columns') && sql.includes("table_name='wms_inbound'")) {
       return args[0].map((column_name: string) => ({column_name}));
     }
+    if (sql.includes('SELECT id FROM store_replenishment_requests')) return [];
+    if (sql.includes('SELECT domain FROM wms_warehouses')) return [{ domain: 'OPERATIONAL' }];
     calls.push([sql, args]);
     if (/^\s*(INSERT|UPDATE|WITH changed)/.test(sql)) pending.push([sql, args]);
     if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{

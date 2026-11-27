@@ -27,7 +27,7 @@ describe('V1-3 store replenishment orchestration contract', () => {
 
   it('exposes transfer discrepancy traceability', () => {
     expect(service).toContain('wms_transfer_discrepancies');
-    expect(service).toContain('this.wms.completeTransfer(request.transfer_no, body, user)');
+    expect(service).toContain('this.wms.completeTransfer(request.transfer_no, body, user, manager)');
     expect(controller).toContain("@Get(':id/transfer')");
   });
 });

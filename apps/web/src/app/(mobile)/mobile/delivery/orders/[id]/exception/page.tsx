@@ -46,10 +46,8 @@ function ExceptionForm({ id }: { id: string }) {
   const itemId       = searchParams.get('itemId')       ?? '';
   const productCode  = searchParams.get('productCode')  ?? '';
   const productName  = searchParams.get('productName')  ?? '';
-  const unitPrice    = searchParams.get('unitPrice')    ?? '';
   const customerCode = searchParams.get('customerCode') ?? '';
   const customerName = searchParams.get('customerName') ?? '';
-  const companyCode  = searchParams.get('companyCode')  ?? '';
 
   const [signedBy,       setSignedBy]       = useState('');
   const [receivedQty,    setReceivedQty]    = useState('');
@@ -66,7 +64,7 @@ function ExceptionForm({ id }: { id: string }) {
   }, []);
   const [submitting,     setSubmitting]     = useState(false);
   const [error,          setError]          = useState('');
-  const [success,        setSuccess]        = useState(false);
+  const [result, setResult] = useState<{ resolutionStatus?: string } | null>(null);
 
   const handleSubmit = async () => {
     if (!signedBy.trim()) { setError(t('mob.dlv.err_signer_name', '请填写签收人姓名')); return; }
@@ -87,19 +85,13 @@ function ExceptionForm({ id }: { id: string }) {
           exceptionType,
           signedBy:       signedBy.trim(),
           remark:         remark.trim() || undefined,
-          customerCode,
-          customerName,
-          companyCode,
-          productCode,
-          productName,
-          unitPrice:      unitPrice ? Number(unitPrice) : undefined,
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || `HTTP ${res.status}`);
       }
-      setSuccess(true);
+      setResult(await res.json());
       setTimeout(() => router.back(), 2500);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('mob.dlv.submit_failed', '提交失败，请重试'));
@@ -127,7 +119,7 @@ function ExceptionForm({ id }: { id: string }) {
     display: 'block',
   };
 
-  if (success) {
+  if (result) {
     return (
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
@@ -136,7 +128,9 @@ function ExceptionForm({ id }: { id: string }) {
         <div style={{ fontSize: 56 }}>✅</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>{t('mob.dlv.exception_recorded', '异常已记录')}</div>
         <div style={{ fontSize: 14, color: C.textSub, textAlign: 'center', lineHeight: 1.6 }}>
-          {t('mob.dlv.return_order_created', '已自动创建退货单，请等待仓库处理')}
+          {result.resolutionStatus === 'RETURN_CREATED'
+            ? t('mob.dlv.return_order_created', '已自动创建退货单，请等待仓库处理')
+            : t('mob.dlv.exception_pending_review', '异常已登记，等待核对处置。')}
         </div>
         <div style={{ fontSize: 13, color: C.textSub }}>{t('mob.dlv.returning', '正在返回…')}</div>
       </div>

@@ -40,15 +40,13 @@ export default function WarehouseLoadingTerminal() {
     if (!no.trim() || pending) return;
     setPending(true);
     setError('');
-    setReceipt(null);
-    setSelected(null);
-    setInput({});
     try {
       const task = await request<LoadingTask & { items: LoadingLine[] }>(
         endpoint + '?' + new URLSearchParams({ delivery_no: no.trim() }),
       );
       setSelected(task);
-      if (task.status !== 'LOADING') setReceipt(task.items);
+      setInput({});
+      setReceipt(task.status === 'LOADING' ? null : task.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('ui.加载失败', '加载失败'));
     } finally {

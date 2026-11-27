@@ -69,8 +69,8 @@ export class OutboundController {
 
   @Post('orders/:order_no/receive-sign')
   @RequireMenu('MENU_WMS_INOUT', 'E')
-  async receiveSign(@Param('order_no') orderNo: string, @Body() body: any, @Req() req: any) {
-    return await this.wmsService.receiveSignOrder(orderNo, body, req.user);
+  async receiveSign() {
+    throw new GoneException('历史订单只读，请在销售配送单办理签收');
   }
 
   /** Compatibility alias for warehouse clients that group internal actions under outbound. */
