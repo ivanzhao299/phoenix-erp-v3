@@ -16284,5 +16284,9 @@
   "prc2.supplier_volume_by_currency": "ຍອດຊື້ຕາມຜູ້ສະໜອງ · 20 ອັນດັບແຕ່ລະສະກຸນເງິນ",
   "prc2.receipt_order_load_failed": "ໂຫຼດລາຍການໃບສັ່ງຊື້ບໍ່ສຳເລັດ",
   "prc2.retry": "ລອງໃໝ່",
-  "prc2.no_receivable_order_lines": "ບໍ່ມີລາຍການລໍຖ້າຮັບ"
+  "prc2.no_receivable_order_lines": "ບໍ່ມີລາຍການລໍຖ້າຮັບ",
+  "md.supplier_bank_name": "ຊື່ທະນາຄານ",
+  "md.supplier_account_holder": "ຊື່ເຈົ້າຂອງບັນຊີ",
+  "md.supplier_account_number": "ເລກບັນຊີ",
+  "md.supplier_swift": "SWIFT"
 }

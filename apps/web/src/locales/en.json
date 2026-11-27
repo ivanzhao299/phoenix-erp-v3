@@ -16284,5 +16284,9 @@
   "prc2.supplier_volume_by_currency": "Supplier spend · top 20 by currency",
   "prc2.receipt_order_load_failed": "Could not load order lines",
   "prc2.retry": "Retry",
-  "prc2.no_receivable_order_lines": "No remaining lines to receive"
+  "prc2.no_receivable_order_lines": "No remaining lines to receive",
+  "md.supplier_bank_name": "Bank name",
+  "md.supplier_account_holder": "Account holder",
+  "md.supplier_account_number": "Account number",
+  "md.supplier_swift": "SWIFT"
 }

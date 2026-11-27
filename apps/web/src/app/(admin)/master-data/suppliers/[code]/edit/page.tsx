@@ -47,10 +47,10 @@ export default function SupplierEditPage() {
       codeKey="supplier_code"
       nameKey="supplier_name"
       fields={isSuper ? [...SUPPLIER_FIELDS,
-        { key: "bank_name", label: "银行名称", group: "财务设置" },
-        { key: "bank_account_name", label: "银行账户名称", group: "财务设置" },
-        { key: "bank_account_no", label: "银行账号", group: "财务设置" },
-        { key: "bank_swift", label: "SWIFT", group: "财务设置" },
+        { key: "bank_name", label: t("md.supplier_bank_name", "银行名称"), group: "财务设置" },
+        { key: "bank_account_name", label: t("md.supplier_account_holder", "银行账户名称"), group: "财务设置" },
+        { key: "bank_account_no", label: t("md.supplier_account_number", "银行账号"), group: "财务设置" },
+        { key: "bank_swift", label: t("md.supplier_swift", "SWIFT"), group: "财务设置" },
       ] : SUPPLIER_FIELDS}
       listRoute="/master-data/suppliers"
       mode="edit"

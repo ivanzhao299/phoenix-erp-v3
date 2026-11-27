@@ -16284,5 +16284,9 @@
   "prc2.supplier_volume_by_currency": "供应商采购额 · 各币种前 20",
   "prc2.receipt_order_load_failed": "无法加载订单明细",
   "prc2.retry": "重试",
-  "prc2.no_receivable_order_lines": "没有可收货明细"
+  "prc2.no_receivable_order_lines": "没有可收货明细",
+  "md.supplier_bank_name": "银行名称",
+  "md.supplier_account_holder": "银行账户名称",
+  "md.supplier_account_number": "银行账号",
+  "md.supplier_swift": "SWIFT"
 }
