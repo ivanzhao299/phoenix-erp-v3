@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/c
 import { DataSource, EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU, EggSourcePermission } from '../../../auth/egg-source-permissions';
 import { loadPermissionSources } from '../../../auth/permission-sources';
-import { eggSourceHouseDenials,loadEggSourceOrganizationGrants,type EggSourceHouseAction } from '../../../auth/egg-source-organization-grants';
+import { eggSourceHouseDenials,loadEggSourceOrganizationGrants,type EggSourceHouseAction,type EggSourceGrantProposal } from '../../../auth/egg-source-organization-grants';
 import { PermSource, resolvePermissions, parseCodes } from '../../../auth/permissions-resolver';
 import { hasPerm } from '../../../auth/permissions.util';
 import { deriveOrgScope } from '../../farm/farm.service';
@@ -18,7 +18,7 @@ export class EggSourceAccessService {
   constructor(private readonly db: DataSource, private readonly dataScopes: DataScopeService) {}
 
   async resolve(user: EggSourceAccount | undefined, required: EggSourceHouseAction = 'V',
-    manager = this.db.manager, contract?:1|2) {
+    manager = this.db.manager, contract?:1|2, proposal?:EggSourceGrantProposal) {
     const id = String(user?.userId ?? '');
     if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) {
       throw new ForbiddenException('蛋品来源档案需要有效的实名账号');
@@ -35,7 +35,7 @@ export class EggSourceAccessService {
       manager.query(`SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
         WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'`, [id]),
       loadPermissionSources(manager, id, { activeRolesOnly: true }),
-      contract===1 ? [] : loadEggSourceOrganizationGrants(manager,id),
+      contract===1 ? [] : loadEggSourceOrganizationGrants(manager,id,proposal),
     ]);
     const admin = roles.some((role: { role_code: string }) => role.role_code === 'ROLE_ADMIN');
     const canWrite = current && !user?.impersonatedBy;
@@ -59,9 +59,14 @@ export class EggSourceAccessService {
       ]);
       houseGrants = action => admin ? [base] : denials.has(action) ? [] : organizationGrants
         .filter(row=>row.actions.includes(action))
-        .map(row=>({ ...base,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
+        .flatMap<ChangeScope>(row=>row.scope_type==='OWNER'
+          ? [
+              {...base,companyCodes:dataScope.allowedExplicitBreedingCompanyCodes??[],farmCodes:farms.map(f=>f.code),siteCodes:[]},
+              ...sites.map(site=>({...base,restrictedCompany:site.company_code,companyCodes:[],farmCodes:[],siteCodes:[site.code]})),
+            ]
+          : [{ ...base,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
           farmCodes:farms.filter(f=>f.company_code===row.company_code).map(f=>f.code),
-          siteCodes:sites.filter(site=>site.company_code===row.company_code).map(site=>site.code) }));
+          siteCodes:sites.filter(site=>site.company_code===row.company_code).map(site=>site.code) }]);
     }
     const houseView = houseGrants('V');
     const houseCreate = canWrite ? houseGrants('C') : [];
@@ -101,6 +106,35 @@ export class EggSourceAccessService {
       }
     }
     return {accountId:account.id as string,actions};
+  }
+
+  async previewHouseGrants(manager:EntityManager,proposal:EggSourceGrantProposal,
+    accounts:readonly {id:string;username:string;version:number}[],houses:readonly EggSourceOwner[]) {
+    const results:{username:string;companyCode:string;houseCode:string;before:EggSourceHouseAction[];after:EggSourceHouseAction[]}[]=[];
+    for (const account of accounts) {
+      const identity={userId:account.id,perms_version:account.version};
+      const lookup=async (override?:EggSourceGrantProposal)=>{
+        try {return await this.resolve(identity,'V',manager,2,override);}
+        catch (error) {if (error instanceof ForbiddenException || error instanceof UnauthorizedException) return null;throw error;}
+      };
+      const before=await lookup();
+      const after=await lookup(proposal);
+      const actions=(access:typeof before,owner:EggSourceOwner):EggSourceHouseAction[]=>{
+        if (!access) return [];
+        const view=sourceScopeFor(access.scope,2);
+        if (!canAccessEggSource(view,owner)) return [];
+        return ([
+          ['V',view.viewGrants],['C',access.houseCreate],['E',access.houseEdit],['A',access.houseApprove],
+        ] as const).filter(([,grants])=>canAccessEggSource({...view,actionGrants:grants},owner)).map(([action])=>action);
+      };
+      for (const house of houses) {
+        const previous=actions(before,house);
+        const next=actions(after,house);
+        if (previous.join(',')!==next.join(',')) results.push({username:account.username,companyCode:house.companyCode,
+          houseCode:house.houseCode,before:previous,after:next});
+      }
+    }
+    return results;
   }
 
   async flockScope(user: EggSourceAccount | undefined, manager = this.db.manager): Promise<ChangeScope | undefined> {

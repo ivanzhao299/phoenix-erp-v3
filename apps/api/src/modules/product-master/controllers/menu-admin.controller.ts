@@ -2,7 +2,7 @@ import { BadRequestException, Body, ConflictException, Controller, ForbiddenExce
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU } from '../../../auth/egg-source-permissions';
-import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
+import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceHouseAction,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
 import { requireEggSourceAdministrator,lockEggSourceGrantEditor } from '../../../auth/egg-source-organization-grants';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
@@ -268,19 +268,27 @@ export class MenuAdminController {
     const [audit] = await m.query(`SELECT log_id::text AS revision FROM sys_audit_log
       WHERE action='EGG_SOURCE_HOUSE_GRANT' AND entity_type='EGG_SOURCE_HOUSE' AND entity_id=$1
         AND after_value->>'subject'=$2 ORDER BY log_id DESC LIMIT 1`,[code,subject]);
-    return { id:result.id as string,column,rows,digest:sourceDigest({revision:audit?.revision??null,rows}) };
+    const [standard]: {actions:EggSourceHouseAction[];revision:string}[] = await m.query(
+      `SELECT actions,revision::text FROM md_egg_source_standard_grants WHERE ${column}=$1`,[result.id]);
+    const actions=EGG_SOURCE_HOUSE_ACTIONS.filter(action=>rows.some(row=>row.actions.includes(action)));
+    return { id:result.id as string,column,rows,standard:standard??null,actions,
+      digest:sourceDigest({revision:audit?.revision??null,rows,standard:standard??null}) };
   }
 
   @Get('egg-source-organization-grants/:subject/:code')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
   async getHouseGrants(@Req() req:any,@Param('subject') subject:string,@Param('code') code:string) {
-    await requireEggSourceAdministrator(this.em,req.user);
-    const {id,rows,digest} = await this.houseGrantSubject(this.em,subject,code);
-    const inherited=subject==='role' ? await this.em.query(`SELECT g.scope_type,g.scope_code,g.company_code,g.actions,s.set_code
-      FROM sys_role_permission_set rs JOIN sys_permission_set s USING(set_id)
-      JOIN md_egg_source_organization_grants g USING(set_id)
-      WHERE rs.role_id=$1 ORDER BY s.set_code,g.scope_type,g.scope_code`,[id]) : [];
-    return {code:200,data:{rows,digest,inherited}};
+    return this.em.transaction('REPEATABLE READ',async m=>{
+      await requireEggSourceAdministrator(m,req.user);
+      const snapshot=await this.houseGrantSubject(m,subject,code);
+      const {id,rows,digest,standard,actions}=snapshot;
+      const inherited=subject==='role' ? await m.query(`SELECT g.scope_type,g.scope_code,g.company_code,g.actions,s.set_code
+        FROM sys_role_permission_set rs JOIN sys_permission_set s USING(set_id)
+        JOIN md_egg_source_effective_grants g USING(set_id)
+        WHERE rs.role_id=$1 ORDER BY s.set_code,g.scope_type,g.scope_code`,[id]) : [];
+      const standardDigest=await this.standardScopeDigest(m,subject,id,digest);
+      return {code:200,data:{rows,digest,standardDigest,inherited,standard,actions}};
+    });
   }
 
   @Put('egg-source-organization-grants/:subject/:code')
@@ -295,6 +303,7 @@ export class MenuAdminController {
       await lockEggSourceGrantEditor(m);
       const actor = await requireEggSourceAdministrator(m,req.user);
       const before = await this.houseGrantSubject(m,subject,code,true);
+      if (before.standard) throw new ConflictException('已切换为标准动作配置，请刷新页面');
       if (before.digest!==body.expectedDigest) throw new ConflictException('组织授权已变化，请刷新后再保存');
       const seen = new Set<string>();
       const rows:EggSourceOrganizationGrant[] = [];
@@ -316,40 +325,183 @@ export class MenuAdminController {
       rows.sort((a,b)=>a.scope_type.localeCompare(b.scope_type)||a.scope_code.localeCompare(b.scope_code));
       if (sourceDigest(before.rows)===sourceDigest(rows)) return {code:200,data:{rows:before.rows,digest:before.digest}};
       const hasWrite=(grant:EggSourceOrganizationGrant)=>grant.actions.some(action=>action!=='V');
-      if (rows.some(hasWrite) && !before.rows.some(hasWrite)) {
-        const [conflict]=await m.query(`WITH roles AS (
-          SELECT role_id FROM sys_role WHERE $1='role' AND role_id=$2
-          UNION SELECT role_id FROM sys_role_permission_set WHERE $1='set' AND set_id=$2
-        ), write_menus AS (
-          SELECT p.role_id,m.menu_code FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
-            JOIN roles r USING(role_id) WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
-          UNION SELECT rs.role_id,m.menu_code FROM sys_role_permission_set rs JOIN sys_permission_set_item p USING(set_id)
-            JOIN sys_menu m USING(menu_id) JOIN roles r ON r.role_id=rs.role_id
-            WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
-        ) SELECT c.menu_a,c.menu_b FROM sys_role_conflict c JOIN write_menus w ON
-          (c.menu_a=$3 AND c.menu_b=w.menu_code OR c.menu_b=$3 AND c.menu_a=w.menu_code)
-          WHERE c.severity='BLOCK'
-          AND NOT EXISTS (SELECT 1 FROM write_menus d WHERE d.role_id=w.role_id AND d.menu_code=$3)
-          AND NOT EXISTS (SELECT 1 FROM md_egg_source_organization_grants g
-            WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=w.role_id OR g.set_id IN (
-              SELECT set_id FROM sys_role_permission_set WHERE role_id=w.role_id))) LIMIT 1`,
-          [subject,before.id,EGG_SOURCE_MENU]);
-        if (conflict) throw new ConflictException('新增岗位分离冲突，请核对角色与权限');
-      }
+      if (rows.some(hasWrite) && !before.rows.some(hasWrite)) await this.assertSourceRoleSeparation(m,subject,before.id);
       await m.query("SELECT set_config('phoenix.egg_source_organization_editor','1',true)");
       await m.query(`DELETE FROM md_egg_source_organization_grants WHERE ${before.column}=$1`,[before.id]);
       if (rows.length) await m.query(`INSERT INTO md_egg_source_organization_grants(${before.column},scope_type,scope_code,company_code,actions)
         SELECT $1,r.scope_type,r.scope_code,r.company_code,r.actions FROM jsonb_to_recordset($2::jsonb)
         r(scope_type text,scope_code text,company_code text,actions text[])`,[before.id,JSON.stringify(rows)]);
-      const affected = subject==='role' ? 'SELECT user_id FROM sys_user_role WHERE role_id=$1' :
-        `SELECT user_id FROM sys_user_permission_set WHERE set_id=$1 UNION
-          SELECT ur.user_id FROM sys_user_role ur JOIN sys_role_permission_set ps USING(role_id) WHERE ps.set_id=$1`;
-      await m.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1
-        WHERE user_id IN (${affected})`,[before.id]);
+      await this.bumpSourcePermissions(m,subject,before.id);
       await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_HOUSE_GRANT',code,before.rows,{subject,reason,rows});
       const after = await this.houseGrantSubject(m,subject,code);
       return {code:200,data:{rows:after.rows,digest:after.digest}};
     });
+  }
+
+  @Post('egg-source-standard-grants/:subject/:code/preview')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async previewStandardGrants(@Req() req:any,@Param('subject') subject:string,@Param('code') code:string,
+    @Body() body:{actions:EggSourceHouseAction[]}) {
+    const actions=this.standardActions(body?.actions);
+    return this.em.transaction('REPEATABLE READ',async m=>{
+      await requireEggSourceAdministrator(m,req.user);
+      const before=await this.houseGrantSubject(m,subject,code);
+      const currentDigest=await this.standardScopeDigest(m,subject,before.id,before.digest);
+      const accounts=await m.query(`
+        WITH affected AS (
+          SELECT user_id FROM sys_user_role WHERE $1='role' AND role_id=$2
+          UNION SELECT user_id FROM sys_user_permission_set WHERE $1='set' AND set_id=$2
+          UNION SELECT ur.user_id FROM sys_user_role ur JOIN sys_role_permission_set rs USING(role_id)
+            WHERE $1='set' AND rs.set_id=$2
+        )
+        SELECT u.user_id::text AS id,u.username,u.perms_version::int AS version
+        FROM sys_user u JOIN affected a USING(user_id)
+        WHERE u.status=1 AND u.username IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
+          WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')
+        ORDER BY u.user_id`,[subject,before.id]);
+      const houses=await m.query(`
+        SELECT f.company_code AS "companyCode",f.farm_code AS "farmCode",
+          ${OrgOwnershipService.FARM_SITE_SQL} AS "siteCode",h.house_code AS "houseCode"
+        FROM brd_houses h JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code)
+        WHERE f.company_code IS NOT NULL AND ${OrgOwnershipService.FARM_SITE_SQL} IS NOT NULL
+        ORDER BY f.company_code,h.house_code`);
+      const changes=await this.sourceAccess.previewHouseGrants(m,{subject:subject as 'role'|'set',id:before.id,prior:before.rows,actions},
+        accounts,houses);
+      return {code:200,data:{digest:sourceDigest({currentDigest,actions}),changes,accounts:accounts.length,houses:houses.length}};
+    });
+  }
+
+  private standardActions(input:unknown) {
+    if (!Array.isArray(input) || input.some(action=>!EGG_SOURCE_HOUSE_ACTIONS.includes(action))
+      || new Set(input).size!==input.length) throw new BadRequestException('标准动作授权内容无效');
+    return EGG_SOURCE_HOUSE_ACTIONS.filter(action=>input.includes(action));
+  }
+
+  @Put('egg-source-standard-grants/:subject/:code')
+  @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
+  async setStandardGrants(@Req() req:any,@Param('subject') subject:string,@Param('code') code:string,
+    @Body() body:{actions:EggSourceHouseAction[];expectedDigest:string;reason:string}) {
+    const reason=sourceText(body?.reason,'授权变更依据',500);
+    const actions=this.standardActions(body?.actions);
+    if (typeof body.expectedDigest!=='string') throw new BadRequestException('须先核对授权影响预览');
+    return this.em.transaction('SERIALIZABLE',async m=>{
+      await lockEggSourceGrantEditor(m);
+      const actor=await requireEggSourceAdministrator(m,req.user);
+      const before=await this.houseGrantSubject(m,subject,code,true);
+      const currentDigest=await this.standardScopeDigest(m,subject,before.id,before.digest);
+      if (sourceDigest({currentDigest,actions})!==body.expectedDigest) throw new ConflictException('授权已变化，请重新核对');
+      const prior=before.standard?.actions??before.actions;
+      const same=actions.length===prior.length && actions.every(action=>prior.includes(action));
+      if (before.standard && same) return {code:200,data:{standard:before.standard,digest:currentDigest}};
+      // A scoped subject is converted with its exact current actions and original limits.
+      // Editing those actions is a separate, audited operation after conversion.
+      if (!before.standard && before.rows.length && !same) {
+        throw new ConflictException('首次转换须保留既有动作。转换完成后可另行调整');
+      }
+      if (actions.some(action=>action!=='V') && !prior.some(action=>action!=='V')) {
+        await this.assertSourceRoleSeparation(m,subject,before.id);
+      }
+      await m.query("SELECT set_config('phoenix.egg_source_standard_editor','1',true)");
+      await m.query(`INSERT INTO md_egg_source_standard_grants (${before.column},actions) VALUES ($1,$2)
+        ON CONFLICT (${before.column}) DO UPDATE SET actions=EXCLUDED.actions,
+          revision=md_egg_source_standard_grants.revision+1`,[before.id,actions]);
+      await this.bumpSourcePermissions(m,subject,before.id);
+      await this.eggSourceAudit(m,actor,req.user?.username,'EGG_SOURCE_STANDARD_GRANT',code,
+        {subject,standard:before.standard,actions:prior,retainedScopes:before.rows},
+        {subject,actions,reason,retainedScopes:before.rows});
+      const after=await this.houseGrantSubject(m,subject,code);
+      const digest=await this.standardScopeDigest(m,subject,after.id,after.digest);
+      return {code:200,data:{standard:after.standard,digest}};
+    }).catch(error=>{
+      if ((error as {code?:unknown})?.code==='40001') throw new ConflictException('授权同时发生变化，请重新核对');
+      throw error;
+    });
+  }
+
+  private async standardScopeDigest(m:EntityManager,subject:string,id:string,grantDigest:string) {
+    // Fingerprint the dependencies of affected accounts in the same snapshot as the matrix.
+    // Only the digest goes to the browser.
+    const [row] = await m.query(`
+      WITH affected AS (
+        SELECT user_id FROM sys_user_role WHERE $1='role' AND role_id=$2
+        UNION SELECT user_id FROM sys_user_permission_set WHERE $1='set' AND set_id=$2
+        UNION SELECT ur.user_id FROM sys_user_role ur JOIN sys_role_permission_set rs USING(role_id)
+          WHERE $1='set' AND rs.set_id=$2
+      ), assigned_roles AS (
+        SELECT ur.user_id,ur.role_id,ur.is_visible,r.status FROM sys_user_role ur JOIN sys_role r USING(role_id)
+        JOIN affected a USING(user_id)
+      ), assigned_sets AS (
+        SELECT ar.user_id,rs.set_id,ar.role_id FROM assigned_roles ar JOIN sys_role_permission_set rs USING(role_id)
+        UNION ALL SELECT us.user_id,us.set_id,NULL::bigint FROM sys_user_permission_set us JOIN affected a USING(user_id)
+      ), legacy_access AS (
+        SELECT ar.user_id,ar.role_id,NULL::bigint AS set_id,p.perm_codes,p.deny_codes,p.scope_type,p.scope_value
+        FROM assigned_roles ar JOIN sys_role_menu_permission p USING(role_id) JOIN sys_menu m USING(menu_id)
+        WHERE m.menu_code=$3
+        UNION ALL
+        SELECT aset.user_id,aset.role_id,aset.set_id,p.perm_codes,p.deny_codes,p.scope_type,p.scope_value
+        FROM assigned_sets aset JOIN sys_permission_set_item p USING(set_id) JOIN sys_menu m USING(menu_id)
+        WHERE m.menu_code=$3
+      ), scoped_grants AS (
+        SELECT ar.user_id,g.* FROM assigned_roles ar JOIN md_egg_source_organization_grants g USING(role_id)
+        UNION ALL SELECT aset.user_id,g.* FROM assigned_sets aset JOIN md_egg_source_organization_grants g USING(set_id)
+      ), standard_grants AS (
+        SELECT ar.user_id,g.* FROM assigned_roles ar JOIN md_egg_source_standard_grants g USING(role_id)
+        UNION ALL SELECT aset.user_id,g.* FROM assigned_sets aset JOIN md_egg_source_standard_grants g USING(set_id)
+      )
+      SELECT jsonb_build_object(
+        'accounts',(SELECT jsonb_agg(jsonb_build_array(u.user_id,u.status,u.perms_version) ORDER BY u.user_id)
+          FROM sys_user u JOIN affected a USING(user_id)),
+        'roles',(SELECT jsonb_agg(to_jsonb(ar) ORDER BY user_id,role_id) FROM assigned_roles ar),
+        'sets',(SELECT jsonb_agg(to_jsonb(aset) ORDER BY user_id,role_id,set_id) FROM assigned_sets aset),
+        'legacy',(SELECT jsonb_agg(to_jsonb(la) ORDER BY user_id,role_id,set_id) FROM legacy_access la),
+        'scopedGrants',(SELECT jsonb_agg(to_jsonb(g) ORDER BY user_id,role_id,set_id,scope_type,scope_code) FROM scoped_grants g),
+        'standardGrants',(SELECT jsonb_agg(to_jsonb(g) ORDER BY user_id,role_id,set_id) FROM standard_grants g),
+        'organizations',(SELECT jsonb_agg(jsonb_build_array(o.id,o.org_code,o.org_type,o.parent_id,o.status,o.company_code,o.site_code,o.warehouse_code)
+          ORDER BY o.id) FROM sys_organizations o),
+        'organizationBindings',(SELECT jsonb_agg(jsonb_build_array(o.user_id,o.org_id,o.data_scope_level)
+          ORDER BY o.user_id,o.org_id,o.data_scope_level) FROM sys_user_orgs o JOIN affected a USING(user_id)),
+        'farmBindings',(SELECT jsonb_agg(jsonb_build_array(f.user_id,f.farm_code) ORDER BY f.user_id,f.farm_code)
+          FROM sys_user_farm_scopes f JOIN affected a USING(user_id)),
+        'warehouseBindings',(SELECT jsonb_agg(jsonb_build_array(w.user_id,w.warehouse_code) ORDER BY w.user_id,w.warehouse_code)
+          FROM sys_user_warehouse_scopes w JOIN affected a USING(user_id)),
+        'farms',(SELECT jsonb_agg(jsonb_build_array(f.farm_code,f.company_code,f.status,${OrgOwnershipService.FARM_SITE_SQL}) ORDER BY f.farm_code)
+          FROM ${OrgOwnershipService.FARM_TABLE} f),
+        'houses',(SELECT jsonb_agg(jsonb_build_array(h.house_code,h.farm_code,h.status,h.house_type) ORDER BY h.house_code)
+          FROM brd_houses h),
+        'warehouses',(SELECT jsonb_agg(jsonb_build_array(w.warehouse_code,w.company_code,w.site_code,w.status,w.domain) ORDER BY w.warehouse_code)
+          FROM wms_warehouses w)
+      ) AS dependencies`,[subject,id,EGG_SOURCE_MENU]);
+    return sourceDigest({grantDigest,dependencies:row.dependencies});
+  }
+
+  private async assertSourceRoleSeparation(m:EntityManager,subject:string,id:string) {
+    const [conflict]=await m.query(`WITH roles AS (
+      SELECT role_id FROM sys_role WHERE $1='role' AND role_id=$2
+      UNION SELECT role_id FROM sys_role_permission_set WHERE $1='set' AND set_id=$2
+    ), write_menus AS (
+      SELECT p.role_id,m.menu_code FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
+        JOIN roles r USING(role_id) WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
+      UNION SELECT rs.role_id,m.menu_code FROM sys_role_permission_set rs JOIN sys_permission_set_item p USING(set_id)
+        JOIN sys_menu m USING(menu_id) JOIN roles r ON r.role_id=rs.role_id
+        WHERE p.perm_codes='*' OR string_to_array(p.perm_codes,',') && ARRAY['C','E','D','A']
+    ) SELECT c.menu_a,c.menu_b FROM sys_role_conflict c JOIN write_menus w ON
+      (c.menu_a=$3 AND c.menu_b=w.menu_code OR c.menu_b=$3 AND c.menu_a=w.menu_code)
+      WHERE c.severity='BLOCK'
+      AND NOT EXISTS (SELECT 1 FROM write_menus d WHERE d.role_id=w.role_id AND d.menu_code=$3)
+      AND NOT EXISTS (SELECT 1 FROM md_egg_source_effective_grants g
+        WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=w.role_id OR g.set_id IN (
+          SELECT set_id FROM sys_role_permission_set WHERE role_id=w.role_id))) LIMIT 1`,
+      [subject,id,EGG_SOURCE_MENU]);
+    if (conflict) throw new ConflictException('新增岗位分离冲突，请核对角色与权限');
+  }
+
+  private async bumpSourcePermissions(m:EntityManager,subject:string,id:string) {
+    const affected = subject==='role' ? 'SELECT user_id FROM sys_user_role WHERE role_id=$1' :
+      `SELECT user_id FROM sys_user_permission_set WHERE set_id=$1 UNION
+        SELECT ur.user_id FROM sys_user_role ur JOIN sys_role_permission_set ps USING(role_id) WHERE ps.set_id=$1`;
+    await m.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1
+      WHERE user_id IN (${affected})`,[id]);
   }
 
   private eggSourceAudit(m:EntityManager,actor:string,userName:unknown,action:string,code:string,before:unknown,after:unknown) {

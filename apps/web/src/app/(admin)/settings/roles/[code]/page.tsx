@@ -9,7 +9,7 @@
  */
 import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { EntityWorkspace, Panel } from "@/components/design-system";
@@ -50,7 +50,7 @@ interface RoleRow {
 interface RolePerm {
   menu_code: string;
   perm_codes: string;
-  egg_warehouse_code?: string;
+  egg_warehouse_code?: string; egg_legacy_digest?: string;
 }
 interface ConflictRule {
   id: number;
@@ -128,6 +128,7 @@ export default function RoleDetailPage() {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [eggWarehouse, setEggWarehouse] = useState("");
   const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
+  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
 
   const isAdmin = roleCode === "ROLE_ADMIN";
@@ -181,7 +182,9 @@ export default function RoleDetailPage() {
             p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
           }
           setPerms(p);
-          const warehouse = data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+          const legacyGrant=data.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
+          const warehouse=legacyGrant?.egg_warehouse_code??'';
+          setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
           setEggWarehouse(warehouse);
           setSavedEggWarehouse(warehouse);
           setPermissionsLoaded(true);
@@ -303,10 +306,10 @@ export default function RoleDetailPage() {
       await apiPut(`/api/crud/sys_role/${role.role_code}?pk=role_code`, roleBody);
 
       // 2) 批量覆盖权限三元组
-      const permsPayload = Object.entries(perms)
-        .filter(([, set]) => set && set.size > 0)
-        .map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(","),
-          egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined }));
+      const permsPayload=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
+        .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
+      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
+      if (legacy) permsPayload.push(legacy);
       const setR = await apiPut(`/api/permissions/role/${role.role_code}/perms`, { perms: permsPayload });
       if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败", "权限保存失败"));
 

@@ -19,7 +19,7 @@
 import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
@@ -63,7 +63,7 @@ interface RoleRow {
 interface RolePerm {
   menu_code: string;
   perm_codes: string;
-  egg_warehouse_code?: string;
+  egg_warehouse_code?: string; egg_legacy_digest?: string;
 }
 interface ConflictRule {
   id: number;
@@ -76,6 +76,8 @@ interface MatrixCell {
   menu_code: string;
   perm_codes: string;
   granted: boolean;
+  version1_configured?: string;
+  version2_configured?: string[];
 }
 interface MatrixRole {
   role_code: string;
@@ -374,6 +376,7 @@ export default function RoleManagementPage() {
   // perms: Map<menu_code, Set<perm_code>>
   const [eggWarehouse, setEggWarehouse] = useState("");
   const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
+  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [codeError, setCodeError] = useState("");
 
@@ -502,7 +505,7 @@ export default function RoleManagementPage() {
     });
     setPerms({});
     setEggWarehouse("");
-    setSavedEggWarehouse("");
+    setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline());
     setCodeError("");
     setShowDrawer(true);
   };
@@ -526,7 +529,9 @@ export default function RoleManagementPage() {
         p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       }
       setPerms(p);
-      const warehouse = data.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+      const legacyGrant=data.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
+      const warehouse=legacyGrant?.egg_warehouse_code??'';
+      setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
       setEggWarehouse(warehouse);
       setSavedEggWarehouse(warehouse);
     } catch (e: any) {
@@ -556,7 +561,7 @@ export default function RoleManagementPage() {
       }
       setPerms(p);
       setEggWarehouse("");
-      setSavedEggWarehouse("");
+      setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline());
     } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
     setCodeError(t("ui.请填入新的角色代码", "请填入新的角色代码"));
     setShowDrawer(true);
@@ -652,11 +657,10 @@ export default function RoleManagementPage() {
       }
 
       // 2) 批量覆盖三元组到 sys_role_menu_permission
-      const permsPayload = Object.entries(perms).filter(([, set]) => set && set.size > 0).map(([menu_code, set]) => ({
-        menu_code,
-        perm_codes: Array.from(set).join(","),
-        egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined
-      }));
+      const permsPayload=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
+        .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
+      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
+      if (legacy) permsPayload.push(legacy);
       const setR = await apiPut(`/api/permissions/role/${roleBody.role_code}/perms`, {
         perms: permsPayload
       });
@@ -1470,7 +1474,9 @@ export default function RoleManagementPage() {
                   fontSize: 9,
                   fontFamily: "monospace"
                 }}>
-                            {c.perm_codes === "*" ? "*" : c.perm_codes || "·"}
+                            {c.menu_code===EGG_SOURCE_MENU && !r.is_admin
+                              ? <><div>V2 {c.version2_configured?.join('/')||'·'}</div><div>V1 {c.version1_configured||'·'}</div></>
+                              : c.perm_codes === "*" ? "*" : c.perm_codes || "·"}
                           </td>)}
                       </tr>)}
                   </tbody>

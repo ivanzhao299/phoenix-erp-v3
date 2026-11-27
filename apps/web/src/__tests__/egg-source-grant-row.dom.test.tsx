@@ -9,14 +9,14 @@ vi.mock('@/lib/api-client',()=>({default:request}));
 vi.mock('@/hooks/usePermission',()=>({usePermission:()=>({role:'ROLE_ADMIN',roles:['ROLE_ADMIN'],user:{}})}));
 vi.mock('@/contexts/LanguageContext',()=>({useLanguage:()=>({ lang:'zh', t:(key:string)=>key })}));
 
-it.each(['role','set'] as const)('keeps %s organization grants on the standard matrix row',async subject=>{
+it.each(['role','set'] as const)('shows %s existing limits and supports standard conversion without an organization picker',async subject=>{
   vi.stubGlobal('React',React);
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
   request.mockReset();
   request.mockResolvedValue({data:{
     rows:[{scope_type:'HOUSE',scope_code:'H1',actions:['V','C']}],
     inherited:subject==='role' ? [{scope_type:'FARM',scope_code:'F1',actions:['V','A'],set_code:'PSET_SAMPLE'}] : [],
-    digest:'fixture-revision',
+    digest:'fixture-revision',standardDigest:'fixture-dependencies',standard:null,actions:['V','C'],
   }});
   const host=document.createElement('div');
   document.body.append(host);
@@ -31,7 +31,10 @@ it.each(['role','set'] as const)('keeps %s organization grants on the standard m
     const legacy=host.querySelector('details');
     expect(legacy?.open).toBe(false);
     await act(async()=>buttons[1].click());
-    expect(host.querySelector('fieldset')?.textContent).toContain('H1');
+    expect(host.textContent).toContain('H1');
+    expect(host.querySelectorAll('select')).toHaveLength(1);
+    expect(host.querySelector('select')?.getAttribute('aria-label')).toBe('旧版目标仓');
+    expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
     if (subject==='role') expect(host.textContent).toContain('PSET_SAMPLE');
     expect(legacy?.open).toBe(false);
     expect(request).toHaveBeenCalledWith(expect.stringContaining('/egg-source-organization-grants/'+subject+'/FIXTURE'),expect.anything());

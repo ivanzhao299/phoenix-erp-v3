@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode,useEffect,useState } from 'react';
+import { type ReactNode,useCallback,useEffect,useState } from 'react';
 import { RightDrawer } from '@/components/ui/RightDrawer';
 import { inputField,primaryActionButton,secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { usePermission } from '@/hooks/usePermission';
@@ -14,6 +14,13 @@ const actions=['V','C','E','D','A','X'] as const;
 type Scope=typeof scopes[number];
 type Action=typeof actions[number];
 type Grant={scope_type:Scope;scope_code:string;actions:Action[]};
+type StandardGrant={actions:Action[];revision:string};
+type GrantPreview={digest:string;accounts:number;houses:number;
+  changes:Array<{username:string;companyCode:string;houseCode:string;before:Action[];after:Action[]}>};
+type SourceGrants={
+  rows:Grant[];digest:string;standardDigest:string;actions:Action[];standard:StandardGrant|null;
+  inherited?:Array<{scope_type:Scope|'OWNER';scope_code:string|null;actions:Action[];set_code:string}>;
+};
 type Organization={code:string;name:string;companyCode:string};
 type Rollout={house_code:string;company_code:string;enabled:boolean;changed_at:string;revision:string;change_reason:string};
 
@@ -63,57 +70,77 @@ export function EggSourceOrganizationGrants({subject,code,name,legacy}:{
   const editable=(role==='ROLE_ADMIN'||roles.includes('ROLE_ADMIN')) && !user.impersonatedBy
     && !!code && !(subject==='role'&&code==='ROLE_ADMIN');
   const path=editable ? endpoint+'/egg-source-organization-grants/'+subject+'/'+encodeURIComponent(code!) : undefined;
-  return <GrantRow key={subject+'/'+code} name={name} path={path} legacy={editable ? legacy : undefined}/>;
+  const standardPath=path?.replace('egg-source-organization-grants','egg-source-standard-grants');
+  return <GrantRow key={subject+'/'+code} name={name} path={path} standardPath={standardPath} legacy={editable ? legacy : undefined}/>;
 }
 
-function GrantRow({path,name,legacy}:{path?:string;name:string;legacy?:ReactNode}) {
+function GrantRow({path,standardPath,name,legacy}:{path?:string;standardPath?:string;name:string;legacy?:ReactNode}) {
   const {label}=useSourceText();
   const [open,setOpen]=useState(false);
   const [busy,setBusy]=useState(false);
   const [failed,setFailed]=useState(false);
   const [saved,setSaved]=useState(false);
-  const [digest,setDigest]=useState('');
-  const [rows,setRows]=useState<Grant[]>([]);
-  const [configured,setConfigured]=useState<Grant[]>([]);
-  const [inherited,setInherited]=useState<Array<Grant&{set_code:string}>>([]);
-  const [scope,setScope]=useState<Scope>('HOUSE');
-  const [code,setCode]=useState('');
+  const [data,setData]=useState<SourceGrants|null>(null);
+  const [draft,setDraft]=useState<Action[]>([]);
+  const [preview,setPreview]=useState<GrantPreview|null>(null);
   const [reason,setReason]=useState('');
-  const title=label('organizationGrants');
-  async function load() {
+
+  const fetchGrant=useCallback(async (signal?:AbortSignal)=>{
     if (!path) return;
-    setBusy(true);setFailed(false);setSaved(false);setDigest('');
     try {
-      const {data}=await request<{data:{rows:Grant[];digest:string;inherited?:Array<Grant&{set_code:string}>}}>(path,{silent:true,bindSession:true,cache:'no-store'});
-      setRows(data.rows);setConfigured(data.rows);setInherited(data.inherited??[]);setDigest(data.digest);setReason('');
+      const result=await request<{data:SourceGrants}>(path,{silent:true,bindSession:true,cache:'no-store',signal});
+      if (signal?.aborted) return;
+      if (!Array.isArray(result.data.actions)||typeof result.data.standardDigest!=='string') {
+        setFailed(true);
+        return;
+      }
+      setData(result.data);setDraft(result.data.standard?.actions??result.data.actions);setReason('');
+    } catch {if (!signal?.aborted) setFailed(true);}
+    finally {if (!signal?.aborted) setBusy(false);}
+  },[path]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    queueMicrotask(()=>{ if (!controller.signal.aborted) void fetchGrant(controller.signal); });
+    return ()=>controller.abort();
+  },[fetchGrant]);
+
+  function reloadGrant() {
+    setBusy(true);setFailed(false);setSaved(false);setPreview(null);
+    void fetchGrant();
+  }
+
+  const current=data?.standard?.actions??data?.actions??[];
+  const keepLimits=!!data?.rows.length;
+  const converting=keepLimits&&!data?.standard;
+  const changed=draft.length!==current.length||draft.some(action=>!current.includes(action));
+  async function previewChange() {
+    if (!standardPath||!data||(!changed&&data.standard)) return;
+    setBusy(true);setFailed(false);setPreview(null);
+    try {
+      const result=await request<{data:GrantPreview}>(standardPath+'/preview',{
+        method:'POST',body:JSON.stringify({actions:draft}),silent:true,bindSession:true,retry:false});
+      setPreview(result.data);
     } catch {setFailed(true);}
     finally {setBusy(false);}
   }
+
   async function save() {
-    if (!path || !digest || !reason.trim() || rows.some(row=>!row.actions.length)) return;
+    if (!data||!standardPath||!preview||!reason.trim()||(!changed&&data.standard)) return;
     setBusy(true);setFailed(false);setSaved(false);
     try {
-      const {data}=await request<{data:{rows:Grant[];digest:string}}>(path,{
-        method:'PUT',body:JSON.stringify({rows,expectedDigest:digest,reason:reason.trim()}),silent:true,bindSession:true,retry:false});
-      setRows(data.rows);setConfigured(data.rows);setDigest(data.digest);setReason('');setSaved(true);
-    } catch {setDigest('');setFailed(true);}
+      const {data:result}=await request<{data:{standard:StandardGrant;digest:string}}>(standardPath,{
+        method:'PUT',body:JSON.stringify({actions:draft,expectedDigest:preview.digest,reason:reason.trim()}),
+        silent:true,bindSession:true,retry:false});
+      setData({...data,standard:result.standard,standardDigest:result.digest});
+      setDraft(result.standard.actions);setPreview(null);setReason('');setSaved(true);
+    } catch {setFailed(true);}
     finally {setBusy(false);}
   }
-  useEffect(()=>{
-    if (!path) return;
-    const controller=new AbortController();
-    void request<{data:{rows:Grant[];inherited?:Array<Grant&{set_code:string}>}}>(path,{
-      silent:true,bindSession:true,cache:'no-store',signal:controller.signal,
-    }).then(({data})=>{
-      if (controller.signal.aborted) return;
-      setConfigured(data.rows);setInherited(data.inherited??[]);
-    }).catch(()=>{ /* Re-read when the editor is opened. */ });
-    return ()=>controller.abort();
-  },[path]);
 
-  function show() {
-    if (!open) void load();
-    setOpen(!open);
+  function toggle(action:Action) {
+    setOpen(true);setSaved(false);setPreview(null);
+    if (converting) return;
+    setDraft(previous=>previous.includes(action)?previous.filter(value=>value!==action):[...previous,action]);
   }
 
   return <div className={s.sourceGrantRow}>
@@ -121,49 +148,55 @@ function GrantRow({path,name,legacy}:{path?:string;name:string;legacy?:ReactNode
       <strong>{name}</strong>
       <div className={s.sourceGrantActions}>
         {actions.map(action=><button key={action} type="button" data-action={action}
-          className={s.sourceGrantAction} disabled={!path||busy||action==='D'||action==='X'}
+          className={s.sourceGrantAction} disabled={!data||busy||failed||action==='D'||action==='X'}
           title={label('organizationAction.'+action)} aria-label={label('organizationAction.'+action)}
-          aria-expanded={path&&action!=='D'&&action!=='X' ? open : undefined}
-          data-configured={[...configured,...inherited].some(row=>row.actions.includes(action))}
-          onClick={show}>{action}</button>)}
-        {path&&<button type="button" className={s.sourceGrantScope} aria-expanded={open} onClick={show}
-          disabled={busy}>{title}</button>}
+          aria-pressed={draft.includes(action)}
+          data-configured={draft.includes(action)}
+          data-inherited={!!data?.inherited?.some(row=>row.actions.includes(action))}
+          onClick={()=>toggle(action)}>{action}</button>)}
+        {path&&<button type="button" className={s.sourceGrantScope} aria-expanded={open}
+          onClick={()=>setOpen(value=>!value)} disabled={busy}>{label('standardGrantSettings')}</button>}
       </div>
     </div>
     {open&&path&&<div className={s.stack} aria-busy={busy}>
-        <p className={s.hint}>{label('organizationGrantsHelp')}</p>
-        {failed&&<><p role="alert" className={s.error}>{label('writeControl.failed')}</p>
-          <button type="button" style={secondaryActionButton} onClick={()=>void load()}>{label('writeControl.refresh')}</button></>}
-        {saved&&<p role="status" className={s.notice}>{label('organizationGrantSaved')}</p>}
-        {!!inherited.length&&<div className={s.record}>
-          <strong>{label('inheritedGrants')}</strong>
-          <ul>{inherited.map(row=><li key={row.set_code+'/'+row.scope_type+'/'+row.scope_code}>
-            {row.set_code} · {label('organization.'+row.scope_type)} {row.scope_code} · {row.actions.join(' / ')}
-          </li>)}</ul>
+      <p className={s.hint}>{label('standardGrantHelp')}</p>
+      {failed&&<><p role="alert" className={s.error}>{label('writeControl.failed')}</p>
+        <button type="button" style={secondaryActionButton} onClick={reloadGrant}>{label('writeControl.refresh')}</button></>}
+      {saved&&<p role="status" className={s.notice}>{label('organizationGrantSaved')}</p>}
+      {!!data?.inherited?.length&&<div className={s.record}>
+        <strong>{label('inheritedGrants')}</strong>
+        <ul>{data.inherited.map((row,index)=><li key={row.set_code+'/'+row.scope_code+'/'+index}>
+          {row.set_code} · {row.scope_type==='OWNER'?label('standardGrantAccountScope'):label('organization.'+row.scope_type)+' '+row.scope_code} · {row.actions.join(' / ')}
+        </li>)}</ul>
+      </div>}
+      {keepLimits&&<div className={s.record}>
+        <strong>{label('standardGrantRetained')}</strong>
+        <ul>{data?.rows.map(row=>{
+          const forScope=(values:Action[])=>values.filter(action=>row.actions.includes(action)||
+            !data.rows.some(old=>old.actions.includes(action)));
+          return <li key={row.scope_type+'/'+row.scope_code}>
+            {label('organization.'+row.scope_type)} · {row.scope_code} · {label('standardGrantCurrent')} {forScope(current).join(' / ')||'—'}
+            {' → '}{label('standardGrantNext')} {forScope(draft).join(' / ')||'—'}
+          </li>;
+        })}</ul>
+      </div>}
+      {data&&!failed&&<>
+        <p>{label('standardGrantCurrent')} {current.join(' / ')||'—'} · {label('standardGrantNext')} {draft.join(' / ')||'—'}</p>
+        {converting&&<p className={s.hint}>{label('standardGrantEquivalent')}</p>}
+        <button type="button" style={secondaryActionButton} disabled={busy||(!changed&&!!data.standard)}
+          onClick={()=>void previewChange()}>{label('standardGrantPreview')}</button>
+        {preview&&<div className={s.record} role="status">
+          <p>{label('standardGrantImpact')} {preview.accounts} / {preview.houses}</p>
+          {preview.changes.length===0 ? <p>{label('standardGrantNoChange')}</p> : <ul>{preview.changes.map(row=>
+            <li key={row.username+'/'+row.companyCode+'/'+row.houseCode}>
+              {row.username} · {row.companyCode} / {row.houseCode} · {row.before.join('/')||'—'} → {row.after.join('/')||'—'}
+            </li>)}</ul>}
         </div>}
-        {digest&&<>
-          <ScopePicker scope={scope} value={code} onScope={setScope} onPick={setCode} disabled={busy}/>
-          <button type="button" style={secondaryActionButton}
-            disabled={busy||!code||rows.some(row=>row.scope_type===scope&&row.scope_code===code)}
-            onClick={()=>{setRows([...rows,{scope_type:scope,scope_code:code,actions:[]}]);setCode('');setSaved(false);}}>
-            {label('organizationAdd')}
-          </button>
-          {rows.map((row,index)=><fieldset key={row.scope_type+'/'+row.scope_code} disabled={busy} className={s.record}>
-            <legend>{label('organization.'+row.scope_type)} · {row.scope_code}</legend>
-            <div className={s.actions}>{actions.map(action=><label key={action} title={label('organizationAction.'+action)}>
-              <input type="checkbox" checked={row.actions.includes(action)} disabled={action==='D'||action==='X'}
-                onChange={event=>{const checked=event.target.checked;setSaved(false);setRows(current=>current.map((grant,i)=>i===index
-                  ? {...grant,actions:checked?[...grant.actions,action]:grant.actions.filter(value=>value!==action)}:grant));}}/>
-              {' '}{label('organizationAction.'+action)}
-            </label>)}</div>
-            <button type="button" style={secondaryActionButton}
-              onClick={()=>{setRows(current=>current.filter((_,i)=>i!==index));setSaved(false);}}>{label('remove')}</button>
-          </fieldset>)}
-          <Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField} maxLength={500}
-            value={reason} onChange={event=>setReason(event.target.value)} disabled={busy}/>}</Field>
-          <button type="button" style={primaryActionButton} disabled={busy||!reason.trim()||rows.some(row=>!row.actions.length)}
-            onClick={()=>void save()}>{label('organizationSave')}</button>
-        </>}
+        <Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField} maxLength={500}
+          value={reason} onChange={event=>setReason(event.target.value)} disabled={busy}/>}</Field>
+        <button type="button" style={primaryActionButton} disabled={busy||!preview||!reason.trim()||(!changed&&!!data.standard)}
+          onClick={()=>void save()}>{label(converting?'standardGrantConvert':'standardGrantSave')}</button>
+      </>}
     </div>}
     {legacy&&<details><summary className={s.hint}>{label('legacyPermission')}</summary>{legacy}</details>}
   </div>;

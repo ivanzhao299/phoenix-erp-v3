@@ -23,6 +23,7 @@ export interface DataScopeContext {
   allowedCompanyCodes: string[];
   /** Explicit company/region grants for farm records; excludes SITE parent-company projection. */
   allowedBreedingCompanyCodes?: string[];
+  allowedExplicitBreedingCompanyCodes?: string[];
   /** Explicit SITE projections and verified extra farms for daily reports only. */
   allowedBreedingSiteCodes?: string[];
   allowedBreedingFarmCodes?: string[];
@@ -214,6 +215,7 @@ export class DataScopeService {
 
     const companyCodes = new Set<string>();
     const breedingCompanyCodes = new Set<string>();
+    const explicitBreedingCompanyCodes = new Set<string>();
     const breedingSiteCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
@@ -226,7 +228,10 @@ export class DataScopeService {
         const companyTree = activeBinding && (row.org_type === 'BU' || (!boundToOrganizations && row.org_type === 'GROUP'));
         if (row.company_code) {
           companyCodes.add(row.company_code);
-          if (explicitCompany) breedingCompanyCodes.add(row.company_code);
+          if (explicitCompany) {
+            breedingCompanyCodes.add(row.company_code);
+            explicitBreedingCompanyCodes.add(row.company_code);
+          }
         }
         if (row.project_code) projectCodes.add(row.project_code);
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
@@ -382,6 +387,7 @@ export class DataScopeService {
       scopeLevel: topLevel,
       allowedCompanyCodes: [...companyCodes],
       allowedBreedingCompanyCodes: [...breedingCompanyCodes],
+      allowedExplicitBreedingCompanyCodes: [...explicitBreedingCompanyCodes],
       allowedBreedingSiteCodes: [...breedingSiteCodes],
       allowedBreedingFarmCodes: [...breedingFarmCodes],
       allowedProjectCodes: [...projectCodes],

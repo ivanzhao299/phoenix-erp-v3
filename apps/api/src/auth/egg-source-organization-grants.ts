@@ -14,9 +14,34 @@ export type EggSourceOrganizationGrant = {
   actions:EggSourceHouseAction[];
 };
 
-export async function loadEggSourceOrganizationGrants(manager:Pick<EntityManager,'query'>, userId:string|number):
-  Promise<EggSourceOrganizationGrant[]> {
-  return manager.query(`
+export type EggSourceEffectiveGrant = EggSourceOrganizationGrant | {
+  scope_type:'OWNER';
+  scope_code:null;
+  company_code:null;
+  actions:EggSourceHouseAction[];
+};
+
+export type EggSourceGrantProposal = {
+  subject:'role'|'set';
+  id:string;
+  prior:readonly EggSourceOrganizationGrant[];
+  actions:readonly EggSourceHouseAction[];
+};
+
+function projectStandardScope(prior:readonly EggSourceOrganizationGrant[], actions:readonly EggSourceHouseAction[]):EggSourceEffectiveGrant[] {
+  if (!prior.length) return actions.length ? [{scope_type:'OWNER',scope_code:null,company_code:null,actions:[...actions]}] : [];
+  const known=prior.flatMap(row=>row.actions);
+  return prior.map(row=>({...row,actions:actions.filter(action=>row.actions.includes(action)||!known.includes(action))}))
+    .filter(row=>row.actions.length);
+}
+
+export async function loadEggSourceOrganizationGrants(manager:Pick<EntityManager,'query'>, userId:string|number,
+  proposal?:EggSourceGrantProposal):Promise<EggSourceEffectiveGrant[]> {
+  type SubjectGrant = {
+    subject:'role'|'set'; id:string; standardActions:EggSourceHouseAction[]|null; prior:EggSourceOrganizationGrant[];
+  };
+  // Start from the account's subjects so login and live checks never expand every converted grant.
+  const subjects:SubjectGrant[] = await manager.query(`
     WITH roles AS (
       SELECT ur.role_id FROM sys_user_role ur JOIN sys_role r USING(role_id)
       WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'
@@ -24,9 +49,21 @@ export async function loadEggSourceOrganizationGrants(manager:Pick<EntityManager
       SELECT rs.set_id FROM sys_role_permission_set rs JOIN roles USING(role_id)
       UNION SELECT us.set_id FROM sys_user_permission_set us WHERE us.user_id=$1
     )
-    SELECT scope_type,scope_code,company_code,actions FROM md_egg_source_organization_grants
-    WHERE role_id IN (SELECT role_id FROM roles) OR set_id IN (SELECT set_id FROM sets)
-    ORDER BY id`,[userId]);
+    SELECT 'role' AS subject,r.role_id::text AS id,s.actions AS "standardActions",
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('scope_type',g.scope_type,'scope_code',g.scope_code,
+        'company_code',g.company_code,'actions',g.actions) ORDER BY g.scope_type,g.scope_code)
+        FROM md_egg_source_organization_grants g WHERE g.role_id=r.role_id),'[]'::jsonb) AS prior
+    FROM roles r LEFT JOIN md_egg_source_standard_grants s USING(role_id)
+    UNION ALL
+    SELECT 'set',p.set_id::text,s.actions,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('scope_type',g.scope_type,'scope_code',g.scope_code,
+        'company_code',g.company_code,'actions',g.actions) ORDER BY g.scope_type,g.scope_code)
+        FROM md_egg_source_organization_grants g WHERE g.set_id=p.set_id),'[]'::jsonb)
+    FROM sets p LEFT JOIN md_egg_source_standard_grants s USING(set_id)`,[userId]);
+  return subjects.flatMap(row=>{
+    if (proposal?.subject===row.subject && proposal.id===row.id) return projectStandardScope(proposal.prior,proposal.actions);
+    return row.standardActions===null ? row.prior : projectStandardScope(row.prior,row.standardActions);
+  });
 }
 
 export function eggSourceHouseDenials(sources:readonly PermSource[]): Set<PermCode> {
@@ -41,7 +78,7 @@ export function eggSourceHouseDenials(sources:readonly PermSource[]): Set<PermCo
 
 /** Session entries only open navigation. Application actions always check the persisted contract and scope. */
 export function addEggSourceHouseSessionPermissions(permissions:string[], rows:readonly PermSource[],
-  grants:readonly EggSourceOrganizationGrant[]): string[] {
+  grants:readonly EggSourceEffectiveGrant[]): string[] {
   const denials = eggSourceHouseDenials(rows);
   const house = new Set(grants.flatMap(row => row.actions).filter(code => !denials.has(code)));
   if (!house.has('V')) return permissions;
@@ -72,13 +109,16 @@ export async function isEggSourceManagedSubject(manager:EntityManager, type:'rol
   const sql = type==='role' ? `SELECT 1 FROM sys_role r WHERE r.role_id=$1 AND (
     r.role_code='ROLE_ADMIN'
     OR EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.role_id=r.role_id)
+    OR EXISTS (SELECT 1 FROM md_egg_source_standard_grants g WHERE g.role_id=r.role_id)
     OR EXISTS (SELECT 1 FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id)
       WHERE p.role_id=r.role_id AND m.menu_code=$2)
     OR EXISTS (SELECT 1 FROM sys_role_permission_set rs WHERE rs.role_id=r.role_id AND (
       EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.set_id=rs.set_id)
+      OR EXISTS (SELECT 1 FROM md_egg_source_standard_grants g WHERE g.set_id=rs.set_id)
       OR EXISTS (SELECT 1 FROM sys_permission_set_item p JOIN sys_menu m USING(menu_id)
         WHERE p.set_id=rs.set_id AND m.menu_code=$2))))`
     : `SELECT 1 WHERE EXISTS (SELECT 1 FROM md_egg_source_organization_grants g WHERE g.set_id=$1)
+      OR EXISTS (SELECT 1 FROM md_egg_source_standard_grants g WHERE g.set_id=$1)
       OR EXISTS (SELECT 1 FROM sys_permission_set_item p JOIN sys_menu m USING(menu_id)
         WHERE p.set_id=$1 AND m.menu_code=$2)`;
   return (await manager.query(sql,[id,EGG_SOURCE_MENU])).length>0;
