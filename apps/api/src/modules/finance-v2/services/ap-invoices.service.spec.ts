@@ -210,6 +210,7 @@ describe('ApInvoicesService status labels', () => {
           supplier_name: '测试供应商',
           currency_code: 'CNY',
           exchange_rate: '1',
+          base_currency: 'USD',
           amount_original: '100.00',
           paid_amount_original: '20.00',
           paid_amount_base: '20.00',
@@ -282,7 +283,7 @@ describe('ApInvoicesService status labels', () => {
     expect(qr.rollbackTransaction).not.toHaveBeenCalled();
     expect(qrQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO fin_ap_payment_allocations'),
-      expect.arrayContaining([generatedAllocNo, '9', 'COMP-LAO-AGRI', 'CNY', 25]),
+      expect.arrayContaining([generatedAllocNo, '9', 'COMP-LAO-AGRI', 'CNY', 25, 1, 25, 'USD']),
     );
     expect(qrQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE fin_ap_invoices'),

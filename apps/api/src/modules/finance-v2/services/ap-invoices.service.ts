@@ -159,10 +159,10 @@ export class ApInvoicesService {
     };
     const [allocations, legacyPayments] = await Promise.all([
       load(`SELECT id, alloc_no, amount_original, currency_code,
-                  payment_date, payment_method, reference_no, remark, created_at
+                  payment_date::text AS payment_date, payment_method, reference_no, remark, created_at
            FROM fin_ap_payment_allocations WHERE invoice_id = $1`),
       load(`SELECT id, payment_no AS alloc_no, amount AS amount_original, currency_code,
-                  payment_date, payment_method, reference_no, note AS remark, created_at
+                  payment_date::text AS payment_date, payment_method, reference_no, note AS remark, created_at
            FROM fin_ap_payments WHERE invoice_id = $1`),
     ]);
     return [...allocations, ...legacyPayments].sort((a, b) =>
@@ -477,7 +477,7 @@ export class ApInvoicesService {
     try {
       const invRows = await qr.query(
         `SELECT id, ap_no, source_type, company_code, company_name, project_code, supplier_code, supplier_name,
-                currency_code, exchange_rate, amount_original,
+                currency_code, exchange_rate, amount_original, base_currency,
                 paid_amount_original, paid_amount_base,
                 balance_amount_original, balance_amount_base,
                 status, payment_status
@@ -556,8 +556,15 @@ export class ApInvoicesService {
       }
 
       const exRate = dto.exchangeRate ?? Number(inv.exchange_rate ?? 1);
-      const amountBase = dto.amountBase ?? Math.round(amount * exRate * 100) / 100;
-      const baseCurrency = dto.baseCurrency ?? 'CNY';
+      const calculatedBase = Math.round(amount * exRate * 100) / 100;
+      const amountBase = dto.amountBase ?? calculatedBase;
+      const baseCurrency = inv.base_currency ?? 'CNY';
+      if (dto.baseCurrency && dto.baseCurrency !== baseCurrency) {
+        throw new BadRequestException('付款本位币必须与应付发票一致');
+      }
+      if (!has_allocations && (baseCurrency !== 'CNY' || amountBase !== calculatedBase)) {
+        throw new BadRequestException('历史核销表仅支持按汇率折算的人民币本位币金额');
+      }
 
       const [{ id: paymentId }] = await qr.query(
         "SELECT nextval(pg_get_serial_sequence($1, 'id')) AS id",
@@ -664,7 +671,9 @@ export class ApInvoicesService {
       return this.findById(id);
     } catch (err) {
       await qr.rollbackTransaction();
-      if ((err as { code?: string } | null)?.code === '40001') {
+      const databaseError = err as { code?: string; constraint?: string } | null;
+      if (databaseError?.code === '40001' ||
+          (databaseError?.code === '23505' && databaseError.constraint === 'fin_cash_transactions_txn_no_key')) {
         throw new ConflictException('应付或资金账户已变更，请刷新后重试');
       }
       this.logger.error(`[AP] payInvoice 事务回滚: ${(err as Error).message}`);
