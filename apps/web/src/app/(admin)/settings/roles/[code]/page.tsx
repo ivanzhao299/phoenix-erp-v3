@@ -7,9 +7,8 @@
  *   - 权限矩阵：菜单 × V/C/E/D/A/X 三元组（PUT /api/permissions/role/{code}/perms）
  *   - 岗位冲突：基于 sys_role_conflict 的实时检测；新增 BLOCK 硬阻止，既存 BLOCK 允许只减不增
  */
-import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
-import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { EggSourceOrganizationGrants, LegacySourceGrantSummary } from '@/components/egg-sources/EggSourceOrganizationControl';
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { EntityWorkspace, Panel } from "@/components/design-system";
@@ -127,8 +126,7 @@ export default function RoleDetailPage() {
   // perms: Map<menu_code, Set<perm_code>>
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [eggWarehouse, setEggWarehouse] = useState("");
-  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
-  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
+  const [revision,setRevision]=useState('');
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
 
   const isAdmin = roleCode === "ROLE_ADMIN";
@@ -136,7 +134,7 @@ export default function RoleDetailPage() {
   // ── 数据加载 ──────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
-    setPermissionsLoaded(false);
+    setPermissionsLoaded(false);setRevision('');
     try {
       // 1) 角色列表 → 找该角色
       const r = await apiGet("/api/crud/sys_role");
@@ -174,9 +172,15 @@ export default function RoleDetailPage() {
       // 4) 该角色现有权限三元组
       if (found) {
         try {
-          const pr = await apiGet(`/api/permissions/role/${found.role_code}/perms`);
-          if (pr.code!==200 || !Array.isArray(pr.data)) throw new Error("Invalid permission response");
-          const data: RolePerm[] = pr.data;
+          const pr=await apiGet(`/api/permissions/role/${encodeURIComponent(found.role_code)}/configuration`);
+          if (pr.code!==200||pr.data?.role?.role_code!==found.role_code||!Array.isArray(pr.data.perms)||typeof pr.data.revision!=='string') {
+            throw new Error('Invalid permission response');
+          }
+          const saved:RoleRow=pr.data.role;
+          setRole(saved);setRevision(pr.data.revision);
+          setForm({role_name_zh:saved.role_name_zh,role_name_lo:saved.role_name_lo||'',role_type:saved.role_type,
+            approval_level:saved.approval_level,description:saved.description||''});
+          const data:RolePerm[]=pr.data.perms;
           const p: Record<string, Set<string>> = {};
           for (const it of data) {
             p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
@@ -184,9 +188,7 @@ export default function RoleDetailPage() {
           setPerms(p);
           const legacyGrant=data.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
           const warehouse=legacyGrant?.egg_warehouse_code??'';
-          setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
           setEggWarehouse(warehouse);
-          setSavedEggWarehouse(warehouse);
           setPermissionsLoaded(true);
           const writeGranted = new Set(Object.keys(p).filter(mc =>
             Array.from(p[mc] || []).some(code => ["C", "E", "D", "A"].includes(code)),
@@ -288,30 +290,19 @@ export default function RoleDetailPage() {
 
   // ── 保存：角色信息 + 权限矩阵（BLOCK 冲突硬阻止，与列表页一致）────────
   const handleSave = async () => {
-    if (!role) return;
+    if (!role || role.role_code!==roleCode || !permissionsLoaded || !revision || submitting) return;
     if (!canEdit) { toast.error(t("ui.无编辑权限", "无编辑权限")); return; }
     if (isAdmin) { toast.error(t("ui.超管角色受保护", "超管角色受保护，禁止面板编辑")); return; }
     if (!form.role_name_zh.trim()) { toast.error(t("ui.角色中文名称必填", "角色中文名称必填")); return; }
     setSubmitting(true);
     try {
-      // 1) 更新 sys_role 主表
-      const roleBody = {
-        role_code: role.role_code,
-        role_name_zh: form.role_name_zh,
-        role_name_lo: form.role_name_lo || null,
-        role_type: form.role_type,
-        approval_level: form.approval_level,
-        description: form.description || null,
+      const payload={
+        ...form,role_name_lo:form.role_name_lo||null,description:form.description||null,expectedRevision:revision,
+        perms:Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
+          .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')})),
       };
-      await apiPut(`/api/crud/sys_role/${role.role_code}?pk=role_code`, roleBody);
-
-      // 2) 批量覆盖权限三元组
-      const permsPayload=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
-        .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
-      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
-      if (legacy) permsPayload.push(legacy);
-      const setR = await apiPut(`/api/permissions/role/${role.role_code}/perms`, { perms: permsPayload });
-      if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败", "权限保存失败"));
+      const response=await apiPut(`/api/permissions/role/${encodeURIComponent(role.role_code)}/configuration`,payload);
+      if (response.code!==200) throw new Error(response.message||response.msg||t('ui.权限保存失败','权限保存失败'));
 
       toast.success(t("ui.角色与权限已更新", "角色与权限已更新"));
       saveAndReturn("/settings/roles", router);
@@ -473,14 +464,7 @@ export default function RoleDetailPage() {
                 const set = perms[menu.menu_code] || new Set<string>();
                   if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
                     key={menu.menu_code} subject="role" code={role?.status==="DEPRECATED"?undefined:roleCode} name={menu.menu_name_zh}
-                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
-                          aria-pressed={set.has(code)} disabled={!editable} title={menuActionLabel(menu.menu_code,code,code,t)}
-                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
-                      </div>
-                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse} disabled={!editable}/>}
-                    </div>}/>;
+                    legacy={<LegacySourceGrantSummary actions={set} warehouse={eggWarehouse}/>}/>;
                 return (
                   <div key={menu.menu_code} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, background: set.size > 0 ? `${group.domain_color}10` : "transparent" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>

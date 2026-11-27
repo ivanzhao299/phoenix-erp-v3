@@ -5,10 +5,9 @@
  * 能力集 = 可复用的 菜单×操作 捆绑；角色/用户由能力集组合。
  * 运行时解析在 auth.service 三路并集（role / role_set / user_set）。
  */
-import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
-import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { EggSourceOrganizationGrants, LegacySourceGrantSummary } from '@/components/egg-sources/EggSourceOrganizationControl';
+import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -28,6 +27,7 @@ interface MenuGroup { domain: string; domain_label_zh: string; domain_color: str
 interface RoleOpt { role_code: string; role_name_zh: string; status?: string; }
 interface UserOpt { id: string; username: string; real_name_zh: string | null; }
 interface SetDetail {
+  revision: string; source_organization_count: number;
   set_code: string; set_name_zh: string; description: string | null;
   items: Array<{ menu_code: string; menu_name_zh: string; perm_codes: string; egg_warehouse_code?: string; egg_legacy_digest?: string }>;
   roles: Array<{ role_code: string; role_name_zh: string }>;
@@ -65,8 +65,9 @@ export default function PermissionSetsPage() {
   const [editCode, setEditCode] = useState<string | null>(null);
   const [form, setForm] = useState({ set_code: "PSET_", set_name_zh: "", description: "" });
   const [eggWarehouse, setEggWarehouse] = useState("");
-  const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
-  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
+  const [revision,setRevision]=useState('');
+  const [v2ByCode,setV2ByCode]=useState<Record<string,boolean>>({});
+  const loadGeneration=useRef(0);
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [boundRoles, setBoundRoles] = useState<string[]>([]);
   const [boundUsers, setBoundUsers] = useState<string[]>([]);
@@ -95,30 +96,36 @@ export default function PermissionSetsPage() {
   }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  const closeDrawer = () => { ++loadGeneration.current; setShowDrawer(false); };
   const openNew = () => {
-    setEditCode(null); setForm({ set_code: "PSET_", set_name_zh: "", description: "" });
-    setPerms({}); setEggWarehouse(""); setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline()); setBoundRoles([]); setBoundUsers([]); setCodeErr(""); setShowDrawer(true);
+    ++loadGeneration.current;
+    setEditCode(null); setRevision('');
+    setForm({ set_code: 'PSET_', set_name_zh: '', description: '' });
+    setPerms({}); setEggWarehouse(''); setBoundRoles([]); setBoundUsers([]); setCodeErr(''); setShowDrawer(true);
   };
   const openEdit = async (row: SetRow) => {
-    setEditCode(row.set_code);
-    setForm({ set_code: row.set_code, set_name_zh: row.set_name_zh, description: row.description || "" });
-    setCodeErr("");
+    const generation=++loadGeneration.current;
+    setShowDrawer(false);
     try {
-      const r = await jget(`/api/permission-sets/${encodeURIComponent(row.set_code)}`);
-      if (r.code!==200 || !Array.isArray(r.data?.items)) throw new Error("Invalid permission response");
-      const d: SetDetail = r.data;
-      const p: Record<string, Set<string>> = {};
-      for (const it of d.items || []) p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
-      setPerms(p);
-      const legacyGrant=d.items.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
-      const warehouse=legacyGrant?.egg_warehouse_code??'';
-      setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
-      setEggWarehouse(warehouse);
-      setSavedEggWarehouse(warehouse);
-      setBoundRoles((d.roles || []).map(x => x.role_code));
-      setBoundUsers((d.users || []).map(x => String(x.user_id)));
-    } catch { toast.error(t("eggSources.permission.loadFailed", "权限明细加载失败，请重试")); return; }
-    setShowDrawer(true);
+      const r=await jget(`/api/permission-sets/${encodeURIComponent(row.set_code)}`);
+      if (generation!==loadGeneration.current) return;
+      if (r.code!==200 || r.data?.set_code!==row.set_code || !Array.isArray(r.data.items) || typeof r.data.revision!=='string') {
+        throw new Error('Invalid permission response');
+      }
+      const detail:SetDetail=r.data;
+      const configured:Record<string,Set<string>>={};
+      for (const item of detail.items) configured[item.menu_code]=new Set(item.perm_codes.split(',').map(code=>code.trim()).filter(Boolean));
+      setEditCode(detail.set_code);setRevision(detail.revision);
+      setV2ByCode(old=>({...old,[detail.set_code]:!!detail.source_organization_count}));
+      setForm({set_code:detail.set_code,set_name_zh:detail.set_name_zh,description:detail.description??''});
+      setPerms(configured);
+      setEggWarehouse(detail.items.find(item=>item.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code??'');
+      setBoundRoles(detail.roles.map(item=>item.role_code));
+      setBoundUsers(detail.users.map(item=>String(item.user_id)));
+      setCodeErr('');setShowDrawer(true);
+    } catch {
+      if (generation===loadGeneration.current) toast.error(t('eggSources.permission.loadFailed','权限明细加载失败，请重试'));
+    }
   };
 
   const togglePerm = (mc: string, c: string) => setPerms(prev => {
@@ -129,46 +136,44 @@ export default function PermissionSetsPage() {
   });
 
   const handleSave = async () => {
+    if (!showDrawer || loading || (editCode && !revision)) return;
     if (!editCode) {
       if (!SET_CODE_RE.test(form.set_code)) { toast.error(t('ui.编码格式：PSET_ + 大写字母/数字/下划线','编码格式：PSET_ + 大写字母/数字/下划线')); return; }
       if (sets.some(x => x.set_code === form.set_code)) { toast.error(t('ui.该能力集编码已存在','该能力集编码已存在')); return; }
     }
     if (!form.set_name_zh.trim()) { toast.error(t('ui.能力集名称必填','能力集名称必填')); return; }
+    const generation=loadGeneration.current;
     setLoading(true);
     try {
-      const code = form.set_code;
-      if (editCode) {
-        await jsend(`/api/permission-sets/${encodeURIComponent(code)}`, "PATCH", { set_name_zh: form.set_name_zh, description: form.description || null });
-      } else {
-        const r = await jsend("/api/permission-sets", "POST", { set_code: code, set_name_zh: form.set_name_zh, description: form.description || null });
-        if (r.code && r.code !== 200) throw new Error(r.message || r.msg || t('ui.创建失败','创建失败'));
-      }
       const items=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
         .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
-      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
-      if (legacy) items.push(legacy);
-      const ri = await jsend(`/api/permission-sets/${encodeURIComponent(code)}/items`, "PUT", { items });
-      if (ri.code && ri.code !== 200) throw new Error(ri.message || t('ui.明细保存失败','明细保存失败'));
+      const path=editCode ? `/api/permission-sets/${encodeURIComponent(editCode)}/configuration` : '/api/permission-sets/configuration';
+      await jsend(path,editCode?'PUT':'POST',{
+        ...form,description:form.description||null,items,...(editCode?{expectedRevision:revision}:{}),
+      });
+      if (generation===loadGeneration.current) closeDrawer();
       toast.success(editCode ? t('ui.能力集已更新','能力集已更新') : t('ui.能力集已创建','能力集已创建'));
-      setShowDrawer(false); loadAll();
+      void loadAll();
     } catch (e: any) { toast.error(e.message || t('ui.保存失败','保存失败')); } finally { setLoading(false); }
   };
 
   // 绑定角色/用户：即时调 API
   const toggleRole = async (rc: string) => {
     if (!editCode) { toast.error(t('ui.请先保存能力集再绑定角色','请先保存能力集再绑定角色')); return; }
+    const generation=loadGeneration.current;
     const has = boundRoles.includes(rc);
     try {
       await jsend(`/api/permission-sets/${encodeURIComponent(editCode)}/roles/${encodeURIComponent(rc)}`, has ? "DELETE" : "POST");
-      setBoundRoles(prev => has ? prev.filter(x => x !== rc) : [...prev, rc]);
+      if (generation===loadGeneration.current) setBoundRoles(prev => has ? prev.filter(x => x !== rc) : [...prev, rc]);
     } catch (e: any) { toast.error(e.message || t('ui.操作失败','操作失败')); }
   };
   const toggleUser = async (uid: string) => {
     if (!editCode) { toast.error(t('ui.请先保存能力集再绑定用户','请先保存能力集再绑定用户')); return; }
+    const generation=loadGeneration.current;
     const has = boundUsers.includes(uid);
     try {
       await jsend(`/api/permission-sets/${encodeURIComponent(editCode)}/users/${uid}`, has ? "DELETE" : "POST");
-      setBoundUsers(prev => has ? prev.filter(x => x !== uid) : [...prev, uid]);
+      if (generation===loadGeneration.current) setBoundUsers(prev => has ? prev.filter(x => x !== uid) : [...prev, uid]);
     } catch (e: any) { toast.error(e.message || t('ui.操作失败','操作失败')); }
   };
 
@@ -181,7 +186,7 @@ export default function PermissionSetsPage() {
     } catch (e: any) { toast.error(t('ui.删除失败: ','删除失败: ') + e.message); }
   };
 
-  const permCount = Object.keys(perms).length;
+  const permCount = Object.entries(perms).filter(([menu,actions])=>menu!==EGG_SOURCE_MENU&&actions.size>0).length+Number(!!editCode&&!!v2ByCode[editCode]);
 
   return <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
     <PageHeader title={t('ui.权限集（能力集）','权限集（能力集）')} subtitle={t('ui.PBAC 第 2 层 · 可复用的 菜单×操作 捆绑；角色/用户由能力集组合（运行时与角色直绑权限并集）','PBAC 第 2 层 · 可复用的 菜单×操作 捆绑；角色/用户由能力集组合（运行时与角色直绑权限并集）')} breadcrumb={[t('ui.系统设置','系统设置'), t('ui.权限集','权限集')]}
@@ -213,7 +218,7 @@ export default function PermissionSetsPage() {
       </div>)}
     </div>
 
-    <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : t('ui.新建能力集','新建能力集')} width="640px">
+    <RightDrawer open={showDrawer} onClose={closeDrawer} title={editCode ? `编辑：${editCode}` : t('ui.新建能力集','新建能力集')} width="640px">
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className={s.field}>
           <label className={s.lbl}>{t('ui.能力集编码 *','能力集编码 *')}</label>
@@ -243,16 +248,10 @@ export default function PermissionSetsPage() {
               <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                 {group.menus.map(menu => {
                   const set = perms[menu.menu_code] || new Set<string>();
-                  if (menu.menu_code===EGG_SOURCE_MENU) return <EggSourceOrganizationGrants
+                  if (menu.menu_code===EGG_SOURCE_MENU) return showDrawer ? <EggSourceOrganizationGrants
                     key={menu.menu_code} subject="set" code={editCode || undefined} name={menu.menu_name_zh}
-                    legacy={<div style={{display:'grid',gap:8,paddingTop:8}}>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-                        {(['V','E','A'] as const).map(code=><button type="button" key={code}
-                          aria-pressed={set.has(code)} disabled={false} title={menuActionLabel(menu.menu_code,code,code,t)}
-                          onClick={()=>togglePerm(menu.menu_code,code)}>{menuActionLabel(menu.menu_code,code,code,t)}</button>)}
-                      </div>
-                      {(set.has('E')||set.has('A'))&&<PermissionWarehouse value={eggWarehouse} onChange={setEggWarehouse}/>}
-                    </div>}/>;
+                    onSaved={configured=>{if (editCode) setV2ByCode(old=>({...old,[editCode]:configured}));void loadAll();}}
+                    legacy={<LegacySourceGrantSummary actions={set} warehouse={eggWarehouse}/>}/> : null;
                   return <div key={menu.menu_code} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, background: set.size > 0 ? `${group.domain_color}10` : "transparent" }}>
                     <span style={{ fontSize: 12, fontWeight: set.size > 0 ? 600 : 400 }}>{menu.menu_name_zh}</span>
                     <div style={{ display: "flex", gap: 2 }}>
@@ -282,7 +281,7 @@ export default function PermissionSetsPage() {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button type="button" onClick={() => setShowDrawer(false)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('ui.取消','取消')}</button>
+          <button type="button" onClick={closeDrawer} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('ui.取消','取消')}</button>
           <button type="button" onClick={handleSave} disabled={loading || !!codeErr} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}><Save size={14} /> {loading ? t('ui.保存中…','保存中…') : t('ui.保存','保存')}</button>
         </div>
       </div>

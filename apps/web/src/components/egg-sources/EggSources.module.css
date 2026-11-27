@@ -64,27 +64,26 @@
   font-size: 10px;
   font-weight: 700;
 }
-.sourceGrantAction:not(:disabled), .sourceGrantScope:not(:disabled) {
+button.sourceGrantAction:not(:disabled), .sourceGrantScope:not(:disabled) {
   cursor: pointer;
 }
 .sourceGrantAction:disabled {
   opacity: .5;
 }
 
+.sourceGrantAction { --grant-action-color: var(--color-primary); }
+.sourceGrantAction[data-action='C'] { --grant-action-color: var(--status-success); }
+.sourceGrantAction[data-action='E'] { --grant-action-color: var(--status-warning); }
+.sourceGrantAction[data-action='A'] { --grant-action-color: var(--status-special); }
 .sourceGrantAction[data-configured='true'] {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: white;
-}
-.sourceGrantAction[data-action='C'][data-configured='true'] {
-  background: var(--status-success);
-  border-color: var(--status-success);
-}
-.sourceGrantAction[data-action='E'][data-configured='true'] {
-  background: var(--status-warning);
-  border-color: var(--status-warning);
-  color: var(--bg-card);
+  border-color: var(--grant-action-color);
+  background: color-mix(in srgb, var(--grant-action-color) 24%, var(--bg-card));
+  color: var(--text-primary);
 }
 
 .legacyGrant summary { cursor: pointer; padding: 0.375rem 0; }
-.legacyGrant button[aria-pressed="true"] { outline: 2px solid var(--primary); outline-offset: 1px; }
+button.sourceGrantAction:focus-visible, .sourceGrantScope:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+span.sourceGrantAction { display: inline-grid; place-items: center; padding-inline: 4px; }

@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Put, Patch, Param, Query, Body, Req, HttpException,
-  UseGuards, BadRequestException,
+  UseGuards, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { hasPerm } from '../../auth/permissions.util';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PermissionsService, RoleMenuPermDto } from './permissions.service';
 
@@ -105,6 +106,27 @@ export class PermissionsController {
     return { code: 200, data };
   }
 
+  @Get('role/:code/configuration')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'V')
+  async roleConfiguration(@Param('code') code:string) {
+    return {code:200,data:await this.svc.getRoleConfiguration(code)};
+  }
+
+  @Post('role/configuration')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'C')
+  async createRoleConfiguration(@Body() body:Parameters<PermissionsService['saveRoleConfiguration']>[1] & {role_code:string}, @Req() req:any) {
+    if (req.user.role!=='ROLE_ADMIN' && !req.user.roles?.includes('ROLE_ADMIN') && !hasPerm(req.user.permissions,'MENU_SETTINGS_ROLE','E')) {
+      throw new ForbiddenException('保存角色权限需要编辑权限');
+    }
+    return {code:200,data:await this.svc.saveRoleConfiguration(body?.role_code,body,true,req.user)};
+  }
+
+  @Put('role/:code/configuration')
+  @RequireMenu('MENU_SETTINGS_ROLE', 'E')
+  async saveRoleConfiguration(@Param('code') code:string, @Body() body:Parameters<PermissionsService['saveRoleConfiguration']>[1], @Req() req:any) {
+    return {code:200,data:await this.svc.saveRoleConfiguration(code,body,false,req.user)};
+  }
+
   /**
    * PUT /api/permissions/role/:code/perms
    * 批量覆盖该角色的菜单×CRUD 三元组（事务：全删 + 全插）
@@ -117,7 +139,7 @@ export class PermissionsController {
       throw new BadRequestException('body.perms 必须是数组');
     }
     try {
-      const data = await this.svc.setRolePermissions(code, body.perms,req.user);
+      const data = await this.svc.setRolePermissions(code, body.perms);
       return { code: 200, data };
     } catch (e: any) {
       if (e instanceof HttpException) throw e;

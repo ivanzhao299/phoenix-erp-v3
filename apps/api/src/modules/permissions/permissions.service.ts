@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { SysRoleEntity } from './entities/sys-role.entity';
 import { SysMenuEntity } from './entities/sys-menu.entity';
 import { SysUserRoleEntity } from './entities/sys-user-role.entity';
@@ -10,7 +10,8 @@ import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants,loc
 import { resolvePermissions, PermSource } from '../../auth/permissions-resolver';
 
 import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
-import { legacyEggGrantDigest,resolveMenuGrants,saveMenuGrants } from './save-menu-grants';
+import { legacyEggGrantDigest,menuConfigurationRevision,readMenuGrants,resolveMenuGrants,saveMenuGrants } from './save-menu-grants';
+import { assertNoNewRoleConflicts,writeMenusForRoles } from './role-write-conflicts';
 
 export interface MenuGroupNode {
   domain: string;
@@ -36,19 +37,7 @@ export interface RoleMenuPermDto {
   egg_legacy_digest?: string;
 }
 
-type SodRule = Pick<SysRoleConflictEntity, 'menu_a' | 'menu_b' | 'severity'>;
-
-export function newlyIntroducedBlockingConflicts(
-  currentWriteMenus: Iterable<string>,
-  proposedWriteMenus: Iterable<string>,
-  rules: SodRule[],
-): SodRule[] {
-  const current = new Set(currentWriteMenus);
-  const proposed = new Set(proposedWriteMenus);
-  const triggered = (menus: Set<string>, rule: SodRule) =>
-    rule.severity === 'BLOCK' && menus.has(rule.menu_a) && menus.has(rule.menu_b);
-  return rules.filter(rule => triggered(proposed, rule) && !triggered(current, rule));
-}
+export { newlyIntroducedBlockingConflicts } from './role-write-conflicts';
 
 export interface MatrixCell {
   menu_code: string;
@@ -231,52 +220,75 @@ export class PermissionsService {
       egg_legacy_digest:r.menu_code===EGG_SOURCE_MENU?legacyEggGrantDigest(r):undefined }));
   }
 
-  // ── PUT /api/permissions/role/:code/perms  批量替换该角色的三元组 ──────
-  async setRolePermissions(roleCode: string, perms: RoleMenuPermDto[], actor?:EggSourceGrantActor) {
-    return this.dataSource.transaction(async mgr => {
-      await lockEggSourceGrantEditor(mgr);
-      const [role] = await mgr.query('SELECT role_id FROM sys_role WHERE role_code=$1 FOR UPDATE', [roleCode]);
-      if (!role) throw new BadRequestException(`角色不存在: ${roleCode}`);
-      const rows = await resolveMenuGrants(mgr, perms);
-      const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
-      const currentPerms: RoleMenuPermDto[] = await mgr.query(`SELECT m.menu_code,rmp.perm_codes
-        FROM sys_role_menu_permission rmp JOIN sys_menu m USING (menu_id) WHERE rmp.role_id=$1`, [role.role_id]);
-      const [scopedWrites]=await mgr.query(`SELECT 1 FROM md_egg_source_effective_grants g
-        WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=$1 OR g.set_id IN (
-          SELECT set_id FROM sys_role_permission_set WHERE role_id=$1)) LIMIT 1`,[role.role_id]);
-      const commonMenus=scopedWrites ? [EGG_SOURCE_MENU] : [];
-      const retainedLegacy = perms.some(p=>p.menu_code===EGG_SOURCE_MENU) ? [] :
-        currentPerms.filter(p=>p.menu_code===EGG_SOURCE_MENU && isWrite(p.perm_codes)).map(p=>p.menu_code);
-      const rules = await mgr.find(SysRoleConflictEntity);
-      const addedBlocks = newlyIntroducedBlockingConflicts(
-        [...commonMenus,...currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)],
-        [...commonMenus,...retainedLegacy,...perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)], rules);
-      if (addedBlocks.length) {
-        throw new BadRequestException(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
-      }
-      const written = await saveMenuGrants(mgr, 'role', role.role_id, rows,actor);
-      // 角色权限属于 JWT 快照。每次替换后必须使该角色所有有效用户的旧 token
-      // 失效，否则数据库矩阵已更新但浏览器仍携带旧动作位，表现为按钮与接口不一致。
-      const affected = await mgr.query(
-        `UPDATE sys_user u
-            SET perms_version = COALESCE(u.perms_version, 0) + 1,
-                updated_at = NOW()
-          WHERE EXISTS (
-            SELECT 1
-              FROM sys_user_role ur
-             WHERE ur.user_id = u.user_id
-               AND ur.role_id = $1
-               AND COALESCE(ur.is_visible, true) = true
-          )
-          RETURNING u.user_id`,
-        [role.role_id],
-      );
-      return {
-        role_code: roleCode,
-        written,
-        invalidated_users: affected.length,
-      };
+  async getRoleConfiguration(roleCode:string) {
+    return this.dataSource.transaction('REPEATABLE READ', async manager=>{
+      const [role]=await manager.query('SELECT * FROM sys_role WHERE role_code=$1',[roleCode]);
+      if (!role) throw new NotFoundException('角色不存在');
+      return this.roleConfiguration(manager,role);
     });
+  }
+
+  private async roleConfiguration(manager:EntityManager,role:SysRoleEntity) {
+    const grants=await readMenuGrants(manager,'role',role.role_id);
+    return {role,revision:menuConfigurationRevision({role,grants}),
+      perms:grants.map((grant:{menu_code:string;perm_codes:string;scope_type:string|null;scope_value:string|null})=>({
+        menu_code:grant.menu_code,perm_codes:grant.perm_codes,
+        ...(grant.menu_code===EGG_SOURCE_MENU ? {egg_warehouse_code:grant.scope_type==='WAREHOUSE'?grant.scope_value:null} : {}),
+      }))};
+  }
+
+  async saveRoleConfiguration(roleCode:string, raw:{
+    role_name_zh:string; role_name_lo?:string|null; role_type:string; approval_level:number; description?:string|null;
+    perms:RoleMenuPermDto[]; expectedRevision?:string;
+  }, create:boolean, actor:EggSourceGrantActor & {username?:string}) {
+    const name=typeof raw?.role_name_zh==='string' ? raw.role_name_zh.trim() : '';
+    if (!/^ROLE_[A-Z0-9_]{1,59}$/.test(roleCode)||roleCode==='ROLE_ADMIN'||!name||name.length>128||
+        typeof raw.role_type!=='string'||!raw.role_type.trim()||raw.role_type.length>32||
+        !Number.isInteger(raw.approval_level)||raw.approval_level<0||raw.approval_level>99||
+        (raw.role_name_lo!=null&&(typeof raw.role_name_lo!=='string'||raw.role_name_lo.length>128))||
+        (raw.description!=null&&typeof raw.description!=='string')) {
+      throw new BadRequestException('角色编码、名称、类型或审批级别无效');
+    }
+    return this.dataSource.transaction(async manager=>{
+      await lockEggSourceGrantEditor(manager);
+      const [role]=await manager.query('SELECT * FROM sys_role WHERE role_code=$1 FOR UPDATE',[roleCode]);
+      if (create===!!role) throw new ConflictException('角色已存在或已删除，请重新读取');
+      const before=role ? await this.roleConfiguration(manager,role) : null;
+      if (before&&raw.expectedRevision!==before.revision) throw new ConflictException('角色或权限明细已变化，请重新读取');
+      const values=[roleCode,name,raw.role_name_lo??null,raw.role_type.trim(),raw.approval_level,raw.description??null];
+      const [saved]=await manager.query(create ?
+        `INSERT INTO sys_role(role_code,role_name_zh,role_name_lo,role_type,approval_level,description)
+          VALUES($1,$2,$3,$4,$5,$6) RETURNING *` :
+        `WITH changed AS (UPDATE sys_role SET role_name_zh=$2,role_name_lo=$3,role_type=$4,approval_level=$5,description=$6
+          WHERE role_code=$1 RETURNING *) SELECT * FROM changed`,values);
+      const result=await this.writeRolePermissions(manager,saved.role_id,roleCode,raw.perms);
+      const after=await this.roleConfiguration(manager,saved);
+      await manager.query(`INSERT INTO sys_audit_log(user_id,user_name,action,entity_type,entity_id,before_value,after_value)
+        VALUES($1,$2,'ROLE_CONFIGURATION','SYS_ROLE',$3,$4::jsonb,$5::jsonb)`,
+      [actor.userId,actor.username??String(actor.userId),roleCode,JSON.stringify(before),JSON.stringify(after)]);
+      return {...result,revision:after.revision};
+    });
+  }
+
+  async setRolePermissions(roleCode:string,perms:RoleMenuPermDto[]) {
+    return this.dataSource.transaction(async manager=>{
+      await lockEggSourceGrantEditor(manager);
+      const [role]=await manager.query('SELECT role_id FROM sys_role WHERE role_code=$1 FOR UPDATE',[roleCode]);
+      if (!role) throw new BadRequestException(`角色不存在: ${roleCode}`);
+      return this.writeRolePermissions(manager,role.role_id,roleCode,perms);
+    });
+  }
+
+  private async writeRolePermissions(manager:EntityManager,roleId:string,roleCode:string,perms:RoleMenuPermDto[]) {
+    const rows=await resolveMenuGrants(manager,perms);
+    const before=await writeMenusForRoles(manager,[roleId]);
+    const written=await saveMenuGrants(manager,'role',roleId,rows);
+    await assertNoNewRoleConflicts(manager,[roleId],before);
+    const affected=await manager.query(`WITH changed AS (UPDATE sys_user u
+      SET perms_version = COALESCE(u.perms_version, 0) + 1, updated_at=NOW()
+      WHERE EXISTS (SELECT 1 FROM sys_user_role ur WHERE ur.user_id=u.user_id AND ur.role_id=$1 AND COALESCE(ur.is_visible,true))
+      RETURNING u.user_id) SELECT user_id FROM changed`,[roleId]);
+    return {role_code:roleCode,written,invalidated_users:affected.length};
   }
 
   // ── G119 治理面板：反查 + 角色组合 SoD 校验 ────────────────────────────

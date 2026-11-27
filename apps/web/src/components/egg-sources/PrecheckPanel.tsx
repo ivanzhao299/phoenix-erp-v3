@@ -52,7 +52,11 @@ export function PrecheckPanel({account,input,draftId,grades=[],specs=[],validate
     </button>
     {visible?.failure&&<p role="alert" className={s.error}>{label(visible.failure)}</p>}
     {visible?.result&&<div className={placement ? s.fullActionWidth : undefined}><PrecheckResult result={visible.result} grades={grades} specs={specs}/>
-      {visible.result.readiness&&<p role="status" className={s.hint}>{label('readiness.'+visible.result.readiness.status)}
-        {visible.result.readiness.code&&' · '+label('problem.'+visible.result.readiness.code)}</p>}</div>}
+      {visible.result.readiness&&<section className={s.record} aria-label={label('inventoryReadiness')}>
+        <strong>{label('inventoryReadiness')}</strong>
+        <p role="status">{label('readiness.'+visible.result.readiness.status)}
+          {visible.result.readiness.code&&' · '+label('problem.'+visible.result.readiness.code)}</p>
+        {visible.result.readiness.status==='BLOCKED'&&<p className={s.hint}>{label('approvalBlockedByInventory')}</p>}
+      </section>}</div>}
   </>;
 }
