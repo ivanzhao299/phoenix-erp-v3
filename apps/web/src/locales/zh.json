@@ -15861,6 +15861,8 @@
   "eggSources.standardGrantNoChange": "现有账号的有效权限没有变化。",
   "eggSources.standardGrantSettings": "新版动作配置",
   "eggSources.standardGrantHelp": "选择 V、C、E、A。可办理的鸡舍由用户管理中的有效养殖组织确定。",
+  "eggSources.standardGrantRole": "角色",
+  "eggSources.standardGrantSet": "权限集",
   "eggSources.standardGrantAccountScope": "账号养殖范围",
   "eggSources.standardGrantRetained": "保留的原授权限制",
   "eggSources.standardGrantCurrent": "当前动作",

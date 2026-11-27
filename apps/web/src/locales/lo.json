@@ -15861,6 +15861,8 @@
   "eggSources.standardGrantNoChange": "ສິດຕົວຈິງຂອງບັນຊີປັດຈຸບັນບໍ່ປ່ຽນແປງ.",
   "eggSources.standardGrantSettings": "ສິດການເຮັດວຽກແບບໃໝ່",
   "eggSources.standardGrantHelp": "ເລືອກ V, C, E, A. ໂຮງລ້ຽງທີ່ຈັດການໄດ້ອີງຕາມຂອບເຂດອົງກອນລ້ຽງໄກ່ຂອງບັນຊີ.",
+  "eggSources.standardGrantRole": "ບົດບາດ",
+  "eggSources.standardGrantSet": "ຊຸດສິດ",
   "eggSources.standardGrantAccountScope": "ຂອບເຂດການລ້ຽງຂອງບັນຊີ",
   "eggSources.standardGrantRetained": "ຂອບເຂດເດີມທີ່ຮັກສາໄວ້",
   "eggSources.standardGrantCurrent": "ສິດປັດຈຸບັນ",

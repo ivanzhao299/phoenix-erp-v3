@@ -712,10 +712,9 @@ export default function RoleManagementPage() {
   // 矩阵全景
   const openMatrix = async () => {
     setShowMatrix(true);
-    if (!matrixData) {
-      const r = await apiGet("/api/permissions/matrix");
-      setMatrixData(r.data);
-    }
+    setMatrixData(null);
+    const r = await apiGet("/api/permissions/matrix");
+    setMatrixData(r.data);
   };
   return <div style={{
     display: "flex",

@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/c
 import { DataSource, EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU, EggSourcePermission } from '../../../auth/egg-source-permissions';
 import { loadPermissionSources } from '../../../auth/permission-sources';
-import { eggSourceHouseDenials,loadEggSourceOrganizationGrants,type EggSourceHouseAction,type EggSourceGrantProposal } from '../../../auth/egg-source-organization-grants';
+import { eggSourceHouseDenials,loadEggSourceOrganizationGrants,type EggSourceHouseAction,type EggSourceGrantProposal,type EggSourceGrantOrigin } from '../../../auth/egg-source-organization-grants';
 import { PermSource, resolvePermissions, parseCodes } from '../../../auth/permissions-resolver';
 import { hasPerm } from '../../../auth/permissions.util';
 import { deriveOrgScope } from '../../farm/farm.service';
@@ -46,25 +46,25 @@ export class EggSourceAccessService {
     ]);
     const restrictions = { COMPANY:'restrictedCompany',FARM:'restrictedFarm',SITE:'restrictedSite',HOUSE:'restrictedHouse' } as const;
     const denials = eggSourceHouseDenials(sources);
-    let houseGrants: (action:EggSourceHouseAction)=>ChangeScope[] = ()=>[];
+    let houseGrants: (action:EggSourceHouseAction)=>(ChangeScope & {origin?:EggSourceGrantOrigin})[] = ()=>[];
     if (contract!==1 && (admin || organizationGrants.length)) {
       const resolver = manager.queryRunner?.isTransactionActive ? this.dataScopes.withManager(manager) : this.dataScopes;
       const dataScope = await resolver.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin);
       const base = deriveOrgScope({dataScope});
       const [sites,farms]: {code:string;company_code:string}[][] = admin ? [[],[]] : await Promise.all([
         manager.query(`SELECT org_code AS code,company_code FROM sys_organizations
-          WHERE org_type='SITE' AND status='ACTIVE' AND org_code=ANY($1)`,[base.siteCodes??[]]),
+          WHERE org_type='SITE' AND status='ACTIVE' AND NULLIF(btrim(company_code),'') IS NOT NULL AND org_code=ANY($1)`,[base.siteCodes??[]]),
         manager.query(`SELECT f.farm_code AS code,f.company_code FROM sys_user_farm_scopes uf
           JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code) WHERE uf.user_id=$1 AND f.status='ACTIVE'`,[id]),
       ]);
       houseGrants = action => admin ? [base] : denials.has(action) ? [] : organizationGrants
         .filter(row=>row.actions.includes(action))
-        .flatMap<ChangeScope>(row=>row.scope_type==='OWNER'
+        .flatMap<ChangeScope & {origin:EggSourceGrantOrigin}>(row=>row.scope_type==='OWNER'
           ? [
-              {...base,companyCodes:dataScope.allowedExplicitBreedingCompanyCodes??[],farmCodes:farms.map(f=>f.code),siteCodes:[]},
-              ...sites.map(site=>({...base,restrictedCompany:site.company_code,companyCodes:[],farmCodes:[],siteCodes:[site.code]})),
+              {...base,origin:row.origin,companyCodes:dataScope.allowedExplicitBreedingCompanyCodes??[],farmCodes:farms.map(f=>f.code),siteCodes:[]},
+              ...sites.map(site=>({...base,origin:row.origin,restrictedCompany:site.company_code,companyCodes:[],farmCodes:[],siteCodes:[site.code]})),
             ]
-          : [{ ...base,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
+          : [{ ...base,origin:row.origin,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
           farmCodes:farms.filter(f=>f.company_code===row.company_code).map(f=>f.code),
           siteCodes:sites.filter(site=>site.company_code===row.company_code).map(site=>site.code) }]);
     }
@@ -94,18 +94,30 @@ export class EggSourceAccessService {
     const [account] = await manager.query(`SELECT u.user_id::text AS id,u.perms_version FROM sys_user u WHERE u.username=$1
       AND u.status=1 AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
         WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')`,[username]);
-    if (!account) return {accountId:null,actions:[] as EggSourceHouseAction[]};
     const actions:EggSourceHouseAction[]=[];
+    const origins:{action:EggSourceHouseAction;source:EggSourceGrantOrigin}[]=[];
+    if (!account) return {accountId:null,actions,origins};
     const subject={userId:account.id,perms_version:Number(account.perms_version)};
     for (const action of ['V','C','E','A'] as const) {
       try {
-        const {scope}=await this.resolve(subject,action,manager,2);
-        if (canAccessEggSource(sourceScopeFor(scope,2),owner)) actions.push(action);
+        const result=await this.resolve(subject,action,manager,2);
+        const scope=sourceScopeFor(result.scope,2);
+        if (!canAccessEggSource(scope,owner)) continue;
+        actions.push(action);
+        const applied=action==='V' ? scope.viewGrants : {C:result.houseCreate,E:result.houseEdit,A:result.houseApprove}[action];
+        for (const grant of applied??[]) {
+          const source=(grant as ChangeScope & {origin?:EggSourceGrantOrigin}).origin;
+          if (source && canAccessEggSource({...scope,actionGrants:[grant]},owner) &&
+              !origins.some(item=>item.action===action && item.source.subject===source.subject &&
+                item.source.code===source.code && item.source.scopeType===source.scopeType && item.source.scopeCode===source.scopeCode)) {
+            origins.push({action,source});
+          }
+        }
       } catch (error) {
         if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;
       }
     }
-    return {accountId:account.id as string,actions};
+    return {accountId:account.id as string,actions,origins};
   }
 
   async previewHouseGrants(manager:EntityManager,proposal:EggSourceGrantProposal,

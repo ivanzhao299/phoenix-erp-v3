@@ -15861,6 +15861,8 @@
   "eggSources.standardGrantNoChange": "Effective access for existing accounts is unchanged.",
   "eggSources.standardGrantSettings": "New workflow actions",
   "eggSources.standardGrantHelp": "Select V, C, E and A. Eligible houses come from the account’s active breeding organization scope.",
+  "eggSources.standardGrantRole": "Role",
+  "eggSources.standardGrantSet": "Permission set",
   "eggSources.standardGrantAccountScope": "Account breeding scope",
   "eggSources.standardGrantRetained": "Retained scope limits",
   "eggSources.standardGrantCurrent": "Current actions",

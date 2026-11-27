@@ -118,7 +118,7 @@ function GrantRow({path,standardPath,name,legacy}:{path?:string;standardPath?:st
     setBusy(true);setFailed(false);setPreview(null);
     try {
       const result=await request<{data:GrantPreview}>(standardPath+'/preview',{
-        method:'POST',body:JSON.stringify({actions:draft}),silent:true,bindSession:true,retry:false});
+        method:'POST',body:JSON.stringify({actions:draft,expectedDigest:data.standardDigest}),silent:true,bindSession:true,retry:false});
       setPreview(result.data);
     } catch {setFailed(true);}
     finally {setBusy(false);}
@@ -244,6 +244,11 @@ export function EggSourceLegacyCreationGate() {
   </>;
 }
 
+type HouseGrantResult = {
+  actions:string[];
+  origins?:{action:string;source:{subject:'role'|'set';code:string;scopeType:string;scopeCode:string|null}}[];
+};
+
 export function EggSourceHouseRollout() {
   const {label,time}=useSourceText();
   const [open,setOpen]=useState(false);
@@ -255,7 +260,7 @@ export function EggSourceHouseRollout() {
   const [reason,setReason]=useState('');
   const [maker,setMaker]=useState('');
   const [reviewer,setReviewer]=useState('');
-  const [effective,setEffective]=useState<{maker:string[];reviewer:string[]}>();
+  const [effective,setEffective]=useState<{maker:HouseGrantResult;reviewer:HouseGrantResult}>();
   const [opening,setOpening]=useState(true);
   const path=endpoint+'/egg-source-house-rollouts';
   const prior=rows.find(row=>row.house_code===house);
@@ -271,16 +276,16 @@ export function EggSourceHouseRollout() {
     if (!house||!maker.trim()||!reviewer.trim()) return;
     setBusy(true);setFailed(false);setEffective(undefined);
     try {
-      const inspect=(username:string)=>request<{data:{actions:string[]}}>(endpoint+'/egg-source-house-access?'+
+      const inspect=(username:string)=>request<{data:HouseGrantResult}>(endpoint+'/egg-source-house-access?'+
         new URLSearchParams({house,username:username.trim()}),{silent:true,bindSession:true,cache:'no-store'});
       const [one,two]=await Promise.all([inspect(maker),inspect(reviewer)]);
-      setEffective({maker:one.data.actions,reviewer:two.data.actions});
+      setEffective({maker:one.data,reviewer:two.data});
     } catch {setFailed(true);}
     finally {setBusy(false);}
   }
   const enable=prior ? !prior.enabled : opening;
-  const rolesReady=maker.trim()!==reviewer.trim() && ['V','C','E'].every(action=>effective?.maker.includes(action))
-    && ['V','A'].every(action=>effective?.reviewer.includes(action));
+  const rolesReady=maker.trim()!==reviewer.trim() && ['V','C','E'].every(action=>effective?.maker.actions.includes(action))
+    && ['V','A'].every(action=>effective?.reviewer.actions.includes(action));
   async function save() {
     if (!loaded || !house || !reason.trim() || enable&&!rolesReady) return;
     setBusy(true);setFailed(false);
@@ -315,8 +320,17 @@ export function EggSourceHouseRollout() {
             </div>
             <button type="button" style={secondaryActionButton} disabled={busy||!maker.trim()||!reviewer.trim()}
               onClick={()=>void checkAccounts()}>{label('rolloutCheckAccounts')}</button>
-            {effective&&<p role="status">{label('rolloutMaker')} {effective.maker.join(' / ')||'—'} · {label('rolloutReviewer')} {effective.reviewer.join(' / ')||'—'}
-              {!rolesReady&&<> · {label('problem.HOUSE_ROLES_NOT_READY')}</>}</p>}
+            {effective&&<div role="status" className={s.record}>
+              {(['maker','reviewer'] as const).map(side=><div key={side}>
+                <strong>{label(side==='maker'?'rolloutMaker':'rolloutReviewer')} {effective[side].actions.join(' / ')||'—'}</strong>
+                {!!effective[side].origins?.length&&<ul>{effective[side].origins?.map(({action,source})=><li
+                  key={[action,source.subject,source.code,source.scopeType,source.scopeCode].join('/')}>
+                  {action} · {label(source.subject==='role'?'standardGrantRole':'standardGrantSet')} {source.code} · {
+                    source.scopeType==='OWNER'?label('standardGrantAccountScope'):label('organization.'+source.scopeType)+' '+source.scopeCode}
+                </li>)}</ul>}
+              </div>)}
+              {!rolesReady&&<p>{label('problem.HOUSE_ROLES_NOT_READY')}</p>}
+            </div>}
           </>}
           <Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField} maxLength={500}
             value={reason} onChange={event=>setReason(event.target.value)} disabled={busy}/>}</Field>

@@ -21,6 +21,11 @@ export type EggSourceEffectiveGrant = EggSourceOrganizationGrant | {
   actions:EggSourceHouseAction[];
 };
 
+export type EggSourceGrantOrigin = {
+  subject:'role'|'set'; code:string; retained:boolean;
+  scopeType:EggSourceEffectiveGrant['scope_type']; scopeCode:string|null;
+};
+
 export type EggSourceGrantProposal = {
   subject:'role'|'set';
   id:string;
@@ -36,33 +41,36 @@ function projectStandardScope(prior:readonly EggSourceOrganizationGrant[], actio
 }
 
 export async function loadEggSourceOrganizationGrants(manager:Pick<EntityManager,'query'>, userId:string|number,
-  proposal?:EggSourceGrantProposal):Promise<EggSourceEffectiveGrant[]> {
+  proposal?:EggSourceGrantProposal):Promise<(EggSourceEffectiveGrant & {origin:EggSourceGrantOrigin})[]> {
   type SubjectGrant = {
-    subject:'role'|'set'; id:string; standardActions:EggSourceHouseAction[]|null; prior:EggSourceOrganizationGrant[];
+    subject:'role'|'set'; id:string; code:string; standardActions:EggSourceHouseAction[]|null; prior:EggSourceOrganizationGrant[];
   };
   // Start from the account's subjects so login and live checks never expand every converted grant.
   const subjects:SubjectGrant[] = await manager.query(`
     WITH roles AS (
-      SELECT ur.role_id FROM sys_user_role ur JOIN sys_role r USING(role_id)
+      SELECT ur.role_id,r.role_code FROM sys_user_role ur JOIN sys_role r USING(role_id)
       WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'
     ), sets AS (
       SELECT rs.set_id FROM sys_role_permission_set rs JOIN roles USING(role_id)
       UNION SELECT us.set_id FROM sys_user_permission_set us WHERE us.user_id=$1
     )
-    SELECT 'role' AS subject,r.role_id::text AS id,s.actions AS "standardActions",
+    SELECT 'role' AS subject,r.role_id::text AS id,r.role_code AS code,s.actions AS "standardActions",
       COALESCE((SELECT jsonb_agg(jsonb_build_object('scope_type',g.scope_type,'scope_code',g.scope_code,
         'company_code',g.company_code,'actions',g.actions) ORDER BY g.scope_type,g.scope_code)
         FROM md_egg_source_organization_grants g WHERE g.role_id=r.role_id),'[]'::jsonb) AS prior
     FROM roles r LEFT JOIN md_egg_source_standard_grants s USING(role_id)
     UNION ALL
-    SELECT 'set',p.set_id::text,s.actions,
+    SELECT 'set',p.set_id::text,ps.set_code,s.actions,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('scope_type',g.scope_type,'scope_code',g.scope_code,
         'company_code',g.company_code,'actions',g.actions) ORDER BY g.scope_type,g.scope_code)
         FROM md_egg_source_organization_grants g WHERE g.set_id=p.set_id),'[]'::jsonb)
-    FROM sets p LEFT JOIN md_egg_source_standard_grants s USING(set_id)`,[userId]);
+    FROM sets p JOIN sys_permission_set ps USING(set_id) LEFT JOIN md_egg_source_standard_grants s USING(set_id)`,[userId]);
   return subjects.flatMap(row=>{
-    if (proposal?.subject===row.subject && proposal.id===row.id) return projectStandardScope(proposal.prior,proposal.actions);
-    return row.standardActions===null ? row.prior : projectStandardScope(row.prior,row.standardActions);
+    const proposed=proposal?.subject===row.subject && proposal.id===row.id;
+    const grants=proposed ? projectStandardScope(proposal.prior,proposal.actions)
+      : row.standardActions===null ? row.prior : projectStandardScope(row.prior,row.standardActions);
+    return grants.map(grant=>({...grant,origin:{subject:row.subject,code:row.code,
+      retained:grant.scope_type!=='OWNER',scopeType:grant.scope_type,scopeCode:grant.scope_code}}));
   });
 }
 
@@ -103,6 +111,22 @@ export async function requireEggSourceAdministrator(manager: EntityManager, user
 
 export function lockEggSourceGrantEditor(manager:EntityManager) {
   return manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-source-grant-editor'))");
+}
+
+/** Take the same IAM lock before the transaction pins its serializable snapshot. */
+export async function withEggSourceGrantEditorSnapshot<T>(manager:EntityManager,operation:(em:EntityManager)=>Promise<T>) {
+  const runner=manager.connection.createQueryRunner();
+  await runner.connect();
+  try {
+    await runner.query("SELECT pg_advisory_lock(hashtext('phoenix:egg-source-grant-editor'))");
+    try {
+      return await runner.manager.transaction('SERIALIZABLE',operation);
+    } finally {
+      await runner.query("SELECT pg_advisory_unlock(hashtext('phoenix:egg-source-grant-editor'))");
+    }
+  } finally {
+    await runner.release();
+  }
 }
 
 export async function isEggSourceManagedSubject(manager:EntityManager, type:'role'|'set', id:string|number) {

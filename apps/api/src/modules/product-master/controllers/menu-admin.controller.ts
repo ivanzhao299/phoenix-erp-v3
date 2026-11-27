@@ -3,7 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU } from '../../../auth/egg-source-permissions';
 import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceHouseAction,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
-import { requireEggSourceAdministrator,lockEggSourceGrantEditor } from '../../../auth/egg-source-organization-grants';
+import { requireEggSourceAdministrator,lockEggSourceGrantEditor,withEggSourceGrantEditorSnapshot } from '../../../auth/egg-source-organization-grants';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
 import { EggSourceAccessService } from '../services/egg-source-access.service';
@@ -178,7 +178,7 @@ export class MenuAdminController {
     await requireEggSourceAdministrator(this.em,req.user);
     const owner=await readEggSourceOwner(this.em,house);
     const outcome=await this.sourceAccess.inspectHouseAccount(this.em,owner,sourceText(username,'账号',64));
-    return {code:200,data:{eligibleAccount:!!outcome.accountId,actions:outcome.actions}};
+    return {code:200,data:{eligibleAccount:!!outcome.accountId,actions:outcome.actions,origins:outcome.origins}};
   }
 
   @Put('egg-source-house-rollouts/:house')
@@ -341,12 +341,13 @@ export class MenuAdminController {
   @Post('egg-source-standard-grants/:subject/:code/preview')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
   async previewStandardGrants(@Req() req:any,@Param('subject') subject:string,@Param('code') code:string,
-    @Body() body:{actions:EggSourceHouseAction[]}) {
+    @Body() body:{actions:EggSourceHouseAction[];expectedDigest:string}) {
     const actions=this.standardActions(body?.actions);
     return this.em.transaction('REPEATABLE READ',async m=>{
       await requireEggSourceAdministrator(m,req.user);
       const before=await this.houseGrantSubject(m,subject,code);
       const currentDigest=await this.standardScopeDigest(m,subject,before.id,before.digest);
+      if (currentDigest!==body.expectedDigest) throw new ConflictException('授权已变化，请重新读取后预览');
       const accounts=await m.query(`
         WITH affected AS (
           SELECT user_id FROM sys_user_role WHERE $1='role' AND role_id=$2
@@ -385,8 +386,7 @@ export class MenuAdminController {
     const reason=sourceText(body?.reason,'授权变更依据',500);
     const actions=this.standardActions(body?.actions);
     if (typeof body.expectedDigest!=='string') throw new BadRequestException('须先核对授权影响预览');
-    return this.em.transaction('SERIALIZABLE',async m=>{
-      await lockEggSourceGrantEditor(m);
+    return withEggSourceGrantEditorSnapshot(this.em,async m=>{
       const actor=await requireEggSourceAdministrator(m,req.user);
       const before=await this.houseGrantSubject(m,subject,code,true);
       const currentDigest=await this.standardScopeDigest(m,subject,before.id,before.digest);
