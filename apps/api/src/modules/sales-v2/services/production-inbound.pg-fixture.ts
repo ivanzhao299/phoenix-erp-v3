@@ -41,6 +41,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       CREATE TABLE IF NOT EXISTS md_variety_breeds (variety_code text, breed_code text, status text DEFAULT 'ACTIVE');
       CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text, scope_type text, scope_code text DEFAULT '', sale_enabled boolean DEFAULT true, stock_enabled boolean DEFAULT true, status text DEFAULT 'ACTIVE', effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, log_date date, house_code text, eggs_by_grade jsonb);
+      CREATE TABLE IF NOT EXISTS store_replenishment_requests(id bigserial PRIMARY KEY, transfer_no varchar(64) UNIQUE);
       CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text PRIMARY KEY, company_code text, site_code text, status text, type text, domain text);
       CREATE TABLE IF NOT EXISTS wms_locations (location_code text PRIMARY KEY, warehouse_code text, status text);
       CREATE TABLE IF NOT EXISTS inv_batches (id serial PRIMARY KEY, batch_no varchar(64) UNIQUE, product_code text, company_code text,

@@ -3402,8 +3402,8 @@ export class WmsService {
           WHERE st.stocktake_no=$2 AND upper(btrim(st.status))='DONE'
             AND NOT EXISTS (SELECT 1 FROM inv_ledger l
               WHERE l.ref_no=st.stocktake_no AND l.change_type IN ('STOCKTAKE_UP','STOCKTAKE_DOWN'))
-          RETURNING st.id
-        ) SELECT id FROM changed`, [opName, stocktake_no],
+          RETURNING st.stocktake_no
+        ) SELECT stocktake_no FROM changed`, [opName, stocktake_no],
       );
       if (transitioned.length !== 1) throw new ConflictException('单据状态已变更或已有库存流水，请核对原单');
 
@@ -3659,8 +3659,8 @@ export class WmsService {
           WHERE st.stocktake_no=$2 AND upper(btrim(st.status))='DONE'
             AND NOT EXISTS (SELECT 1 FROM inv_ledger l
               WHERE l.ref_no=st.stocktake_no AND l.change_type IN ('LOSS'))
-          RETURNING st.id
-        ) SELECT id FROM changed`, [opName, loss_no],
+          RETURNING st.stocktake_no
+        ) SELECT stocktake_no FROM changed`, [opName, loss_no],
       );
       if (transitioned.length !== 1) throw new ConflictException('单据状态已变更或已有库存流水，请核对原单');
 
