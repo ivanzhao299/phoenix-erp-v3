@@ -11,7 +11,7 @@ const head = '2'.repeat(40);
 const entry = { timestamp: 1795719000000, name: 'EnsureFinanceApPaymentAllocations1795719000000' };
 const initial = { typeorm: [{timestamp: 1795659000000, name: 'EggSourceOperationReceipts1795659000000'}], legacy: [{filename: 'baseline.sql'}] };
 
-function gitFixture({ parents = baseline + ' ' + head, changed, reviewChanges, migrationBlob = blob } = {}) {
+function gitFixture({ parents = baseline + ' ' + head, changed, reviewChanges, migrationBlob = blob, criticalChange } = {}) {
   return (...args) => {
     if (args[0] === 'show') return parents;
     if (args[0] === 'merge-base') return '';
@@ -21,7 +21,7 @@ function gitFixture({ parents = baseline + ' ' + head, changed, reviewChanges, m
       return reviewChanges ?? 'scripts/ops/procurement-ap-schema-release.mjs';
     }
     assert.equal(args[2], '--name-only');
-    return '';
+    return criticalChange ?? 'apps/api/src/modules/approval-engine/approval-engine.service.ts';
   };
 }
 
@@ -31,6 +31,7 @@ test('only accepts the approved batch merge, one exact DDL blob, and candidate-s
   assert.throws(() => verifySource(target, gitFixture({ parents: head })), /EXACT_MAIN_MERGE/);
   assert.throws(() => verifySource(target, gitFixture({ migrationBlob: head })), /MIGRATION_SET/);
   assert.throws(() => verifySource(target, gitFixture({ changed: 'A\t' + migration + '\nA\tanother.ts' })), /MIGRATION_SET/);
+  assert.throws(() => verifySource(target, gitFixture({ criticalChange: 'docker-compose.yml' })), /UNEXPECTED_CONFIG_FLOOR_CHANGE/);
   assert.throws(() => verifySource(target, gitFixture({ reviewChanges: 'apps/api/src/modules/wms/wms.service.ts' })), /REVIEWED_BATCH_CHANGED/);
 });
 

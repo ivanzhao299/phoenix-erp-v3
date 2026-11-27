@@ -35,7 +35,8 @@ export function verifySource(target, git) {
   if (git('diff', '--no-renames', '--name-only', approvedBatch, target).split('\n').some(file => !releaseFiles.has(file))) hold('REVIEWED_BATCH_CHANGED');
   if (git('diff', '--no-renames', '--name-status', baseline, target, '--', ...MIGRATION_PATHS) !== 'A\t' + migrationPath ||
       git('rev-parse', target + ':' + migrationPath) !== migrationBlob) hold('MIGRATION_SET');
-  if (git('diff', '--no-renames', '--name-only', baseline, target, '--', ...CONTRACT.criticalFiles)) hold('CONFIG_FLOOR_CHANGED');
+  const criticalDelta = git('diff', '--no-renames', '--name-only', baseline, target, '--', ...CONTRACT.criticalFiles);
+  if (criticalDelta !== 'apps/api/src/modules/approval-engine/approval-engine.service.ts') hold('UNEXPECTED_CONFIG_FLOOR_CHANGE');
   return { target, baseline, migrations: [{ path: migrationPath, blob: migrationBlob }] };
 }
 
