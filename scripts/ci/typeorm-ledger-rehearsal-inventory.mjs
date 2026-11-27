@@ -302,6 +302,12 @@ export const featureMigrations = Object.freeze([
     effective_name: 'EggSourceOperationReceipts1795659000000',
     timestamp: 1795659000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795719000000-EnsureFinanceApPaymentAllocations.js',
+    class_name: 'EnsureFinanceApPaymentAllocations1795719000000',
+    effective_name: 'EnsureFinanceApPaymentAllocations1795719000000',
+    timestamp: 1795719000000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);
