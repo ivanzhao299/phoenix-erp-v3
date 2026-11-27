@@ -1,3 +1,4 @@
+import { readEggSourceVerification,signEggSourceVerification } from '../services/egg-source-retirement-verification';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpException, InternalServerErrorException, Logger, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU as menu } from '../../../auth/egg-source-permissions';
@@ -19,6 +20,18 @@ import { EggSourceChangeService,sourceContractVersion,type SourceContractVersion
 export class EggSourceChangeController {
   constructor(private readonly service: EggSourceChangeService, private readonly history: EggHistoryReviewService,
     private readonly access: EggSourceAccessService) {}
+
+  @Get('retirement-verification/:id')
+  async readRetirementVerification(@Req() req:any,@Param('id') id:string) {
+    return {code:200,data:await this.access.transaction(m=>readEggSourceVerification(m,this.access,id,req.user),true)};
+  }
+
+  @Post('retirement-verification/:id')
+  @HttpCode(200)
+  async signRetirementVerification(@Req() req:any,@Param('id') id:string,
+    @Body() body:Parameters<typeof signEggSourceVerification>[4]) {
+    return {code:200,data:await this.access.transaction(m=>signEggSourceVerification(m,this.access,id,req.user,body))};
+  }
 
   private scope(req: any) {
     if (!req.dataScope) throw new ForbiddenException('当前组织权限未解析');

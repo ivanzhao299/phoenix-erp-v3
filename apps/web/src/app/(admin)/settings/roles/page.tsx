@@ -16,6 +16,7 @@
  *
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
+import { EggSourceLegacyCleanup } from '@/components/egg-sources/EggSourceCutover';
 import { EggSourceHouseRollout,EggSourceLegacyCreationGate,EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { EggSourceWriteControl } from '@/components/egg-sources/EggSourceWriteControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
@@ -728,7 +729,7 @@ export default function RoleManagementPage() {
       gap: "8px"
     }}>
             {rolesForSession.includes('ROLE_ADMIN') && !user.impersonatedBy && allMenus.some(menu => menu.menu_code===EGG_SOURCE_MENU) &&
-              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/><EggSourceLegacyCreationGate/></>}
+              <><EggSourceWriteControl/><EggSourceWriteControl houseContract/><EggSourceHouseRollout/><EggSourceLegacyCleanup/><EggSourceLegacyCreationGate/></>}
             {isSuper && <button type="button" style={secondaryActionButton} disabled={registeringFlockActions} onClick={registerFlockActions}>
               <Shield size={14} /> {t('breeding.lifecycle.register')}
             </button>}

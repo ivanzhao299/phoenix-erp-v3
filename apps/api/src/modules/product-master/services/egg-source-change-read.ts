@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { notArchived } from './egg-source-cutover-ledger';
 import { DataSource, EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { sourceScopeFor,type Action,type ChangeRow,type ChangeScope, type SourceContractVersion } from './egg-source-change.service';
@@ -167,7 +168,7 @@ export async function workspace(db: DataSource, house: string, resolve:(m:Entity
     const [pending] = await m.query(`SELECT count(*) FILTER (WHERE c.state='SUBMITTED' AND ($8::date IS NULL OR c.effective_date>$8))::int AS submitted,
       count(*) FILTER (WHERE c.state='SUBMITTED' AND c.effective_date<=$8::date)::int AS expired,
       count(*) FILTER (WHERE c.state='REVOKE_REQUESTED')::int AS "revokeRequested"
-      FROM md_egg_source_changes c WHERE ${changeFilter} AND c.state IN ('SUBMITTED','REVOKE_REQUESTED')`,[...changeArgs(owner,reader.scope),clock?.day??null]);
+      FROM md_egg_source_changes c WHERE ${changeFilter} AND ${notArchived} AND c.state IN ('SUBMITTED','REVOKE_REQUESTED')`,[...changeArgs(owner,reader.scope),clock?.day??null]);
     const policy = await sourceCreatePolicy(m,owner);
     const createContractVersion=policy.version;
     const createReason=await sourceCreationReadiness(m,owner,reader,policy,labels,clock?.day??null);
@@ -218,7 +219,7 @@ export async function changeList(m: EntityManager, query: ChangeListQuery, scope
     WHERE ${changeFilter} AND ($8::text IS NULL OR (c.state=$8 AND ($8<>'SUBMITTED' OR $14::date IS NULL OR c.effective_date>$14))
       OR ($8='EXPIRED' AND c.state='SUBMITTED' AND c.effective_date<=$14::date))
       AND ($9::date IS NULL OR c.effective_date >= $9) AND ($10::date IS NULL OR c.effective_date <= $10)
-      AND ($11::uuid IS NULL OR c.id=$11) AND ($12::timestamptz IS NULL OR (c.created_at,c.id)<($12,$13::uuid))
+      AND ($11::uuid IS NULL AND ${notArchived} OR c.id=$11) AND ($12::timestamptz IS NULL OR (c.created_at,c.id)<($12,$13::uuid))
     ORDER BY c.created_at DESC,c.id DESC LIMIT 26`,[...args,state,from,to,id,time,last,clock?.day??null]);
   const page = rows.slice(0,25);
   const end = page.at(-1);

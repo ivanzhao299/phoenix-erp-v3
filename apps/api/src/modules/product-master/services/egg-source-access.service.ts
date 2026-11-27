@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { EGG_SOURCE_MENU, EggSourcePermission } from '../../../auth/egg-source-permissions';
 import { loadPermissionSources } from '../../../auth/permission-sources';
@@ -11,14 +11,50 @@ import { DataScopeService } from '../../org/services/data-scope.service';
 import { sourceScopeFor,type ChangeScope } from './egg-source-change.service';
 import { canAccessEggSource,type EggSourceOwner } from './egg-source-change-policy';
 
+type SiteBinding = { code:string; company_code:string|null; farm_code:string|null; problem:string|null };
+
+async function sourceSiteBindings(manager:EntityManager,codes:string[]):Promise<SiteBinding[]> {
+  if (!codes.length) return [];
+  return manager.query(`WITH RECURSIVE chain AS (
+    SELECT s.org_code AS code,s.id,s.parent_id,s.status,s.org_type,s.org_code,
+      CASE WHEN btrim(s.company_code)<>'' THEN s.company_code END AS company_code,ARRAY[s.id] AS visited,0 AS depth
+    FROM sys_organizations s WHERE s.org_type='SITE' AND s.org_code=ANY($1)
+    UNION ALL
+    SELECT c.code,p.id,p.parent_id,p.status,p.org_type,p.org_code,CASE WHEN btrim(p.company_code)<>'' THEN p.company_code END,
+      c.visited||p.id,c.depth+1 FROM chain c JOIN sys_organizations p ON p.id=c.parent_id
+    WHERE NOT p.id=ANY(c.visited)
+  ), sites AS (
+    SELECT code, bool_and(status IS NOT DISTINCT FROM 'ACTIVE') AND bool_or(parent_id IS NULL) AS active,
+      max(company_code) FILTER (WHERE depth=0) AS explicit_company,
+      (array_agg(company_code ORDER BY depth) FILTER (WHERE org_type='COMPANY'))[1] AS company_code,
+      count(*) FILTER (WHERE depth=0) AS site_count
+    FROM chain GROUP BY code
+  ), farms AS (
+    SELECT ${OrgOwnershipService.FARM_SITE_SQL} AS code,count(*) AS farm_count,
+      min(f.farm_code) AS farm_code,min(f.company_code) AS company_code
+    FROM ${OrgOwnershipService.FARM_TABLE} f
+    WHERE f.status='ACTIVE' AND f.mapped_site_code=ANY($1) GROUP BY 1
+  ) SELECT s.code,s.company_code,f.farm_code,
+    CASE WHEN NOT s.active OR s.site_count<>1 OR s.company_code IS NULL THEN 'SITE_OWNERSHIP_UNRESOLVED'
+      WHEN f.farm_count IS NULL THEN 'SITE_FARM_MAPPING_MISSING'
+      WHEN f.farm_count<>1 THEN 'SITE_FARM_MAPPING_UNRESOLVED'
+      WHEN f.company_code IS DISTINCT FROM s.company_code OR
+        (s.explicit_company IS NOT NULL AND s.explicit_company<>s.company_code) THEN 'SITE_COMPANY_CONFLICT'
+      ELSE NULL END AS problem FROM sites s LEFT JOIN farms f USING(code)`,[codes]);
+}
+
 export type EggSourceAccount = { userId?: string | number; perms_version?: number; impersonatedBy?: unknown };
 
 @Injectable()
 export class EggSourceAccessService {
   constructor(private readonly db: DataSource, private readonly dataScopes: DataScopeService) {}
 
+  transaction<T>(work:(manager:EntityManager)=>Promise<T>,readOnly=false) {
+    return readOnly ? this.db.transaction('REPEATABLE READ',work) : this.db.transaction(work);
+  }
+
   async resolve(user: EggSourceAccount | undefined, required: EggSourceHouseAction = 'V',
-    manager = this.db.manager, contract?:1|2, proposal?:EggSourceGrantProposal,lockAccount=true) {
+    manager = this.db.manager, contract?:1|2, proposal?:EggSourceGrantProposal,lockAccount=true,inspect=false) {
     const id = String(user?.userId ?? '');
     if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) {
       throw new ForbiddenException('蛋品来源档案需要有效的实名账号');
@@ -47,27 +83,38 @@ export class EggSourceAccessService {
     ]);
     const restrictions = { COMPANY:'restrictedCompany',FARM:'restrictedFarm',SITE:'restrictedSite',HOUSE:'restrictedHouse' } as const;
     const denials = eggSourceHouseDenials(sources);
+    let siteBindings:SiteBinding[]=[];
     let houseGrants: (action:EggSourceHouseAction)=>(ChangeScope & {origin?:EggSourceGrantOrigin})[] = ()=>[];
     if (contract!==1 && (admin || organizationGrants.length)) {
       const resolver = manager.queryRunner?.isTransactionActive ? this.dataScopes.withManager(manager) : this.dataScopes;
       const dataScope = await resolver.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin);
       const base = deriveOrgScope({dataScope});
-      const [sites,farms]: {code:string;company_code:string}[][] = admin ? [[],[]] : await Promise.all([
-        manager.query(`SELECT org_code AS code,company_code FROM sys_organizations
-          WHERE org_type='SITE' AND status='ACTIVE' AND NULLIF(btrim(company_code),'') IS NOT NULL AND org_code=ANY($1)`,[base.siteCodes??[]]),
+      const [sites,farms]:[SiteBinding[],{code:string;company_code:string}[]] = admin ? [[],[]] : await Promise.all([
+        sourceSiteBindings(manager,base.siteCodes??[]),
         manager.query(`SELECT f.farm_code AS code,f.company_code FROM sys_user_farm_scopes uf
           JOIN ${OrgOwnershipService.FARM_TABLE} f USING(farm_code) WHERE uf.user_id=$1 AND f.status='ACTIVE'`,[id]),
       ]);
+      siteBindings=sites;
       houseGrants = action => admin ? [base] : denials.has(action) ? [] : organizationGrants
         .filter(row=>row.actions.includes(action))
-        .flatMap<ChangeScope & {origin:EggSourceGrantOrigin}>(row=>row.scope_type==='OWNER'
-          ? [
-              {...base,origin:row.origin,companyCodes:dataScope.allowedExplicitBreedingCompanyCodes??[],farmCodes:farms.map(f=>f.code),siteCodes:[]},
-              ...sites.map(site=>({...base,origin:row.origin,restrictedCompany:site.company_code,companyCodes:[],farmCodes:[],siteCodes:[site.code]})),
-            ]
-          : [{ ...base,origin:row.origin,restrictedCompany:row.company_code,[restrictions[row.scope_type]]:row.scope_code,
-          farmCodes:farms.filter(f=>f.company_code===row.company_code).map(f=>f.code),
-          siteCodes:sites.filter(site=>site.company_code===row.company_code).map(site=>site.code) }]);
+        .flatMap<ChangeScope & {origin:EggSourceGrantOrigin}>(row=>{
+          const restricted=row.scope_type==='OWNER' ? undefined : row;
+          if (restricted?.scope_type==='COMPANY'&&restricted.scope_code!==restricted.company_code) return [];
+          const bound={...base,origin:row.origin,restrictedCompany:restricted?.company_code,
+            ...(restricted ? {[restrictions[restricted.scope_type]]:restricted.scope_code} : {})};
+          const direct={...bound,companyCodes:row.scope_type==='OWNER' ? dataScope.allowedExplicitBreedingCompanyCodes??[] : base.companyCodes,
+            farmCodes:farms.filter(f=>!restricted||f.company_code===restricted.company_code).map(f=>f.code),siteCodes:[]};
+          const projected=sites.flatMap(site=>{
+            if (site.problem || !site.company_code || !site.farm_code || (restricted && (
+              site.company_code!==restricted.company_code ||
+              restricted.scope_type==='FARM'&&site.farm_code!==restricted.scope_code ||
+              restricted.scope_type==='SITE'&&site.code!==restricted.scope_code
+            ))) return [];
+            return [{...bound,companyCodes:[],farmCodes:[site.farm_code],siteCodes:[],
+              restrictedCompany:site.company_code,restrictedSite:site.code,restrictedFarm:site.farm_code}];
+          });
+          return [direct,...projected];
+        });
     }
     const houseView = houseGrants('V');
     const houseCreate = canWrite ? houseGrants('C') : [];
@@ -75,7 +122,7 @@ export class EggSourceAccessService {
     const houseApprove = canWrite ? houseGrants('A') : [];
     const legacy = { V:view,C:[],E:edit,A:approve };
     const house = { V:houseView,C:houseCreate,E:houseEdit,A:houseApprove };
-    if (!(view.length&&legacy[required].length) && !(houseView.length&&house[required].length)) {
+    if (!inspect && !(view.length&&legacy[required].length) && !(houseView.length&&house[required].length)) {
       throw new ForbiddenException('缺少蛋品来源档案的查看或当前操作范围');
     }
     const scope = this.union(view);
@@ -88,7 +135,7 @@ export class EggSourceAccessService {
     const warehouseScope = contract===undefined
       ? await (manager.queryRunner?.isTransactionActive ? this.dataScopes.withManager(manager) : this.dataScopes).resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin)
       : undefined;
-    return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, sessionRestriction, actor:user?.impersonatedBy ? null : id };
+    return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, sessionRestriction,siteBindings,denials:[...denials], actor:user?.impersonatedBy ? null : id };
   }
 
   async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string,includeLegacy=false) {
@@ -97,15 +144,16 @@ export class EggSourceAccessService {
         WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')`,[username]);
     const actions:EggSourceHouseAction[]=[];
     const origins:{action:EggSourceHouseAction;source:EggSourceGrantOrigin}[]=[];
-    if (!account) return {accountId:null,actions,origins};
+    if (!account) return {accountId:null,actions,origins,diagnostics:['ACCOUNT_INELIGIBLE']};
     const subject={userId:account.id,perms_version:Number(account.perms_version)};
     let access:Awaited<ReturnType<EggSourceAccessService['resolve']>>|undefined;
     try {
-      access=await this.resolve(subject,'V',manager,includeLegacy?undefined:2,undefined,!includeLegacy);
+      access=await this.resolve(subject,'V',manager,includeLegacy?undefined:2,undefined,!includeLegacy,true);
     } catch (error) {
+      if (error instanceof BadRequestException && /^SITE .+ 映射了多个 ACTIVE 农场/.test(error.message)) return {accountId:account.id as string,actions,origins,diagnostics:['SITE_FARM_MAPPING_UNRESOLVED']};
       if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;
     }
-    if (!access) return {accountId:account.id as string,actions,origins};
+    if (!access) return {accountId:account.id as string,actions,origins,diagnostics:['ACCOUNT_INELIGIBLE']};
     const scope=sourceScopeFor(access.scope,2);
     const applied=[['V',scope.viewGrants],['C',access.houseCreate],['E',access.houseEdit],['A',access.houseApprove]] as const;
     for (const [action,grants] of applied) {
@@ -121,7 +169,10 @@ export class EggSourceAccessService {
       }
       if (permitted) actions.push(action);
     }
-    return {accountId:account.id as string,actions,origins,access};
+    const diagnostics=access.siteBindings.flatMap(site=>site.code===owner.siteCode&&site.problem?[site.problem]:[]);
+    if (access.denials.length) diagnostics.push('EXPLICIT_DENIAL');
+    return {accountId:account.id as string,permissionsVersion:Number(account.perms_version),actions,origins,access,
+      diagnostics,denials:access.denials};
   }
 
   async previewHouseGrants(manager:EntityManager,proposal:EggSourceGrantProposal,
