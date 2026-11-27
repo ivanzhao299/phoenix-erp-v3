@@ -16,8 +16,10 @@ export interface NumPadProps {
   buttonHeight?: number;
   buttonFontSize?: number;
   fillHeight?: boolean;
+  allowDecimal?: boolean;
 }
 
+const DECIMAL_VALUE = /^\d{1,11}(?:\.\d{0,3})?$/;
 const KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'] as const;
 
 export default function NumPad({
@@ -34,9 +36,10 @@ export default function NumPad({
   buttonHeight = 64,
   buttonFontSize,
   fillHeight = false,
+  allowDecimal = false,
 }: NumPadProps) {
-  const sanitize = (v: string) =>
-    v === '' ? '' : String(parseInt(v, 10) || 0);
+  const sanitize = useCallback((v: string) =>
+    v === '' ? '' : allowDecimal ? (DECIMAL_VALUE.test(v) ? v : '') : String(parseInt(v, 10) || 0), [allowDecimal]);
 
   const displayRef = useRef(sanitize(initialValue));
   const [display, setDisplay] = useState(() => sanitize(initialValue));
@@ -45,7 +48,7 @@ export default function NumPad({
     const s = sanitize(initialValue);
     displayRef.current = s;
     setDisplay(s);
-  }, [initialValue]);
+  }, [initialValue, sanitize]);
 
   const press = useCallback((key: string) => {
     if (disabled) return;
@@ -56,16 +59,15 @@ export default function NumPad({
     } else if (key === '⌫') {
       next = prev.slice(0, -1);
     } else {
-      const candidate = prev + key;
-      if (candidate.length > 7) return;
-      const stripped = String(parseInt(candidate, 10)); // 去除前导零
-      if (max !== undefined && Number(stripped) > max) return;
-      next = stripped;
+      const candidate = key === '.' && !prev ? '0.' : prev + key;
+      if (allowDecimal ? !DECIMAL_VALUE.test(candidate) : candidate.length > 7) return;
+      next = allowDecimal ? candidate : String(parseInt(candidate, 10));
+      if (max !== undefined && Number(next) > max) return;
     }
     displayRef.current = next;
     setDisplay(next);
     onChange?.(next);
-  }, [disabled, max, onChange]);
+  }, [allowDecimal, disabled, max, onChange]);
 
   // Keep stable refs so the keyboard handler never goes stale
   const pressRef     = useRef<typeof press>(press);
@@ -80,20 +82,20 @@ export default function NumPad({
     const onKeyDown = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
-      if (e.key >= '0' && e.key <= '9') {
+      if (e.key >= '0' && e.key <= '9' || (allowDecimal && e.key === '.')) {
         e.preventDefault(); pressRef.current(e.key);
       } else if (e.key === 'Backspace') {
         e.preventDefault(); pressRef.current('⌫');
       } else if (e.key === 'Delete' || e.key === 'Escape') {
         e.preventDefault(); pressRef.current('C');
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'Enter' && el?.tagName !== 'BUTTON') {
         const v = displayRef.current;
         if (v.length > 0 && onConfirmRef.current) { e.preventDefault(); onConfirmRef.current(v); }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [allowDecimal]);
 
   const numVal = Number(display) || 0;
   const valid = display.length > 0 && numVal >= 0;
@@ -132,7 +134,7 @@ export default function NumPad({
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, ...(fillHeight ? { flex: 1, gridAutoRows: '1fr' } : {}) }}>
-        {KEYS.map(k => {
+        {(allowDecimal ? [...KEYS, '.'] : KEYS).map(k => {
           const isClear = k === 'C';
           const isBksp  = k === '⌫';
           const fs = buttonFontSize ?? (isBksp ? 26 : 24);
@@ -141,7 +143,7 @@ export default function NumPad({
               key={k}
               type="button"
               disabled={disabled}
-              onPointerDown={e => { e.preventDefault(); press(k); }}
+              onClick={() => press(k)}
               style={{
                 height: fillHeight ? 'auto' : buttonHeight,
                 minHeight: fillHeight ? buttonHeight : undefined,
@@ -171,7 +173,7 @@ export default function NumPad({
         <button
           type="button"
           disabled={!valid || disabled}
-          onPointerDown={e => { e.preventDefault(); if (valid && !disabled) onConfirm(display); }}
+          onClick={() => { if (valid && !disabled) onConfirm(display); }}
           style={{
             height: 58, borderRadius: 12, border: 'none',
             background: (valid && !disabled) ? accentColor : T.BOR,

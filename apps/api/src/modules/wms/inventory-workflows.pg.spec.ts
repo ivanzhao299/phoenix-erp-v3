@@ -5,6 +5,8 @@ import { InventorySourceModeService } from '../sales-v2/services/inventory-sourc
 import { DeliveryOrdersService } from '../sales-v2/services/delivery-orders.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { SalesOrderLifecycleService } from '../sales-v2/services/sales-order-lifecycle.service';
+import { ReturnOrdersService } from '../sales-v2/services/return-orders.service';
+import { ReceiptsService } from '../sales-v2/services/receipts.service';
 import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
 import { QualityService } from '../quality/quality.service';
 import { readPosAllocationTrace } from '../traceability/pos-allocation-trace';
@@ -51,14 +53,14 @@ pg('inventory workflows against the complete migration chain', () => {
     [`${prefix}-1`, `${prefix}-2`, `${prefix}-3`, `${prefix}-4`, warehouse, outside, next, beyond]);
     const filter = { transfer_no__like: `${prefix}-%`, status: ['PENDING', 'IN_TRANSIT'] };
     const visible = [warehouse, next];
-    await expect(wms.findAllTransferScoped({ ...filter, limit: 2 }, visible)).resolves.toMatchObject([
+    await expect(wms.findAllTransferScoped({ ...filter, limit: 2 }, visible)).resolves.toMatchObject({ total: 3, data: [
       { transfer_no: `${prefix}-3`, to_warehouse_name_en: 'Next EN' }, { transfer_no: `${prefix}-2` },
-    ]);
+    ] });
     await expect(wms.findAllTransferScoped({ ...filter, limit: 2, offset: 2 }, visible))
-      .resolves.toMatchObject([{ transfer_no: `${prefix}-1` }]);
-    await expect(wms.findAllTransferScoped({ ...filter, status: [] }, visible)).resolves.toEqual([]);
-    await expect(wms.findAllTransferScoped(filter, [])).resolves.toEqual([]);
-    await expect(wms.findAllTransferScoped(filter, null)).resolves.toHaveLength(4);
+      .resolves.toMatchObject({ total: 3, data: [{ transfer_no: `${prefix}-1` }] });
+    await expect(wms.findAllTransferScoped({ ...filter, status: [] }, visible)).resolves.toEqual({ data: [], total: 0 });
+    await expect(wms.findAllTransferScoped(filter, [])).resolves.toEqual({ data: [], total: 0 });
+    await expect(wms.findAllTransferScoped(filter, null)).resolves.toMatchObject({ total: 4 });
   });
 
   it('locks generic warehouse draft mutations and refuses changes that race with completion', async () => {
@@ -194,6 +196,11 @@ pg('inventory workflows against the complete migration chain', () => {
     ]);
     expect(batch.data).toEqual([single]);
     expect(single.data?.items).toHaveLength(2);
+    const equivalent = [...inputs].reverse().map(line => ({ id: line.id, qty: '10.000' }));
+    await expect(service.confirmInbound({ task_no: task, items: equivalent }, user, undefined, true)).resolves.toEqual(single);
+    await expect(service.confirmInbound({ task_no: task, items: [] }, user, undefined, true, true)).resolves.toEqual(single);
+    await expect(service.confirmInbound({ task_no: task, items: [...inputs.slice(0,1), { ...inputs[1], actual_qty: 9, broken_qty: 1 }] },
+      user, undefined, true)).rejects.toMatchObject({ status: 409 });
     const [facts] = await db.query(`SELECT count(*)::int AS movements,sum(qty_change)::float AS received
       FROM inv_ledger WHERE ref_no=$1`, [task]);
     expect(facts).toEqual({ movements: 2, received: 20 });
@@ -208,8 +215,8 @@ pg('inventory workflows against the complete migration chain', () => {
       VALUES($1,$2,'ALLOCATED',$3) RETURNING id`, [orderNo, company, warehouse]);
     const [{ id: delivery }] = await db.query(`INSERT INTO sal_delivery_orders(delivery_no,company_code,status,fulfillment_warehouse_code)
       VALUES($1,$2,'LOADING',$3) RETURNING id`, [deliveryNo, company, warehouse]);
-    await db.query(`INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
-      VALUES($1,$2,$3,20,'LOADED')`, [delivery, order, orderNo]);
+    const [{ id: deliveryItem }] = await db.query(`INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
+      VALUES($1,$2,$3,20,'LOADED') RETURNING id`, [delivery, order, orderNo]);
     const lines = await db.query(`INSERT INTO sal_order_items(sales_order_id,product_code,qty,unit_price,amount)
       VALUES($1,'FIXTURE-PRODUCT',10,1,10),($1,'FIXTURE-PRODUCT',10,1,10) RETURNING id`, [order]);
     for (const [index, qty] of [6, 4, 10].entries()) {
@@ -221,9 +228,24 @@ pg('inventory workflows against the complete migration chain', () => {
       await db.query(`INSERT INTO sal_order_item_batch_allocations(sales_order_item_id,batch_no,reserved_qty,reservation_ledger_id,created_by)
         VALUES($1,$2,$3,$4,'fixture')`, [lines[index < 2 ? 0 : 1].id, batch, qty, ledger]);
     }
+    const id = String(delivery);
+    const onReceipt = jest.fn();
+    const receiver = new ReceiptsService(db, actor, { receiveWithAr: onReceipt } as any, new SalesOrderLifecycleService(db));
+    const sign = { deliveryItemId: String(deliveryItem), receivedQty: 20 };
+    await expect(receiver.createSigned(id, sign)).rejects.toMatchObject({ status: 409 });
+
+    await db.query('UPDATE sal_order_item_batch_allocations SET reserved_qty=20 WHERE sales_order_item_id=$1 AND batch_no=$2', [lines[0].id,'INVENTORY-PICK-0']);
+    await db.query('UPDATE sal_order_item_batch_allocations SET released_qty=10 WHERE sales_order_item_id=$1', [lines[1].id]);
+    await expect(service.finishLoading(id, {})).rejects.toMatchObject({ status: 409 });
+    await db.query('UPDATE sal_order_item_batch_allocations SET reserved_qty=6 WHERE sales_order_item_id=$1 AND batch_no=$2', [lines[0].id,'INVENTORY-PICK-0']);
+    await db.query('UPDATE sal_order_item_batch_allocations SET released_qty=0 WHERE sales_order_item_id=$1', [lines[1].id]);
+    const deniedActor = { get: (key: string) => key === 'dataScope'
+      ? { ...scope, allowedWarehouseCodes: ['ELSEWHERE'] } : { userId: 100 } } as any;
+    await expect(new DeliveryOrdersService(db, deniedActor, new EggInventoryService(db, deniedActor),
+      new SalesOrderLifecycleService(db)).finishLoading(id, {})).rejects.toMatchObject({ status: 403 });
+
     const plan = await service.warehouseLoadingTasks(deliveryNo);
     expect(plan.items).toHaveLength(3);
-    const id = String(delivery);
     await expect(service.finishWarehouseLoading(id, { items: [{ ...plan.items[0], qty: 20 }] }))
       .rejects.toThrow('与装车任务不一致');
     const proof = { items: plan.items };
@@ -241,6 +263,18 @@ pg('inventory workflows against the complete migration chain', () => {
       new SalesOrderLifecycleService(db), null!,
     );
     await expect(sales.cancel(String(order), { remark: 'unexpected reversal' })).rejects.toThrow('已有出库过账');
+    await expect(receiver.createSigned(id, sign)).rejects.toMatchObject({ status: 409 });
+    await service.depart(id, {});
+    await expect(receiver.createSigned(id, sign)).rejects.toMatchObject({ status: 409 });
+    await service.arrive(id, {});
+    const otherCompany = { get: (key: string) => key === 'dataScope'
+      ? { ...scope, allowedCompanyCodes: ['OTHER-COMPANY'] } : { userId: 101 } } as any;
+    await expect(new ReceiptsService(db, otherCompany, null!, new SalesOrderLifecycleService(db)).createSigned(id, sign))
+      .rejects.toMatchObject({ status: 403 });
+    await expect(receiver.createSigned(id, { ...sign, receivedQty: 21 })).rejects.toMatchObject({ status: 400 });
+    const signed = await receiver.createSigned(id, sign);
+    await expect(receiver.createSigned(id, sign)).resolves.toEqual({ ...signed, replayed: true });
+    expect(onReceipt).toHaveBeenCalledTimes(1);
     const [{ id: oldOrder }] = await db.query(`INSERT INTO sal_sales_orders(order_no,company_code,status,fulfillment_warehouse_code)
       VALUES('INVENTORY-FIXTURE-HISTORIC',$1,'LOADED',$2) RETURNING id`, [company, warehouse]);
     const [{ id: oldLine }] = await db.query(`INSERT INTO sal_order_items(sales_order_id,product_code,qty,unit_price,amount)
@@ -250,6 +284,48 @@ pg('inventory workflows against the complete migration chain', () => {
     await db.query(`INSERT INTO sal_order_item_batch_allocations(sales_order_item_id,batch_no,reserved_qty,outbound_qty,reservation_ledger_id,created_by)
       VALUES($1,'INVENTORY-PICK-0',1,1,$2,'historical-fixture')`, [oldLine, oldLedger]);
     await expect(sales.cancel(String(oldOrder), { remark: 'historical backfill without actions' })).rejects.toThrow('已有出库过账');
+  });
+
+  it('confirms the exact partial loading receipt and links a single-line rejected delivery return once', async () => {
+    const actor = { get: (key: string) => key === 'dataScope' ? scope : { userId: 100, username: 'fixture' } } as any;
+    const lifecycle = new SalesOrderLifecycleService(db);
+    const inventory = new EggInventoryService(db, actor);
+    const service = new DeliveryOrdersService(db, actor, inventory, lifecycle);
+    const receiver = new ReceiptsService(db, actor, null!, lifecycle);
+    const returns = new ReturnOrdersService(db, actor, null!, null!, inventory, lifecycle);
+    const orderNo = 'INVENTORY-SALE-PARTIAL';
+    const deliveryNo = 'INVENTORY-DELIVERY-PARTIAL';
+    const batchNo = 'INVENTORY-BATCH-PARTIAL';
+    const [{ id: order }] = await db.query(`INSERT INTO sal_sales_orders(order_no,company_code,status,fulfillment_warehouse_code)
+      VALUES($1,$2,'ALLOCATED',$3) RETURNING id`, [orderNo, company, warehouse]);
+    const [{ id: delivery }] = await db.query(`INSERT INTO sal_delivery_orders(delivery_no,company_code,status,fulfillment_warehouse_code)
+      VALUES($1,$2,'LOADING',$3) RETURNING id`, [deliveryNo, company, warehouse]);
+    const [{ id: deliveryItem }] = await db.query(`INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
+      VALUES($1,$2,$3,4,'LOADED') RETURNING id`, [delivery, order, orderNo]);
+    const [{ id: line }] = await db.query(`INSERT INTO sal_order_items(sales_order_id,product_code,qty,unit_price,amount)
+      VALUES($1,'FIXTURE-PRODUCT',10,1,10) RETURNING id`, [order]);
+    await db.query(`INSERT INTO inv_batches(batch_no,product_code,qty,qty_available,warehouse_code,company_code,unit,status)
+      VALUES($1,'FIXTURE-PRODUCT',10,0,$2,$3,'kg','AVAILABLE')`, [batchNo, warehouse, company]);
+    const [{ id: ledger }] = await db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,ref_no,unit,change_type,qty_change)
+      VALUES($1,$2,$3,$4,'kg','RESERVED',-10) RETURNING id`, [batchNo, company, warehouse, orderNo]);
+    await db.query(`INSERT INTO sal_order_item_batch_allocations(sales_order_item_id,batch_no,reserved_qty,reservation_ledger_id,created_by)
+      VALUES($1,$2,10,$3,'fixture')`, [line, batchNo, ledger]);
+    const plan = await service.warehouseLoadingTasks(deliveryNo);
+    expect(plan.items).toMatchObject([{ batch_no: batchNo, qty: '4' }]);
+    const id = String(delivery);
+    const shipped = await service.finishWarehouseLoading(id, { items: plan.items });
+    expect(+shipped.items[0].qty).toBe(4);
+    await service.depart(id, {});
+    await service.arrive(id, {});
+    const exception = await receiver.createException(id, {
+      deliveryItemId: String(deliveryItem), receivedQty: 2, exceptionQty: 2, exceptionType: 'DAMAGED',
+    });
+    const retries = await Promise.all([receiver.resolveExceptionReturn(String(exception.id), returns),
+      receiver.resolveExceptionReturn(String(exception.id), returns)]);
+    expect(retries.map(result => result.returnOrder.id)).toEqual([retries[0].returnOrder.id, retries[0].returnOrder.id]);
+    expect(retries[0].resolutionStatus).toBe('RETURN_CREATED');
+    const [ret] = await db.query(`SELECT sales_order_item_id::text,returned_qty::float FROM sal_return_items WHERE return_order_id=$1`, [retries[0].returnOrder.id]);
+    expect(ret).toEqual({ sales_order_item_id: String(line), returned_qty: 2 });
   });
 
   it('returns only the POS quantity allocated to each visible batch, with stable receipt pagination', async () => {
@@ -335,6 +411,33 @@ pg('inventory workflows against the complete migration chain', () => {
     expect(ledger).toEqual({ n: 1, delta: -1.875 });
   });
 
+  it('normalizes historical done stocktakes, scopes reads and refuses a duplicate against any batch', async () => {
+    const wms = new WmsService(db.manager, cls);
+    const controller = new GenericCrudController(new GenericCrudService(db.manager),
+      { resolve: async () => scope } as any, wms, cls, db.manager);
+    const user = { userId: 100, username: 'fixture', storeCode: 'STORE-DOES-NOT-SCOPE-STOCKTAKE', permissions: ['*'] };
+    const batchNo = 'INVENTORY-APPROVAL-PHYSICAL';
+    const [batch] = await db.query(`INSERT INTO inv_batches(batch_no,qty,qty_available,warehouse_code,company_code,unit,status)
+      VALUES($1,9,9,$2,$3,'kg','AVAILABLE') RETURNING xmin::text`, [batchNo, warehouse, company]);
+    const number = 'INVENTORY-ST-LOWER';
+    await db.query(`INSERT INTO wms_stocktake(stocktake_no,warehouse_code,batch_no,status,book_qty,actual_qty,observed_batch_version)
+      VALUES($1,$2,$3,'done',9,8.5,$4),($5,$2,$3,'done',9,8.5,$4)`,
+    [number, warehouse, batchNo, batch.xmin, 'INVENTORY-ST-LEGACY-POSTED']);
+    const result = await controller.findAll('wms_stocktake', { stocktake_no: number }, { user });
+    expect(result.data).toEqual([expect.objectContaining({ stocktake_no: number })]);
+    await wms.approveStocktake({ stocktake_no: number }, user);
+    await expect(db.query('SELECT status FROM wms_stocktake WHERE stocktake_no=$1', [number])).resolves.toEqual([{ status: 'APPROVED' }]);
+    const [{ n }] = await db.query("SELECT count(*)::int AS n FROM inv_ledger WHERE ref_no=$1 AND change_type='STOCKTAKE_DOWN'", [number]);
+    expect(n).toBe(1);
+    const already = 'INVENTORY-ST-LEGACY-POSTED';
+    await db.query(`INSERT INTO inv_batches(batch_no,qty,qty_available,warehouse_code,company_code,unit,status)
+      VALUES('A-HISTORIC-BATCH',8,8,$1,$2,'kg','AVAILABLE')`, [warehouse, company]);
+    await db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,ref_no,unit,change_type,qty_change)
+      VALUES($1,$2,$3,$4,'kg','STOCKTAKE_DOWN',-0.5)`, ['A-HISTORIC-BATCH', company, warehouse, already]);
+    await expect(wms.approveStocktake({ stocktake_no: already }, user)).rejects.toMatchObject({ status: 409 });
+    await expect(db.query('SELECT qty::float FROM inv_batches WHERE batch_no=$1', [batchNo])).resolves.toEqual([{ qty: 8.5 }]);
+  });
+
   it('finds a physical batch with zero availability in the authorized warehouse', async () => {
     const batch = 'INVENTORY-FIXTURE-HELD';
     await db.query(`INSERT INTO inv_batches(batch_no,qty,qty_available,warehouse_code,company_code,unit,status)
@@ -380,6 +483,24 @@ pg('inventory workflows against the complete migration chain', () => {
     expect(reread.data.closed.snapshot).toEqual(first.data.closed.snapshot);
     await expect(new WarehouseDailyCloseService(db, cls).summary(closeWarehouse, day.business_day)).rejects.toThrow('无该仓权限');
   });
+  it('blocks a new daily close when opening quantities disagree with the previous sealed day', async () => {
+    const closeWarehouse = 'INVENTORY-FIXTURE-CARRY';
+    await db.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,domain)
+      VALUES ($1,'Carry validation',$2,'GENERAL','OPERATIONAL')`, [closeWarehouse, company]);
+    const [{ prior, next }] = await db.query(`
+      SELECT ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-2)::text AS prior,
+             ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-1)::text AS next`);
+    await db.query(`INSERT INTO wms_daily_close_activation(company_code,warehouse_code,first_business_date,authorized_by,evidence_ref,enabled)
+      VALUES($1,$2,$3,'fixture','fixture-rehearsal',true)`, [company, closeWarehouse, prior]);
+    await db.query(`INSERT INTO wms_daily_closes(company_code,warehouse_code,business_date,request_key,version,closed_by,snapshot)
+      VALUES($1,$2,$3,$4,$5,'fixture','{"units":[{"unit":"kg","closing":"10.500"}]}'::jsonb)`,
+    [company, closeWarehouse, prior, randomUUID(), '1'.repeat(64)]);
+    const service = new WarehouseDailyCloseService(db, { get: () => ({ ...scope, allowedWarehouseCodes: [closeWarehouse] }) } as any);
+    const preview = await service.summary(closeWarehouse, next);
+    expect(preview.data).toMatchObject({ eligible: false, totals: { continuity_gaps: 1, unresolved: 1 } });
+    await expect(service.close(closeWarehouse, next, preview.data.version!, randomUUID(), 100)).rejects.toMatchObject({ status: 409 });
+  });
+
   it('claims a later-committing smaller event id in the first open warehouse day', async () => {
     const closeWarehouse = 'INVENTORY-FIXTURE-LATE';
     await db.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,domain)

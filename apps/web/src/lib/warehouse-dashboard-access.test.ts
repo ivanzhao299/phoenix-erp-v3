@@ -18,9 +18,6 @@ describe("getWarehouseDashboardAccess", () => {
     expect(getWarehouseDashboardAccess(checker(["MENU_WMS_VIEW:V"]))).toEqual({
       canViewWarehouse: true,
       canViewInout: false,
-      canLoadZones: true,
-      canLoadInbounds: true,
-      canLoadOutbounds: true,
       canLoadBatches: true,
     });
   });
@@ -29,9 +26,6 @@ describe("getWarehouseDashboardAccess", () => {
     expect(getWarehouseDashboardAccess(checker(["MENU_WMS_INOUT:V"]))).toEqual({
       canViewWarehouse: false,
       canViewInout: true,
-      canLoadZones: false,
-      canLoadInbounds: false,
-      canLoadOutbounds: false,
       canLoadBatches: false,
     });
   });
@@ -40,9 +34,6 @@ describe("getWarehouseDashboardAccess", () => {
     expect(getWarehouseDashboardAccess(checker(["MENU_WMS_VIEW:V", "MENU_WMS_INOUT:V"]))).toEqual({
       canViewWarehouse: true,
       canViewInout: true,
-      canLoadZones: true,
-      canLoadInbounds: true,
-      canLoadOutbounds: true,
       canLoadBatches: true,
     });
   });

@@ -1,20 +1,7 @@
 "use client";
 
-/**
- * 仓库看板 — g200e 全面重构(2026-06-20)
- * ============================================
- * 治理项(按 [feedback_open_new_drawer_audit] + [feedback_avoid_emoji_color_card]):
- * 1. KPI 4 卡:s.statCard 老类 → kpiCardCompact(tone) + MONO 数字 + 单位同行
- * 2. 库区状态 ZoneCard:老 css module → detailInfoBox + progress 进度条
- * 3. 快捷入口 QuickEntryCard → 全局 NavCard + description 副标
- * 4. 今日动态:s.card + text-overflow:ellipsis → actionGroupBox + recordRow(tone)
- * 5. 本月汇总:4 行裸文本 → 4 kpiCardCompact 'sm' 小卡
- * 6. 右侧固定 320px → minmax(320,1fr) 弹性,避免文本截断
- * 7. 文案统一:PageHeader + breadcrumb 都用"仓库看板"
- */
-
 import { useEffect, useState, useMemo, useCallback } from "react";
-import request, { crudApi } from "@/lib/api-client";
+import request from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { NavCard } from "@/components/ui/NavCard";
@@ -27,20 +14,10 @@ import {
 } from "lucide-react";
 import {
   MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
-  actionGroupBox, detailInfoBox, recordRow, inlineAlert,
+  actionGroupBox, recordRow, inlineAlert,
   secondaryActionButton,
 } from "@/components/design-system/cockpit-styles";
 
-interface Zone {
-  id: number;
-  zone_code: string;
-  zone_name: string;
-  zone_type: string;
-  temp_range: string;
-  used_capacity: number;
-  total_capacity: number;
-  status: string;
-}
 type DashboardDocuments = {
   today_in: number; today_out: number; month_in: number; month_out: number;
   activity: Array<{ kind: 'in' | 'out'; number: string; warehouse_code: string; day: string; updated_at: string }>;
@@ -50,44 +27,13 @@ type DashboardStock = {
   units: Array<{ unit: string | null; count: number; available: string }>;
 };
 
-// ── 库区卡片 — g200e 重写,克制白底 + 进度条用 var(--status-*)
-function ZoneCard({ zone, warningLabel }: { zone: Zone; warningLabel: string }) {
-  const pct = zone.total_capacity > 0 ? Math.round((zone.used_capacity / zone.total_capacity) * 100) : 0;
-  const isWarn = zone.status === "WARNING" || pct >= 85;
-  const barColor = pct >= 85 ? "var(--status-danger)" : pct >= 60 ? "var(--status-warning)" : "var(--status-success)";
-  return (
-    <div style={{ ...detailInfoBox, background: "var(--bg-card)", padding: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{zone.zone_name}</div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-            {zone.zone_type}
-            {zone.temp_range ? ` · ${zone.temp_range}` : ""}
-          </div>
-        </div>
-        {isWarn && <span style={{ ...inlineAlert("warning"), padding: "2px 8px", fontSize: 11 }}>{warningLabel}</span>}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6, fontFamily: MONO_FONT }}>
-        <span>{Number(zone.used_capacity).toLocaleString()} / {Number(zone.total_capacity).toLocaleString()}</span>
-        <span style={{ color: barColor, fontWeight: 700 }}>{pct}%</span>
-      </div>
-      <div style={{ height: 6, borderRadius: 3, background: "var(--bg-muted)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width .3s" }} />
-      </div>
-    </div>
-  );
-}
-
 export default function WarehouseDashboard() {
   const { t } = useLanguage();
   const { hasPermission, loading: authLoading } = useAuth();
   const {
-    canViewWarehouse,
     canViewInout,
-    canLoadZones,
     canLoadBatches,
   } = useMemo(() => getWarehouseDashboardAccess(hasPermission), [hasPermission]);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [documents, setDocuments] = useState<DashboardDocuments | null>(null);
   const [stock, setStock] = useState<DashboardStock | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,19 +44,17 @@ export default function WarehouseDashboard() {
     setLoading(true);
     setLoadError(null);
     const outcomes = await Promise.allSettled([
-      canLoadZones ? crudApi.list<Zone>('wms_zones', { limit: 100 }, { silent: true }) : null,
       canViewInout ? request<{ data: DashboardDocuments }>('/inventory/dashboard/documents', { silent: true }) : null,
       canLoadBatches ? request<{ data: DashboardStock }>('/inventory/batches/query', { silent: true }) : null,
     ]);
-    const [zoneResult, documentResult, stockResult] = outcomes;
-    setZones(zoneResult.status === 'fulfilled' ? zoneResult.value?.data ?? [] : []);
+    const [documentResult, stockResult] = outcomes;
     setDocuments(documentResult.status === 'fulfilled' ? documentResult.value?.data ?? null : null);
     setStock(stockResult.status === 'fulfilled' ? stockResult.value?.data ?? null : null);
     if (outcomes.some(outcome => outcome.status === 'rejected')) {
       setLoadError(t('ui.部分仓储看板数据加载失败请刷新或联系管理员', '部分仓储看板数据加载失败，请刷新或联系管理员。'));
     }
     setLoading(false);
-  }, [authLoading, canLoadBatches, canLoadZones, canViewInout, t]);
+  }, [authLoading, canLoadBatches, canViewInout, t]);
   useEffect(() => { void loadAll(); }, [loadAll]);
 
   const stockByUnit = (stock?.units ?? []).map(group => ({
@@ -142,12 +86,10 @@ export default function WarehouseDashboard() {
     { path: "/warehouse/locations", Icon: MapPin,         label: t("ui.库位管理", "库位管理"), desc: t("ui.库位管理", "库位档案、容量、温区,与库区联动。"),          accent: "blue"   as const, perm: "MENU_WMS_MASTER" },
     { path: "/warehouse/ledger",    Icon: BookOpen,       label: t("ui.库存台账", "库存台账"), desc: t("ui.库存台账", "inv_batches 唯一台账,所有动作全可追溯。"),     accent: "cyan"   as const, perm: "MENU_WMS_VIEW" },
   ];
-  const warningLabel = t("ui.容量预警", "容量预警");
 
   const monthlyStats = [
     { label: t("ui.总入库单数", "总入库单数"),       value: documents?.month_in ?? "—",  tone: "success" as const },
     { label: t("ui.总出库单数", "总出库单数"),       value: documents?.month_out ?? "—", tone: "danger"  as const },
-    { label: t("ui.库区满载预警", "库区满载预警"),   value: canViewInout ? zones.filter(z => z.status === "WARNING").length : "—", tone: "warning" as const },
     { label: t("ui.临期批次", "临期批次"),           value: stock?.expiring_count ?? "—",    tone: "warning" as const },
   ];
 
@@ -155,7 +97,7 @@ export default function WarehouseDashboard() {
     <div className="animate-fade-in">
       <PageHeader
         title={t("ui.仓库看板", "仓库看板")}
-        subtitle={`${t("ui.全仓储实时监控", "全仓储实时监控")} · ${zones.length} ${t("ui.个库区", "个库区")} · ${t("ui.实时库存数据", "实时库存数据")}`}
+        subtitle={t("ui.实时库存数据", "实时库存数据")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.仓库看板", "仓库看板")]}
         actions={
           <button type="button" style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }} onClick={loadAll} disabled={loading}>
@@ -218,33 +160,7 @@ export default function WarehouseDashboard() {
 
       {/* 主内容区:库区 + 侧边栏 — 弹性 minmax 避免文本截断 */}
       <div className={styles.dashboardGrid}>
-        {/* 左:库区状态 + 快捷入口 */}
         <div>
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
-            {t("ui.库区状态", "库区状态")}
-            {loading && <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 400, marginLeft: 8 }}>{t("common.loading", "加载中…")}</span>}
-          </h3>
-          {!loading && !canViewInout && (
-            <div style={{ ...inlineAlert("info"), marginBottom: 24 }}>
-              {t("ui.当前账号仅可查看库存总览出入库作业与库区容量已按权限隐藏", "当前账号仅可查看库存总览，出入库作业与库区容量已按权限隐藏。")}
-            </div>
-          )}
-          {!loading && canViewInout && zones.length === 0 && (
-            <div style={{ ...inlineAlert("warning"), marginBottom: 24 }}>
-              {t("ui.暂无库区数据请先维护仓库库区档案", "暂无库区数据，请先维护仓库库区档案")}
-            </div>
-          )}
-          {zones.length > 0 && (
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))",
-              gap: 12,
-              marginBottom: 24,
-            }}>
-              {zones.map(z => <ZoneCard key={z.zone_code || z.id} zone={z} warningLabel={warningLabel} />)}
-            </div>
-          )}
-
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
             {t("ui.快捷入口", "快捷入口")}
           </h3>

@@ -1,8 +1,8 @@
 import { SkuPolicy } from '../../product-master/services/sku-policy';
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { WmsService } from '../../wms/wms.service';
 import { StoreScopePolicy } from './store-scope-policy.service';
 
@@ -106,60 +106,81 @@ export class StoreReplenishmentService {
     if (!storeContext.warehouseCodes.includes(request.target_warehouse_code)) {
       throw new ForbiddenException('补货调拨目标仓不是该门店有效 SALES 绑定仓');
     }
-    const lines = await this.ds.query<any[]>(`SELECT * FROM store_replenishment_request_lines WHERE request_id=$1 ORDER BY id`, [id]);
-    const transferItems: Array<{ batch_no: string; qty: number }> = [];
-    for (const line of lines) {
-      let needed = Number(line.requested_qty);
-      const batches = await this.ds.query<any[]>(`SELECT batch_no,COALESCE(qty_available,qty) available FROM inv_batches
-        WHERE warehouse_code=$1 AND sku_code=$2 AND status='AVAILABLE'
-          AND COALESCE(inventory_class,'STANDARD')='STANDARD'
-          AND COALESCE(qty_available,qty)>0
-        ORDER BY expire_date NULLS LAST,created_at,batch_no`, [source, line.sku_code]);
-      for (const batch of batches) {
-        if (needed <= 0) break;
-        const qty = Math.min(needed, Number(batch.available));
-        transferItems.push({ batch_no: batch.batch_no, qty }); needed -= qty;
+    return this.atomicRequest(request, id, 'SUBMITTED', async manager => {
+      const lines = await manager.query<any[]>(`SELECT * FROM store_replenishment_request_lines WHERE request_id=$1 ORDER BY id`, [id]);
+      const transferItems: Array<{ batch_no: string; qty: number }> = [];
+      for (const line of lines) {
+        let needed = Number(line.requested_qty);
+        const batches = await manager.query<any[]>(`SELECT batch_no,COALESCE(qty_available,qty) available FROM inv_batches
+          WHERE warehouse_code=$1 AND sku_code=$2 AND status='AVAILABLE'
+            AND COALESCE(inventory_class,'STANDARD')='STANDARD'
+            AND COALESCE(qty_available,qty)>0
+          ORDER BY expire_date NULLS LAST,created_at,batch_no`, [source, line.sku_code]);
+        for (const batch of batches) {
+          if (needed <= 0) break;
+          const qty = Math.min(needed, Number(batch.available));
+          transferItems.push({ batch_no: batch.batch_no, qty }); needed -= qty;
+        }
+        if (needed > 0) throw new BadRequestException(`SKU ${line.sku_code} 源仓可用库存不足`);
       }
-      if (needed > 0) throw new BadRequestException(`SKU ${line.sku_code} 源仓可用库存不足`);
-    }
-    const transfer = await this.wms.createStoreReplenishmentTransfer({
-      from_warehouse: source,
-      to_warehouse: request.target_warehouse_code,
-      reason: `门店补货 ${request.request_no}`,
-      items: transferItems,
-    }, user, storeContext);
-    const [updated] = await this.ds.query(`UPDATE store_replenishment_requests SET status='APPROVED',source_warehouse_code=$2,
-      transfer_no=$3,approved_by=$4,approved_at=now(),updated_at=now() WHERE id=$1 AND status='SUBMITTED' RETURNING *`,
-      [id, source, transfer.transfer_no, String(user?.username || 'SYS')]);
-    await this.ds.query(`UPDATE store_replenishment_request_lines SET approved_qty=requested_qty,updated_at=now() WHERE request_id=$1`, [id]);
-    return updated;
+      const transfer = await this.wms.createStoreReplenishmentTransfer({
+        from_warehouse: source,
+        to_warehouse: request.target_warehouse_code,
+        reason: `门店补货 ${request.request_no}`,
+        items: transferItems,
+      }, user, storeContext, manager);
+      const [updated] = await manager.query(`WITH changed AS (UPDATE store_replenishment_requests SET status='APPROVED',source_warehouse_code=$2,
+        transfer_no=$3,approved_by=$4,approved_at=now(),updated_at=now() WHERE id=$1 AND status='SUBMITTED' RETURNING *) SELECT * FROM changed`,
+        [id, source, transfer.transfer_no, String(user?.username || 'SYS')]);
+      if (!updated) throw new ConflictException('补货申请状态已变化');
+      await manager.query(`UPDATE store_replenishment_request_lines SET approved_qty=requested_qty,updated_at=now() WHERE request_id=$1`, [id]);
+      return updated;
+    });
   }
 
   async dispatch(id: number, user: any) {
     const request = await this.assertWarehouseRequest(id, 'APPROVED');
-    const result = await this.wms.dispatchTransfer(request.transfer_no, user);
-    await this.ds.query(`UPDATE store_replenishment_requests SET status='DISPATCHED',updated_at=now() WHERE id=$1 AND status='APPROVED'`, [id]);
-    return result;
+    return this.atomicRequest(request, id, 'APPROVED', async manager => {
+      const result = await this.wms.dispatchTransfer(request.transfer_no, user, manager);
+      await manager.query(`UPDATE store_replenishment_requests SET status='DISPATCHED',updated_at=now() WHERE id=$1`, [id]);
+      return result;
+    });
   }
 
   async receive(id: number, body: any, user: any) {
     const request = await this.assertStoreRequest(id);
     if (request.status !== 'DISPATCHED') throw new BadRequestException('仅已发运申请可签收');
-    const result = await this.wms.receiveTransfer(request.transfer_no, body, user);
-    await this.ds.query(`UPDATE store_replenishment_requests SET status=$2,updated_at=now() WHERE id=$1 AND status='DISPATCHED'`, [id, result.status === 'COMPLETED' ? 'CLOSED' : 'RECEIVED']);
-    await this.ds.query(`UPDATE store_replenishment_request_lines l SET received_qty=x.qty,updated_at=now() FROM (
-      SELECT r.id,SUM(i.received_qty) qty FROM store_replenishment_request_lines r
-      JOIN wms_transfer_items i ON i.transfer_no=$2 JOIN inv_batches b ON b.batch_no=i.source_batch_no AND b.sku_code=r.sku_code
-      WHERE r.request_id=$1 GROUP BY r.id) x WHERE l.id=x.id`, [id, request.transfer_no]);
-    return result;
+    return this.atomicRequest(request, id, 'DISPATCHED', async manager => {
+      const result = await this.wms.receiveTransfer(request.transfer_no, body, user, manager);
+      await manager.query(`UPDATE store_replenishment_requests SET status=$2,updated_at=now() WHERE id=$1`,
+        [id, result.status === 'COMPLETED' ? 'CLOSED' : 'RECEIVED']);
+      await manager.query(`UPDATE store_replenishment_request_lines l SET received_qty=x.qty,updated_at=now() FROM (
+        SELECT r.id,SUM(i.received_qty) qty FROM store_replenishment_request_lines r
+        JOIN wms_transfer_items i ON i.transfer_no=$2 JOIN inv_batches b ON b.batch_no=i.source_batch_no AND b.sku_code=r.sku_code
+        WHERE r.request_id=$1 GROUP BY r.id) x WHERE l.id=x.id`, [id, request.transfer_no]);
+      return result;
+    });
   }
 
   async close(id: number, body: any, user: any) {
     const request = await this.assertStoreRequest(id);
     if (request.status !== 'RECEIVED') throw new BadRequestException('仅差异待确认申请可关闭');
-    const result = await this.wms.completeTransfer(request.transfer_no, body, user);
-    await this.ds.query(`UPDATE store_replenishment_requests SET status='CLOSED',updated_at=now() WHERE id=$1 AND status='RECEIVED'`, [id]);
-    return result;
+    return this.atomicRequest(request, id, 'RECEIVED', async manager => {
+      const result = await this.wms.completeTransfer(request.transfer_no, body, user, manager);
+      await manager.query(`UPDATE store_replenishment_requests SET status='CLOSED',updated_at=now() WHERE id=$1`, [id]);
+      return result;
+    });
+  }
+
+  private atomicRequest<T>(request: any, id: number, status: string, change: (manager: EntityManager) => Promise<T>) {
+    return this.ds.transaction(async manager => {
+      const [locked] = await manager.query(`SELECT * FROM store_replenishment_requests WHERE id=$1 FOR UPDATE`, [id]);
+      const pinned = ['company_code', 'store_id', 'source_warehouse_code', 'target_warehouse_code', 'transfer_no'];
+      if (!locked || locked.status !== status || pinned.some(key => locked[key] !== request[key])) {
+        throw new ConflictException('补货申请已变化，请查回当前状态');
+      }
+      return change(manager);
+    });
   }
 
   async transferDetail(id: number) {

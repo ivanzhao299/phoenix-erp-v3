@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Body, Param, Query,
-  UseGuards, Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { ClsService }              from 'nestjs-cls';
 import { MenuGuard, RequireMenu }  from '../../../common/guards/menu.guard';
@@ -15,8 +15,6 @@ const MENU = 'MENU_MOBILE_DELIVERY';
 @Controller('api/v2/mobile/delivery')
 @UseGuards(MenuGuard, DataScopeGuard)
 export class MobileDeliveryController {
-  private readonly logger = new Logger(MobileDeliveryController.name);
-
   constructor(
     private readonly deliverySvc: DeliveryOrdersService,
     private readonly receiptsSvc: ReceiptsService,
@@ -137,6 +135,7 @@ export class MobileDeliveryController {
   @RequireMenu(MENU, 'C')
   async sign(@Param('id') id: string, @Body() dto: any) {
     const result = await this.receiptsSvc.createSigned(id, dto);
+    if (result.replayed) return result;
     // 签收完成 Push
     await this.pushSvc.sendToUser(
       this.user?.userId ?? 0,
@@ -157,13 +156,6 @@ export class MobileDeliveryController {
     signedBy?:        string;
     remark?:          string;
     photoUrls?:       string[];
-    // 退货信息（用于 Return Runtime）
-    customerCode?:    string;
-    customerName?:    string;
-    companyCode?:     string;
-    productCode?:     string;
-    productName?:     string;
-    unitPrice?:       number;
   }) {
     // 1. 创建异常签收记录
     const receipt = await this.receiptsSvc.createException(id, {
@@ -176,35 +168,8 @@ export class MobileDeliveryController {
       photoUrls:      body.photoUrls,
     } as any);
 
-    // 2. 有异常数量时自动创建 Return Order（DELIVERY_REJECT）
-    let returnOrder: any = null;
-    if (body.exceptionQty > 0 && body.customerCode && body.companyCode && body.productCode) {
-      try {
-        returnOrder = await this.returnsSvc.create({
-          deliveryOrderId: id,
-          salesOrderId: receipt.sales_order_id ? String(receipt.sales_order_id) : undefined,
-          salesOrderNo: receipt.sales_order_no ?? undefined,
-          customerCode:    body.customerCode,
-          customerName:    body.customerName,
-          companyCode:     body.companyCode,
-          returnType:      'DELIVERY_REJECT',
-          reasonCode:      body.exceptionType,
-          remark:          body.remark,
-          items: [{
-            productCode:  body.productCode,
-            productName:  body.productName,
-            returnedQty:  body.exceptionQty,
-            unitPrice:    body.unitPrice ?? 0,
-            remark:       body.exceptionType,
-          }],
-        });
-        await this.receiptsSvc.linkExceptionReturn(String(receipt.id), String(returnOrder.id));
-        this.logger.log(`[MobileDelivery] 异常签收 → Return Order ${returnOrder?.return_no ?? returnOrder?.id}`);
-      } catch (err: any) {
-        this.logger.error(`[MobileDelivery] Return Order 创建失败: ${err.message}`);
-        throw err;
-      }
-    }
+    const result = await this.receiptsSvc.resolveExceptionReturn(String(receipt.id), this.returnsSvc);
+    if (receipt.replayed) return { receipt, ...result };
 
     // 3. Push 通知：异常签收
     await this.pushSvc.sendToUser(
@@ -217,7 +182,7 @@ export class MobileDeliveryController {
       },
     );
 
-    return { receipt, returnOrder };
+    return { receipt, ...result };
   }
 
   // ── 签收照片上传（保存 photo_urls 到签收记录） ────────────────────────────

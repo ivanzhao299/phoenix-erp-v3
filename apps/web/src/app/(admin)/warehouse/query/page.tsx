@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw, Search, Warehouse } from "lucide-react";
+import { StatusBadge } from "@/components/design-system/status/StatusBadge";
 import PageHeader from "@/components/PageHeader";
 import request, { type ApiError } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -96,12 +97,12 @@ export default function StockQueryPage() {
         <input
           value={keyword}
           onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+          aria-label={t("ui.搜索批次产品仓库库位门店", "搜索批次号、产品编码、仓库、库位或门店")}
           placeholder={t("ui.搜索批次产品仓库库位门店", "搜索批次号、产品编码、仓库、库位或门店")}
           style={{
             flex: 1,
             minWidth: 180,
             border: "none",
-            outline: "none",
             background: "transparent",
             color: "var(--text-primary)",
             fontSize: 14,
@@ -123,7 +124,7 @@ export default function StockQueryPage() {
         </button>
       </div>
 
-      {error && <div style={errorStyle}>{error}</div>}
+      {error && <div role="alert" style={errorStyle}>{error}</div>}
 
       <div style={{
         background: "var(--bg-card)",
@@ -131,7 +132,7 @@ export default function StockQueryPage() {
         borderRadius: 10,
         overflow: "hidden",
       }}>
-        <div style={{ overflowX: "auto" }}>
+        <div role="region" aria-label={t("ui.库存查询", "库存查询")} tabIndex={0} style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 1040, borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
@@ -186,7 +187,7 @@ export default function StockQueryPage() {
                       <div>{t('ui.实存', '实存')} {Number(row.qty).toLocaleString()} {row.unit}</div>
                       <small>{t('ui.可用', '可用')} {qty.toLocaleString()} · {t('ui.预留', '预留')} {row.reserved} · {t('ui.隔离冻结', '隔离冻结')} {row.held}</small>
                     </td>
-                    <td style={tdStyle}><span style={statusPillStyle}>{formatBusinessEnum("inventory", row.status || "AVAILABLE", lang)}</span></td>
+                    <td style={tdStyle}><StatusBadge status={row.status || ""} label={formatBusinessEnum("inventory", row.status, lang)} /></td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.inbound_date)}</td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.expire_date || row.expiry_date)}</td>
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "store_name", row.store_code, lang)}</td>
@@ -196,7 +197,7 @@ export default function StockQueryPage() {
             </tbody>
           </table>
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center', padding: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', alignItems: 'center', padding: 12 }}>
           <button type="button" style={buttonStyle} disabled={loading || page === 1} onClick={() => setPage(n => n - 1)}>{t('ui.上一页', '上一页')}</button>
           <span>{page} / {Math.max(1, Math.ceil((data?.total ?? 0) / 30))}</span>
           <button type="button" style={buttonStyle} disabled={loading || page * 30 >= (data?.total ?? 0)} onClick={() => setPage(n => n + 1)}>{t('ui.下一页', '下一页')}</button>
@@ -219,6 +220,7 @@ const summaryValueStyle: React.CSSProperties = { color: "var(--text-primary)", f
 const summaryHintStyle: React.CSSProperties = { color: "var(--text-secondary)", fontSize: 12 };
 const buttonStyle: React.CSSProperties = {
   display: "inline-flex",
+  whiteSpace: "nowrap",
   alignItems: "center",
   gap: 6,
   border: "1px solid var(--border)",

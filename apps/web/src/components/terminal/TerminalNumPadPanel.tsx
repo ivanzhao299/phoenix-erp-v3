@@ -14,6 +14,7 @@ export interface TerminalNumPadPanelProps {
   onOverlayTap?: () => void;
   max?: number;
   hideDisplay?: boolean;
+  allowDecimal?: boolean;
 }
 
 export default function TerminalNumPadPanel({
@@ -28,6 +29,7 @@ export default function TerminalNumPadPanel({
   onOverlayTap,
   max,
   hideDisplay = false,
+  allowDecimal = false,
 }: TerminalNumPadPanelProps) {
   return (
     <div style={{
@@ -63,6 +65,7 @@ export default function TerminalNumPadPanel({
         fillHeight
         disabled={disabled}
         max={max}
+        allowDecimal={allowDecimal}
       />
 
       {disabled && onOverlayTap && (

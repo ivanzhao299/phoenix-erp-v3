@@ -32,7 +32,7 @@ import { invalidateBatchLookups } from "@/lib/request-cache";
 import { omitEmptyIdentityFields } from "@/lib/selector-pick";
 // g200e 模板 token(2026-06-20)
 import {
-  primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
+  primaryActionButton, actionPill, toolbarFilterPill, moneyCell, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 
 type ActionTone = "default" | "success" | "warning" | "danger" | "info" | "brand";
@@ -93,6 +93,7 @@ export default function OutboundPage() {
   }), [allowedBatchTypes, outboundPermissions]);
   const canCreateAny = canCreateInout || canCreateIssue;
   const canEditAny = canEditInout || canEditIssue;
+  const [expiryError, setExpiryError] = useState("");
   const [drawerOpen,   setDrawerOpen]   = useState(false);
   const [editing,      setEditing]      = useState<Row | null>(null);
   const [saving,       setSaving]       = useState(false);
@@ -262,12 +263,17 @@ export default function OutboundPage() {
     apiRequest<{ data: { rows: Row[] } }>('/inventory/batches/query?' + params, { signal: controller.signal })
       .then(result => {
         const row = result.data.rows[0];
-        if (controller.signal.aborted || !row || Number(row.qty_available) <= 0) return;
+        if (controller.signal.aborted) return;
         const type = allowedBatchTypes.find(value => value === 'SCRAP');
-        if (!type) return;
-        const sku = row.sku_code;
-        const material = row.material_code;
-        if (!sku && !material) return;
+        const sku = row?.sku_code;
+        const material = row?.material_code;
+        if (!type || !row || Number(row.qty_available) <= 0 || (!sku && !material) || row.pending_outbound) {
+          setExpiryError(row?.pending_outbound
+            ? t('ui.临期已有待出库单', '已有待处理出库单')
+            : t('ui.临期批次无法创建出库单', '此批次当前无法创建出库单，请回临期预警刷新库存。'));
+          return;
+        }
+        setExpiryError("");
         setEditing(null);
         setBatchHeader({ date: flockBusinessToday(), type, warehouse_code: row.warehouse_code, warehouse_name: row.warehouse_name,
           expiry_batch_no: row.batch_no, destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? '' });
@@ -279,9 +285,11 @@ export default function OutboundPage() {
         url.searchParams.delete('expiryBatch');
         url.searchParams.delete('warehouse');
         history.replaceState(history.state, '', url);
-      }).catch(() => undefined);
+      }).catch(() => {
+        if (!controller.signal.aborted) setExpiryError(t('ui.临期批次加载失败', '临期批次加载失败，请回临期预警重试。'));
+      });
     return () => controller.abort();
-  }, [allowedBatchTypes, canCreateInout]);
+  }, [allowedBatchTypes, canCreateInout, t]);
 
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row.quantity_snapshot ? { ...row, qty: (row.quantity_snapshot as { baseQty: number }).baseQty } : row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -406,6 +414,8 @@ export default function OutboundPage() {
           </button>
         ) : undefined}
       />
+
+      {expiryError && <p role="alert" style={inlineAlert('warning')}>{expiryError}</p>}
 
       {/* g200e:tab pill → toolbarFilterPill token */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>

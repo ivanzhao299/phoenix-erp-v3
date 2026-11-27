@@ -84,19 +84,26 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('fullscreenchange', update);
   }, []);
 
+  const [fullscreenFallback, setFullscreenFallback] = useState(false);
   const enterFullscreen = () => {
-    document.documentElement.requestFullscreen().catch(() => {});
+    const root = document.documentElement;
+    if (!document.fullscreenEnabled || typeof root.requestFullscreen !== 'function') {
+      setFullscreenFallback(true);
+      return;
+    }
+    root.requestFullscreen().catch(() => setFullscreenFallback(true));
   };
 
   if (loading || !user) return null;
 
   // 未全屏时显示拦截层，要求点击进入（开发环境跳过）
-  if (!isFullscreen && process.env.NODE_ENV !== 'development') {
+  if (!isFullscreen && !fullscreenFallback && process.env.NODE_ENV !== 'development') {
     return (
-      <div
+      <button
+        type="button"
         onClick={enterFullscreen}
         style={{
-          position: 'fixed', inset: 0,
+          position: 'fixed', inset: 0, width: '100%', border: 'none',
           background: 'var(--deep-blue-3)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
@@ -105,16 +112,16 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
           userSelect: 'none',
         }}
       >
-        <div style={{ fontSize: 72, lineHeight: 1 }}>⛶</div>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--slate-100)', letterSpacing: 0.5 }}>
+        <span style={{ fontSize: 72, lineHeight: 1 }}>⛶</span>
+        <span style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--slate-100)', letterSpacing: 0.5 }}>
             {t('terminal.enter_fullscreen', '点击进入全屏模式')}
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--slate-600)' }}>
+          </span>
+          <span style={{ fontSize: 14, color: 'var(--slate-600)' }}>
             {t('terminal.fullscreen_hint', '包装作业台运行于全屏模式')}
-          </div>
-        </div>
-        <div style={{
+          </span>
+        </span>
+        <span style={{
           marginTop: 8,
           padding: '14px 48px', borderRadius: 12,
           background: 'linear-gradient(135deg, var(--status-info), var(--color-accent))',
@@ -122,8 +129,8 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
           boxShadow: '0 4px 20px var(--status-info)',
         }}>
           {t('terminal.tap_to_start', '点击屏幕继续')}
-        </div>
-      </div>
+        </span>
+      </button>
     );
   }
 
@@ -131,7 +138,7 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
     <div style={{
       display: 'flex',
       width: '100vw',
-      height: '100vh',
+      height: '100dvh',
       overflow: 'hidden',
       background: 'var(--slate-900)',
       color: 'var(--slate-100)',

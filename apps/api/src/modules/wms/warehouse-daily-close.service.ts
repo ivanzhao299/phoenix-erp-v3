@@ -142,7 +142,18 @@ export class WarehouseDailyCloseService {
           LEFT JOIN changes m ON m.unit IS NOT DISTINCT FROM k.unit
           LEFT JOIN future f ON f.unit IS NOT DISTINCT FROM k.unit
       )
+      , prior_units AS (
+        SELECT line.unit,line.closing
+        FROM wms_daily_closes c
+        CROSS JOIN LATERAL jsonb_to_recordset(c.snapshot->'units') AS line(unit text,closing numeric)
+        WHERE c.company_code=$1 AND c.warehouse_code=$2 AND c.business_date=$3::date-1
+      ), continuity AS (
+        SELECT COUNT(*)::int AS gaps FROM units u FULL JOIN prior_units p ON u.unit=p.unit
+        WHERE (COALESCE(u.opening::numeric,0) <> COALESCE(p.closing,0))
+          AND EXISTS (SELECT 1 FROM wms_daily_closes c WHERE c.company_code=$1 AND c.warehouse_code=$2 AND c.business_date=$3::date-1)
+      )
       SELECT COALESCE((SELECT jsonb_agg(id::text ORDER BY id) FROM due),'[]') AS event_ids,
+             (SELECT gaps FROM continuity) AS continuity_gaps,
              COALESCE((SELECT jsonb_agg(units ORDER BY unit) FROM units),'[]') AS units,
              (SELECT count(*)::int FROM due WHERE day<$3::date AND day>=$9::date) AS late_events,
              ((SELECT count(*) FROM reconciled WHERE company_code IS DISTINCT FROM $1 OR batch_no IS NULL OR NULLIF(unit,'') IS NULL
@@ -154,7 +165,7 @@ export class WarehouseDailyCloseService {
                    AND (pending.recorded_at AT TIME ZONE 'Asia/Singapore')::date<=$3::date
                    AND NOT EXISTS (SELECT 1 FROM wms_close_event_claims consumed WHERE consumed.event_id=pending.id)) +
               (SELECT count(*) FROM inv_batches WHERE warehouse_code=$2 AND
-                (company_code IS DISTINCT FROM $1 OR qty IS NULL OR NULLIF(unit,'') IS NULL) AND (qty IS NULL OR qty<>0)))::int AS unresolved
+                (company_code IS DISTINCT FROM $1 OR qty IS NULL OR NULLIF(unit,'') IS NULL) AND (qty IS NULL OR qty<>0)) + (SELECT gaps FROM continuity))::int AS unresolved
       `, [company, warehouse, date, inbound, outbound, adjustments, corrections, nonPhysical, firstDay]);
     const enabled = activation?.enabled === true;
     const eligible = enabled && date === nextDay && date < calendar.today && facts.unresolved === 0;
@@ -166,7 +177,7 @@ export class WarehouseDailyCloseService {
     this.validateDay(date);
     const result = await this.ds.transaction('REPEATABLE READ', manager => this.snapshot(manager, warehouse, date));
     const { facts, ...data } = result;
-    return { code: 200, data: { ...data, totals: facts ? { units: facts.units, unresolved: facts.unresolved, late_events: facts.late_events } : null } };
+    return { code: 200, data: { ...data, totals: facts ? { units: facts.units, unresolved: facts.unresolved, late_events: facts.late_events, continuity_gaps: facts.continuity_gaps } : null } };
   }
 
   async close(warehouse: string, date: string, version: string, key: string, actor: unknown) {
@@ -201,6 +212,12 @@ export class WarehouseDailyCloseService {
       }
       await runner.commitTransaction();
       return { code: 200, data: { closed, company: result.company } };
+    } catch (error) {
+      const db = (error as { driverError?: { code?: string; constraint?: string } }).driverError;
+      if (db?.code === '23505' && db.constraint === 'wms_daily_closes_request_key_key') {
+        throw new ConflictException('日结提交键已使用');
+      }
+      throw error;
     } finally {
       try {
         if (runner.isTransactionActive) await runner.rollbackTransaction();

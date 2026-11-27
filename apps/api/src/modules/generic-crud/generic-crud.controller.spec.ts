@@ -47,7 +47,7 @@ describe('GenericCrudController WMS RBAC', () => {
     wmsService = {
       confirmInbound: jest.fn().mockResolvedValue({ code: 200, msg: '入库确认成功' }),
       confirmStandaloneOutbound: jest.fn().mockResolvedValue({ code: 200, msg: '出库确认成功' }),
-      findAllTransferScoped: jest.fn().mockResolvedValue([]),
+      findAllTransferScoped: jest.fn().mockResolvedValue({ data: [], total: 0 }),
     };
     cls = {
       set: jest.fn(),
@@ -155,10 +155,10 @@ describe('GenericCrudController WMS RBAC', () => {
   it('passes the transfer menu warehouse scope and filters to the WMS list', async () => {
     dataScopeService.resolve.mockResolvedValueOnce({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] });
     const rows = [{ transfer_no: 'TR-1', from_warehouse: 'WH-B', to_warehouse: 'WH-A' }];
-    wmsService.findAllTransferScoped.mockResolvedValueOnce(rows);
+    wmsService.findAllTransferScoped.mockResolvedValueOnce({ data: rows, total: 31 });
     const query = { status: 'PENDING', limit: '10' };
     await expect(controller.findAll('wms_transfer', query, req(['MENU_INV_BATCH:V'])))
-      .resolves.toEqual({ code: 200, data: rows });
+      .resolves.toEqual({ code: 200, data: rows, total: 31 });
     expect(dataScopeService.resolve).toHaveBeenCalledWith('1', ['ROLE_MENGSAI_DONGPENG_TREASURER'], 'MENU_INV_BATCH', 17);
     expect(wmsService.findAllTransferScoped).toHaveBeenCalledWith(query, ['WH-A']);
     expect(svc.findAll).not.toHaveBeenCalled();

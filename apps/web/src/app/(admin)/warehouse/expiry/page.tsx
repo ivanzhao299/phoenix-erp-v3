@@ -11,6 +11,7 @@ import { secondaryActionButton } from '@/components/design-system/cockpit-styles
 
 type ExpiryBatch = {
   batch_no: string; days_left: number; expire_date: string; qty: string; qty_available: string;
+  pending_outbound?: boolean; sku_code?: string; material_code?: string; product_code?: string;
   unit: string; warehouse_code: string; location_code?: string; warehouse_name?: string; sku_name?: string; material_name?: string;
 };
 type Page = { rows: ExpiryBatch[]; total: number };
@@ -53,11 +54,16 @@ export default function ExpiryPage() {
         const display = row as unknown as Record<string, unknown>;
         const warehouseLabel = formatMasterData(display, 'warehouse_name', row.warehouse_code, lang);
         const locationLabel = formatMasterData(display, 'location_name', row.location_code, lang);
+        const itemLabel = row.sku_code
+          ? formatMasterData(display, 'sku_name', row.sku_code, lang)
+          : row.material_code ? formatMasterData(display, 'material_name', row.material_code, lang)
+          : formatMasterData(display, 'product_name', row.product_code, lang);
         return <article key={row.batch_no}
         style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-        <strong>{row.batch_no} · {row.sku_name ?? row.material_name ?? ''}</strong>
-        <p>{warehouseLabel} / {locationLabel} · {row.expire_date.slice(0,10)} · {t('ui.实存', '实存')} {row.qty} {row.unit}</p>
-        {period === 'UPCOMING' && Number(row.qty_available) > 0 && canCreate('MENU_WMS_INOUT') ? (
+        <strong>{row.batch_no} · {itemLabel}</strong>
+        <p>{warehouseLabel} / {locationLabel} · {row.expire_date.slice(0,10)} · {t('ui.实存', '实存')} {row.qty} {row.unit} · {t('ui.可用数量', '可用数量')} {row.qty_available} {row.unit}</p>
+        {row.pending_outbound ? <small>{t('ui.临期已有待出库单', '已有待处理出库单')}</small>
+          : period === 'UPCOMING' && Number(row.qty_available) > 0 && (row.sku_code || row.material_code) && canCreate('MENU_WMS_INOUT') ? (
           <Link style={secondaryActionButton} href={'/warehouse/outbound?' + new URLSearchParams({
             expiryBatch: row.batch_no, warehouse: row.warehouse_code,
           })}>{t('ui.填写出库草稿', '填写出库草稿')}</Link>

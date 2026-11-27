@@ -32,10 +32,10 @@ import {
 import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_transfer";
 type TransferReceipt = {
-  transfer_no: string; can_dispatch: boolean; can_receive: boolean; store_replenishment: boolean;
+  transfer_no: string; status: string; can_dispatch: boolean; can_receive: boolean; store_replenishment: boolean;
   can_resolve: boolean;
-  discrepancies: Array<{ id: string; discrepancy_type: string; qty: string; source_batch_no: string; damaged_batch_no: string | null }>;
-  items: Array<{ batch_no: string; expected_qty: string; unit: string | null }>;
+  discrepancies: Array<{ id: string; discrepancy_type: string; qty: string; source_batch_no: string; damaged_batch_no: string | null; resolution_type?: string; resolution_ref?: string }>;
+  items: Array<{ batch_no: string; expected_qty: string; received_qty: string | null; damaged_qty: string | null; unit: string | null }>;
 };
 type Row = Record<string, unknown>;
 export default function TransferPage() {
@@ -226,6 +226,17 @@ export default function TransferPage() {
   const [transferError, setTransferError] = useState('');
   const [posting, setPosting] = useState(false);
 
+  async function postTransferAction(path: string, action: string, body: unknown, committed: (row: TransferReceipt) => boolean) {
+    try {
+      await request(path + '/' + action, { method: 'POST', body: JSON.stringify(body), retry: false });
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status !== undefined && status !== 400 && status !== 409 && status < 500) throw err;
+      const current = await request<{ data: TransferReceipt }>(path, { retry: false, silent: true }).catch(() => null);
+      if (!current || !committed(current.data)) throw err;
+    }
+  }
+
   async function handleLifecycleAction(row: Row, action: "dispatch" | "receive" | "complete") {
     if (!canOperateTransfer || posting) return;
     const transferNo = String(row.transfer_no || "");
@@ -244,7 +255,7 @@ export default function TransferPage() {
         setDispositionRefs({});
         setDifferenceDraft(data);
       } else if (action === 'dispatch' && data.can_dispatch) {
-        await request(path + '/dispatch', { method: 'POST', body: '{}' });
+        await postTransferAction(path, 'dispatch', {}, row => ['IN_TRANSIT','RECEIVED','COMPLETED'].includes(row.status));
         invalidateBatchLookups();
         refresh();
       } else {
@@ -263,9 +274,12 @@ export default function TransferPage() {
     setTransferError('');
     setPosting(true);
     try {
-      await request(`/inventory/transfer/${encodeURIComponent(receiptDraft.transfer_no)}/receive`, {
-        method: 'POST', body: JSON.stringify({ items }),
-      });
+      await postTransferAction(`/inventory/transfer/${encodeURIComponent(receiptDraft.transfer_no)}`, 'receive', { items },
+        row => ['RECEIVED','COMPLETED'].includes(row.status) && row.items.length === items.length && items.every(input => {
+          const item = row.items.find(candidate => candidate.batch_no === input.batch_no);
+          return item?.received_qty != null && item.damaged_qty != null
+            && Number(item.received_qty) === Number(input.received_qty) && Number(item.damaged_qty) === Number(input.damaged_qty);
+        }));
       setReceiptDraft(null);
       setScanCode('');
       invalidateBatchLookups();
@@ -288,9 +302,10 @@ export default function TransferPage() {
     setTransferError('');
     setPosting(true);
     try {
-      await request(`/inventory/transfer/${encodeURIComponent(differenceDraft.transfer_no)}/complete`, {
-        method: 'POST', body: JSON.stringify({ resolutions }),
-      });
+      await postTransferAction(`/inventory/transfer/${encodeURIComponent(differenceDraft.transfer_no)}`,
+        'complete', { resolutions }, row => row.status === 'COMPLETED' && resolutions.every(input =>
+          row.discrepancies.some(discrepancy => discrepancy.id === input.id &&
+            discrepancy.resolution_type === input.resolution_type && discrepancy.resolution_ref === input.resolution_ref)));
       setDifferenceDraft(null);
       refresh();
     } catch (err) {

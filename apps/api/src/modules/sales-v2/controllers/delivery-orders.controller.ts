@@ -112,6 +112,7 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/start-loading — 开始装车 */
   @Post(':id/start-loading')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   @HttpCode(HttpStatus.OK)
   startLoading(@Param('id') id: string, @Body() dto: LoadDeliveryDto) {
     return this.svc.startLoading(id, dto);
@@ -119,6 +120,7 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/finish-loading — 装车完成 */
   @Post(':id/finish-loading')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   @HttpCode(HttpStatus.OK)
   finishLoading(@Param('id') id: string, @Body() dto: LoadDeliveryDto) {
     return this.svc.finishLoading(id, dto);
@@ -126,6 +128,7 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/depart — 发车 */
   @Post(':id/depart')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   @HttpCode(HttpStatus.OK)
   depart(@Param('id') id: string, @Body() dto: DepartDeliveryDto) {
     return this.svc.depart(id, dto);
@@ -133,6 +136,7 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/arrive — 到达 */
   @Post(':id/arrive')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   @HttpCode(HttpStatus.OK)
   arrive(@Param('id') id: string, @Body() dto: ArriveDeliveryDto) {
     return this.svc.arrive(id, dto);
@@ -163,12 +167,14 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/receipts — 正常签收 */
   @Post(':id/receipts')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   createReceipt(@Param('id') id: string, @Body() dto: CreateReceiptDto) {
     return this.receiptsSvc.createSigned(id, dto);
   }
 
   /** POST /api/v2/sales/delivery/:id/receipts/exception — 异常签收 */
   @Post(':id/receipts/exception')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'E')
   createExceptionReceipt(@Param('id') id: string, @Body() dto: ExceptionReceiptDto) {
     return this.receiptsSvc.createException(id, dto);
   }

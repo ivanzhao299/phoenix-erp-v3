@@ -544,6 +544,7 @@ export class GenericCrudController {
     const WMS_SCOPE_FIELD: Record<string, string | null> = {
       wms_outbound: null,
       wms_inbound:  null,
+      wms_stocktake: null,
       // 其余 wms_* 默认 store_code（不在 map 走默认）
     };
     // G21-NEW：sys_* / mst_* / 字典/产品/等级等全局系统表无 store_code 列 → scopeField=null 不做行级过滤
@@ -570,7 +571,7 @@ export class GenericCrudController {
 
     if (table === 'wms_transfer') {
       const warehouses = tableScope?.isGlobal ? null : tableScope?.allowedWarehouseCodes ?? [];
-      return { code: 200, data: await this.wmsService.findAllTransferScoped(query, warehouses) };
+      return { code: 200, ...await this.wmsService.findAllTransferScoped(query, warehouses) };
     }
 
     if (isInventoryFactTable(table)) {
@@ -619,6 +620,7 @@ export class GenericCrudController {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
     const status = String(body.status ?? '').trim().toUpperCase();
+    if (table === 'wms_stocktake' && typeof body.status === 'string') body = { ...body, status };
     if ((table === 'wms_stocktake' && (status === 'APPROVED' || /^DC-/i.test(body.stocktake_no ?? '')))
       || (table === 'wms_inbound' && status === 'COMPLETED')) {
       throw new BadRequestException('库存过账须使用对应的确认接口');
@@ -630,7 +632,8 @@ export class GenericCrudController {
     await this.assertBreedingDestination(table, body, tableScope);
     
     // Auto populate store_code if not present, and auto populated created_by
-    if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
+    if (table === 'wms_stocktake') delete body.store_code;
+    if (!['brd_houses', 'wms_stocktake'].includes(table) && !body.store_code && req.user?.storeCode) {
         body.store_code = req.user.storeCode;
     }
     // G17：wms_outbound/inbound 走 site_code 隔离 — 自动注入 site_code
@@ -755,6 +758,10 @@ export class GenericCrudController {
 
     if (table === 'wms_inbound' && safeBody.task_no !== undefined && safeBody.task_no !== existing.task_no) {
       throw new BadRequestException('入库任务单号不可更改');
+    }
+    if (table === 'wms_stocktake') {
+      delete safeBody.store_code;
+      if (typeof safeBody.status === 'string') safeBody.status = safeBody.status.trim().toUpperCase();
     }
     if (table === 'wms_stocktake' && (String(safeBody.status ?? '').trim().toUpperCase() === 'APPROVED'
       || (safeBody.stocktake_no !== undefined && safeBody.stocktake_no !== existing.stocktake_no))) {

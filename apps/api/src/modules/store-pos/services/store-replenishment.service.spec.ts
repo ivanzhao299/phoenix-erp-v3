@@ -9,6 +9,7 @@ function build(options: { scope?: any; rows?: any[]; targetWarehouseCodes?: stri
   };
   const ds = {
     query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM store_replenishment_requests WHERE id')) return options.rows ?? [];
       if (sql.includes('FROM store_replenishment_requests r')) return options.rows ?? [];
       if (sql.includes('FROM store_replenishment_request_lines')) return [
         { id: 1, sku_code: 'SKU-EGG', requested_qty: 2 },
@@ -25,6 +26,7 @@ function build(options: { scope?: any; rows?: any[]; targetWarehouseCodes?: stri
     }),
     transaction: jest.fn(),
   } as any;
+  ds.transaction.mockImplementation((change: (manager: any) => unknown) => change({ query: ds.query }));
   const storeScope = {
     listMembershipStores: jest.fn(async () => []),
     resolveStoreContext: jest.fn(async () => ({
@@ -73,6 +75,7 @@ describe('StoreReplenishmentService approver scope', () => {
       expect.objectContaining({ from_warehouse: 'DP-01', to_warehouse: 'HS-STORE-WH' }),
       { username: 'liushanjun' },
       expect.objectContaining({ storeCode: 'STORE-HS-001', warehouseCodes: ['HS-STORE-WH'] }),
+      expect.objectContaining({ query: ds.query }),
     );
     expect(wms.createTransfer).not.toHaveBeenCalled();
     const stockQuery = (ds.query.mock.calls as any[]).find(([sql]) => String(sql).includes('FROM inv_batches'));

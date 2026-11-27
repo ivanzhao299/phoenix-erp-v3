@@ -5,7 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { EmptyState, fieldInputStyle } from "@/components/design-system";
 import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
-import { formatMasterData } from "@/lib/business-display";
+import { formatBusinessEnum, formatMasterData } from "@/lib/business-display";
 import { useMasterNames } from "@/hooks/useMasterNames";
 import { masterDisplayLabel } from "@/lib/master-display";
 import u from "@/styles/uix-utils.module.css";
@@ -16,9 +16,10 @@ type Allocation = { id: string; sale_no: string; batch_no: string; warehouse_cod
 type Shipment = { event_id: string; order_no: string; customer_code?: string; batch_no: string; warehouse_code: string; allocated_qty: string; unit: string; delivery_no?: string };
 type Edge = { parent_batch_no: string; child_batch_no: string; kind: string; document_no: string; mixed: boolean };
 type AllocationPage = { total: number; nextCursor: string | null };
+type QualityReport = { nc_no: string; batch_no: string; issue_type: string; severity: string; status: string };
 type TraceResult = {
   batch?: Batch;
-  traces?: Array<{ batch_detail: Batch }>;
+  traces?: Array<{ batch_detail: Batch; non_conformances?: QualityReport[] }>;
   sales?: Allocation[];
   allocations?: Allocation[];
   salesPage?: AllocationPage;
@@ -29,12 +30,29 @@ type TraceResult = {
 type Search = { field: "batch_no" | "sale_no"; value: string };
 type TableRow = { id: string; cells: React.ReactNode[] };
 
+function combineRows<T>(older: T[] = [], newer: T[] = [], key: (row: T) => string): T[] {
+  return [...new Map([...older, ...newer].map(row => [key(row), row])).values()];
+}
+
+const edgeKey = (row: Edge) => [row.parent_batch_no, row.child_batch_no, row.kind, row.document_no].join("/");
+
+function combinePages(previous: TraceResult, next: TraceResult): TraceResult {
+  return {
+    ...next,
+    traces: combineRows(previous.traces, next.traces, row => row.batch_detail.batch_no),
+    sales: next.sales ? combineRows(previous.sales, next.sales, row => row.id) : undefined,
+    allocations: next.allocations ? combineRows(previous.allocations, next.allocations, row => row.id) : undefined,
+    shipments: combineRows(previous.shipments, next.shipments, row => row.event_id),
+    lineage: combineRows(previous.lineage, next.lineage, edgeKey),
+  };
+}
+
 function TraceTable({ heading, headers, rows, empty }: {
   heading: string; headers: string[]; rows: TableRow[]; empty: string;
 }) {
   return <section className={u.mb20}>
     <h2>{heading}</h2>
-    {rows.length ? <div style={{ overflowX: "auto" }}><table className={s.table}>
+    {rows.length ? <div role="region" aria-label={heading} tabIndex={0} style={{ overflowX: "auto" }}><table className={s.table}>
       <thead><tr>{headers.map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{rows.map(row => <tr key={row.id}>
         {row.cells.map((cell, index) => <td key={headers[index]}>{cell ?? "—"}</td>)}
@@ -61,6 +79,7 @@ export default function QualityInventoryTrace({ direction }: { direction: "forwa
   const empty = t("ui.无已核实记录", "没有已核实记录");
   const allocations = result?.sales ?? result?.allocations ?? [];
   const batches = result?.batch ? [result.batch] : result?.traces?.map(row => row.batch_detail) ?? [];
+  const reports = result?.traces?.flatMap(row => row.non_conformances ?? []) ?? [];
   const formatQuantity = (qty: string, unit: string) => [qty, unit].filter(Boolean).join(" ");
 
   async function load(query: Search, cursor?: string) {
@@ -75,7 +94,7 @@ export default function QualityInventoryTrace({ direction }: { direction: "forwa
     if (cursor) params.set("after", cursor);
     try {
       const data = await request<TraceResult>(`/quality/trace/${direction}?${params}`);
-      setResult(data);
+      setResult(previous => cursor && previous ? combinePages(previous, data) : data);
     } catch (failure) {
       setError((failure as Error).message || t("ui.查询失败", "查询失败"));
     } finally {
@@ -103,17 +122,21 @@ export default function QualityInventoryTrace({ direction }: { direction: "forwa
     </form>
     {error && <p role="alert">{error}</p>}
     {result && <>
+      {search && <p><strong>{search.field === "batch_no" ? batch : sale}</strong> · {search.value}</p>}
       <p>{t("ui.追溯结果范围", "下方显示已核实且在授权范围内的记录。历史记录缺失或来源待核时，结果可能不完整。")}</p>
       <TraceTable heading={t("ui.库存批次", "库存批次")} empty={empty}
         headers={[batch, warehouse, t("ui.库位", "库位"), "SKU", quantity, t("common.status", "状态")]}
         rows={batches.map(row => ({ id: row.batch_no, cells: [row.batch_no,
           formatMasterData(row, "warehouse_name", row.warehouse_code, lang, { canonicalFallback: true }),
-          formatMasterData(row, "location_name", row.location_code, lang), row.sku_code, formatQuantity(row.qty, row.unit), row.status] }))} />
+          formatMasterData(row, "location_name", row.location_code, lang), row.sku_code, formatQuantity(row.qty, row.unit), formatBusinessEnum("inventory", row.status, lang)] }))} />
       {!!result.lineage.length && <TraceTable heading={t("ui.关联批次", "关联批次")} empty={empty}
         headers={[t("ui.源批次", "源批次"), t("ui.产出批次", "产出批次"), t("ui.单据号", "单据号"), t("ui.来源关系", "来源关系")]}
-        rows={result.lineage.map(row => ({ id: [row.parent_batch_no,row.child_batch_no,row.kind,row.document_no].join("/"),
+        rows={result.lineage.map(row => ({ id: edgeKey(row),
           cells: [row.parent_batch_no, row.child_batch_no, row.document_no,
             row.mixed ? t("ui.混合来源", "混合来源") : row.kind === "TRANSFER" ? t("ui.调拨", "调拨") : row.kind === "RAW_RECEIPT" ? t("ui.原料收货", "原料收货") : t("ui.转换", "转换")] }))} />}
+      {!!reports.length && <TraceTable heading={t("ui.不合格记录", "不合格记录")} empty={empty}
+        headers={[t("ui.单据号", "单据号"), batch, t("ui.问题类型", "问题类型"), t("ui.严重程度", "严重程度"), t("common.status", "状态")]}
+        rows={reports.map(row => ({ id: row.nc_no, cells: [row.nc_no, row.batch_no, row.issue_type, row.severity, row.status] }))} />}
       <TraceTable heading={t("ui.配送实发", "配送实发")} empty={empty}
         headers={[sale, t("ui.配送单号", "配送单号"), t("ui.客户", "客户"), batch, warehouse, quantity]}
         rows={result.shipments.map(row => ({ id: row.event_id, cells: [row.order_no, row.delivery_no,
@@ -125,7 +148,7 @@ export default function QualityInventoryTrace({ direction }: { direction: "forwa
           formatQuantity(row.qty,row.unit),formatQuantity(row.returned_qty,row.unit),formatQuantity(row.outstanding_qty,row.unit)] }))} />
       {page && <p>{t("ui.可查分配记录", "可查分配记录")} {page.total}</p>}
       {page?.nextCursor && search && <button className={s.btnPrimary} type="button" disabled={busy}
-        onClick={() => void load(search, page.nextCursor!)}>{t("ui.下一页", "下一页")}</button>}
+        onClick={() => void load(search, page.nextCursor!)}>{t("ui.加载更多销售分配", "加载更多销售分配")}</button>}
     </>}
   </div>;
 }
