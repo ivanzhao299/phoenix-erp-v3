@@ -354,7 +354,8 @@ pg('inventory workflows against the complete migration chain', () => {
 
   it('rolls back WMS dispatch if the linked store request cannot advance', async () => {
     const wms = new WmsService(db.manager, cls);
-    const service = new StoreReplenishmentService(db, cls, { listMembershipStores: async () => [] } as any, wms);
+    const storeActor = { get: (key: string) => key === 'dataScope' ? scope : { roles: ['ROLE_WMS_MGR'] } } as any;
+    const service = new StoreReplenishmentService(db, storeActor, { listMembershipStores: async () => [] } as any, wms);
     const user = { userId: 100, username: 'fixture' };
     const transferNo = 'INVENTORY-STORE-XFER';
     const batchNo = 'INVENTORY-STORE-BATCH';
