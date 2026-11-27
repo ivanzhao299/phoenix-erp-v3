@@ -4,7 +4,7 @@ import { type ReactNode,useCallback,useEffect,useState } from 'react';
 import { RightDrawer } from '@/components/ui/RightDrawer';
 import { inputField,primaryActionButton,secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { usePermission } from '@/hooks/usePermission';
-import request from '@/lib/api-client';
+import request,{type ApiError} from '@/lib/api-client';
 import { Field,useSourceText } from './parts';
 import s from './EggSources.module.css';
 
@@ -25,7 +25,7 @@ type Organization={code:string;name:string;companyCode:string};
 type Rollout={house_code:string;company_code:string;enabled:boolean;changed_at:string;revision:string;change_reason:string};
 
 function ScopePicker({scope,value,onScope,onPick,disabled}:{
-  scope:Scope;value:string;onScope?:(scope:Scope)=>void;onPick:(value:string)=>void;disabled:boolean
+  scope:Scope;value:string;onScope?:(scope:Scope)=>void;onPick:(value:string,organization?:Organization)=>void;disabled:boolean
 }) {
   const {label}=useSourceText();
   const [search,setSearch]=useState('');
@@ -55,7 +55,7 @@ function ScopePicker({scope,value,onScope,onPick,disabled}:{
     </div>
     {failed&&<p role="alert" className={s.error}>{label('writeControl.failed')}</p>}
     <Field title={label('organization.'+scope)}>{attrs=><select {...attrs} style={inputField} value={value}
-      disabled={disabled||busy} onChange={event=>onPick(event.target.value)}>
+      disabled={disabled||busy} onChange={event=>onPick(event.target.value,options.find(row=>row.code===event.target.value))}>
       <option value="">{label('organizationChoose')}</option>
       {value&&!options.some(row=>row.code===value)&&<option value={value}>{value}</option>}
       {options.map(row=><option key={row.code} value={row.code}>{row.name} ({row.code}) · {row.companyCode}</option>)}
@@ -198,7 +198,7 @@ function GrantRow({path,standardPath,name,legacy}:{path?:string;standardPath?:st
           onClick={()=>void save()}>{label(converting?'standardGrantConvert':'standardGrantSave')}</button>
       </>}
     </div>}
-    {legacy&&<details><summary className={s.hint}>{label('legacyPermission')}</summary>{legacy}</details>}
+    {legacy&&<details className={s.legacyGrant}><summary>{label('legacyPermission')}</summary><p className={s.hint}>{label('legacyPermissionHelp')}</p>{legacy}</details>}
   </div>;
 }
 
@@ -246,8 +246,45 @@ export function EggSourceLegacyCreationGate() {
 
 type HouseGrantResult = {
   actions:string[];
+  eligibleAccount?:boolean;
+  current?:{version:1|2;rollout:'OPEN'|'PAUSED'|'UNREGISTERED';globalWrites:boolean;houseWrites:boolean;
+    legacyCreation:boolean;legacyClosed:boolean;createReason:string|null;businessDay:string|null};
+  legacy?:{view:boolean;warehouses:{code:string;name:string;actions:string[]}[]};
   origins?:{action:string;source:{subject:'role'|'set';code:string;scopeType:string;scopeCode:string|null}}[];
 };
+
+function inspectHouseAccount(house:string,username:string) {
+  return request<{data:HouseGrantResult}>(endpoint+'/egg-source-house-access?'+
+    new URLSearchParams({house,username:username.trim()}),{silent:true,bindSession:true,cache:'no-store'});
+}
+
+function AccountAccess({result}:{result:HouseGrantResult}) {
+  const {label}=useSourceText();
+  const {current,legacy}=result;
+  return <>
+    {result.eligibleAccount===false&&<p>{label('problem.HOUSE_ROLES_NOT_READY')}</p>}
+    {current&&<>
+      <p>{label(current.version===1?'creationV1':'creationV2')} · {label('rollout.'+current.rollout)}
+        {current.businessDay&&' · '+current.businessDay}</p>
+      <p>{label('globalWriteControl')} · {label(current.globalWrites?'writeControl.enabled':'writeControl.paused')}
+        {' / '}{label('houseWriteControl')} · {label(current.houseWrites?'writeControl.enabled':'writeControl.paused')}
+        {' / '}{label(current.legacyClosed?'legacyGateRetired':current.legacyCreation?'legacyGateOpen':'legacyGateNeedsWrite')}</p>
+      <p>{current.createReason ? label('problem.'+current.createReason) : label('diagnosticCreateReady')}</p>
+    </>}
+    <p>{label('diagnosticActionsV2')} · {result.actions.join(' / ')||'—'}</p>
+    {!!result.origins?.length&&<ul>{result.origins.map(({action,source})=><li
+      key={[action,source.subject,source.code,source.scopeType,source.scopeCode].join('/')}>
+      {action} · {label(source.subject==='role'?'standardGrantRole':'standardGrantSet')} {source.code} · {
+        source.scopeType==='OWNER'?label('standardGrantAccountScope'):label('organization.'+source.scopeType)+' '+source.scopeCode}
+    </li>)}</ul>}
+    {legacy&&<>
+      <p>{label('diagnosticActionsV1')} · {legacy.view?'V':'—'} · {label('diagnosticLegacyWarehouses')}</p>
+      {legacy.warehouses.length ? <ul>{legacy.warehouses.map(row=><li key={row.code}>
+        {row.name} ({row.code}) · {row.actions.join(' / ')}
+      </li>)}</ul> : <p>—</p>}
+    </>}
+  </>;
+}
 
 export function EggSourceHouseRollout() {
   const {label,time}=useSourceText();
@@ -256,87 +293,138 @@ export function EggSourceHouseRollout() {
   const [failed,setFailed]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [house,setHouse]=useState('');
+  const [company,setCompany]=useState('');
   const [rows,setRows]=useState<Rollout[]>([]);
   const [reason,setReason]=useState('');
   const [maker,setMaker]=useState('');
   const [reviewer,setReviewer]=useState('');
   const [effective,setEffective]=useState<{maker:HouseGrantResult;reviewer:HouseGrantResult}>();
   const [opening,setOpening]=useState(true);
+  const [confirming,setConfirming]=useState(false);
+  const [diagnosticUser,setDiagnosticUser]=useState('');
+  const [diagnostic,setDiagnostic]=useState<HouseGrantResult>();
+  const [writeError,setWriteError]=useState('');
+  const [unknown,setUnknown]=useState<{house:string;company:string;revision:string|null;enabled:boolean;reason:string}>();
+  const [resolution,setResolution]=useState<'recorded'|'observed'|'different'>();
   const path=endpoint+'/egg-source-house-rollouts';
-  const prior=rows.find(row=>row.house_code===house);
-  async function load() {
-    setBusy(true);setFailed(false);setLoaded(false);
+  const prior=rows.find(row=>row.house_code===house&&row.company_code===company);
+  function resetFields() {
+    setReason('');setMaker('');setReviewer('');setEffective(undefined);setOpening(true);
+    setConfirming(false);setDiagnosticUser('');setDiagnostic(undefined);setResolution(undefined);setFailed(false);setWriteError('');
+  }
+  async function load(recorded?:Rollout) {
+    setBusy(true);setFailed(false);setWriteError('');setLoaded(false);setConfirming(false);setEffective(undefined);setDiagnostic(undefined);
+    if (!recorded) setResolution(previous=>previous==='recorded'?previous:undefined);
     try {
       const {data}=await request<{data:Rollout[]}>(path,{silent:true,bindSession:true,cache:'no-store'});
       setRows(data);setLoaded(true);
+      if (recorded) {
+        const current=data.find(row=>row.house_code===recorded.house_code&&row.company_code===recorded.company_code);
+        setResolution(current?.revision===recorded.revision ? 'observed' : 'recorded');
+      } else if (unknown) {
+        const received=data.find(row=>row.house_code===unknown.house&&row.company_code===unknown.company);
+        setResolution(received&&received.revision!==unknown.revision&&received.enabled===unknown.enabled&&
+          received.change_reason===unknown.reason ? 'observed' : 'different');
+        setUnknown(undefined);
+      }
     } catch {setFailed(true);}
     finally {setBusy(false);}
   }
   async function checkAccounts() {
     if (!house||!maker.trim()||!reviewer.trim()) return;
-    setBusy(true);setFailed(false);setEffective(undefined);
+    setBusy(true);setFailed(false);setEffective(undefined);setConfirming(false);
     try {
-      const inspect=(username:string)=>request<{data:HouseGrantResult}>(endpoint+'/egg-source-house-access?'+
-        new URLSearchParams({house,username:username.trim()}),{silent:true,bindSession:true,cache:'no-store'});
-      const [one,two]=await Promise.all([inspect(maker),inspect(reviewer)]);
+      const [one,two]=await Promise.all([inspectHouseAccount(house,maker),inspectHouseAccount(house,reviewer)]);
       setEffective({maker:one.data,reviewer:two.data});
     } catch {setFailed(true);}
+    finally {setBusy(false);}
+  }
+  async function checkDiagnostic() {
+    if (!house||!diagnosticUser.trim()) return;
+    setBusy(true);setFailed(false);setDiagnostic(undefined);
+    try {setDiagnostic((await inspectHouseAccount(house,diagnosticUser)).data);}
+    catch {setFailed(true);}
     finally {setBusy(false);}
   }
   const enable=prior ? !prior.enabled : opening;
   const rolesReady=maker.trim()!==reviewer.trim() && ['V','C','E'].every(action=>effective?.maker.actions.includes(action))
     && ['V','A'].every(action=>effective?.reviewer.actions.includes(action));
+  const ready=loaded&&!busy&&!!house&&!!company&&!!reason.trim()&&(!enable||rolesReady);
+  const action=label(enable?'houseRolloutResume':'houseRolloutPause');
   async function save() {
-    if (!loaded || !house || !reason.trim() || enable&&!rolesReady) return;
-    setBusy(true);setFailed(false);
+    if (!ready||!confirming||!company) return;
+    setBusy(true);setFailed(false);setConfirming(false);setResolution(undefined);
     try {
       const {data}=await request<{data:Rollout}>(path+'/'+encodeURIComponent(house),{
-        method:'PUT',body:JSON.stringify({expectedEnabled:prior?.enabled??null,expectedRevision:prior?.revision??null,enabled:enable,reason:reason.trim(),
+        method:'PUT',body:JSON.stringify({expectedEnabled:prior?.enabled??null,expectedRevision:prior?.revision??null,companyCode:company,enabled:enable,reason:reason.trim(),
           ...(enable ? {maker:maker.trim(),reviewer:reviewer.trim()}: {})}),
         silent:true,bindSession:true,retry:false});
-      setRows(values=>[...values.filter(row=>row.house_code!==data.house_code),data]);setReason('');setEffective(undefined);
-    } catch {setLoaded(false);setFailed(true);}
-    finally {setBusy(false);}
+      resetFields();setResolution('recorded');
+      await load(data);
+    } catch (error) {
+      const status=(error as ApiError|null)?.status;
+      if (status&&status>=400&&status<500&&status!==408) {
+        setWriteError(error instanceof Error ? error.message : label('writeControl.failed'));
+        setEffective(undefined);
+      } else {
+        setUnknown({house,company,revision:prior?.revision??null,enabled:enable,reason:reason.trim()});
+        resetFields();
+      }
+      setLoaded(false);
+    } finally {setBusy(false);}
   }
   return <>
     <button type="button" style={secondaryActionButton} onClick={()=>{setOpen(true);void load();}}>{label('houseRollout')}</button>
-    <RightDrawer open={open} title={label('houseRollout')} onClose={()=>{if (!busy) setOpen(false);}}>
+    <RightDrawer open={open} title={label('houseRollout')} onClose={()=>{if (!busy) {resetFields();setHouse('');setCompany('');setOpen(false);}}}>
       <div className={s.stack} aria-busy={busy}>
         <p className={s.hint}>{label('houseRolloutHelp')}</p>
-        {failed&&<><p role="alert" className={s.error}>{label('writeControl.failed')}</p>
-          <button type="button" style={secondaryActionButton} onClick={()=>void load()}>{label('writeControl.refresh')}</button></>}
+        {unknown&&<p role="alert" className={s.error}>{label('rolloutWriteUnknown')} {unknown.company} · {unknown.house}</p>}
+        {failed&&<p role="alert" className={s.error}>{label('writeControl.failed')}</p>}
+        {writeError&&<p role="alert" className={s.error}>{writeError}</p>}
+        {(failed||unknown||writeError)&&<button type="button" style={secondaryActionButton} disabled={busy}
+          onClick={()=>void load()}>{label('writeControl.refresh')}</button>}
+        {resolution&&<p role="status" className={s.notice}>{label(resolution==='recorded'?'rolloutRecorded':resolution==='observed'?'rolloutObserved':'rolloutDifferent')}</p>}
         {loaded&&<>
-          <ScopePicker scope="HOUSE" value={house} onPick={value=>{setHouse(value);setEffective(undefined);}} disabled={busy}/>
+          <ScopePicker scope="HOUSE" value={house} onPick={(value,row)=>{resetFields();setHouse(value);setCompany(row?.companyCode??'');}} disabled={busy}/>
           {prior&&<p role="status" className={s.hint}>{label(prior.enabled?'writeControl.enabled':'writeControl.paused')}
             {' · '}{time(prior.changed_at)} · {prior.change_reason}</p>}
+          {house&&<details key={house} className={s.record}>
+            <summary>{label('diagnosticTitle')}</summary>
+            <Field title={label('diagnosticAccount')}>{attrs=><input {...attrs} style={inputField} value={diagnosticUser} maxLength={64}
+              disabled={busy} onChange={event=>{setDiagnosticUser(event.target.value);setDiagnostic(undefined);}}/>}</Field>
+            <button type="button" style={secondaryActionButton} disabled={busy||!diagnosticUser.trim()}
+              onClick={()=>void checkDiagnostic()}>{label('diagnosticCheck')}</button>
+            {diagnostic&&<div role="status"><AccountAccess result={diagnostic}/></div>}
+          </details>}
           {!prior&&house&&<label><input type="checkbox" checked={!opening} disabled={busy}
-            onChange={event=>setOpening(!event.target.checked)}/> {label('recordHousePause')}</label>}
+            onChange={event=>{setOpening(!event.target.checked);setConfirming(false);}}/> {label('recordHousePause')}</label>}
           {enable&&house&&<>
             <div className={s.fields}>
               <Field title={label('rolloutMaker')}>{attrs=><input {...attrs} style={inputField} value={maker} maxLength={64}
-                disabled={busy} onChange={event=>{setMaker(event.target.value);setEffective(undefined);}}/>}</Field>
+                disabled={busy} onChange={event=>{setMaker(event.target.value);setEffective(undefined);setConfirming(false);}}/>}</Field>
               <Field title={label('rolloutReviewer')}>{attrs=><input {...attrs} style={inputField} value={reviewer} maxLength={64}
-                disabled={busy} onChange={event=>{setReviewer(event.target.value);setEffective(undefined);}}/>}</Field>
+                disabled={busy} onChange={event=>{setReviewer(event.target.value);setEffective(undefined);setConfirming(false);}}/>}</Field>
             </div>
             <button type="button" style={secondaryActionButton} disabled={busy||!maker.trim()||!reviewer.trim()}
               onClick={()=>void checkAccounts()}>{label('rolloutCheckAccounts')}</button>
             {effective&&<div role="status" className={s.record}>
               {(['maker','reviewer'] as const).map(side=><div key={side}>
-                <strong>{label(side==='maker'?'rolloutMaker':'rolloutReviewer')} {effective[side].actions.join(' / ')||'—'}</strong>
-                {!!effective[side].origins?.length&&<ul>{effective[side].origins?.map(({action,source})=><li
-                  key={[action,source.subject,source.code,source.scopeType,source.scopeCode].join('/')}>
-                  {action} · {label(source.subject==='role'?'standardGrantRole':'standardGrantSet')} {source.code} · {
-                    source.scopeType==='OWNER'?label('standardGrantAccountScope'):label('organization.'+source.scopeType)+' '+source.scopeCode}
-                </li>)}</ul>}
+                <strong>{label(side==='maker'?'rolloutMaker':'rolloutReviewer')}</strong>
+                <AccountAccess result={effective[side]}/>
               </div>)}
               {!rolesReady&&<p>{label('problem.HOUSE_ROLES_NOT_READY')}</p>}
             </div>}
           </>}
-          <Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField} maxLength={500}
-            value={reason} onChange={event=>setReason(event.target.value)} disabled={busy}/>}</Field>
-          <button type="button" style={primaryActionButton} disabled={busy||!house||!reason.trim()||enable&&!rolesReady} onClick={()=>void save()}>
-            {label(enable?'houseRolloutResume':'houseRolloutPause')}
-          </button>
+          {house&&<Field title={label('writeControl.reason')}>{attrs=><textarea {...attrs} style={inputField} maxLength={500}
+            value={reason} onChange={event=>{setReason(event.target.value);setConfirming(false);}} disabled={busy}/>}</Field>}
+          {house&&!confirming&&<button type="button" style={primaryActionButton} disabled={!ready}
+            onClick={()=>setConfirming(true)}>{label('rolloutReview')}</button>}
+          {confirming&&<div className={s.record}>
+            <p role="status"><strong>{company} · {house} · {action}</strong></p>
+            {!prior&&<p>{label('rolloutFirstRegistration')}</p>}
+            <button type="button" style={primaryActionButton} disabled={!ready} onClick={()=>void save()}>{action}</button>
+            <button type="button" style={secondaryActionButton} disabled={busy} onClick={()=>setConfirming(false)}>{label('rolloutBack')}</button>
+          </div>}
         </>}
       </div>
     </RightDrawer>

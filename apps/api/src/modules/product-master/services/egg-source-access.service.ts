@@ -18,13 +18,13 @@ export class EggSourceAccessService {
   constructor(private readonly db: DataSource, private readonly dataScopes: DataScopeService) {}
 
   async resolve(user: EggSourceAccount | undefined, required: EggSourceHouseAction = 'V',
-    manager = this.db.manager, contract?:1|2, proposal?:EggSourceGrantProposal) {
+    manager = this.db.manager, contract?:1|2, proposal?:EggSourceGrantProposal,lockAccount=true) {
     const id = String(user?.userId ?? '');
     if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) {
       throw new ForbiddenException('蛋品来源档案需要有效的实名账号');
     }
     const [account] = await manager.query(`SELECT perms_version FROM sys_user WHERE user_id=$1 AND status=1
-      ${manager.queryRunner?.isTransactionActive ? 'FOR SHARE' : ''}`, [id]);
+      ${lockAccount&&manager.queryRunner?.isTransactionActive ? 'FOR SHARE' : ''}`, [id]);
     if (!account) throw new ForbiddenException('账号已停用');
     const current = Number.isSafeInteger(user?.perms_version) && user?.perms_version === Number(account.perms_version);
     if (required !== 'V' && !current) {
@@ -38,7 +38,8 @@ export class EggSourceAccessService {
       contract===1 ? [] : loadEggSourceOrganizationGrants(manager,id,proposal),
     ]);
     const admin = roles.some((role: { role_code: string }) => role.role_code === 'ROLE_ADMIN');
-    const canWrite = current && !user?.impersonatedBy;
+    const sessionRestriction=user?.impersonatedBy ? 'IMPERSONATION' as const : !current ? 'PERMS_CHANGED' as const : null;
+    const canWrite = sessionRestriction===null;
     const legacyGrants = (action: EggSourcePermission) =>
       contract===2 ? [] : this.scopesFor(manager,id,EGG_SOURCE_MENU,action,sources,admin,true);
     const [view, edit, approve] = await Promise.all([
@@ -85,12 +86,12 @@ export class EggSourceAccessService {
       scope.houseScope.actionGrants = house[required];
     }
     const warehouseScope = contract===undefined
-      ? await this.dataScopes.resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin)
+      ? await (manager.queryRunner?.isTransactionActive ? this.dataScopes.withManager(manager) : this.dataScopes).resolve(id,admin ? ['ROLE_ADMIN'] : [],EGG_SOURCE_MENU,undefined,!admin)
       : undefined;
-    return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, actor:user?.impersonatedBy ? null : id };
+    return { scope, edit, approve, houseCreate, houseEdit, houseApprove, warehouseScope, sessionRestriction, actor:user?.impersonatedBy ? null : id };
   }
 
-  async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string) {
+  async inspectHouseAccount(manager:EntityManager,owner:EggSourceOwner,username:string,includeLegacy=false) {
     const [account] = await manager.query(`SELECT u.user_id::text AS id,u.perms_version FROM sys_user u WHERE u.username=$1
       AND u.status=1 AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
         WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND r.role_code='ROLE_ADMIN')`,[username]);
@@ -98,26 +99,29 @@ export class EggSourceAccessService {
     const origins:{action:EggSourceHouseAction;source:EggSourceGrantOrigin}[]=[];
     if (!account) return {accountId:null,actions,origins};
     const subject={userId:account.id,perms_version:Number(account.perms_version)};
-    for (const action of ['V','C','E','A'] as const) {
-      try {
-        const result=await this.resolve(subject,action,manager,2);
-        const scope=sourceScopeFor(result.scope,2);
-        if (!canAccessEggSource(scope,owner)) continue;
-        actions.push(action);
-        const applied=action==='V' ? scope.viewGrants : {C:result.houseCreate,E:result.houseEdit,A:result.houseApprove}[action];
-        for (const grant of applied??[]) {
-          const source=(grant as ChangeScope & {origin?:EggSourceGrantOrigin}).origin;
-          if (source && canAccessEggSource({...scope,actionGrants:[grant]},owner) &&
-              !origins.some(item=>item.action===action && item.source.subject===source.subject &&
-                item.source.code===source.code && item.source.scopeType===source.scopeType && item.source.scopeCode===source.scopeCode)) {
-            origins.push({action,source});
-          }
-        }
-      } catch (error) {
-        if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;
-      }
+    let access:Awaited<ReturnType<EggSourceAccessService['resolve']>>|undefined;
+    try {
+      access=await this.resolve(subject,'V',manager,includeLegacy?undefined:2,undefined,!includeLegacy);
+    } catch (error) {
+      if (!(error instanceof ForbiddenException || error instanceof UnauthorizedException)) throw error;
     }
-    return {accountId:account.id as string,actions,origins};
+    if (!access) return {accountId:account.id as string,actions,origins};
+    const scope=sourceScopeFor(access.scope,2);
+    const applied=[['V',scope.viewGrants],['C',access.houseCreate],['E',access.houseEdit],['A',access.houseApprove]] as const;
+    for (const [action,grants] of applied) {
+      let permitted=false;
+      for (const grant of grants??[]) {
+        if (!canAccessEggSource({...scope,actionGrants:[grant]},owner)) continue;
+        permitted=true;
+        const source=(grant as ChangeScope & {origin?:EggSourceGrantOrigin}).origin;
+        if (source && !origins.some(item=>item.action===action && item.source.subject===source.subject &&
+          item.source.code===source.code && item.source.scopeType===source.scopeType && item.source.scopeCode===source.scopeCode)) {
+          origins.push({action,source});
+        }
+      }
+      if (permitted) actions.push(action);
+    }
+    return {accountId:account.id as string,actions,origins,access};
   }
 
   async previewHouseGrants(manager:EntityManager,proposal:EggSourceGrantProposal,

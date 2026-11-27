@@ -69,7 +69,8 @@ export function useEggRead<T>(account:string,path:string|null,validate:(data:T)=
 }
 
 type Receipt = {id:string;state:string;version:number};
-type Pending = {key:string;sentAt?:string};
+type Pending = {key:string;sentAt?:string;legacyCompany?:string};
+type LegacyResolution = {status:'FOUND';receipt:Receipt}|{status:'UNKNOWN'|'V1_NOT_COMMITTED'};
 
 function receiptIdentity(account:string) {
   try {
@@ -93,13 +94,18 @@ function savePending(storageKey:string,pending:Pending|null) {
   } catch { /* the in-session key remains available */ }
 }
 
-export function useEggWrite(account:string,resource:string,receiptPath:(key:string)=>string,onReceipt:(receipt:Receipt)=>void) {
+export function useEggWrite(account:string,resource:string,receiptPath:(key:string)=>string,onReceipt:(receipt:Receipt)=>void,
+  legacyResolution?:{path:(key:string,company:string)=>string; onNotCommitted:()=>void}) {
   const storageKey = 'phoenix.egg-source.pending.'+JSON.stringify([receiptIdentity(account),resource]);
   const activeKey = JSON.stringify([account,resource]);
   const [known,setKnown] = useState<{storageKey:string;pending:Pending|null}>({ storageKey,pending:null });
-  const [busy,setBusy] = useState(false);
-  const [problem,setProblem]=useState<string>();
-  const [feedback,setFeedback] = useState<'UNKNOWN'|'CONFLICT'|'FAILED'|'SAVED'|null>(null);
+  type Feedback='UNKNOWN'|'CONFLICT'|'FAILED'|'SAVED'|'V1_NOT_COMMITTED';
+  const [workingOn,setWorkingOn]=useState<string|null>(null);
+  const [outcome,setOutcome]=useState<{resource:string;feedback:Feedback|null;problem?:string}>();
+  const busy=workingOn===activeKey;
+  const feedback=outcome?.resource===activeKey ? outcome.feedback : null;
+  const problem=outcome?.resource===activeKey ? outcome.problem : undefined;
+  const report=(feedback:Feedback|null,problem?:string)=>setOutcome({resource:activeKey,feedback,problem});
   const inFlight = useRef(false);
   const body = useRef<{path:string;body:string;activeKey:string}|null>(null);
   const [retryContext,setRetryContext] = useState<string|null>(null);
@@ -123,20 +129,19 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     remember(null);
     body.current = null;
     setRetryContext(null);
-    setFeedback('SAVED');
+    report('SAVED');
     onReceipt(receipt);
   };
   const isReceipt = (row:Receipt) => typeof row.id==='string' && Number.isInteger(row.version);
   async function perform(work:()=>Promise<void>) {
     if (inFlight.current || !active()) return;
     inFlight.current=true;
-    setBusy(true);
-    setFeedback(null);
-    setProblem(undefined);
+    setWorkingOn(activeKey);
+    report(null);
     try { await work(); }
     finally {
       inFlight.current=false;
-      if (active()) setBusy(false);
+      setWorkingOn(previous=>previous===activeKey ? null : previous);
     }
   }
   const transmit = (path:string,json:string,replay = false) => perform(async () => {
@@ -147,29 +152,44 @@ export function useEggWrite(account:string,resource:string,receiptPath:(key:stri
     } catch (error) {
       if (!active()) return;
       const status = error instanceof EggError ? error.status : 0;
-      if (error instanceof EggError) setProblem(error.subcode);
+      const subcode=error instanceof EggError ? error.subcode : undefined;
       if (!replay && [400,403,404,409,422].includes(status)) {
         remember(null);
         body.current=null;
         setRetryContext(null);
-        setFeedback(status===409 ? 'CONFLICT' : 'FAILED');
-      } else setFeedback('UNKNOWN');
+        report(status===409 ? 'CONFLICT' : 'FAILED',subcode);
+      } else report('UNKNOWN',subcode);
     }
   });
   return {
-    busy,feedback,problem,resetFeedback:()=>{setFeedback(null);setProblem(undefined);},pending:!!pending,pendingKey:pending?.key,sentAt:pending?.sentAt,canRetry:!!pending && retryContext===activeKey,
-    send(path:string,input:Record<string,unknown>) {
+    busy,feedback,problem,resetFeedback:()=>report(null),pending:!!pending,pendingKey:pending?.key,pendingLegacy:!!pending?.legacyCompany,sentAt:pending?.sentAt,canRetry:!!pending && retryContext===activeKey,
+    send(path:string,input:Record<string,unknown>,legacyCompany?:string) {
       if (pending || inFlight.current || !active() || loadPending(storageKey)) return;
       const key = crypto.randomUUID();
       const json = JSON.stringify({ ...input,actionKey:key });
       body.current={ path,body:json,activeKey };
       setRetryContext(activeKey);
-      remember({ key,sentAt:new Date().toISOString() });
+      remember({key,sentAt:new Date().toISOString(),...(legacyCompany?{legacyCompany}:{})});
       return transmit(path,json);
     },
     lookup() { return pending && perform(async () => {
-      try { deliver(await eggRequest(account,receiptPath(pending.key),isReceipt)); }
-      catch { if (active()) setFeedback('UNKNOWN'); }
+      try {
+        if (pending.legacyCompany && legacyResolution) {
+          const result=await eggRequest<LegacyResolution>(account,legacyResolution.path(pending.key,pending.legacyCompany),
+            value=>value?.status==='UNKNOWN'||value?.status==='V1_NOT_COMMITTED'||value?.status==='FOUND'&&isReceipt(value.receipt));
+          if (!active()) return;
+          if (result.status==='FOUND') {deliver(result.receipt);return;}
+          if (result.status==='V1_NOT_COMMITTED') {
+            legacyResolution.onNotCommitted();
+            remember(null);body.current=null;setRetryContext(null);report('V1_NOT_COMMITTED');
+            return;
+          }
+        } else {
+          deliver(await eggRequest(account,receiptPath(pending.key),isReceipt));
+          return;
+        }
+      } catch { /* keep the original request until an authoritative result is available */ }
+      if (active()) report('UNKNOWN');
     }); },
     retry() {
       const saved=body.current;

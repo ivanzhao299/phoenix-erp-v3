@@ -97,12 +97,12 @@ export function addEggSourceHouseSessionPermissions(permissions:string[], rows:r
 
 export type EggSourceGrantActor = { userId?:number|string; impersonatedBy?:unknown; perms_version?:number };
 
-export async function requireEggSourceAdministrator(manager: EntityManager, user:EggSourceGrantActor = {}) {
+export async function requireEggSourceAdministrator(manager: EntityManager, user:EggSourceGrantActor = {}, lockAccount = true) {
     const id = String(user.userId??'');
     if (!/^[1-9][0-9]{0,18}$/.test(id) || user.impersonatedBy) throw new ForbiddenException('须由实名系统管理员操作');
     const [account] = await manager.query(`SELECT u.perms_version FROM sys_user u JOIN sys_user_role ur USING (user_id)
       JOIN sys_role r USING (role_id) WHERE u.user_id=$1 AND u.status=1 AND COALESCE(ur.is_visible,true)
-      AND r.role_code='ROLE_ADMIN' AND r.status='ACTIVE' FOR SHARE OF u,ur,r`, [id]);
+      AND r.role_code='ROLE_ADMIN' AND r.status='ACTIVE'${lockAccount?' FOR SHARE OF u,ur,r':''}`, [id]);
     if (!account || !Number.isSafeInteger(user.perms_version) || user.perms_version!==Number(account.perms_version)) {
       throw new ForbiddenException('须由重新登录的有效系统管理员操作');
     }

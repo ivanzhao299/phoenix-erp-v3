@@ -72,6 +72,10 @@ export function canAccessEggSource(scope: ChangeScope, owner: EggSourceOwner, wa
     && (!scope.actionGrants || scope.actionGrants.some(grant => covers(grant, owner, warehouse)));
 }
 
+export function canAccessStoredEggSource(scope:ChangeScope,owner:EggSourceOwner,contract:1|2,warehouse?:string) {
+  return (contract===2 || !!warehouse || scope.isGlobal) && canAccessEggSource(scope,owner,warehouse||undefined);
+}
+
 export function assertEggSourceScope(scope: ChangeScope, owner: EggSourceOwner, warehouse?: string): void {
   if (!canAccessEggSource(scope, owner, warehouse)) throw new ForbiddenException('鸡舍或目标仓超出当前授权范围');
 }

@@ -411,10 +411,16 @@ suite('egg source change workspace on PostgreSQL',()=>{
       const control=(auth:string,expectedEnabled:boolean,enabled:boolean)=>http.post('/api/sys/menu-registry/egg-source-write-control')
         .auth(auth,{type:'bearer'}).send({expectedEnabled,enabled,reason:'Verified technical cutover'});
       const requestKey=randomUUID();
+      const legacyResolution=(auth:string,key:string,houseCode:string,companyCode='COMP-A')=>
+        http.get(base+'/change-requests/'+key+'/legacy-resolution').auth(auth,{type:'bearer'}).query({houseCode,companyCode});
+      const workspaceFor=(auth:string,houseCode:string)=>http.get(base+'/workspace').auth(auth,{type:'bearer'}).query({houseCode});
       const create=(auth:string,warehouseCode='WH-SHARED')=>http.post(base+'/changes').auth(auth,{type:'bearer'})
         .send({...input(),houseCode:'HOUSE-RBAC',warehouseCode,actionKey:requestKey});
       await http.get(base+'/workspace').auth(legacy,{type:'bearer'}).query({houseCode:'HOUSE-A2'}).expect(403);
       await create(applicant).expect(409);
+      expect((await legacyResolution(applicant,requestKey,'HOUSE-RBAC').expect(200)).body.data.status).toBe('UNKNOWN');
+      expect((await workspaceFor(applicant,'HOUSE-RBAC').expect(200)).body.data)
+        .toMatchObject({createContractVersion:1,createReason:'WRITES_PAUSED'});
       await create(reviewer).expect(403);
       await create(await token(21,{perms_version:undefined})).expect(401);
       await create(await token(21,{impersonatedBy:'99'})).expect(403);
@@ -431,6 +437,14 @@ suite('egg source change workspace on PostgreSQL',()=>{
         .rejects.toMatchObject({driverError:{code:'42501'}});
       await create(applicant,'WH-A2').expect(403);
       const opened=await create(applicant).expect(201);
+      expect((await workspaceFor(applicant,'HOUSE-RBAC').expect(200)).body.data)
+        .toMatchObject({createContractVersion:1,createReason:null});
+      expect((await workspaceFor(reviewer,'HOUSE-RBAC').expect(200)).body.data)
+        .toMatchObject({createContractVersion:1,createReason:'NO_CREATE_PERMISSION'});
+      expect((await legacyResolution(applicant,requestKey,'HOUSE-RBAC').expect(200)).body.data)
+        .toMatchObject({status:'FOUND',receipt:{id:opened.body.data.id}});
+      expect((await legacyResolution(reviewer,requestKey,'HOUSE-RBAC').expect(200)).body.data.status).toBe('UNKNOWN');
+      expect((await legacyResolution(applicant,requestKey,'HOUSE-RBAC','COMP-B').expect(200)).body.data.status).toBe('UNKNOWN');
       const doc=base+'/changes/'+opened.body.data.id;
       await http.post(doc+'/reviews/reject').auth(reviewOnly,{type:'bearer'}).send({version:1,actionKey:randomUUID(),reason:'Review'})
         .expect(403);
@@ -567,12 +581,24 @@ suite('egg source change workspace on PostgreSQL',()=>{
       expect(effective).toMatchObject({eligibleAccount:true,actions:['V','C','E'],
         origins:expect.arrayContaining([{action:'E',source:{subject:'role',code:'ROLE_EGG_APPLY',
           retained:true,scopeType:'HOUSE',scopeCode:'HOUSE-HOUSE-PILOT'}}])});
-      await http.put(pilotPath).auth(admin,{type:'bearer'}).send(pilotRequest).expect(200);
+      expect(effective).toMatchObject({current:{version:1,rollout:'UNREGISTERED',createReason:'NO_CREATE_PERMISSION'},
+        legacy:{view:false,warehouses:[]}});
+      const pilotKey=randomUUID();
+      expect((await legacyResolution(makerV2,pilotKey,'HOUSE-HOUSE-PILOT').expect(200)).body.data.status).toBe('UNKNOWN');
+      await http.put(pilotPath).auth(admin,{type:'bearer'}).send({...pilotRequest,companyCode:'COMP-B'}).expect(409);
+      await http.put(pilotPath).auth(admin,{type:'bearer'}).send({...pilotRequest,companyCode:'COMP-A'}).expect(200);
+      expect((await workspaceFor(makerV2,'HOUSE-HOUSE-PILOT').expect(200)).body.data)
+        .toMatchObject({createContractVersion:2,createReason:null});
+      expect((await workspaceFor(reviewerV2,'HOUSE-HOUSE-PILOT').expect(200)).body.data)
+        .toMatchObject({createContractVersion:2,createReason:'NO_CREATE_PERMISSION'});
+      expect((await legacyResolution(makerV2,pilotKey,'HOUSE-HOUSE-PILOT').expect(200)).body.data.status).toBe('V1_NOT_COMMITTED');
       await postDraft(makerV2,{...body,houseCode:'HOUSE-RBAC'}).expect(403);
       await postDraft(reviewerV2).expect(403);
       await postDraft(legacy).expect(403);
       const openedV2=browserURL ? await createBrowserDraft(browserURL,password,future) : (await postDraft(makerV2).expect(201)).body.data;
       expect(openedV2.payload).not.toHaveProperty('warehouseCode');
+      const [v2Key]=await db.query('SELECT request_key FROM md_egg_source_changes WHERE id=$1',[openedV2.id]);
+      expect((await legacyResolution(makerV2,v2Key.request_key,'HOUSE-HOUSE-PILOT').expect(200)).body.data.status).toBe('UNKNOWN');
       const docV2=base+'/changes/'+openedV2.id;
       await expect(db.transaction(async m=>{
         await m.query("SELECT set_config('phoenix.egg_source_writer','21',true)");
@@ -659,6 +685,9 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await db.query("INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-AFTER-RETIRE','FARM-A','ACTIVE','LAYER')");
       const newLegacy={...replay,houseCode:'HOUSE-AFTER-RETIRE',actionKey:randomUUID()};
       await postDraft(admin,newLegacy).expect(409);
+      expect((await legacyResolution(admin,newLegacy.actionKey,newLegacy.houseCode).expect(200)).body.data.status).toBe('V1_NOT_COMMITTED');
+      expect((await legacyResolution(admin,replay.actionKey,replay.houseCode).expect(200)).body.data)
+        .toMatchObject({status:'FOUND',receipt:{id:prior.id}});
       const held=(await http.get(base+'/workspace').auth(admin,{type:'bearer'}).query({houseCode:newLegacy.houseCode}).expect(200)).body.data;
       expect(held).toMatchObject({createContractVersion:2,createBlocker:'HOUSE_NOT_OPEN'});
       await expect(db.transaction(async m=>{
