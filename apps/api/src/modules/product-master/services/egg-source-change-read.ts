@@ -4,7 +4,7 @@ import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { sourceScopeFor,type Action,type ChangeRow,type ChangeScope, type SourceContractVersion } from './egg-source-change.service';
 import { checkHouseInventoryReadiness } from './egg-source-change-facts';
 import {
-  assertEggSourceScope, canAccessEggSource, commercialShellClass, EggSourceOwner, readEggSourceOwner,
+  assertEggSourceScope, canAccessEggSource, canAccessStoredEggSource, commercialShellClass, EggSourceOwner, readEggSourceOwner,
   sourceCalendars, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid,
 } from './egg-source-change-policy';
 
@@ -12,7 +12,8 @@ export type ChangeReader = { scope:ChangeScope; actor:string|null; edit:boolean;
   editGrants?:readonly ChangeScope[]; approveGrants?:readonly ChangeScope[];
   houseCreateGrants?:readonly ChangeScope[]; houseEditGrants?:readonly ChangeScope[];
   houseApproveGrants?:readonly ChangeScope[]; flock?:ChangeScope;
-  warehouseCodes?:readonly string[]; warehouseGlobal?:boolean };
+  warehouseCodes?:readonly string[]; warehouseGlobal?:boolean;
+  sessionRestriction?:'PERMS_CHANGED'|'IMPERSONATION'|null };
 export type ChangeListQuery = { houseCode:string; state?:string; dateFrom?:string; dateTo?:string; changeId?:string; cursor?:string };
 
 const states = ['DRAFT','SUBMITTED','APPROVED','REJECTED','CANCELLED','REVOKE_REQUESTED','REVOKED'];
@@ -62,7 +63,7 @@ export async function candidateHouses(m: EntityManager, sourceScope: ChangeScope
 export async function candidateWarehouses(m: EntityManager, house: string, scope: ChangeScope) {
   const owner = await readEggSourceOwner(m,house);
   assertEggSourceScope(scope,owner);
-  const rows: {code:string}[] = await m.query(`SELECT warehouse_code AS code, COALESCE(warehouse_name_zh,warehouse_name) AS name,
+  const rows: {code:string;name:string;nameEn:string|null;nameLo:string|null}[] = await m.query(`SELECT warehouse_code AS code, COALESCE(warehouse_name_zh,warehouse_name) AS name,
     warehouse_name_en AS "nameEn", warehouse_name_lo AS "nameLo"
     FROM wms_warehouses WHERE company_code=$1 AND status='ACTIVE' AND domain='OPERATIONAL'
     AND ($2::boolean OR warehouse_code=ANY($3::text[]))
@@ -118,7 +119,11 @@ export async function sourceCreatePolicy(m: EntityManager, owner: EggSourceOwner
   const blocker = version===2 && !rollout ? 'HOUSE_NOT_OPEN'
     : rollout && !rollout.enabled ? 'HOUSE_PAUSED'
     : !gate?.writes_enabled || version===2 && !gate.house_writes_enabled ? 'WRITES_PAUSED' : null;
-  return { version, blocker };
+  return { version, blocker,
+    rollout: rollout ? rollout.enabled ? 'OPEN' : 'PAUSED' : 'UNREGISTERED',
+    globalWrites:!!gate?.writes_enabled,houseWrites:!!gate?.house_writes_enabled,
+    legacyCreation:!!gate?.legacy_creates_enabled,legacyClosed:gate?.legacy_creates_enabled===false,
+  } as const;
 }
 
 export async function sourceCreationPrerequisite(m:EntityManager, owner:EggSourceOwner, businessDay:string|null) {
@@ -128,8 +133,32 @@ export async function sourceCreationPrerequisite(m:EntityManager, owner:EggSourc
   return enrolled ? null : 'NOT_ENROLLED';
 }
 
-export async function workspace(db: DataSource, house: string, reader: ChangeReader) {
+export async function sourceCreationReadiness(m:EntityManager, owner:EggSourceOwner, reader:ChangeReader,
+  policy:Awaited<ReturnType<typeof sourceCreatePolicy>>, house:{houseType:string;houseStatus:string;farmStatus:string},
+  businessDay:string|null) {
+  if (policy.blocker) return policy.blocker;
+  if (reader.sessionRestriction) return reader.sessionRestriction;
+  const scope=policy.version===2 ? {...sourceScopeFor(reader.scope,2),actionGrants:reader.houseCreateGrants??[]}
+    : {...reader.scope,actionGrants:reader.editGrants??[]};
+  if (!canAccessEggSource(scope,owner)) return 'NO_CREATE_PERMISSION';
+  if (house.houseType!=='LAYER') return 'NON_LAYER';
+  if (house.houseStatus!=='ACTIVE'||house.farmStatus!=='ACTIVE') return 'INACTIVE_HOUSE';
+  const prerequisites=await sourceCreationPrerequisite(m,owner,businessDay);
+  if (prerequisites) return prerequisites;
+  return policy.version===1 && !(await candidateWarehouses(m,owner.houseCode,scope)).length ? 'NO_V1_WAREHOUSE' : null;
+}
+
+export async function houseCreationFacts(m:EntityManager, owner:EggSourceOwner) {
+  const [house]:{houseType:string;houseStatus:string;farmStatus:string}[]=await m.query(
+    `SELECT h.house_type AS "houseType",h.status AS "houseStatus",f.status AS "farmStatus"
+      FROM ${ownerJoin} WHERE h.house_code=$1`,[owner.houseCode]);
+  const clock=sourceCalendars[owner.siteCode] ? await sourceClock(m,owner) : null;
+  return {house,businessDay:clock?.day??null};
+}
+
+export async function workspace(db: DataSource, house: string, resolve:(m:EntityManager)=>Promise<ChangeReader>) {
   return db.transaction('REPEATABLE READ',async m => {
+    const reader=await resolve(m);
     const owner = await readEggSourceOwner(m,house);
     assertEggSourceScope(reader.scope.visibilityScope??reader.scope,owner);
     const [labels] = await m.query(`SELECT ${ownerFields},${ownerLabels} FROM ${ownerJoin} WHERE h.house_code=$1`,[house]);
@@ -140,22 +169,17 @@ export async function workspace(db: DataSource, house: string, reader: ChangeRea
       count(*) FILTER (WHERE c.state='REVOKE_REQUESTED')::int AS "revokeRequested"
       FROM md_egg_source_changes c WHERE ${changeFilter} AND c.state IN ('SUBMITTED','REVOKE_REQUESTED')`,[...changeArgs(owner,reader.scope),clock?.day??null]);
     const policy = await sourceCreatePolicy(m,owner);
-    const createContractVersion = policy.version;
-    const createScope = createContractVersion===2
-      ? { ...sourceScopeFor(reader.scope,2),actionGrants:reader.houseCreateGrants??[] }
-      : { ...reader.scope,actionGrants:reader.editGrants??[] };
-    const canCreate = canAccessEggSource(createScope,owner);
-    const createBlocker = policy.blocker ?? (!canCreate ? 'NO_EDIT' : labels.houseType!=='LAYER' ? 'NON_LAYER'
-      : labels.houseStatus!=='ACTIVE' || labels.farmStatus!=='ACTIVE' ? 'INACTIVE_HOUSE'
-      : await sourceCreationPrerequisite(m,owner,clock?.day??null)
-        ?? (createContractVersion===1 && !(await candidateWarehouses(m,house,createScope)).length ? 'NO_EDIT' : null));
+    const createContractVersion=policy.version;
+    const createReason=await sourceCreationReadiness(m,owner,reader,policy,labels,clock?.day??null);
+    const createBlocker=createReason==='NO_CREATE_PERMISSION'||createReason==='NO_V1_WAREHOUSE'
+      ||createReason==='PERMS_CHANGED'||createReason==='IMPERSONATION' ? 'NO_EDIT' : createReason;
     const current = createContractVersion===2 && !createBlocker ? profiles.find(profile=>profile.status==='CURRENT') : undefined;
     const [continuation] = current ? await m.query(`SELECT new_profile_code AS "profileCode",target_class AS "targetClass",
       payload->'requirements' AS requirements FROM md_egg_source_changes
       WHERE new_profile_code=$1 AND contract_version=1 AND state='APPROVED'
         AND NULLIF(payload->>'warehouseCode','') IS NOT NULL AND approval->'snapshot' IS NOT NULL`,[current.profileCode]) : [];
     return { owner:{ ...owner,houseName:labels.houseName,farmName:labels.farmName,companyName:labels.companyName,siteName:labels.siteName },
-      businessDay:clock?.day??null,zone:clock?.zone??null,profiles,pending,createBlocker,createContractVersion,continuation:continuation??null };
+      businessDay:clock?.day??null,zone:clock?.zone??null,profiles,pending,createBlocker,createReason,createContractVersion,continuation:continuation??null };
   });
 }
 
@@ -213,9 +237,8 @@ export async function findChange(m: EntityManager, rawId: string, scope: ChangeS
     LEFT JOIN sys_user u ON u.user_id::text=c.created_by
     WHERE c.id=$1 AND c.farm_code=h.farm_code AND c.company_code=f.company_code
       AND c.site_code=${OrgOwnershipService.FARM_SITE_SQL} ${lock ? 'FOR SHARE OF c' : ''}`,[id]);
-  if (!row || (row.contract_version===1 && !scope.isGlobal && !row.payload.warehouseCode)
-    || !canAccessEggSource(sourceScopeFor(scope,row.contract_version),{companyCode:row.company_code,farmCode:row.farm_code,
-    siteCode:row.site_code,houseCode:row.house_code},row.payload.warehouseCode)) throw missing();
+  if (!row || !canAccessStoredEggSource(sourceScopeFor(scope,row.contract_version),{companyCode:row.company_code,
+    farmCode:row.farm_code,siteCode:row.site_code,houseCode:row.house_code},row.contract_version,row.payload.warehouseCode)) throw missing();
   return row as ChangeRow & { house_name:string;farm_name:string;warehouse_name:string|null;applicant_name:string|null };
 }
 

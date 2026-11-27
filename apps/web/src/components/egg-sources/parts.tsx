@@ -6,7 +6,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ErrorState, LoadingSkeleton, PresentationalTable, StatusBadge } from '@/components/design-system';
 import { inputField, secondaryActionButton } from '@/components/design-system/cockpit-styles';
-import type { Owner, Option, Precheck, Profile, Shell } from './contracts';
+import { creationStatus,type Owner,type Option,type Precheck,type Profile,type Shell,type Workspace } from './contracts';
 import { sourceCreationProblem,EggError, type useEggWrite } from './client';
 import s from './EggSources.module.css';
 
@@ -21,6 +21,19 @@ export function useSourceText() {
     return Number.isFinite(stamp.getTime()) ? new Intl.DateTimeFormat(locale,{ dateStyle:'medium',timeStyle:'medium',timeZone:'Asia/Vientiane' }).format(stamp) : value;
   };
   return { label,shell,status,option,time,crumb:[{label:t('md.center','主数据中心')},{label:label('title')}] };
+}
+
+export function SourceCreationStatus({workspace,onRefresh}:{workspace:Workspace;onRefresh:()=>void}) {
+  const {label}=useSourceText();
+  const {version,reason}=creationStatus(workspace);
+  return <div className={s.stack}>
+    {version&&<p className={s.hint}>{label(version===1?'creationV1':'creationV2')}</p>}
+    {reason&&<p role="status" className={s.notice}>{label('problem.'+reason)}
+      {reason==='CREATION_STATUS_UNKNOWN'&&<> <button type="button" style={secondaryActionButton} onClick={onRefresh}>
+        {label('refreshWorkspace')}
+      </button></>}
+    </p>}
+  </div>;
 }
 
 export function Badge({ value }: {value:string}) {

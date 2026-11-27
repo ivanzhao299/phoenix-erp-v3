@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import type { OrgScope } from '../../farm/farm.service';
 import {
-  assertEggSourceScope, eggSourceWarehouse, commercialShellClass, EggShellClass, EggSourceOwner, lockEggSourceHouse, lockEggSourcePolicy,
+  assertEggSourceScope, canAccessEggSource, canAccessStoredEggSource, eggSourceWarehouse, commercialShellClass, EggShellClass, EggSourceOwner, lockEggSourceHouse, lockEggSourcePolicy,
   readEggSourceOwner, requireShellClass, SHELL_TYPES, sourceClock, sourceDate, sourceDigest, sourceText, sourceUuid, sourceCalendars,
 } from './egg-source-change-policy';
 import { assertApprovedFlock,checkHouseInventoryReadiness,sourceUseBlockers, SourceSkuRequirement, SourcePlanBlocked, SourcePrecheckRow, verifySourceChangePlan } from './egg-source-change-facts';
@@ -80,7 +80,7 @@ function normalize(input: ChangeInput, contract:SourceContractVersion): Payload 
 export class EggSourceChangeService {
   constructor(private readonly db: DataSource, private readonly skus: SkuAvailabilityService) {}
 
-  workspace(house: string, reader: ChangeReader) { return workspace(this.db,house,reader); }
+  workspace(house:string,reader:(manager:EntityManager)=>Promise<ChangeReader>) { return workspace(this.db,house,reader); }
   candidateHouses(scope: ChangeScope) { return candidateHouses(this.db.manager,scope); }
   candidateWarehouses(house: string, scope: ChangeScope) {
     return this.db.transaction('REPEATABLE READ',async m => {
@@ -108,6 +108,38 @@ export class EggSourceChangeService {
   draftReceipt(key: string, house: string, scope: ChangeScope, actor: string) {
     return draftReceipt(this.db.manager,key,house,scope,actor);
   }
+  legacyCreationResolution(keyInput:string,house:string,companyInput:string,actor:string,
+    access:(manager:EntityManager,lockAccount:boolean)=>Promise<ChangeScope>) {
+    const key=sourceUuid(keyInput,'创建请求号');
+    const company=sourceText(companyInput,'原公司',64);
+    const houseCode=sourceText(house,'鸡舍',64);
+    return this.db.transaction('READ COMMITTED',async m=>{
+      const preliminary=await readEggSourceOwner(m,houseCode);
+      const original=await access(m,false);
+      if (preliminary.companyCode!==company || !canAccessEggSource(original.visibilityScope??original,preliminary)) {
+        return {status:'UNKNOWN' as const};
+      }
+      await lockEggSourceHouse(m,houseCode);
+      const scope=await access(m,true);
+      const owner=await readEggSourceOwner(m,houseCode,false,true);
+      if (owner.companyCode!==company || !canAccessEggSource(scope.visibilityScope??scope,owner)) return {status:'UNKNOWN' as const};
+      const [occupied]=await m.query(`SELECT contract_version FROM md_egg_source_changes
+        WHERE company_code=$1 AND request_key=$2 AND house_code=$3 AND created_by=$4`,[company,key,houseCode,actor]);
+      if (occupied) {
+        if (occupied.contract_version!==1) return {status:'UNKNOWN' as const};
+        try {
+          return {status:'FOUND' as const,receipt:await draftReceipt(m,key,houseCode,scope,actor)};
+        } catch (error) {
+          if (!(error instanceof NotFoundException)) throw error;
+          return {status:'UNKNOWN' as const};
+        }
+      }
+      const policy=await sourceCreatePolicy(m,owner,true);
+      if (policy.rollout==='UNREGISTERED' && !policy.legacyClosed) return {status:'UNKNOWN' as const};
+      return {status:'V1_NOT_COMMITTED' as const};
+    });
+  }
+
   actionReceipt(id: string, key: string, scope: ChangeScope, actor: string) {
     return actionReceipt(this.db.manager,id,key,scope,actor);
   }
@@ -322,7 +354,9 @@ export class EggSourceChangeService {
   }
 
   private authorizeRow(row: ChangeRow, owner: EggSourceOwner, scope: ChangeScope) {
-    assertEggSourceScope(sourceScopeFor(scope,row.contract_version),owner,row.payload.warehouseCode);
+    if (!canAccessStoredEggSource(sourceScopeFor(scope,row.contract_version),owner,row.contract_version,row.payload.warehouseCode)) {
+      throw new ForbiddenException('鸡舍或原目标仓超出当前授权范围');
+    }
     if (row.company_code !== owner.companyCode || row.farm_code !== owner.farmCode || row.site_code !== owner.siteCode
         || row.house_code !== owner.houseCode) throw new ConflictException('申请的原组织归属已变化');
   }

@@ -39,17 +39,18 @@ export class EggSourceChangeController {
     return this.accessScope(req,contract===2 ? 'C' : 'E',manager,contract);
   }
 
-  private async reader(req: any) {
-    const access = await this.access.resolve(req.user);
+  private async reader(req:any,manager?:EntityManager) {
+    const access=await this.access.resolve(req.user,'V',manager,undefined,undefined,false);
     return { scope: access.scope, actor: access.actor, edit: !!access.edit.length, approve: !!access.approve.length,
       editGrants:access.edit,approveGrants:access.approve,houseCreateGrants:access.houseCreate,
       houseEditGrants:access.houseEdit,houseApproveGrants:access.houseApprove,
-      warehouseCodes:access.warehouseScope?.allowedWarehouseCodes,warehouseGlobal:access.warehouseScope?.isGlobal };
+      warehouseCodes:access.warehouseScope?.allowedWarehouseCodes,warehouseGlobal:access.warehouseScope?.isGlobal,
+      sessionRestriction:access.sessionRestriction };
   }
 
   @Get('workspace')
   async workspace(@Query('houseCode') house:string,@Req() req:any) {
-    return { code:200,data:await this.service.workspace(house,await this.reader(req)) };
+    return { code:200,data:await this.service.workspace(house,m=>this.reader(req,m)) };
   }
 
   @Get('candidates/houses')
@@ -82,6 +83,13 @@ export class EggSourceChangeController {
   @Get('change-requests/:key')
   async draftReceipt(@Param('key') key:string,@Query('houseCode') house:string,@Req() req:any) {
     return { code:200,data:await this.service.draftReceipt(key,house,await this.accessScope(req),this.actor(req)) };
+  }
+
+  @Get('change-requests/:key/legacy-resolution')
+  async legacyCreationResolution(@Param('key') key:string,@Query('houseCode') house:string,
+    @Query('companyCode') company:string,@Req() req:any) {
+    const actor=this.actor(req);
+    return {code:200,data:await this.service.legacyCreationResolution(key,house,company,actor,async (m,lock)=>(await this.access.resolve(req.user,'V',m,undefined,undefined,lock)).scope)};
   }
 
   @Get('changes/:id/action-requests/:key')

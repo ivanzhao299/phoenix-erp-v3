@@ -13,8 +13,21 @@ export type Option = {code:string;name:string;nameEn?:string;nameLo?:string};
 export type Options = {grades:Option[];specs:Option[]};
 export type Readiness = {status:'READY'|'BLOCKED'|'NOT_CUT_OVER';code?:string;warehouseCode?:string|null;digest?:string|null};
 export type Workspace = {owner:Owner;businessDay:string|null;zone:string|null;profiles:Profile[];
-  pending:{submitted:number;expired?:number;revokeRequested:number};createBlocker:string|null;createContractVersion?:1|2;
+  pending:{submitted:number;expired?:number;revokeRequested:number};createBlocker?:string|null;createReason?:string|null;createContractVersion?:1|2;
   continuation?:{profileCode:string;targetClass:Shell;requirements:Requirement[]}|null};
+const creationReasons=new Set(['NO_EDIT','NO_CREATE_PERMISSION','NO_V1_WAREHOUSE','PERMS_CHANGED','IMPERSONATION',
+  'NON_LAYER','INACTIVE_HOUSE','NO_CALENDAR','NOT_ENROLLED','HOUSE_NOT_OPEN','HOUSE_PAUSED','WRITES_PAUSED']);
+
+export function creationStatus(workspace:Pick<Workspace,'createContractVersion'|'createBlocker'|'createReason'|'businessDay'>) {
+  const version=workspace.createContractVersion;
+  const blocker=workspace.createBlocker;
+  const reason=workspace.createReason;
+  const known=(version===1||version===2) && (blocker===null||creationReasons.has(blocker??''))
+    && (reason===undefined||(blocker===null ? reason===null : creationReasons.has(reason??'') && (blocker==='NO_EDIT'||reason===blocker)))
+    && (blocker!==null || !!workspace.businessDay);
+  return {version:version===1||version===2 ? version : null,allowed:known&&blocker===null,
+    reason:known ? reason??blocker??null : 'CREATION_STATUS_UNKNOWN'};
+}
 export type Change = {id:string;overdue?:boolean;version:number;state:string;effectiveDate:string;targetClass:Shell;createdBy:string;createdByName?:string|null;
   createdAt:string;warehouseCode:string|null;warehouseName:string|null;contractVersion?:1|2};
 export type Changes = { items:Change[];nextCursor:string|null };

@@ -85,3 +85,6 @@
   border-color: var(--status-warning);
   color: var(--bg-card);
 }
+
+.legacyGrant summary { cursor: pointer; padding: 0.375rem 0; }
+.legacyGrant button[aria-pressed="true"] { outline: 2px solid var(--primary); outline-offset: 1px; }

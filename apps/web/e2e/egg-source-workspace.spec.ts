@@ -10,7 +10,7 @@ const tomorrow='2026-11-26';
 const owner={houseCode:'H1',houseName:'Fixture house',companyCode:'CO',farmCode:'F1',farmName:'Fixture farm',siteCode:'SITE'};
 const change={id,state:'SUBMITTED',version:2,effectiveDate:tomorrow,targetClass:'RED',createdBy:actor,createdAt:'2026-11-25T06:00:00Z',
   warehouseCode:'WH-SHARED',warehouseName:'Shared warehouse'};
-const workspace={owner,businessDay:'2026-11-25',zone:'Asia/Vientiane',createBlocker:null,pending:{submitted:1,revokeRequested:0},profiles:[]};
+const workspace={owner,businessDay:'2026-11-25',zone:'Asia/Vientiane',createContractVersion:1,createBlocker:null,pending:{submitted:1,revokeRequested:0},profiles:[]};
 
 async function fixture(page:Page,language='zh') {
   await authenticateMockPage(page,{ username:actor,role:'ROLE_EGG_CLERK',roles:['ROLE_EGG_CLERK'],permissions:['MENU_MD_EGG_SOURCE:V,E'] },language);
@@ -186,9 +186,11 @@ test('recovers a lost draft write after reload with a read-only receipt',async({
     key=route.request().postDataJSON().actionKey;
     return route.abort();
   });
-  await page.route('**'+api+'/change-requests/*',route=>{
-    expect(new URL(route.request().url()).pathname).toBe(api+'/change-requests/'+key);
-    return route.fulfill({json:{code:200,data:{id,state:'DRAFT',version:1}}});
+  await page.route(url=>url.pathname.startsWith(api+'/change-requests/'),route=>{
+    const url=new URL(route.request().url());
+    expect(url.pathname).toBe(api+'/change-requests/'+key+'/legacy-resolution');
+    expect(url.searchParams.get('companyCode')).toBe('CO');
+    return route.fulfill({json:{code:200,data:{status:'FOUND',receipt:{id,state:'DRAFT',version:1}}}});
   });
   await page.goto(base+'/new?houseCode=H1');
   await fillForm(page);
@@ -212,3 +214,94 @@ for (const [width,language,heading] of [[320,'en','Source change requests'],[390
     await expect(page.locator('a[data-change="'+id+'"]:visible')).toBeVisible();
   });
 }
+
+test('waits for a recognized creation policy before showing the new action', async ({page})=>{
+  await fixture(page);
+  let updated=false;
+  await page.route(url=>url.pathname===api+'/workspace',route=>route.fulfill({
+    json:{code:200,data:{...workspace,createContractVersion:updated?2:undefined}},
+  }));
+  await page.goto(base+'?houseCode=H1');
+  const create=page.getByRole('link',{name:'新建来源变更'});
+  await expect(create).toHaveCount(0);
+  const refresh=page.getByRole('button',{name:'刷新工作区',exact:true});
+  await expect(refresh).toBeVisible();
+  updated=true;
+  await refresh.click();
+  await expect(create).toBeVisible();
+});
+
+test('checks the original V1 key after rollout before allowing another draft',async({page})=>{
+  await fixture(page);
+  let writes=0;
+  let lookups=0;
+  let resolves=false;
+  let releaseWorkspace=()=>{};
+  const waitForWorkspace=new Promise<void>(resolve=>{releaseWorkspace=resolve;});
+  const key='9c524a5b-2eaf-44a8-a0c2-d34f0c35a397';
+  await page.addInitScript(({actor,key})=>{
+    sessionStorage.setItem('phoenix.egg-source.pending.'+JSON.stringify([[actor,null],'H1']),
+      JSON.stringify({key,legacyCompany:'CO',sentAt:'2026-11-25T08:00:00Z'}));
+  },{actor,key});
+  await page.route(url=>url.pathname===api+'/workspace',async route=>{
+    if (resolves) await waitForWorkspace;
+    return route.fulfill({json:{code:200,data:{...workspace,createContractVersion:resolves?2:1}}});
+  });
+  await page.route(url=>url.pathname===api+'/changes',route=>{
+    if(route.request().method()==='POST') writes++;
+    return route.fulfill({status:500,json:{message:'Unexpected create'}});
+  });
+  await page.route(url=>url.pathname===api+'/change-requests/'+key,()=>{
+    throw new Error('A V1 key must use the version-bound receipt lookup');
+  });
+  await page.route(url=>url.pathname===api+'/change-requests/'+key+'/legacy-resolution',route=>{
+    const url=new URL(route.request().url());
+    expect(url.searchParams.get('companyCode')).toBe('CO');
+    expect(url.searchParams.get('houseCode')).toBe('H1');
+    lookups++;
+    return route.fulfill({json:{code:200,data:{status:resolves?'V1_NOT_COMMITTED':'UNKNOWN'}}});
+  });
+  await page.goto(base+'/new?houseCode=H1');
+  const lookup=page.getByRole('button',{name:'查询此次操作回执'});
+  await expect(lookup).toBeVisible();
+  await lookup.click();
+  await expect.poll(()=>lookups).toBe(1);
+  await expect(page.getByText(key,{exact:true})).toBeVisible();
+  resolves=true;
+  await lookup.click();
+  await expect(page.getByText(/旧请求未生成申请/)).toBeVisible();
+  await expect(lookup).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'保存草稿'})).toHaveCount(0);
+  releaseWorkspace();
+  await expect(page.getByRole('button',{name:'保存草稿'})).toBeVisible();
+  await expect(page.getByLabel('目标仓库')).toHaveCount(0);
+  expect(writes).toBe(0);
+});
+
+test('locks an old form when precheck rejects its creation policy',async({page})=>{
+  await fixture(page);
+  let switched=false;
+  let releaseWorkspace=()=>{};
+  const waitForWorkspace=new Promise<void>(resolve=>{releaseWorkspace=resolve;});
+  await page.route(url=>url.pathname===api+'/workspace',async route=>{
+    if (switched) await waitForWorkspace;
+    return route.fulfill({json:{code:200,data:{...workspace,createContractVersion:switched?2:1}}});
+  });
+  await page.route(url=>url.pathname===api+'/precheck',route=>route.fulfill({
+    status:409,json:{subcode:'SOURCE_CONTRACT_CHANGED'},
+  }));
+  await page.goto(base+'/new?houseCode=H1');
+  await fillForm(page);
+  await page.getByRole('button',{name:'预检 SKU 与库存范围'}).click();
+  const refresh=page.getByRole('button',{name:'刷新工作区'});
+  const save=page.getByRole('button',{name:'保存草稿'});
+  await expect(refresh).toBeVisible();
+  await expect(save).toHaveCount(0);
+  switched=true;
+  await refresh.click();
+  await expect(save).toHaveCount(0);
+  releaseWorkspace();
+  await expect(save).toBeVisible();
+  await expect(page.getByLabel('目标仓库')).toHaveCount(0);
+  await expect(page.getByLabel('依据',{exact:true})).toHaveValue('Fixture change');
+});

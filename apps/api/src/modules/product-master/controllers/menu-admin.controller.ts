@@ -5,9 +5,9 @@ import { EGG_SOURCE_MENU } from '../../../auth/egg-source-permissions';
 import { EGG_SOURCE_HOUSE_ACTIONS,type EggSourceHouseAction,type EggSourceOrganizationGrant } from '../../../auth/egg-source-organization-grants';
 import { requireEggSourceAdministrator,lockEggSourceGrantEditor,withEggSourceGrantEditorSnapshot } from '../../../auth/egg-source-organization-grants';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
-import { lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
+import { canAccessEggSource,lockEggSourceHouse,readEggSourceOwner,sourceCalendars,sourceClock,sourceDigest,sourceText } from '../services/egg-source-change-policy';
 import { EggSourceAccessService } from '../services/egg-source-access.service';
-import { sourceCreationPrerequisite } from '../services/egg-source-change-read';
+import { candidateWarehouses,houseCreationFacts,sourceCreationPrerequisite,sourceCreationReadiness,sourceCreatePolicy } from '../services/egg-source-change-read';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import {
   rehydrate,
@@ -175,16 +175,38 @@ export class MenuAdminController {
   @Get('egg-source-house-access')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','V')
   async inspectHouseAccess(@Req() req:any,@Query('house') house:string,@Query('username') username:string) {
-    await requireEggSourceAdministrator(this.em,req.user);
-    const owner=await readEggSourceOwner(this.em,house);
-    const outcome=await this.sourceAccess.inspectHouseAccount(this.em,owner,sourceText(username,'账号',64));
-    return {code:200,data:{eligibleAccount:!!outcome.accountId,actions:outcome.actions,origins:outcome.origins}};
+    return this.em.transaction('REPEATABLE READ',async m=>{
+      await requireEggSourceAdministrator(m,req.user,false);
+      const owner=await readEggSourceOwner(m,house);
+      const policy=await sourceCreatePolicy(m,owner);
+      const facts=await houseCreationFacts(m,owner);
+      const result=await this.sourceAccess.inspectHouseAccount(m,owner,sourceText(username,'账号',64),true);
+      const {accountId,actions,origins,access}=result;
+      const legacyView=!!access&&canAccessEggSource(access.scope,owner);
+      const warehouses=legacyView&&access ? await candidateWarehouses(m,owner.houseCode,access.scope) : [];
+      const legacyActions=access ? warehouses.map(warehouse=>({
+        code:warehouse.code,name:warehouse.name,
+        actions:[
+          'V',
+          ...(canAccessEggSource({...access.scope,actionGrants:access.edit},owner,warehouse.code)?['E']:[]),
+          ...(canAccessEggSource({...access.scope,actionGrants:access.approve},owner,warehouse.code)?['A']:[]),
+        ],
+      })) : [];
+      const createReason=access ? await sourceCreationReadiness(m,owner,{
+        scope:access.scope,actor:access.actor,edit:!!access.edit.length,approve:!!access.approve.length,
+        editGrants:access.edit,houseCreateGrants:access.houseCreate,sessionRestriction:access.sessionRestriction,
+      },policy,facts.house,facts.businessDay) : policy.blocker??'NO_CREATE_PERMISSION';
+      return {code:200,data:{eligibleAccount:!!accountId,actions,origins,
+        current:{...policy,createReason,businessDay:facts.businessDay,...facts.house},
+        legacy:{view:legacyView,warehouses:legacyActions},
+      }};
+    });
   }
 
   @Put('egg-source-house-rollouts/:house')
   @RequireMenu('MENU_SETTINGS_MENU_REGISTRY','E')
   async setHouseRollout(@Req() req:any,@Param('house') house:string,
-    @Body() body:{expectedEnabled:boolean|null;expectedRevision?:string|null;enabled:boolean;reason:string;maker?:string;reviewer?:string}) {
+    @Body() body:{expectedEnabled:boolean|null;expectedRevision?:string|null;companyCode?:string;enabled:boolean;reason:string;maker?:string;reviewer?:string}) {
     const reason = sourceText(body?.reason,'鸡舍切换依据',500);
     if (typeof body.enabled!=='boolean' || (body.expectedEnabled!==null && typeof body.expectedEnabled!=='boolean') ||
         body.expectedEnabled===body.enabled) {
@@ -195,6 +217,9 @@ export class MenuAdminController {
       const actor = await requireEggSourceAdministrator(m,req.user);
       await lockEggSourceHouse(m,house);
       const owner = await readEggSourceOwner(m,house,body.enabled,true);
+      if (body.companyCode!==undefined && sourceText(body.companyCode,'确认公司',64)!==owner.companyCode) {
+        throw new ConflictException('鸡舍所属公司已变化，请重新选择');
+      }
       const [gate] = await m.query('SELECT writes_enabled,house_writes_enabled FROM md_egg_source_write_control WHERE id=1 FOR SHARE');
       let verifiedAccounts: {maker:string;reviewer:string}|undefined;
       if (body.enabled) {

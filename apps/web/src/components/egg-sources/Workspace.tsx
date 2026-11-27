@@ -6,8 +6,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { EmptyState, MasterDataTemplate, PresentationalTable, type ColumnV3 } from '@/components/design-system';
 import { inputField, primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { useEggIdentity, useEggRead } from './client';
-import { isChange, isHouseList, isWorkspace, listOf, query, root, states, type Change, type Changes, type House, type Workspace as Model } from './contracts';
-import { Badge, Busy, Field, Meta, OwnerMeta, ReadFailure, Schedule, useSourceText } from './parts';
+import { creationStatus,isChange, isHouseList, isWorkspace, listOf, query, root, states, type Change, type Changes, type House, type Workspace as Model } from './contracts';
+import { Badge, Busy, Field, Meta, OwnerMeta, ReadFailure, Schedule, SourceCreationStatus, useSourceText } from './parts';
 import s from './EggSources.module.css';
 
 const isPage = (data:Changes) => listOf(data.items,isChange) && (data.nextCursor===null || typeof data.nextCursor==='string');
@@ -90,9 +90,8 @@ export default function Workspace() {
           </select>}</Field>
         </div>
         {result&&<OwnerMeta owner={result.owner} day={result.businessDay} zone={result.zone}/>}
-        {result?.createContractVersion===1&&!result.createBlocker&&<p className={s.hint}>{label('legacyTransition')}</p>}
-        {result?.createBlocker&&<p className={s.hint}>{label('problem.'+result.createBlocker)}</p>}
-        {result&&!result.createBlocker&&<div className={s.actions}>
+        {result&&<SourceCreationStatus workspace={result} onRefresh={workspace.reload}/>}
+        {result&&creationStatus(result).allowed&&<div className={s.actions}>
           <Link href={root+'/new'+query({houseCode:house})} style={primaryActionButton}>{label('newChange')}</Link>
         </div>}
       </div>}
