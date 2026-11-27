@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { isEggSourceManagedSubject,auditEggSourcePermissionChange,lockEggSourceGrantEditor,requireEggSourceAdministrator,type EggSourceGrantActor } from '../../auth/egg-source-organization-grants';
-import { resolveMenuGrants, saveMenuGrants } from '../permissions/save-menu-grants';
+import { legacyEggGrantDigest,resolveMenuGrants,saveMenuGrants } from '../permissions/save-menu-grants';
 
 /**
  * G118 权限集（PBAC 两层模型）服务。
@@ -24,7 +24,7 @@ export class PermissionSetsService {
              COALESCE(us.cnt,0)::int AS user_count
         FROM sys_permission_set s
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_permission_set_item GROUP BY set_id) i  ON i.set_id=s.set_id
-        LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM md_egg_source_organization_grants GROUP BY set_id) g ON g.set_id=s.set_id
+        LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM md_egg_source_effective_grants GROUP BY set_id) g ON g.set_id=s.set_id
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_role_permission_set GROUP BY set_id) rs ON rs.set_id=s.set_id
         LEFT JOIN (SELECT set_id,COUNT(*) cnt FROM sys_user_permission_set GROUP BY set_id) us ON us.set_id=s.set_id
        ORDER BY s.set_code`);
@@ -36,7 +36,7 @@ export class PermissionSetsService {
     if (!head.length) throw new BadRequestException(`能力集 ${setCode} 不存在`);
     const set = head[0];
     const items = await this.ds.query(`
-      SELECT i.item_id, m.menu_code, m.menu_name_zh, i.perm_codes,i.deny_codes,
+      SELECT i.item_id, m.menu_code, m.menu_name_zh, i.perm_codes,i.deny_codes,i.scope_type,i.scope_value,
         CASE WHEN m.menu_code='MENU_MD_EGG_SOURCE' AND i.scope_type='WAREHOUSE' THEN i.scope_value END AS egg_warehouse_code
         FROM sys_permission_set_item i JOIN sys_menu m ON m.menu_id=i.menu_id
        WHERE i.set_id=$1 ORDER BY m.menu_code`, [set.set_id]);
@@ -48,7 +48,8 @@ export class PermissionSetsService {
       SELECT u.user_id, u.username, u.real_name AS real_name_zh
         FROM sys_user_permission_set ups JOIN sys_user u ON u.user_id=ups.user_id
        WHERE ups.set_id=$1 ORDER BY u.username`, [set.set_id]);
-    return { ...set, items, roles, users };
+    return { ...set, items:items.map(({scope_type,scope_value,...item}:any)=>({...item,
+      egg_legacy_digest:item.menu_code==='MENU_MD_EGG_SOURCE'?legacyEggGrantDigest({...item,scope_type,scope_value}):undefined})), roles, users };
   }
 
   async create(dto: any) {
@@ -88,7 +89,7 @@ export class PermissionSetsService {
     },{action:'remove'},true);
   }
 
-  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string }>,actor?:EggSourceGrantActor) {
+  async setItems(setCode: string, items: Array<{ menu_code: string; perm_codes: string; egg_warehouse_code?: string; egg_legacy_digest?: string }>,actor?:EggSourceGrantActor) {
     return this.ds.transaction(async manager => {
       await lockEggSourceGrantEditor(manager);
       const [head] = await manager.query('SELECT set_id FROM sys_permission_set WHERE set_code=$1 FOR UPDATE', [setCode]);

@@ -10,7 +10,7 @@ import { addEggSourceHouseSessionPermissions,loadEggSourceOrganizationGrants,loc
 import { resolvePermissions, PermSource } from '../../auth/permissions-resolver';
 
 import { EGG_SOURCE_ACTIONS, EGG_SOURCE_MENU } from '../../auth/egg-source-permissions';
-import { resolveMenuGrants, saveMenuGrants } from './save-menu-grants';
+import { legacyEggGrantDigest,resolveMenuGrants,saveMenuGrants } from './save-menu-grants';
 
 export interface MenuGroupNode {
   domain: string;
@@ -33,6 +33,7 @@ export interface RoleMenuPermDto {
   menu_code: string;
   perm_codes: string;          // 例 "V,C,E"
   egg_warehouse_code?: string;
+  egg_legacy_digest?: string;
 }
 
 type SodRule = Pick<SysRoleConflictEntity, 'menu_a' | 'menu_b' | 'severity'>;
@@ -151,9 +152,9 @@ export class PermissionsService {
     const allPerms = await this.rmpRepo.find();
 
     const configuredSource: Array<{role_id:string;actions:string[]}> = await this.dataSource.query(`SELECT access.role_id,ARRAY_AGG(DISTINCT act) AS actions
-      FROM (SELECT role_id,actions FROM md_egg_source_organization_grants WHERE role_id IS NOT NULL
+      FROM (SELECT role_id,actions FROM md_egg_source_effective_grants WHERE role_id IS NOT NULL
         UNION ALL SELECT rs.role_id,g.actions FROM sys_role_permission_set rs
-          JOIN md_egg_source_organization_grants g ON rs.set_id=g.set_id) access
+          JOIN md_egg_source_effective_grants g ON rs.set_id=g.set_id) access
       CROSS JOIN LATERAL unnest(access.actions) act GROUP BY access.role_id`);
     const sourceByRole = new Map(configuredSource.map(row=>[String(row.role_id),row.actions]));
     // 用 (role_id, menu_id) 做索引方便查
@@ -176,7 +177,7 @@ export class PermissionsService {
           return {
             menu_code: m.menu_code,
             perm_codes: codes,
-            ...(m.menu_code===EGG_SOURCE_MENU ? {configured_only:true,version2_configured:configured??[]} : {}),
+            ...(m.menu_code===EGG_SOURCE_MENU ? {configured_only:true,version1_configured:legacy,version2_configured:configured??[]} : {}),
             granted: codes === '*' || codes.split(',').map(s => s.trim()).filter(Boolean).length > 0,
           };
         }),
@@ -218,15 +219,16 @@ export class PermissionsService {
     const role = await this.roleRepo.findOne({ where: { role_code: roleCode } });
     if (!role) return [];
     const rows = await this.dataSource.query(
-      `SELECT m.menu_code,rmp.perm_codes,
+      `SELECT m.menu_code,rmp.perm_codes,rmp.scope_type,rmp.scope_value,
          CASE WHEN m.menu_code='MENU_MD_EGG_SOURCE' AND rmp.scope_type='WAREHOUSE' THEN rmp.scope_value END AS egg_warehouse_code
        FROM sys_role_menu_permission rmp
        JOIN sys_menu m ON m.menu_id = rmp.menu_id
-       WHERE rmp.role_id = $1 AND NULLIF(rmp.perm_codes,'') IS NOT NULL
+       WHERE rmp.role_id = $1 AND (NULLIF(rmp.perm_codes,'') IS NOT NULL OR m.menu_code='MENU_MD_EGG_SOURCE')
        ORDER BY m.sort_order`,
       [role.role_id],
     );
-    return rows.map((r: any) => ({ menu_code: r.menu_code, perm_codes: r.perm_codes, egg_warehouse_code:r.egg_warehouse_code??undefined }));
+    return rows.map((r: any) => ({ menu_code: r.menu_code, perm_codes: r.perm_codes, egg_warehouse_code:r.egg_warehouse_code??undefined,
+      egg_legacy_digest:r.menu_code===EGG_SOURCE_MENU?legacyEggGrantDigest(r):undefined }));
   }
 
   // ── PUT /api/permissions/role/:code/perms  批量替换该角色的三元组 ──────
@@ -239,14 +241,16 @@ export class PermissionsService {
       const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
       const currentPerms: RoleMenuPermDto[] = await mgr.query(`SELECT m.menu_code,rmp.perm_codes
         FROM sys_role_menu_permission rmp JOIN sys_menu m USING (menu_id) WHERE rmp.role_id=$1`, [role.role_id]);
-      const [scopedWrites]=await mgr.query(`SELECT 1 FROM md_egg_source_organization_grants g
+      const [scopedWrites]=await mgr.query(`SELECT 1 FROM md_egg_source_effective_grants g
         WHERE g.actions && ARRAY['C','E','A']::text[] AND (g.role_id=$1 OR g.set_id IN (
           SELECT set_id FROM sys_role_permission_set WHERE role_id=$1)) LIMIT 1`,[role.role_id]);
       const commonMenus=scopedWrites ? [EGG_SOURCE_MENU] : [];
+      const retainedLegacy = perms.some(p=>p.menu_code===EGG_SOURCE_MENU) ? [] :
+        currentPerms.filter(p=>p.menu_code===EGG_SOURCE_MENU && isWrite(p.perm_codes)).map(p=>p.menu_code);
       const rules = await mgr.find(SysRoleConflictEntity);
       const addedBlocks = newlyIntroducedBlockingConflicts(
         [...commonMenus,...currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)],
-        [...commonMenus,...perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)], rules);
+        [...commonMenus,...retainedLegacy,...perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code)], rules);
       if (addedBlocks.length) {
         throw new BadRequestException(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
       }
@@ -318,17 +322,17 @@ export class PermissionsService {
        ) ORDER BY u.username`, [menuCode, like]);
     if (menuCode===EGG_SOURCE_MENU) {
       const scopedRoles=await this.dataSource.query(`SELECT r.role_code,r.role_name_zh,string_agg(DISTINCT g.source,',') AS via FROM sys_role r
-        JOIN (SELECT role_id,actions,'source_organization_direct' AS source FROM md_egg_source_organization_grants WHERE role_id IS NOT NULL
+        JOIN (SELECT role_id,actions,'source_organization_direct' AS source FROM md_egg_source_effective_grants WHERE role_id IS NOT NULL
           UNION ALL SELECT rs.role_id,g.actions,'source_organization_set' FROM sys_role_permission_set rs
-            JOIN md_egg_source_organization_grants g USING(set_id)) g USING(role_id)
+            JOIN md_egg_source_effective_grants g USING(set_id)) g USING(role_id)
         WHERE r.status='ACTIVE' AND $1=ANY(g.actions) GROUP BY r.role_code,r.role_name_zh`,[p]);
       const scopedUsers=await this.dataSource.query(`SELECT DISTINCT u.user_id,u.username,u.real_name AS real_name_zh
         FROM sys_user u WHERE u.status=1 AND (
           EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id)
-            JOIN md_egg_source_organization_grants g ON g.role_id=ur.role_id OR g.set_id IN (
+            JOIN md_egg_source_effective_grants g ON g.role_id=ur.role_id OR g.set_id IN (
               SELECT rs.set_id FROM sys_role_permission_set rs WHERE rs.role_id=ur.role_id)
             WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND $1=ANY(g.actions))
-          OR EXISTS (SELECT 1 FROM sys_user_permission_set us JOIN md_egg_source_organization_grants g USING(set_id)
+          OR EXISTS (SELECT 1 FROM sys_user_permission_set us JOIN md_egg_source_effective_grants g USING(set_id)
             WHERE us.user_id=u.user_id AND $1=ANY(g.actions)))`,[p]);
       const byRole=new Map<string,{role_code:string;role_name_zh:string;via:string}>();
       for (const role of [...roles,...scopedRoles]) {
@@ -357,7 +361,12 @@ export class PermissionsService {
         JOIN sys_role_permission_set rps ON rps.role_id = r.role_id
         JOIN sys_permission_set_item psi ON psi.set_id = rps.set_id
         JOIN sys_menu m ON m.menu_id = psi.menu_id
-       WHERE r.role_code = ANY($1) AND (psi.perm_codes = '*' OR psi.perm_codes ~ '[CEDA]')`, [roleCodes]);
+       WHERE r.role_code = ANY($1) AND (psi.perm_codes = '*' OR psi.perm_codes ~ '[CEDA]')
+      UNION
+      SELECT r.role_code,$2 AS menu_code FROM sys_role r
+      JOIN md_egg_source_effective_grants g ON g.role_id=r.role_id OR g.set_id IN (
+        SELECT set_id FROM sys_role_permission_set WHERE role_id=r.role_id)
+      WHERE r.role_code=ANY($1) AND r.status='ACTIVE' AND g.actions && ARRAY['C','E','A']::text[]`, [roleCodes,EGG_SOURCE_MENU]);
     const menuToRoles: Record<string, Set<string>> = {};
     const writeMenus = new Set<string>();
     for (const r of rows) {

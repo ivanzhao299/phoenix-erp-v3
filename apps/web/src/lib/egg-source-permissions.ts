@@ -11,3 +11,18 @@ export function menuActionLabel(
     default: return fallback;
   }
 }
+
+export function legacyEggMenuChange(
+  current: ReadonlySet<string> | undefined, warehouse:string, originalWarehouse:string,
+  original:{codes:string; digest?:string},
+) {
+  const codes=[...(current??[])].sort().join(',');
+  const changedWarehouse=Boolean(codes&&warehouse&&warehouse!==originalWarehouse);
+  if (codes===original.codes&&!changedWarehouse) return null;
+  return {menu_code:EGG_SOURCE_MENU,perm_codes:codes,
+    egg_warehouse_code:changedWarehouse?warehouse:undefined,egg_legacy_digest:original.digest};
+}
+
+export function legacyEggMenuBaseline(grant?:{perm_codes:string;egg_legacy_digest?:string}) {
+  return {codes:(grant?.perm_codes??'').split(',').filter(Boolean).sort().join(','),digest:grant?.egg_legacy_digest};
+}

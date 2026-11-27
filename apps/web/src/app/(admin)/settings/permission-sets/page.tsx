@@ -7,7 +7,7 @@
  */
 import { EggSourceOrganizationGrants } from '@/components/egg-sources/EggSourceOrganizationControl';
 import { PermissionWarehouse } from '@/components/egg-sources/PermissionWarehouse';
-import { EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
+import { legacyEggMenuBaseline,legacyEggMenuChange,EGG_SOURCE_MENU, menuActionLabel } from '@/lib/egg-source-permissions';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -29,7 +29,7 @@ interface RoleOpt { role_code: string; role_name_zh: string; status?: string; }
 interface UserOpt { id: string; username: string; real_name_zh: string | null; }
 interface SetDetail {
   set_code: string; set_name_zh: string; description: string | null;
-  items: Array<{ menu_code: string; menu_name_zh: string; perm_codes: string; egg_warehouse_code?: string }>;
+  items: Array<{ menu_code: string; menu_name_zh: string; perm_codes: string; egg_warehouse_code?: string; egg_legacy_digest?: string }>;
   roles: Array<{ role_code: string; role_name_zh: string }>;
   users: Array<{ user_id: string; username: string; real_name_zh: string | null }>;
 }
@@ -66,6 +66,7 @@ export default function PermissionSetsPage() {
   const [form, setForm] = useState({ set_code: "PSET_", set_name_zh: "", description: "" });
   const [eggWarehouse, setEggWarehouse] = useState("");
   const [savedEggWarehouse, setSavedEggWarehouse] = useState("");
+  const [savedEggLegacy,setSavedEggLegacy]=useState(()=>legacyEggMenuBaseline());
   const [perms, setPerms] = useState<Record<string, Set<string>>>({});
   const [boundRoles, setBoundRoles] = useState<string[]>([]);
   const [boundUsers, setBoundUsers] = useState<string[]>([]);
@@ -96,7 +97,7 @@ export default function PermissionSetsPage() {
 
   const openNew = () => {
     setEditCode(null); setForm({ set_code: "PSET_", set_name_zh: "", description: "" });
-    setPerms({}); setEggWarehouse(""); setSavedEggWarehouse(""); setBoundRoles([]); setBoundUsers([]); setCodeErr(""); setShowDrawer(true);
+    setPerms({}); setEggWarehouse(""); setSavedEggWarehouse(""); setSavedEggLegacy(legacyEggMenuBaseline()); setBoundRoles([]); setBoundUsers([]); setCodeErr(""); setShowDrawer(true);
   };
   const openEdit = async (row: SetRow) => {
     setEditCode(row.set_code);
@@ -109,7 +110,9 @@ export default function PermissionSetsPage() {
       const p: Record<string, Set<string>> = {};
       for (const it of d.items || []) p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
       setPerms(p);
-      const warehouse = d.items.find(grant=>grant.menu_code===EGG_SOURCE_MENU)?.egg_warehouse_code ?? "";
+      const legacyGrant=d.items.find(grant=>grant.menu_code===EGG_SOURCE_MENU);
+      const warehouse=legacyGrant?.egg_warehouse_code??'';
+      setSavedEggLegacy(legacyEggMenuBaseline(legacyGrant));
       setEggWarehouse(warehouse);
       setSavedEggWarehouse(warehouse);
       setBoundRoles((d.roles || []).map(x => x.role_code));
@@ -140,8 +143,10 @@ export default function PermissionSetsPage() {
         const r = await jsend("/api/permission-sets", "POST", { set_code: code, set_name_zh: form.set_name_zh, description: form.description || null });
         if (r.code && r.code !== 200) throw new Error(r.message || r.msg || t('ui.创建失败','创建失败'));
       }
-      const items = Object.entries(perms).filter(([, set]) => set.size > 0).map(([menu_code, set]) => ({ menu_code, perm_codes: Array.from(set).join(","),
-        egg_warehouse_code:menu_code===EGG_SOURCE_MENU && eggWarehouse && eggWarehouse!==savedEggWarehouse ? eggWarehouse : undefined }));
+      const items=Object.entries(perms).filter(([menu,set])=>menu!==EGG_SOURCE_MENU&&set.size>0)
+        .map(([menu_code,set])=>({menu_code,perm_codes:[...set].join(',')}));
+      const legacy=legacyEggMenuChange(perms[EGG_SOURCE_MENU],eggWarehouse,savedEggWarehouse,savedEggLegacy);
+      if (legacy) items.push(legacy);
       const ri = await jsend(`/api/permission-sets/${encodeURIComponent(code)}/items`, "PUT", { items });
       if (ri.code && ri.code !== 200) throw new Error(ri.message || t('ui.明细保存失败','明细保存失败'));
       toast.success(editCode ? t('ui.能力集已更新','能力集已更新') : t('ui.能力集已创建','能力集已创建'));

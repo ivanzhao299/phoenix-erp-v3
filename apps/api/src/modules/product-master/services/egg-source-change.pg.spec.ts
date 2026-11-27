@@ -32,11 +32,14 @@ import { SysUserWarehouseScopeEntity } from '../../org/entities/sys-user-warehou
 import { SysUserFarmScopeEntity } from '../../org/entities/sys-user-farm-scope.entity';
 import { SysOrganizationEntity } from '../../org/entities/sys-organization.entity';
 import { EggSourceIndependentPermissions1795651200000 } from '../../../database/migrations/1795651200000-EggSourceIndependentPermissions';
+import { EggSourceStandardGrants1795658800000 } from '../../../database/migrations/1795658800000-EggSourceStandardGrants';
 import { EggSourceLegacyCreationGate1795658400000 } from '../../../database/migrations/1795658400000-EggSourceLegacyCreationGate';
 import { EggSourceHouseContract1795654800000 } from '../../../database/migrations/1795654800000-EggSourceHouseContract';
 import { EggSourceAccessService } from './egg-source-access.service';
 import { EggSourceChanges1795564800000 } from '../../../database/migrations/1795564800000-EggSourceChanges';
 import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
+import { setTimeout as delay } from 'node:timers/promises';
+import { legacyEggGrantDigest } from '../../permissions/save-menu-grants';
 import { MenuGuard } from '../../../common/guards/menu.guard';
 import { DataScopeService } from '../../org/services/data-scope.service';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
@@ -138,6 +141,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
     await db.transaction(async m=>new EggSourceIndependentPermissions1795651200000().up(m.queryRunner!));
     await db.transaction(async m=>new EggSourceHouseContract1795654800000().up(m.queryRunner!));
     await db.transaction(async m=>new EggSourceLegacyCreationGate1795658400000().up(m.queryRunner!));
+    await db.transaction(async m=>new EggSourceStandardGrants1795658800000().up(m.queryRunner!));
     // The controlled registration starts closed and does not implicitly copy legacy permissions.
     expect(await db.query('SELECT writes_enabled FROM md_egg_source_write_control')).toEqual([{writes_enabled:false}]);
     expect(await db.query('SELECT * FROM sys_role_menu_permission')).toEqual([]);
@@ -348,7 +352,8 @@ suite('egg source change workspace on PostgreSQL',()=>{
         INSERT INTO sys_user(user_id,real_name) VALUES (21,'Applicant'),(22,'Reviewer'),(23,'Legacy'),(24,'Review only'),(26,'Current system administrator');
         UPDATE sys_user SET username='egg-fixture-'||user_id::text WHERE user_id>=21;
         INSERT INTO sys_role VALUES (21,'ROLE_EGG_APPLY','ACTIVE',1),(22,'ROLE_EGG_REVIEW','ACTIVE',1),
-          (23,'ROLE_LEGACY_PRODUCT','ACTIVE',1),(24,'ROLE_ONLY_REVIEW','ACTIVE',1),(25,'ROLE_OLD_DENY','DEPRECATED',0),(26,'ROLE_ADMIN','ACTIVE',100);
+          (23,'ROLE_LEGACY_PRODUCT','ACTIVE',1),(24,'ROLE_ONLY_REVIEW','ACTIVE',1),(25,'ROLE_OLD_DENY','DEPRECATED',0),(26,'ROLE_ADMIN','ACTIVE',100),
+          (27,'ROLE_V1_GUARD','ACTIVE',1);
         INSERT INTO sys_user_role VALUES (21,21,true),(22,22,true),(23,23,true),(24,24,true),(22,25,true),(26,26,true);
         INSERT INTO sys_user_orgs(user_id,org_id,is_primary,data_scope_level)
           SELECT applicant.id,o.id,true,'COMPANY' FROM sys_organizations o CROSS JOIN (VALUES(21),(22),(23),(24)) applicant(id) WHERE o.org_code='COMP-A';
@@ -366,6 +371,18 @@ suite('egg source change workspace on PostgreSQL',()=>{
       const adminActor={userId:26,perms_version:1};
       await rolePermissions.setRolePermissions('ROLE_EGG_APPLY',[{menu_code:permsMenu,perm_codes:'V,E',egg_warehouse_code:'WH-SHARED'}],adminActor);
       await rolePermissions.setRolePermissions('ROLE_LEGACY_PRODUCT',[{menu_code:'MENU_MD_PRODUCT',perm_codes:'V,E,A'}]);
+      const legacyWrite = {menu_code:permsMenu,perm_codes:'V,E',egg_warehouse_code:'WH-SHARED'};
+      await rolePermissions.setRolePermissions('ROLE_V1_GUARD',[legacyWrite],adminActor);
+      const readLegacy = async () => (await db.query(`SELECT p.perm_codes,p.scope_type,p.scope_value
+        FROM sys_role_menu_permission p JOIN sys_menu m USING(menu_id) WHERE p.role_id=27 AND m.menu_code=$1`,[permsMenu]))[0];
+      const legacyBefore = await readLegacy();
+      await rolePermissions.setRolePermissions('ROLE_V1_GUARD',[{menu_code:'MENU_MD_PRODUCT',perm_codes:'V'}]);
+      expect(await readLegacy()).toEqual(legacyBefore);
+      const clearLegacy = {menu_code:permsMenu,perm_codes:'',egg_legacy_digest:'none'};
+      await expect(rolePermissions.setRolePermissions('ROLE_V1_GUARD',[clearLegacy],adminActor)).rejects.toMatchObject({status:409});
+      await rolePermissions.setRolePermissions('ROLE_V1_GUARD',[{...clearLegacy,egg_legacy_digest:legacyEggGrantDigest(legacyBefore)}],adminActor);
+      expect(await readLegacy()).toEqual({...legacyBefore,perm_codes:''});
+
       await sets.setItems('PSET_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}],adminActor);
       await rolePermissions.setRolePermissions('ROLE_EGG_REVIEW',[{menu_code:permsMenu,perm_codes:'V'}],adminActor);
       await sets.setItems('PSET_ONLY_REVIEW',[{menu_code:permsMenu,perm_codes:'A',egg_warehouse_code:'WH-SHARED'}],adminActor);
@@ -453,6 +470,71 @@ suite('egg source change workspace on PostgreSQL',()=>{
       };
       await grant('role','ROLE_EGG_APPLY',['V','C','E']);
       await grant('set','PSET_EGG_REVIEW',['V','A']);
+      const configured = async (subject:string,code:string) => {
+        const path='/api/sys/menu-registry/egg-source-organization-grants/'+subject+'/'+code;
+        return (await http.get(path).auth(admin,{type:'bearer'}).expect(200)).body.data;
+      };
+      const previewRequest = (subject:string,code:string,actions:string[],expectedDigest:string) =>
+        http.post('/api/sys/menu-registry/egg-source-standard-grants/'+subject+'/'+code+'/preview').auth(admin,{type:'bearer'})
+          .send({actions,expectedDigest});
+      const previewStandard = async (subject:string,code:string,actions:string[]) =>
+        (await previewRequest(subject,code,actions,(await configured(subject,code)).standardDigest).expect(201)).body.data;
+      const standard = async (subject:string,code:string,actions:string[],stale?:string) => {
+        const preview=stale?{digest:stale}:await previewStandard(subject,code,actions);
+        return http.put('/api/sys/menu-registry/egg-source-standard-grants/'+subject+'/'+code).auth(admin,{type:'bearer'})
+          .send({actions,expectedDigest:preview.digest,reason:'Verify the isolated standard grant'});
+      };
+      const scopeBefore=await configured('role','ROLE_EGG_APPLY');
+      const wrong=await standard('role','ROLE_EGG_APPLY',['V','A']);
+      expect(wrong.status).toBe(409);
+      const equivalence=await previewStandard('role','ROLE_EGG_APPLY',scopeBefore.actions);
+      expect(equivalence.changes).toEqual([]);
+      const converted=await standard('role','ROLE_EGG_APPLY',scopeBefore.actions,equivalence.digest);
+      expect(converted.status).toBe(200);
+      expect(converted.body.data.standard.actions).toEqual(['V','C','E']);
+      await previewRequest('role','ROLE_EGG_APPLY',['V'],scopeBefore.standardDigest).expect(409);
+      const stale=await standard('role','ROLE_EGG_APPLY',[],equivalence.digest);
+      expect(stale.status).toBe(409);
+      await http.put('/api/sys/menu-registry/egg-source-organization-grants/role/ROLE_EGG_APPLY')
+        .auth(admin,{type:'bearer'}).send({expectedDigest:converted.body.data.digest,rows:[],reason:'Attempt to use the old editor'}).expect(409);
+      const revocation=await previewStandard('role','ROLE_EGG_APPLY',[]);
+      expect(revocation.changes).toEqual(expect.arrayContaining([expect.objectContaining({
+        houseCode:'HOUSE-HOUSE-PILOT',before:['V','C','E'],after:[],
+      })]));
+      await db.query("INSERT INTO brd_houses(house_code,farm_code,status,house_type) VALUES ('HOUSE-STANDARD-NEW','FARM-A','ACTIVE','LAYER')");
+      expect((await standard('role','ROLE_EGG_APPLY',[],revocation.digest)).status).toBe(409);
+      const withdrawn=await standard('role','ROLE_EGG_APPLY',[]);
+      expect(withdrawn.status).toBe(200);
+      expect(await db.query('SELECT * FROM md_egg_source_effective_grants WHERE role_id=21')).toEqual([]);
+      expect((await configured('role','ROLE_EGG_APPLY')).rows).toEqual(scopeBefore.rows);
+      expect((await standard('role','ROLE_EGG_APPLY',scopeBefore.actions)).status).toBe(200);
+      const setBefore=await configured('set','PSET_EGG_REVIEW');
+      const beforeNewMember=await previewStandard('set','PSET_EGG_REVIEW',setBefore.actions);
+      const memberWriter=db.createQueryRunner();
+      await memberWriter.connect();
+      await memberWriter.startTransaction();
+      try {
+        await memberWriter.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-source-grant-editor'))");
+        await memberWriter.query('INSERT INTO sys_user_permission_set(user_id,set_id) VALUES (23,22)');
+        const awaitingSave=standard('set','PSET_EGG_REVIEW',setBefore.actions,beforeNewMember.digest);
+        let waiting=false;
+        for (let attempt=0;attempt<50&&!waiting;attempt++) {
+          const [locks]=await db.query(`SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory'
+            AND NOT granted AND objid::bigint=(hashtext('phoenix:egg-source-grant-editor')::bigint & 4294967295)) AS waiting`);
+          waiting=locks.waiting;
+          if (!waiting) await delay(20);
+        }
+        await memberWriter.commitTransaction();
+        expect((await awaitingSave).status).toBe(409);
+        expect(waiting).toBe(true);
+      } finally {
+        if (memberWriter.isTransactionActive) await memberWriter.rollbackTransaction();
+        await memberWriter.release();
+        await db.query('DELETE FROM sys_user_permission_set WHERE user_id=23 AND set_id=22');
+      }
+      expect((await standard('set','PSET_EGG_REVIEW',setBefore.actions)).status).toBe(200);
+      expect(await db.query("SELECT scope_type,scope_code FROM md_egg_source_effective_grants WHERE role_id=21"))
+        .toEqual([{scope_type:'HOUSE',scope_code:'HOUSE-HOUSE-PILOT'}]);
       await expect(sets.assignUser('PSET_EGG_REVIEW',21,{userId:21,perms_version:1})).rejects.toMatchObject({status:403});
       const [{perms_version:adminVersion}] = await db.query('SELECT perms_version FROM sys_user WHERE user_id=26');
       await sets.assignUser('PSET_EGG_REVIEW',22,{userId:26,perms_version:Number(adminVersion)});
@@ -482,7 +564,9 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await http.put(pilotPath).auth(admin,{type:'bearer'}).send({...pilotRequest,reviewer:pilotRequest.maker}).expect(409);
       const effective=(await http.get('/api/sys/menu-registry/egg-source-house-access').auth(admin,{type:'bearer'})
         .query({house:'HOUSE-HOUSE-PILOT',username:pilotRequest.maker}).expect(200)).body.data;
-      expect(effective).toMatchObject({eligibleAccount:true,actions:['V','C','E']});
+      expect(effective).toMatchObject({eligibleAccount:true,actions:['V','C','E'],
+        origins:expect.arrayContaining([{action:'E',source:{subject:'role',code:'ROLE_EGG_APPLY',
+          retained:true,scopeType:'HOUSE',scopeCode:'HOUSE-HOUSE-PILOT'}}])});
       await http.put(pilotPath).auth(admin,{type:'bearer'}).send(pilotRequest).expect(200);
       await postDraft(makerV2,{...body,houseCode:'HOUSE-RBAC'}).expect(403);
       await postDraft(reviewerV2).expect(403);
@@ -493,7 +577,7 @@ suite('egg source change workspace on PostgreSQL',()=>{
       await expect(db.transaction(async m=>{
         await m.query("SELECT set_config('phoenix.egg_source_writer','21',true)");
         return m.query("UPDATE md_egg_source_changes SET version=version+1 WHERE id=$1",[openedV2.id]);
-      })).rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_HOUSE_WRITES_CLOSED_OR_PROTOCOL_REQUIRED'}});
+      })).rejects.toMatchObject({driverError:{code:'42501',message:'EGG_SOURCE_STANDARD_PROTOCOL_REQUIRED'}});
       await expect(db.transaction(async m=>{
         await m.query("SELECT set_config('phoenix.egg_source_writer','21',true)");
         return m.query(`INSERT INTO md_egg_source_change_events(change_id,action_key,actor_id,action,input_sha256,receipt)

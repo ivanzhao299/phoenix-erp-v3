@@ -332,7 +332,7 @@ export class EggSourceChangeService {
     if (!gate?.writes_enabled || contract===2 && !gate.house_writes_enabled) {
       throw new ConflictException('蛋品来源变更暂时暂停，请先核对原申请或回执');
     }
-    await m.query("SELECT set_config('phoenix.egg_source_writer', $1, true),set_config('phoenix.egg_source_contract',$2,true)",
+    await m.query("SELECT set_config('phoenix.egg_source_writer', $1, true),set_config('phoenix.egg_source_contract',$2,true),set_config('phoenix.egg_source_iam_protocol','1',true)",
       [actor,String(contract)]);
   }
 
