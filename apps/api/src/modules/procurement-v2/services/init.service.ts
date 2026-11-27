@@ -253,13 +253,15 @@ export class InitService {
 
   // ── 取消批次 ────────────────────────────────────────────────────────────────
   async cancelBatch(id: string) {
-    const batch = await this.batchRepo.findOne({ where: { id } });
-    if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
-    this.assertBatchAccess(batch, '初始化批次');
-    if (!['DRAFT', 'VALIDATED', 'FAILED'].includes(batch.status))
-      throw new ConflictException(`当前状态 ${batch.status} 不允许取消`);
-    batch.status = 'CANCELLED';
-    return this.batchRepo.save(batch);
+    return this.ds.transaction(async mgr => {
+      const batch = await mgr.findOne(Prc2InitBatchEntity, { where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+      this.assertBatchAccess(batch, '初始化批次');
+      if (!['DRAFT', 'VALIDATED', 'FAILED'].includes(batch.status))
+        throw new ConflictException(`当前状态 ${batch.status} 不允许取消`);
+      batch.status = 'CANCELLED';
+      return mgr.save(Prc2InitBatchEntity, batch);
+    });
   }
 
   // ── 上传 + 校验（不写业务表）───────────────────────────────────────────────
@@ -319,58 +321,61 @@ export class InitService {
 
   // ── 执行导入 ────────────────────────────────────────────────────────────────
   async importBatch(id: string) {
-    const batch = await this.batchRepo.findOne({ where: { id } });
-    if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
-    this.assertBatchAccess(batch, '初始化批次');
+    return this.ds.transaction(async mgr => {
+      const batch = await mgr.findOne(Prc2InitBatchEntity, { where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!batch) throw new NotFoundException(`批次 ID=${id} 不存在`);
+      this.assertBatchAccess(batch, '初始化批次');
+      if (!this.isGlobalScope()) throw new ForbiddenException('历史初始化只允许集团范围执行');
 
-    if (batch.status === 'IMPORTED')
-      throw new ConflictException('该批次已导入完成，不允许重复导入');
-    if (!['VALIDATED', 'FAILED'].includes(batch.status))
-      throw new ConflictException(`当前状态 ${batch.status} 不允许导入，请先上传并验证文件`);
+      if (batch.status === 'IMPORTED')
+        throw new ConflictException('该批次已导入完成，不允许重复导入');
+      if (!['VALIDATED', 'FAILED'].includes(batch.status))
+        throw new ConflictException(`当前状态 ${batch.status} 不允许导入，请先上传并验证文件`);
 
-    const rows = await this.rowRepo.find({ where: { batchId: id }, order: { rowNo: 'ASC' } });
+      const rows = await mgr.find(Prc2InitBatchRowEntity, { where: { batchId: id }, order: { rowNo: 'ASC' } });
 
-    let successRows = 0, failedRows = 0;
+      let successRows = 0, failedRows = 0;
 
-    for (const row of rows) {
-      if (row.status === 'INVALID')  { failedRows++;  continue; }
-      if (row.status === 'IMPORTED') { successRows++; continue; }
-      if (row.status === 'SKIPPED')  { successRows++; continue; }
+      for (const row of rows) {
+        if (row.status === 'INVALID')  { failedRows++;  continue; }
+        if (row.status === 'IMPORTED') { successRows++; continue; }
+        if (row.status === 'SKIPPED')  { successRows++; continue; }
 
-      try {
-        await this.importRow(batch.batchType as InitBatchType, row);
-        successRows++;
-      } catch (e) {
-        failedRows++;
-        row.status       = 'FAILED';
-        row.errorMessage = e instanceof Error ? e.message : String(e);
-        await this.rowRepo.save(row);
+        try {
+          await this.importRow(mgr, batch.batchType as InitBatchType, row);
+          successRows++;
+        } catch (e) {
+          failedRows++;
+          await mgr.update(Prc2InitBatchRowEntity, { id: row.id }, {
+            status: 'FAILED', errorMessage: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
-    }
 
-    batch.successRows = successRows;
-    batch.failedRows  = failedRows;
-    batch.status      = failedRows > 0 ? 'FAILED' : 'IMPORTED';
-    await this.batchRepo.save(batch);
+      batch.successRows = successRows;
+      batch.failedRows  = failedRows;
+      batch.status      = failedRows > 0 ? 'FAILED' : 'IMPORTED';
+      await mgr.save(Prc2InitBatchEntity, batch);
 
-    return {
-      batchId: batch.id, batchNo: batch.batchNo,
-      totalRows: batch.totalRows, successRows, failedRows,
-      status: batch.status,
-    };
+      return {
+        batchId: batch.id, batchNo: batch.batchNo,
+        totalRows: batch.totalRows, successRows, failedRows,
+        status: batch.status,
+      };
+    });
   }
 
-  private async importRow(batchType: InitBatchType, rowEntity: Prc2InitBatchRowEntity) {
+  private async importRow(mgr: EntityManager, batchType: InitBatchType, rowEntity: Prc2InitBatchRowEntity) {
     const row = rowEntity.rawData;
-    if      (batchType === 'HISTORICAL_PO')               await this.importPo(rowEntity, row);
-    else if (batchType === 'HISTORICAL_PAYMENT')           await this.importPayment(rowEntity, row);
-    else if (batchType === 'HISTORICAL_SHAREHOLDER_FUND')  await this.importFund(rowEntity, row);
-    else if (batchType === 'HISTORICAL_RECEIPT')           await this.importReceipt(rowEntity, row);
+    if      (batchType === 'HISTORICAL_PO')               await this.importPo(mgr, rowEntity, row);
+    else if (batchType === 'HISTORICAL_PAYMENT')           await this.importPayment(mgr, rowEntity, row);
+    else if (batchType === 'HISTORICAL_SHAREHOLDER_FUND')  await this.importFund(mgr, rowEntity, row);
+    else if (batchType === 'HISTORICAL_RECEIPT')           await this.importReceipt(mgr, rowEntity, row);
   }
 
   // ── HISTORICAL_PO ─────────────────────────────────────────────────────────
-  private async importPo(rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
-    await this.ds.transaction(async mgr => {
+  private async importPo(batchManager: EntityManager, rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
+    await batchManager.transaction(async mgr => {
       const today = format(new Date(), 'yyyyMMdd');
 
       // 编号：有填则用，否则自动生成
@@ -427,6 +432,8 @@ export class InitService {
       await mgr.save(Prc2ApLedgerEntity, mgr.create(Prc2ApLedgerEntity, {
         apNo,
         poId:                  po.id,
+        poNo:                  po.poNo,
+        projectCode:           po.projectCode,
         supplierName:          po.supplierName,
         amountOriginal:        totalAmount,
         currencyCode,
@@ -443,8 +450,8 @@ export class InitService {
   }
 
   // ── HISTORICAL_PAYMENT ────────────────────────────────────────────────────
-  private async importPayment(rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
-    await this.ds.transaction(async mgr => {
+  private async importPayment(batchManager: EntityManager, rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
+    await batchManager.transaction(async mgr => {
       const today = format(new Date(), 'yyyyMMdd');
 
       let payNo = String(row['pay_no'] ?? '').trim();
@@ -465,8 +472,35 @@ export class InitService {
       const status           = String(row['status*'] ?? 'EXECUTED');
       const validStatuses    = ['DRAFT','PENDING_APPROVAL','APPROVED','EXECUTED','VOID'];
 
+      const poNo = String(row['po_no'] ?? '').trim();
+      const apNo = String(row['ap_no'] ?? '').trim();
+      const directAp = apNo ? await mgr.findOne(Prc2ApLedgerEntity, { where: { apNo } }) : null;
+      if (apNo && !directAp) throw new BadRequestException('历史付款对应的采购应付不存在');
+      const po = poNo
+        ? await mgr.findOne(Prc2PurchaseOrderEntity, {
+            where: { poNo }, lock: { mode: 'pessimistic_write' },
+          })
+        : directAp?.poId
+          ? await mgr.findOne(Prc2PurchaseOrderEntity, {
+              where: { id: directAp.poId }, lock: { mode: 'pessimistic_write' },
+            })
+          : null;
+      if ((poNo && !po) || (directAp && po && String(directAp.poId) !== String(po.id))) {
+        throw new BadRequestException('历史付款的订单与应付引用不一致');
+      }
+      const ap = directAp || po
+        ? await mgr.findOne(Prc2ApLedgerEntity, {
+            where: directAp ? { id: directAp.id } : { poId: po!.id },
+            lock: { mode: 'pessimistic_write' },
+          })
+        : null;
+      if (ap && (ap.currencyCode !== currencyCode || (po && ap.companyCode !== po.companyCode))) {
+        throw new BadRequestException('历史付款的公司或币种与采购应付不一致');
+      }
       const payment = await mgr.save(Prc2PaymentEntity, mgr.create(Prc2PaymentEntity, {
         payNo,
+        companyCode: ap?.companyCode ?? po?.companyCode,
+        projectCode: ap?.projectCode ?? po?.projectCode,
         paymentDate:         String(row['payment_date*'] ?? format(new Date(), 'yyyy-MM-dd')),
         payerType,
         payerName:           String(row['payer_name']    ?? (payerType === 'COMPANY' ? '公司付款' : '')),
@@ -485,34 +519,16 @@ export class InitService {
         createdBy:           this.userId(),
       }));
 
-      // 尝试按 po_no 或 ap_no 匹配 AP，核销
-      const poNo = String(row['po_no'] ?? '').trim();
-      const apNo = String(row['ap_no'] ?? '').trim();
-
-      let ap: Prc2ApLedgerEntity | null = null;
-      if (apNo) {
-        ap = await mgr.findOne(Prc2ApLedgerEntity, { where: { apNo } });
+      if (po || ap) {
+        await mgr.save(Prc2PaymentAllocationEntity, mgr.create(Prc2PaymentAllocationEntity, {
+          paymentId: payment.id, apId: ap?.id, apNo: ap?.apNo, poId: po?.id, poNo: po?.poNo,
+          companyCode: payment.companyCode, projectCode: payment.projectCode,
+          allocatedAmountOriginal: amountOriginal, allocatedAmountBase: amountOriginal * exchangeRate,
+        }));
       }
-      if (!ap && poNo) {
-        const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { poNo } });
-        if (po) {
-          ap = await mgr.findOne(Prc2ApLedgerEntity, { where: { poId: po.id } });
-
-          // 创建分摊记录
-          await mgr.save(Prc2PaymentAllocationEntity, mgr.create(Prc2PaymentAllocationEntity, {
-            paymentId:               payment.id,
-            poId:                    po.id,
-            poNo:                    po.poNo,
-            allocatedAmountOriginal: amountOriginal,
-            allocatedAmountBase:     amountOriginal * exchangeRate,
-          }));
-
-          // 更新 PO paid_amount
-          if (status === 'EXECUTED') {
-            po.paidAmount = Number(po.paidAmount) + amountOriginal;
-            await mgr.save(Prc2PurchaseOrderEntity, po);
-          }
-        }
+      if (po && status === 'EXECUTED') {
+        po.paidAmount = Number(po.paidAmount) + amountOriginal;
+        await mgr.save(Prc2PurchaseOrderEntity, po);
       }
 
       // 核销 AP
@@ -550,8 +566,8 @@ export class InitService {
   }
 
   // ── HISTORICAL_SHAREHOLDER_FUND ───────────────────────────────────────────
-  private async importFund(rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
-    await this.ds.transaction(async mgr => {
+  private async importFund(batchManager: EntityManager, rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
+    await batchManager.transaction(async mgr => {
       const today = format(new Date(), 'yyyyMMdd');
 
       let fundNo = String(row['fund_no'] ?? '').trim();
@@ -604,8 +620,8 @@ export class InitService {
   }
 
   // ── HISTORICAL_RECEIPT ────────────────────────────────────────────────────
-  private async importReceipt(rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
-    await this.ds.transaction(async mgr => {
+  private async importReceipt(batchManager: EntityManager, rowEntity: Prc2InitBatchRowEntity, row: Record<string, unknown>) {
+    await batchManager.transaction(async mgr => {
       const today = format(new Date(), 'yyyyMMdd');
       const poNo  = String(row['po_no*'] ?? '').trim();
 
@@ -618,7 +634,7 @@ export class InitService {
         return mgr.save(Prc2InitBatchRowEntity, rowEntity);
       }
 
-      const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { poNo } });
+      const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { poNo }, lock: { mode: 'pessimistic_write' } });
       if (!po) throw new Error(`采购订单 po_no=${poNo} 不存在，请先导入历史PO`);
 
       const actualQty   = Number(row['actual_qty*']   ?? 0);
@@ -660,7 +676,7 @@ export class InitService {
       po.receivedQty = Number(po.receivedQty) + actualQty;
       const fullReceived = Number(po.receivedQty) >= Number(po.planQty) - 0.0001;
       if (fullReceived && po.status === 'PARTIALLY_RECEIVED') po.status = 'RECEIVED';
-      else if (!fullReceived && po.status === 'APPROVED')     po.status = 'PARTIALLY_RECEIVED';
+      else if (actualQty > 0 && !fullReceived && po.status === 'APPROVED')     po.status = 'PARTIALLY_RECEIVED';
       await mgr.save(Prc2PurchaseOrderEntity, po);
 
       Object.assign(rowEntity, { status: 'IMPORTED', relatedReceiptId: receipt.id, relatedReceiptNo: receipt.receiptNo });

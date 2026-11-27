@@ -244,12 +244,12 @@ async function fetchDetail(instanceId: string): Promise<InstanceDetail | null> {
   if (!res.ok) return null;
   return res.json();
 }
-async function approveInstance(instanceId: string, comment: string) {
+async function approveInstance(instanceId: string, comment: string, expectedStepNo?: number) {
   const res = await fetch(`/api/approval/instances/${instanceId}/approve`, {
     method: "POST",
     headers: authHdr(),
     body: JSON.stringify({
-      comment
+      comment, expectedStepNo
     })
   });
   return res.json();
@@ -270,12 +270,12 @@ async function reassignInstance(instanceId: string, toUserId: string) {
   });
   return res.json();
 }
-async function rejectInstance(instanceId: string, comment: string) {
+async function rejectInstance(instanceId: string, comment: string, expectedStepNo?: number) {
   const res = await fetch(`/api/approval/instances/${instanceId}/reject`, {
     method: "POST",
     headers: authHdr(),
     body: JSON.stringify({
-      comment
+      comment, expectedStepNo
     })
   });
   return res.json();
@@ -449,7 +449,7 @@ export default function ApprovalTodosPage() {
     if (!selected) return;
     setSubmitting(true);
     try {
-      const r = await approveInstance(selected.instanceId, comment);
+      const r = await approveInstance(selected.instanceId, comment, selected.stepNo ?? undefined);
       if (r.statusCode && r.statusCode >= 400) {
         toast.error(r.message || t('ui.操作失败','操作失败'));
       } else {
@@ -474,7 +474,7 @@ export default function ApprovalTodosPage() {
     }
     setSubmitting(true);
     try {
-      const r = await rejectInstance(selected.instanceId, comment);
+      const r = await rejectInstance(selected.instanceId, comment, selected.stepNo ?? undefined);
       if (r.statusCode && r.statusCode >= 400) {
         toast.error(r.message || t('ui.操作失败','操作失败'));
       } else {

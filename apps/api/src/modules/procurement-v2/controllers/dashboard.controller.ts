@@ -18,21 +18,21 @@ export class DashboardController {
 
   // GET /api/v2/procurement/dashboard/ap-aging
   @Get('ap-aging')
-  @RequireMenu('MENU_PRC2_DASHBOARD', 'V', ['MENU_PRC2_PAYMENT'])
+  @RequireMenu('MENU_PRC2_PAYMENT', 'V')
   getApAging(@Query() q: QueryDashboardDto) {
     return this.svc.getApAging(q);
   }
 
   // GET /api/v2/procurement/dashboard/project-cost
   @Get('project-cost')
-  @RequireMenu('MENU_PRC2_DASHBOARD', 'V', ['MENU_PRC2_PROJECT', 'MENU_PRC2_ORDER'])
+  @RequireMenu('MENU_PRC2_ORDER', 'V')
   getProjectCost(@Query() q: QueryDashboardDto) {
     return this.svc.getProjectCost(q);
   }
 
   // GET /api/v2/procurement/dashboard/payment-trend
   @Get('payment-trend')
-  @RequireMenu('MENU_PRC2_DASHBOARD', 'V', ['MENU_PRC2_PAYMENT'])
+  @RequireMenu('MENU_PRC2_PAYMENT', 'V')
   getPaymentTrend(@Query() q: QueryDashboardDto) {
     return this.svc.getPaymentTrend(q);
   }
@@ -46,14 +46,14 @@ export class DashboardController {
 
   // GET /api/v2/procurement/dashboard/shipment-status
   @Get('shipment-status')
-  @RequireMenu('MENU_PRC2_DASHBOARD', 'V', ['MENU_PRC2_SHIPMENT', 'MENU_PRC2_RECEIPT'])
+  @RequireMenu('MENU_PRC2_SHIPMENT', 'V')
   getShipmentStatus(@Query() q: QueryDashboardDto) {
     return this.svc.getShipmentStatus(q);
   }
 
   // GET /api/v2/procurement/dashboard/supplier-performance
   @Get('supplier-performance')
-  @RequireMenu('MENU_PRC2_DASHBOARD', 'V', ['MENU_PRC2_SUPPLIER', 'MENU_PRC2_ORDER'])
+  @RequireMenu('MENU_PRC2_ORDER', 'V')
   getSupplierPerformance(@Query() q: QueryDashboardDto) {
     return this.svc.getSupplierPerformance(q);
   }

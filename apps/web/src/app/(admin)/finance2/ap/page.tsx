@@ -1,5 +1,6 @@
 'use client';
 
+import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { TrendingDown, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, Download, X, ChevronDown, AlertCircle, Ban } from 'lucide-react';
@@ -475,6 +476,13 @@ function DetailDrawer({
 }) {
   const { t, lang } = useLanguage();
   const { canCreate: canCreatePayment, hasAccess: canViewPayment } = usePermission('MENU_PRC2_PAYMENT');
+  const { canEdit: canPayInvoice } = usePermission('MENU_FIN2_AP');
+  const [paymentAccount, setPaymentAccount] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const paymentReference = useRef<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [detail, setDetail] = useState<ApDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -501,6 +509,24 @@ function DetailDrawer({
       setCancelErr(e.message ?? t('fin2.ap.cancel_failed', '取消失败'));
     } finally {
       setCancelling(false);
+    }
+  };
+  const payInvoice = async () => {
+    if (!paymentAccount || !paymentDate || !(Number(paymentAmount) > 0) || paying) return;
+    setPaying(true);
+    setPaymentError('');
+    paymentReference.current ??= 'FIN-AP-' + crypto.randomUUID();
+    try {
+      await apiFetch(`/api/v2/finance/ap/invoices/${invoiceId}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ cashAccountId: paymentAccount, amountOriginal: Number(paymentAmount), paymentDate, referenceNo: paymentReference.current }),
+      });
+      onCancelled();
+      onClose();
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : t('fin2.ap.pay_failed', '付款失败'));
+    } finally {
+      setPaying(false);
     }
   };
   const canCancel = detail && !['PAID', 'CANCELLED'].includes(detail.status) && Number(detail.paid_amount_original) === 0;
@@ -594,7 +620,7 @@ function DetailDrawer({
             </div>
 
             {/* 付款入口 */}
-            {canStartPayment && (
+            {canStartPayment && detail.source_type === 'PO' && (
               <div style={actionGroupBox}>
                 {canCreatePayment ? (
                   <Link
@@ -618,6 +644,26 @@ function DetailDrawer({
                   </div>
                 )}
               </div>
+            )}
+
+            {canStartPayment && detail.source_type !== 'PO' && canPayInvoice && (
+              <form style={actionGroupBox} onSubmit={event => { event.preventDefault(); void payInvoice(); }}>
+                <label>{t('fin2.ap.payment_account', '付款账户')}
+                  <CashAccountSelector value={paymentAccount} onChange={setPaymentAccount} valueField="id"
+                    companyCode={detail.company_code} currencyCode={detail.currency_code} />
+                </label>
+                <label>{t('fin2.ap.payment_amount', '付款金额')}
+                  <input type="number" min="0.01" max={Number(detail.balance_amount_original)} step="0.01"
+                    required value={paymentAmount} onChange={event => setPaymentAmount(event.target.value)} />
+                </label>
+                <label>{t('fin2.ap.payment_date', '付款日期')}
+                  <input type="date" required value={paymentDate} onChange={event => setPaymentDate(event.target.value)} />
+                </label>
+                {paymentError && <p role="alert">{paymentError}</p>}
+                <button type="submit" style={actionPill('brand')} disabled={!paymentAccount || paying}>
+                  {t('fin2.ap.post_payment', '确认付款核销')}
+                </button>
+              </form>
             )}
 
             {/* 取消区域 */}
@@ -797,7 +843,12 @@ export default function Finance2ApPage() {
         <KpiCard label={t('fin2.ap.kpi_partial', '部分付款')} value={String(summary?.partial_invoices ?? '—')} icon={TrendingDown} color="var(--status-info)" loading={sumLoading} />
         <KpiCard label={t('fin2.ap.kpi_paid', '已付清')} value={String(summary?.paid_invoices ?? '—')} icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
         <KpiCard label={t('fin2.ap.kpi_overdue', '逾期笔数')} value={String(summary?.overdue_invoices ?? '—')} icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
-        <KpiCard label={t('fin2.ap.kpi_balance', '待付余额（综合）')} value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0]?.currency_code) : sumLoading ? '…' : '¥0.00'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} ${t('fin2.common.currencies_unit', '个币种')}` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
+        {summary?.byCurrency?.map(currency => (
+          <KpiCard key={currency.currency_code}
+            label={`${t('fin2.ap.kpi_unpaid_balance', '待付余额')} · ${currency.currency_code}`}
+            value={fmtMoney(currency.balance, currency.currency_code)}
+            icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
+        ))}
       </div>
 
       {/* 筛选 + 搜索 工具栏 */}

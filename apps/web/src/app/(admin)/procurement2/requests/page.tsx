@@ -97,6 +97,10 @@ function buildStatusMap(t: TFn): Record<string, {
       label: t('prc2.status_pending_approval', "待审批"),
       cls: "badgeInfo"
     },
+    PENDING_APPROVAL: {
+      label: t('prc2.status_pending_approval', "待审批"),
+      cls: "badgeInfo"
+    },
     APPROVED: {
       label: t('prc2.status_approved', "已批准"),
       cls: "badgeSuccess"
@@ -572,8 +576,8 @@ export default function PurchaseRequestsPage() {
                           <Link href={`/procurement2/requests/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>{t('prc2.edit', "编辑")}</Link>
                           <button style={actBtnTone("success")} onClick={() => openSubmit(row)}>{t('prc2.submit_approval', "提交审批")}</button>
                         </>}
-                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title={t('prc2.go_approve_title', "审批请前往『工作流·待办』")}>{t('prc2.go_approve', "前往审批")}</Link>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>{t('prc2.cancel', "取消")}</button>}
+                      {["SUBMITTED", "PENDING_APPROVAL"].includes(row.status) && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title={t('prc2.go_approve_title', "审批请前往『工作流·待办』")}>{t('prc2.go_approve', "前往审批")}</Link>}
+                      {(row.status === "DRAFT" || ["SUBMITTED", "PENDING_APPROVAL"].includes(row.status)) && <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>{t('prc2.cancel', "取消")}</button>}
                       {row.status === "APPROVED" && <button style={actBtnTone("primary")} onClick={() => openConvert(row)}>{t('prc2.convert_to_po', "转采购订单")}</button>}
                     </div>
                   </td>

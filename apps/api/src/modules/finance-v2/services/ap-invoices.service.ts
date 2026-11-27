@@ -1,6 +1,6 @@
 import {
   Injectable, Logger, NotFoundException,
-  ForbiddenException, BadRequestException,
+  ForbiddenException, BadRequestException, ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
@@ -516,7 +516,7 @@ export class ApInvoicesService {
 
     try {
       const invRows = await qr.query(
-        `SELECT id, ap_no, company_code, company_name, supplier_code, supplier_name,
+        `SELECT id, ap_no, source_type, company_code, company_name, project_code, supplier_code, supplier_name,
                 currency_code, exchange_rate, amount_original,
                 paid_amount_original, paid_amount_base,
                 balance_amount_original, balance_amount_base,
@@ -534,6 +534,17 @@ export class ApInvoicesService {
       }
       if (!user.scopeAll && !user.companyCodes.includes(inv.company_code)) {
         throw new ForbiddenException(`无权付款公司 ${inv.company_code} 的 AP Invoice`);
+      }
+      this.assertWritableOwnership(inv.company_code, inv.project_code);
+      if (inv.source_type === 'PO') {
+        throw new BadRequestException('采购订单来源应付请通过采购付款管理执行');
+      }
+      if (dto.referenceNo?.startsWith('FIN-AP-')) {
+        const [existing] = await qr.query(
+          'SELECT id FROM fin_ap_payment_allocations WHERE invoice_id=$1 AND reference_no=$2 LIMIT 1',
+          [id, dto.referenceNo],
+        );
+        if (existing) throw new ConflictException('此付款操作已核销，请刷新应付明细');
       }
       if (!['OPEN', 'PARTIALLY_PAID'].includes(inv.status)) {
         throw new BadRequestException(`状态 ${inv.status} 不允许付款`);
@@ -814,25 +825,26 @@ export class ApInvoicesService {
            COUNT(*) FILTER (WHERE status = 'PARTIALLY_PAID')::int      AS partial_invoices,
            COUNT(*) FILTER (WHERE status = 'PAID')::int                AS paid_invoices,
            COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('PAID','CANCELLED'))::int AS overdue_invoices,
-           SUM(amount_original)                                         AS total_amount_original,
-           SUM(paid_amount_original)                                    AS paid_amount_original,
-           SUM(balance_amount_original) FILTER (WHERE status NOT IN ('PAID','CANCELLED')) AS balance_amount_original,
-           SUM(balance_amount_original) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('PAID','CANCELLED')) AS overdue_balance
+           CASE WHEN COUNT(DISTINCT currency_code) = 1 THEN SUM(amount_original) END AS total_amount_original,
+           CASE WHEN COUNT(DISTINCT currency_code) = 1 THEN SUM(paid_amount_original) END AS paid_amount_original,
+           CASE WHEN COUNT(DISTINCT currency_code) = 1 THEN SUM(balance_amount_original) FILTER (WHERE status NOT IN ('PAID','CANCELLED')) END AS balance_amount_original,
+           CASE WHEN COUNT(DISTINCT currency_code) = 1 THEN SUM(balance_amount_original) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('PAID','CANCELLED')) END AS overdue_balance
          FROM fin_ap_invoices ${where}`,
         params,
       ),
       this.ds.query(
         `SELECT currency_code,
-                SUM(amount_original) AS amount, SUM(balance_amount_original) AS balance,
+                SUM(amount_original) AS amount,
+                COALESCE(SUM(balance_amount_original) FILTER (WHERE status NOT IN ('PAID','CANCELLED')), 0) AS balance,
                 COUNT(*) AS count
          FROM fin_ap_invoices ${where}
          GROUP BY currency_code ORDER BY amount DESC NULLS LAST`,
         params,
       ),
       this.ds.query(
-        `SELECT status, COUNT(*) AS count, SUM(amount_original) AS amount
+        `SELECT status, currency_code, COUNT(*) AS count, SUM(amount_original) AS amount
          FROM fin_ap_invoices ${where}
-         GROUP BY status ORDER BY count DESC`,
+         GROUP BY status, currency_code ORDER BY count DESC, currency_code`,
         params,
       ),
     ]);

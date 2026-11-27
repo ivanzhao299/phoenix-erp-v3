@@ -1,3 +1,4 @@
+import { supplierVisibility } from '../../master-data/supplier-visibility';
 import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -46,10 +47,11 @@ export class LookupController {
     farmCodes: string[];
     warehouseCodes: string[];
     allowedSiteCodes: string[];
+    projectCodes: string[];
   }> {
     try {
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      if (!user) return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [] };
+      if (!user) return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [], projectCodes: [] };
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
@@ -60,9 +62,10 @@ export class LookupController {
         farmCodes: scope.allowedFarmCodes ?? [],   // G87 场授权清单
         warehouseCodes: scope.allowedWarehouseCodes ?? [],
         allowedSiteCodes: scope.allowedSiteCodes ?? [],
+        projectCodes: scope.allowedProjectCodes ?? [],
       };
     } catch {
-      return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [] };
+      return { isGlobal: false, companyCodes: [], farmCodes: [], warehouseCodes: [], allowedSiteCodes: [], projectCodes: [] };
     }
   }
 
@@ -260,13 +263,13 @@ export class LookupController {
   async suppliers() {
     const scope = await this.resolveCompanyScope('MENU_PRC2_SUPPLIER');
     const params: any[] = [];
-    const conds = [`status='ACTIVE'`, `is_active=true`];
+    const conds = [`status='ACTIVE'`, `is_active=true`, `(effective_date IS NULL OR effective_date <= CURRENT_DATE)`, `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`];
     if (!scope.isGlobal) {
-      params.push(scope.companyCodes);
-      conds.push(`(shared_scope='GROUP' OR owner_company_code = ANY($${params.length}))`);
+      params.push(scope.companyCodes, scope.projectCodes);
+      conds.push(supplierVisibility('', '$1', '$2'));
     }
     const rows = await this.em.query(
-      `SELECT supplier_code AS code, supplier_name AS name, country_code AS "countryCode",
+      `SELECT id, supplier_code AS code, supplier_name AS name, country_code AS "countryCode",
               supplier_type AS "supplierType", default_currency AS "defaultCurrency",
               shared_scope AS "sharedScope", owner_company_code AS "ownerCompanyCode", status
          FROM prc2_suppliers

@@ -70,9 +70,9 @@ export class ApprovalEngineController {
   @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   async approve(
     @Param('id') id: string,
-    @Body() body: { comment?: string },
+    @Body() body: { comment?: string; expectedStepNo?: number },
   ) {
-    return this.engine.approveStep(id, body.comment);
+    return this.engine.approveStep(id, body.comment, body.expectedStepNo);
   }
 
   /** 审批拒绝 */
@@ -80,9 +80,9 @@ export class ApprovalEngineController {
   @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   async reject(
     @Param('id') id: string,
-    @Body() body: { comment?: string },
+    @Body() body: { comment?: string; expectedStepNo?: number },
   ) {
-    await this.engine.rejectStep(id, body.comment);
+    await this.engine.rejectStep(id, body.comment, body.expectedStepNo);
     return { code: 200, message: '已拒绝' };
   }
 

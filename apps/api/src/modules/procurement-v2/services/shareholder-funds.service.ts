@@ -1,3 +1,6 @@
+import { isShareholderSelfScope, shareholderOwnerPredicate } from './shareholder-fund-visibility';
+import { DataScopeContext } from '../../org/services/data-scope.service';
+import { applyMask, getMaskLevel } from '../../../common/utils/mask.util';
 import {
   Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
@@ -111,50 +114,22 @@ export class ShareholderFundsService {
 
   // ── 列表 ─────────────────────────────────────────────────────────────────
 
-  async list(q: QueryShareholderFundDto) {
-    const page     = q.page     ?? 1;
-    const pageSize = q.pageSize ?? 20;
+  // ── 单条详情 ──────────────────────────────────────────────────────────────
 
-    const qb = this.fundRepo.createQueryBuilder('f')
-      .orderBy('f.id', 'DESC')
-      .skip((page - 1) * pageSize)
-      .take(pageSize);
-
-    if (q.status)        qb.andWhere('f.status = :s',          { s: q.status });
-    if (q.companyCode)   qb.andWhere('f.companyCode = :cc',    { cc: q.companyCode });
-    if (q.projectCode)   qb.andWhere('f.projectCode = :pc',    { pc: q.projectCode });
-    if (q.fundNature)    qb.andWhere('f.fundNature = :fn',      { fn: q.fundNature });
-    if (q.shareholderId) qb.andWhere('f.shareholderId = :si',  { si: q.shareholderId });
-
-    // 数据范围过滤（DataScope）
-    // G156：SELF 级（ROLE_SHAREHOLDER_VIEW）只能看本人名下——applyToQb 无 SELF 分支，
-    //   原仅按公司/项目过滤，股东只读角色可能看到他人资金。补 SELF 隔离（镜像 payments.listShareholderFunds）。
-    const scope = this.cls.get('dataScope') as { isGlobal?: boolean; scopeLevel?: string; userId?: string } | undefined;
-    if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF') {
-      qb.andWhere('f.shareholderId = :selfUserId', { selfUserId: scope.userId });
+  async findOne(id: string) {
+    const qb = this.fundRepo.createQueryBuilder('f').where('f.id = :id', { id });
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (isShareholderSelfScope(scope)) {
+      qb.andWhere(shareholderOwnerPredicate('f.shareholder_id', ':selfUserId'), { selfUserId: scope.userId });
     } else {
       this.scopeHelper.applyToQb(qb, { alias: 'f' });
     }
-
-    const [items, total] = await qb.getManyAndCount();
-    return { items, total, page, pageSize };
-  }
-
-  // ── 单条详情 ──────────────────────────────────────────────────────────────
-
-  async findOne(id: string): Promise<Prc2ShareholderFundEntity> {
-    const fund = await this.fundRepo.findOne({ where: { id } });
+    const fund = await qb.getOne();
     if (!fund) throw new NotFoundException(`股东资金 ID=${id} 不存在`);
-    // G156 安全：补归属校验——原 findOne 无任何 scope 校验，持 MENU_PRC2_FUND V 权者凭 id 可读
-    //   任意公司/股东的资金详情（越权读金融数据）。其余单据 findById 都有 assertOwnership，唯独此处漏。
-    this.scopeHelper.assertOwnership({ companyCode: fund.companyCode, projectCode: fund.projectCode }, '股东资金');
-    // SELF 级（股东只读）还须本人名下
-    const scope = this.cls.get('dataScope') as { isGlobal?: boolean; scopeLevel?: string; userId?: string } | undefined;
-    if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF'
-        && String(fund.shareholderId ?? '') !== String(scope.userId ?? '')) {
-      throw new ForbiddenException('无权访问该股东资金（仅可查看本人名下）');
-    }
-    return fund;
+    const user = this.cls.get('user');
+    return applyMask(fund, [
+      { key: 'shareholderName', type: 'name' },
+    ], getMaskLevel(user?.roles ?? (user?.role ? [user.role] : [])));
   }
 
   // ── 手工创建（仅限 DRAFT，必须走审批） ────────────────────────────────────

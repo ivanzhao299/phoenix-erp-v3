@@ -62,6 +62,7 @@ interface Payment {
   payerType: string;
   payerName: string;
   payerAccount?: string;
+  payeeId?: string;
   payeeName?: string;
   currencyCode: string;
   amountOriginal: number | string;
@@ -107,6 +108,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   const [formPayerCode, setFormPayerCode] = useState("");
   const [formPayerAccount, setFormPayerAccount] = useState("");
   const [formPayeeName, setFormPayeeName] = useState("");
+  const [formPayeeId, setFormPayeeId] = useState("");
   const [formCurrency, setFormCurrency] = useState("CNY");
   const [formExchangeRate, setFormExchangeRate] = useState("1");
   const [formMethod, setFormMethod] = useState("BANK");
@@ -146,6 +148,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
       setFormPayerCode("");
       setFormPayerAccount(row.payerAccount ?? "");
       setFormPayeeName(row.payeeName ?? "");
+      setFormPayeeId(row.payeeId ? String(row.payeeId) : "");
       setFormCurrency(row.currencyCode ?? "CNY");
       setFormExchangeRate(String(row.exchangeRate ?? "1"));
       setFormMethod(row.paymentMethod ?? "BANK");
@@ -252,6 +255,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
         payerType: formPayerType,
         payerName: formPayerName.trim(),
         payerAccount: formPayerAccount.trim() || undefined,
+        payeeId: formPayeeId || undefined,
         payeeName: formPayeeName.trim() || undefined,
         currencyCode: formCurrency,
         exchangeRate: rate,
@@ -382,7 +386,9 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
         </div>
         <div className={s.field}>
           <label className={s.lbl}>{t('prc2.payee_supplier', "收款方（供应商）")}</label>
-          <SupplierSelector value={formPayeeName} onChange={setFormPayeeName} />
+          <SupplierSelector value={formPayeeId} valueField="id" onChange={setFormPayeeId}
+            onPick={option => setFormPayeeName(option?.raw?.name ?? "")} />
+          {!formPayeeId && formPayeeName && <small>{formPayeeName}</small>}
         </div>
       </div>
 

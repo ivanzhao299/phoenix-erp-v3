@@ -13,6 +13,7 @@ import { Prc2ApLedgerEntity }           from '../entities/prc2-ap-ledger.entity'
 import { Prc2ApprovalEntity }           from '../entities/prc2-approval.entity';
 import { Prc2ShareholderFundEntity }    from '../entities/prc2-shareholder-fund.entity';
 
+import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 import { CreatePaymentDto }            from '../dto/create-payment.dto';
 import { UpdatePaymentDto }            from '../dto/update-payment.dto';
 import { QueryPaymentDto }             from '../dto/query-payment.dto';
@@ -20,6 +21,7 @@ import { SubmitPaymentDto }            from '../dto/submit-payment.dto';
 import { QueryShareholderFundsDto }    from '../dto/query-shareholder-funds.dto';
 import { getMaskLevel, applyMask, applyMaskList, MaskFieldDef } from '../../../common/utils/mask.util';
 import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
+import { isShareholderSelfScope, shareholderOwnerPredicate } from './shareholder-fund-visibility';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 // G85-B 付款→资金账户/财务流水/股东出资（统一经 finance-v2 官方写入口）
 import { CashAccountsService } from '../../finance-v2/services/cash-accounts.service';
@@ -288,7 +290,9 @@ export class PaymentsService {
 
   async update(id: string, dto: UpdatePaymentDto) {
     return this.ds.transaction(async mgr => {
-      const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
+      const pay = await mgr.findOne(Prc2PaymentEntity, {
+        where: { id }, lock: { mode: 'pessimistic_write' },
+      });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: pay.companyCode, projectCode: pay.projectCode },
@@ -349,7 +353,9 @@ export class PaymentsService {
 
   async submit(id: string, dto: SubmitPaymentDto) {
     return this.ds.transaction(async mgr => {
-      const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
+      const pay = await mgr.findOne(Prc2PaymentEntity, {
+        where: { id }, lock: { mode: 'pessimistic_write' },
+      });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: pay.companyCode, projectCode: pay.projectCode },
@@ -386,27 +392,26 @@ export class PaymentsService {
   // ── 审批通过 ──────────────────────────────────────────────────────────────
 
   /** @deprecated 请使用 /api/approval/instances/:id/approve 接口 */
-  async approve(id: string, dto: { comment?: string }) {
-    return this.ds.transaction(async mgr => {
-      const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
-      if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
-      this.scopeHelper.assertWritableOwnership(
-        { companyCode: pay.companyCode, projectCode: pay.projectCode },
-        '采购付款单',
-      );
-      if (!['SUBMITTED', 'PENDING_APPROVAL'].includes(pay.status)) throw new ConflictException(`当前状态 ${pay.status} 不允许审批`);
-      pay.status = 'APPROVED';
-      await mgr.save(Prc2PaymentEntity, pay);
-      await this.writeLog(mgr, { bizType: 'PAYMENT', bizId: id, bizNo: pay.payNo, node: 'APPROVE', action: 'APPROVE', comment: dto.comment });
-      return pay;
-    });
+  async approve(id: string, dto: ApprovePaymentDto) {
+    const document = await this.payRepo.findOne({ where: { id } });
+    if (!document) throw new NotFoundException('采购付款单不存在');
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: document.companyCode, projectCode: document.projectCode }, '采购付款单',
+    );
+    const instance = await this.approvalEngine.getPendingProcurementInstance('PAYMENT', id);
+    if (!instance) throw new ConflictException('未找到有效的待审实例，请核对审批记录');
+    await this.approvalEngine.approveStep(instance.id, dto.comment, dto.expectedStepNo);
+    const current = await this.payRepo.findOneByOrFail({ id });
+    return current;
   }
 
   // ── 付款确认（核心：AP 核销 + 股东资金） ──────────────────────────────────
 
   async pay(id: string, dto: { comment?: string }) {
     return this.ds.transaction(async mgr => {
-      const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
+      const pay = await mgr.findOne(Prc2PaymentEntity, {
+        where: { id }, lock: { mode: 'pessimistic_write' },
+      });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: pay.companyCode, projectCode: pay.projectCode },
@@ -417,6 +422,32 @@ export class PaymentsService {
 
       // ── G85-B 公司付款必经资金账户（主数据校验 + 行锁；股东代付不扣公司账户）──
       const isShareholderPay = pay.isShareholderPayment || pay.payerType === 'SHAREHOLDER';
+      const allocs = await mgr.find(Prc2PaymentAllocationEntity, { where: { paymentId: id } });
+      if (!isShareholderPay && allocs.length === 0) {
+        throw new BadRequestException('公司采购付款必须关联至少一条 AP 台账');
+      }
+
+      if (isShareholderPay) {
+        const previous = await mgr.findOne(Prc2ShareholderFundEntity, { where: { relatedPaymentId: id, sourceType: 'PAYMENT' } });
+        if (previous) throw new ConflictException('付款已有资金记录，请先核对历史过账');
+      } else {
+        const [previous] = await mgr.query(
+          `SELECT 1 FROM fin_cash_transactions WHERE source_type='AP_PAYMENT'
+             AND source_id=$1 AND source_no=$2 LIMIT 1`,
+          [id, pay.payNo],
+        );
+        if (previous) throw new ConflictException('付款已有资金流水，请先核对历史过账');
+      }
+
+      const ids = new Set<string>();
+      for (const alloc of allocs) {
+        const ap = await this.resolveApForAllocation(mgr, alloc);
+        if (ap) ids.add(String(ap.id));
+      }
+      for (const apId of [...ids].sort((a, b) => a.length - b.length || a.localeCompare(b))) {
+        await this.resolveApForAllocation(mgr, { apId }, true);
+      }
+
       let cashAcc: {
         id: string; account_code: string; account_name: string;
         company_code: string; company_name: string | null;
@@ -458,11 +489,6 @@ export class PaymentsService {
         }
       }
 
-      const allocs = await mgr.find(Prc2PaymentAllocationEntity, { where: { paymentId: id } });
-      if (!isShareholderPay && allocs.length === 0) {
-        throw new BadRequestException('公司采购付款必须关联至少一条 AP 台账');
-      }
-
       // ── 核销每条 AP ────────────────────────────────────────────────────────
       for (const alloc of allocs) {
         const ap = await this.resolveApForAllocation(mgr, alloc, true);
@@ -470,6 +496,13 @@ export class PaymentsService {
           throw new BadRequestException('公司采购付款的每条分摊必须关联有效 AP 台账');
         }
         if (!ap) continue;
+        if (ap.companyCode !== pay.companyCode || ap.currencyCode !== pay.currencyCode) {
+          throw new BadRequestException('应付归属公司或币种与付款单不一致');
+        }
+        if (pay.payeeId && ap.supplierId && String(pay.payeeId) !== String(ap.supplierId)) {
+          throw new BadRequestException('应付供应商与付款单收款方不一致');
+        }
+
 
         if (alloc.apId !== ap.id || alloc.apNo !== ap.apNo || alloc.poId !== ap.poId || alloc.poNo !== ap.poNo) {
           await mgr.update(Prc2PaymentAllocationEntity, { id: alloc.id }, {
@@ -620,7 +653,10 @@ export class PaymentsService {
 
   async cancel(id: string, dto: { comment?: string }) {
     return this.ds.transaction(async mgr => {
-      const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
+      const closedApproval = await this.approvalEngine.cancelPendingProcurementInstance('PAYMENT', id, mgr);
+      const pay = await mgr.findOne(Prc2PaymentEntity, {
+        where: { id }, lock: { mode: 'pessimistic_write' },
+      });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: pay.companyCode, projectCode: pay.projectCode },
@@ -632,6 +668,9 @@ export class PaymentsService {
       if (pay.status === 'CANCELLED') throw new ConflictException('该付款单已取消');
       if (!['DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED'].includes(pay.status)) {
         throw new ConflictException(`当前状态 ${pay.status} 不允许取消`);
+      }
+      if (['SUBMITTED', 'PENDING_APPROVAL'].includes(pay.status) && !closedApproval) {
+        throw new ConflictException('待审实例已变更，请刷新并核对审批记录');
       }
       pay.status = 'CANCELLED';
       await mgr.save(Prc2PaymentEntity, pay);
@@ -657,7 +696,7 @@ export class PaymentsService {
   async listOpenAp(companyCode?: string, supplierCode?: string, projectCode?: string, keyword?: string) {
     const qb = this.apRepo.createQueryBuilder('ap')
       .where('ap.balanceAmountOriginal > 0')
-      .andWhere("ap.status IN ('OPEN','PARTIALLY_PAID')")
+      .andWhere("ap.status IN ('OPEN','PARTIAL','PARTIALLY_PAID')")
       .orderBy('ap.dueDate', 'ASC');
 
     if (companyCode)  qb.andWhere('ap.companyCode  = :cc',  { cc:  companyCode });
@@ -688,9 +727,8 @@ export class PaymentsService {
       if (q.dateTo)        qb.andWhere('f.occurredDate <= :dt',  { dt:  q.dateTo });
 
       const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-      if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF') {
-        // 按 shareholderId = 当前用户 id 隔离（避免泄露他人资金记录）
-        qb.andWhere('f.shareholderId = :selfUserId', { selfUserId: scope.userId });
+      if (isShareholderSelfScope(scope)) {
+        qb.andWhere(shareholderOwnerPredicate('f.shareholder_id', ':selfUserId'), { selfUserId: scope.userId });
       } else {
         this.scopeHelper.applyToQb(qb, { alias: 'f' });
       }

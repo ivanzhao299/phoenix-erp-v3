@@ -16,6 +16,7 @@ import { Prc2OrderItemEntity }     from '../entities/prc2-order-item.entity';
 import { Prc2ApprovalEntity }      from '../entities/prc2-approval.entity';
 
 import { CreateReceiptDto }        from '../dto/create-receipt.dto';
+import { ReceiptItemDto } from '../dto/receipt-item.dto';
 import { QueryReceiptDto }         from '../dto/query-receipt.dto';
 
 // ── 并发安全编号生成 ──────────────────────────────────────────────────────────
@@ -114,6 +115,81 @@ export class ReceiptsService {
     }));
   }
 
+  async getEligiblePurchaseOrder(id: string) {
+    const qb = this.poRepo.createQueryBuilder('p')
+      .where('p.id = :id', { id })
+      .andWhere('p.status IN (:...statuses)', { statuses: ['APPROVED', 'PARTIALLY_RECEIVED'] });
+    this.scopeHelper.applyToQb(qb, { alias: 'p' });
+    const po = await qb.getOne();
+    if (!po) throw new NotFoundException('未找到可收货的采购订单');
+    const lines = this.poiRepo.createQueryBuilder('line').where('line.poId = :id', { id })
+      .orderBy('line.id', 'ASC');
+    const scope = this.cls.get('dataScope');
+    if (scope?.scopeLevel === 'PROJECT' && !scope.isGlobal) {
+      lines.andWhere('COALESCE(line.project_code, :headProject) = ANY(CAST(:projects AS text[]))', {
+        headProject: po.projectCode, projects: scope.allowedProjectCodes,
+      });
+    }
+    const items = await lines.getMany();
+    return {
+      id: po.id, poNo: po.poNo,
+      companyId: po.companyId, companyCode: po.companyCode, companyName: po.companyName,
+      projectId: po.projectId, projectCode: po.projectCode, projectName: po.projectName,
+      items: items.filter(item => Number(item.qty) > Number(item.receivedQty)).map(item => ({
+        id: item.id, itemCode: item.itemCode, itemName: item.itemName, spec: item.spec,
+        unit: item.unit, qty: item.qty, receivedQty: item.receivedQty,
+      })),
+    };
+  }
+
+  private quantityUnits(quantity: number): number {
+    return Math.round(Number(quantity) * 10000);
+  }
+
+  private validateReceiptLine(
+    item: Omit<ReceiptItemDto, 'qualityStatus'> & { qualityStatus?: string },
+    orderLine: Prc2OrderItemEntity,
+  ) {
+    const actual = Number(item.actualQty);
+    const rejected = Number(item.rejectedQty ?? 0);
+    const expected = Number(item.expectedQty);
+    const remaining = this.quantityUnits(orderLine.qty) - this.quantityUnits(orderLine.receivedQty);
+    const handled = this.quantityUnits(actual) + this.quantityUnits(rejected);
+    if (![actual, rejected, expected].every(quantity => Number.isFinite(quantity) && quantity >= 0)
+      || handled > this.quantityUnits(expected) || handled > remaining) {
+      throw new BadRequestException(`物料「${item.itemName}」实收及拒收数量超出应收或订单余量`);
+    }
+    const quality = item.qualityStatus ?? 'PASS';
+    if (!['PASS', 'PARTIAL', 'REJECT'].includes(quality)
+      || (quality === 'REJECT' && (actual !== 0 || rejected <= 0))
+      || (quality === 'PARTIAL' && (actual <= 0 || rejected <= 0))
+      || (quality === 'PASS' && rejected > 0)) {
+      throw new BadRequestException(`物料「${item.itemName}」质检结果与实收、拒收数量不一致`);
+    }
+    if ((actual > 0 && !orderLine.itemCode?.trim())
+      || (item.itemCode && item.itemCode !== orderLine.itemCode)
+      || (item.unit && item.unit !== orderLine.unit)) {
+      throw new BadRequestException(`物料「${item.itemName}」编码或单位与采购订单不一致`);
+    }
+  }
+
+  private async resolveShipment(
+    mgr: EntityManager, po: Prc2PurchaseOrderEntity, id?: string, no?: string,
+  ) {
+    if (!id && !no) return null;
+    const shipment = await mgr.findOne(Prc2ShipmentEntity, {
+      where: id ? { id } : { shipmentNo: no },
+    });
+    if (!shipment || (shipment.poId ? String(shipment.poId) !== String(po.id) : shipment.poNo !== po.poNo)
+      || (shipment.poNo && shipment.poNo !== po.poNo)
+      || (shipment.companyCode && shipment.companyCode !== po.companyCode)
+      || (shipment.projectCode && shipment.projectCode !== po.projectCode)
+      || (no && shipment.shipmentNo !== no)) {
+      throw new BadRequestException('运单与采购订单或归属不一致');
+    }
+    return shipment;
+  }
+
   // ── 列表 ──────────────────────────────────────────────────────────────────
 
   async list(q: QueryReceiptDto) {
@@ -152,7 +228,9 @@ export class ReceiptsService {
   // ── 详情 ──────────────────────────────────────────────────────────────────
 
   async findById(id: string) {
-    const rcp = await this.rcpRepo.findOne({ where: { id } });
+    const qb = this.rcpRepo.createQueryBuilder('r').where('r.id = :id', { id });
+    this.scopeHelper.applyToQb(qb, { alias: 'r', warehouseField: 'warehouseCode' });
+    const rcp = await qb.getOne();
     if (!rcp) throw new NotFoundException(`收货单 ID=${id} 不存在`);
 
     // ── RBAC-2.5 详情归属校验 ────────────────────────────────────────────────
@@ -168,7 +246,8 @@ export class ReceiptsService {
     ]);
     let shipment = null;
     if (rcp.shipmentId) {
-      shipment = await this.shpRepo.findOne({ where: { id: rcp.shipmentId } });
+      const linked = await this.shpRepo.findOne({ where: { id: rcp.shipmentId, poId: rcp.poId } });
+      if (linked) shipment = { id: linked.id, shipmentNo: linked.shipmentNo, status: linked.status };
     }
     const po = await this.poRepo.findOne({ where: { id: rcp.poId } });
     const [warehouse] = rcp.warehouseCode ? await this.ds.query(
@@ -182,7 +261,7 @@ export class ReceiptsService {
          AND NOT EXISTS (SELECT 1 FROM product_skus s WHERE s.sku_code=m.material_code)`, [itemCodes],
     ) : [];
     const nameMap = new Map(names.map(r => [r.item_code, r]));
-    return { ...rcp, ...warehouse, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals, shipment, po };
+    return { ...rcp, ...warehouse, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals, shipment, po: po && { poNo: po.poNo, planQty: po.planQty, receivedQty: po.receivedQty, status: po.status } };
   }
 
   // ── 创建 ──────────────────────────────────────────────────────────────────
@@ -210,22 +289,33 @@ export class ReceiptsService {
         { companyCode: po.companyCode, projectCode: po.projectCode },
         '采购收货单',
       );
+      if (!po.companyCode || po.companyCode === 'ALL') throw new BadRequestException('采购订单缺少有效公司归属');
       this.scopeHelper.assertWritableWarehouse(dto.warehouseCode, '采购收货单');
       await this.wms.assertPurchaseReceiptWarehouseUsage(mgr, dto.warehouseCode);
-      if (!['APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status))
+      if (!['APPROVED', 'PARTIALLY_RECEIVED'].includes(po.status))
         throw new ConflictException(`PO 状态 ${po.status} 不允许创建收货单`);
 
-      // ── 校验每行 actual_qty + rejected_qty <= expected_qty ───────────────
-      for (const item of dto.items) {
-        const actual   = Number(item.actualQty ?? 0);
-        const rejected = Number(item.rejectedQty ?? 0);
-        const expected = Number(item.expectedQty ?? 0);
-        if (actual + rejected > expected + 0.0001) {
-          throw new BadRequestException(
-            `物品「${item.itemName}」实收 ${actual} + 拒收 ${rejected} 超过期望数量 ${expected}`,
-          );
-        }
+      if (!dto.warehouseCode) throw new BadRequestException('请选择收货仓库');
+      await this.wms.assertPurchaseReceiptWarehouseCompany(mgr, dto.warehouseCode, po.companyCode);
+      const shipment = await this.resolveShipment(mgr, po, dto.shipmentId, dto.shipmentNo);
+      if (!dto.items.some(item => item.actualQty > 0 || Number(item.rejectedQty) > 0)) {
+        throw new BadRequestException('至少填写一行实收或拒收数量');
       }
+      const orderLines = await mgr.find(Prc2OrderItemEntity, { where: { poId: po.id } });
+      const byId = new Map(orderLines.map(line => [String(line.id), line]));
+      const seen = new Set<string>();
+      const receiptLines = dto.items.map(item => {
+        const key = String(item.poItemId);
+        const line = byId.get(key);
+        if (!line || seen.has(key)) throw new BadRequestException('收货明细须属于当前采购订单且不能重复');
+        seen.add(key);
+        this.scopeHelper.assertWritableOwnership(
+          { companyCode: po.companyCode, projectCode: line.projectCode ?? po.projectCode }, '采购收货单明细',
+        );
+        this.validateReceiptLine(item, line);
+        return { ...item, itemCode: line.itemCode, itemName: line.itemName, spec: line.spec, unit: line.unit,
+          projectId: line.projectId, projectCode: line.projectCode, projectName: line.projectName };
+      });
 
       const prefix    = `RCV2-${format(new Date(), 'yyyyMMdd')}-`;
       const receiptNo = await genNo(mgr, prefix, Prc2ReceiptEntity as never, 'r', 'receiptNo');
@@ -234,8 +324,8 @@ export class ReceiptsService {
         receiptNo,
         poId:          dto.poId,
         poNo:          po.poNo,
-        shipmentId:    dto.shipmentId,
-        shipmentNo:    dto.shipmentNo,
+        shipmentId:    shipment?.id,
+        shipmentNo:    shipment?.shipmentNo,
         companyId:     po.companyId,
         companyCode:   po.companyCode,
         companyName:   po.companyName,
@@ -252,7 +342,7 @@ export class ReceiptsService {
       });
       const saved = await mgr.save(Prc2ReceiptEntity, rcp);
 
-      const rows = dto.items.map(i => mgr.create(Prc2ReceiptItemEntity, {
+      const rows = receiptLines.map(i => mgr.create(Prc2ReceiptItemEntity, {
         receiptId:     saved.id,
         poItemId:      i.poItemId,
         projectId:     i.projectId,
@@ -303,18 +393,39 @@ export class ReceiptsService {
         throw new BadRequestException('收货单无明细行，无法确认');
 
       // ── 2. PO 存在性检查 ─────────────────────────────────────────────────
-      const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id: rcp.poId } });
+      const po = await mgr.findOne(Prc2PurchaseOrderEntity, {
+        where: { id: rcp.poId }, lock: { mode: 'pessimistic_write' },
+      });
       if (!po) throw new NotFoundException(`关联 PO ID=${rcp.poId} 不存在`);
+      if (!po.companyCode || po.companyCode === 'ALL') throw new BadRequestException('采购订单缺少有效公司归属');
+      if (!['APPROVED', 'PARTIALLY_RECEIVED'].includes(po.status)
+        || rcp.companyCode !== po.companyCode || rcp.projectCode !== po.projectCode) {
+        throw new ConflictException('采购订单状态或归属已变更，请重新建立收货单');
+      }
+      const shipment = await this.resolveShipment(mgr, po, rcp.shipmentId, rcp.shipmentNo);
+
 
       // ── 3. 累加 order_items.received_qty，并检查超收 ─────────────────────
       // INV-401：同步收集 PO 明细单价，供第 9 步库存入账写批次 unit_cost
+      const storedOrderLines = await mgr.find(Prc2OrderItemEntity, { where: { poId: po.id } });
+      const storedReceived = storedOrderLines.reduce((sum, line) => sum + this.quantityUnits(line.receivedQty), 0);
+      if (storedReceived !== this.quantityUnits(po.receivedQty)) {
+        throw new ConflictException('订单历史已收数量与明细不一致，请先核对历史收货');
+      }
+      if (!items.some(item => Number(item.actualQty) > 0 || Number(item.rejectedQty) > 0)) {
+        throw new BadRequestException('至少填写一行实收或拒收数量');
+      }
       const unitPriceByPoItem = new Map<string, number>();
+      const seenPoItems = new Set<string>();
       for (const item of items) {
-        if (!item.poItemId) {
-          throw new BadRequestException(`物品「${item.itemName}」缺少 poItemId，无法确认收货`);
+        if (!item.poItemId || seenPoItems.has(item.poItemId)) {
+          throw new BadRequestException(`物品「${item.itemName}」缺少采购行或采购行重复，无法确认收货`);
         }
 
-        const poi = await mgr.findOne(Prc2OrderItemEntity, { where: { id: item.poItemId } });
+        seenPoItems.add(item.poItemId);
+        const poi = await mgr.findOne(Prc2OrderItemEntity, {
+          where: { id: item.poItemId }, lock: { mode: 'pessimistic_write' },
+        });
         if (!poi) {
           throw new NotFoundException(`采购订单明细 ID=${item.poItemId} 不存在`);
         }
@@ -324,14 +435,21 @@ export class ReceiptsService {
           );
         }
 
-        const newReceivedQty = Number(poi.receivedQty) + Number(item.actualQty);
+        this.scopeHelper.assertWritableOwnership(
+          { companyCode: po.companyCode, projectCode: poi.projectCode ?? po.projectCode }, '采购收货单明细',
+        );
+        this.validateReceiptLine(item, poi);
+        if (Number(item.actualQty) > 0 && (!item.itemCode || item.unit !== poi.unit)) {
+          throw new BadRequestException('历史收货明细缺少可核对的物料编码或单位，请重新建立收货单');
+        }
+        const newReceivedQty = (this.quantityUnits(poi.receivedQty) + this.quantityUnits(item.actualQty)) / 10000;
         unitPriceByPoItem.set(
           String(item.poItemId),
           Number.isFinite(Number(poi.unitPrice)) && Number(poi.unitPrice) >= 0
             ? Number(poi.unitPrice)
             : 0,
         );
-        if (newReceivedQty > Number(poi.qty) + 0.0001) {
+        if (this.quantityUnits(newReceivedQty) > this.quantityUnits(poi.qty)) {
           throw new BadRequestException(
             `物品「${item.itemName}」超收：计划 ${poi.qty}，已收 ${poi.receivedQty}，本次 ${item.actualQty}`,
           );
@@ -343,15 +461,14 @@ export class ReceiptsService {
 
       // ── 4. 汇总 PO 头表 received_qty ─────────────────────────────────────
       const allPoItems = await mgr.find(Prc2OrderItemEntity, { where: { poId: po.id } });
-      const totalReceived = allPoItems.reduce((s, i) => s + Number(i.receivedQty), 0);
-      const totalPlan     = allPoItems.reduce((s, i) => s + Number(i.qty), 0);
+      const totalReceived = allPoItems.reduce((sum, line) => sum + this.quantityUnits(line.receivedQty), 0) / 10000;
 
       // ── 5. 判断 PO 状态联动 ───────────────────────────────────────────────
       let newPoStatus: string;
-      if (totalPlan > 0 && totalReceived >= totalPlan - 0.0001) {
+      if (totalReceived > 0 && allPoItems.every(line => this.quantityUnits(line.receivedQty) >= this.quantityUnits(line.qty))) {
         newPoStatus = 'RECEIVED';
       } else {
-        newPoStatus = 'PARTIALLY_RECEIVED';
+        newPoStatus = totalReceived > 0 ? 'PARTIALLY_RECEIVED' : po.status;
       }
 
       await mgr.update(Prc2PurchaseOrderEntity, { id: po.id }, {
@@ -368,11 +485,8 @@ export class ReceiptsService {
       });
 
       // ── 7. Shipment 状态：若 PO 已全部收货 → DELIVERED ───────────────────
-      if (newPoStatus === 'RECEIVED' && rcp.shipmentId) {
-        const shp = await mgr.findOne(Prc2ShipmentEntity, { where: { id: rcp.shipmentId } });
-        if (shp && shp.status === 'ARRIVED') {
-          await mgr.update(Prc2ShipmentEntity, { id: rcp.shipmentId }, { status: 'DELIVERED' });
-        }
+      if (newPoStatus === 'RECEIVED' && shipment?.status === 'ARRIVED') {
+        await mgr.update(Prc2ShipmentEntity, { id: shipment.id, status: 'ARRIVED' }, { status: 'DELIVERED' });
       }
 
       // ── 8. 审批日志 ──────────────────────────────────────────────────────
@@ -385,6 +499,7 @@ export class ReceiptsService {
       await this.wms.inboundFromReceipt(mgr, {
         refNo:         rcp.receiptNo,
         warehouseCode: rcp.warehouseCode,
+        companyCode: po.companyCode,
         inboundDate:   rcp.receiptDate,
         operator:      this.userId(),
         items: items.map(i => ({
@@ -405,7 +520,9 @@ export class ReceiptsService {
 
   async cancel(id: string, dto: { comment?: string }) {
     return this.ds.transaction(async mgr => {
-      const rcp = await mgr.findOne(Prc2ReceiptEntity, { where: { id } });
+      const rcp = await mgr.findOne(Prc2ReceiptEntity, {
+        where: { id }, lock: { mode: 'pessimistic_write' },
+      });
       if (!rcp) throw new NotFoundException(`收货单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: rcp.companyCode, projectCode: rcp.projectCode },

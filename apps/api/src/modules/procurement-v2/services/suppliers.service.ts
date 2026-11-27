@@ -1,5 +1,7 @@
+import { supplierVisibility } from '../../master-data/supplier-visibility';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import {
-  Injectable, NotFoundException, ConflictException,
+  Injectable, NotFoundException, ConflictException, BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -21,6 +23,27 @@ export class SuppliersService {
     private readonly scopeHelper: DataScopeHelper,
   ) {}
 
+  private visibleSuppliers() {
+    const qb = this.repo.createQueryBuilder('s');
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (scope && !scope.isGlobal) {
+      qb.andWhere(supplierVisibility('s', ':supplierCompanies', ':supplierProjects'), {
+        supplierCompanies: scope.allowedCompanyCodes, supplierProjects: scope.allowedProjectCodes,
+      });
+    }
+    return qb;
+  }
+
+  private maskBankFields(item: Prc2SupplierEntity) {
+    const user = this.cls.get('user');
+    if (user && !(user.roles ?? [user.role]).includes('ROLE_ADMIN')) {
+      for (const field of ['bankName', 'bankAccountName', 'bankAccountNo', 'bankSwift'] as const) {
+        Reflect.deleteProperty(item, field);
+      }
+    }
+    return item;
+  }
+
   private withCompatibility(item: Prc2SupplierEntity): Prc2SupplierEntity {
     const categoryValues = new Set(['CHICK','FEED','RAW_MATERIAL','PACKAGING','VACCINE','VETERINARY','EQUIPMENT','MEDICINE','SERVICE','OTHER']);
     const sourcingValues = new Set(['LOCAL','OVERSEAS','AGENT']);
@@ -40,7 +63,7 @@ export class SuppliersService {
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
     const skip     = (page - 1) * pageSize;
 
-    const qb = this.repo.createQueryBuilder('s');
+    const qb = this.visibleSuppliers();
 
     if (query.sharedScope)      qb.andWhere('s.sharedScope = :scope', { scope: query.sharedScope });
     if (query.supplierCode)     qb.andWhere('s.supplierCode = :sc',   { sc: query.supplierCode });
@@ -63,14 +86,6 @@ export class SuppliersService {
       );
     }
 
-    // ── RBAC-2 数据范围过滤（suppliers 字段名为 ownerCompanyCode/ownerProjectCode）
-    this.scopeHelper.applyToQb(qb, {
-      alias: 's',
-      companyField: 'ownerCompanyCode',
-      projectField: 'ownerProjectCode',
-    });
-    // ────────────────────────────────────────────────────────────────────────
-
     const [items, total] = await qb
       .orderBy('s.createdAt', 'DESC')
       .addOrderBy('s.id', 'DESC')
@@ -78,22 +93,14 @@ export class SuppliersService {
       .take(pageSize)
       .getManyAndCount();
 
-    return { items: items.map((item) => this.withCompatibility(item)), total, page, pageSize };
+    return { items: items.map((item) => this.maskBankFields(this.withCompatibility(item))), total, page, pageSize };
   }
 
   /** 详情 */
   async findById(id: string): Promise<Prc2SupplierEntity> {
-    const item = await this.repo.findOne({ where: { id } });
+    const item = await this.visibleSuppliers().andWhere('s.id = :id', { id }).getOne();
     if (!item) throw new NotFoundException(`供应商 ID=${id} 不存在`);
-
-    // ── RBAC-2.5 详情归属校验（供应商使用 ownerCompanyCode）────────────────
-    this.scopeHelper.assertOwnership(
-      { companyCode: item.ownerCompanyCode, projectCode: undefined },
-      'Supplier',
-    );
-    // ─────────────────────────────────────────────────────────────────────────
-
-    return this.withCompatibility(item);
+    return this.maskBankFields(this.withCompatibility(item));
   }
 
   /** 新建 */
@@ -149,6 +156,9 @@ export class SuppliersService {
   /** 更新（禁止改 supplier_code） */
   async update(id: string, dto: UpdateSupplierDto): Promise<Prc2SupplierEntity> {
     const item = await this.findById(id);
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: item.ownerCompanyCode, projectCode: item.ownerProjectCode }, '采购供应商',
+    );
     if (dto.supplierName    !== undefined) item.supplierName    = dto.supplierName;
     if (dto.countryCode     !== undefined) item.countryCode     = dto.countryCode;
     if (dto.supplyCategory  !== undefined) item.supplyCategory  = dto.supplyCategory;
@@ -162,15 +172,28 @@ export class SuppliersService {
     if (dto.bankAccountNo   !== undefined) item.bankAccountNo   = dto.bankAccountNo;
     if (dto.taxNo           !== undefined) item.taxNo           = dto.taxNo;
     if (dto.address         !== undefined) item.address         = dto.address;
-    if (dto.status          !== undefined) item.status          = dto.status;
+    if (dto.status !== undefined && dto.status !== item.status) {
+      throw new BadRequestException('供应商状态变更请通过主数据生命周期操作');
+    }
     if (dto.remark          !== undefined) item.remark          = dto.remark;
-    if (dto.creditDays      !== undefined) item.creditDays      = dto.creditDays;
+    if (dto.creditDays !== undefined && dto.creditDays !== item.creditDays) {
+      throw new BadRequestException('账期变更请在主数据中心提交审批');
+    }
     return this.repo.save(item);
   }
 
   /** 更新状态 */
   async updateStatus(id: string, dto: UpdateSupplierStatusDto): Promise<Prc2SupplierEntity> {
     const item = await this.findById(id);
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: item.ownerCompanyCode, projectCode: item.ownerProjectCode }, '采购供应商',
+    );
+    if (!['ACTIVE', 'INACTIVE', 'BLACKLISTED'].includes(item.status)) {
+      throw new BadRequestException('当前状态须在主数据中心处理');
+    }
+    if (item.status === 'BLACKLISTED' && dto.status === 'ACTIVE') {
+      throw new BadRequestException('解除黑名单请通过主数据中心审核');
+    }
     item.status   = dto.status;
     item.isActive = dto.status === 'ACTIVE';
     return this.repo.save(item);

@@ -566,12 +566,12 @@ export default function SuppliersPage() {
                   padding: "3px 8px",
                   fontSize: 11
                 }} onClick={() => openEdit(row)}>{t('ui.编辑','编辑')}</button>
-                    <button type="button" className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary} style={{
+                    {["ACTIVE", "INACTIVE"].includes(row.status) && <button type="button" className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary} style={{
                   padding: "3px 8px",
                   fontSize: 11
                 }} onClick={() => toggleStatus(row)}>
                       {row.status === "ACTIVE" ? t('ui.停用','停用') : t('ui.启用','启用')}
-                    </button>
+                    </button>}
                   </td>
                 </tr>;
           })}

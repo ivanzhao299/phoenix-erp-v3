@@ -113,10 +113,10 @@ export function CustomerSelector(p: BaseProps) {
 }
 
 // ── 供应商（仅 ACTIVE，G5-B 切 /api/lookup）───────────────────────────────────
-export function SupplierSelector(p: BaseProps) {
+export function SupplierSelector({ valueField = 'code', ...p }: BaseProps & { valueField?: 'code' | 'id' }) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择供应商','请选择供应商')}
-    loader={async () => (await lookupArr('/lookup/suppliers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+    loader={async () => (await lookupArr('/lookup/suppliers')).map((r: any) => ({ value: String(r[valueField] ?? ''), label: `${r.name}（${r.code}）`, raw: r })).filter(option => option.value)} />;
 }
 
 // ── 项目（MDM-1 切换为 biz_projects 统一项目主表，按 company_code 过滤）─────

@@ -1259,11 +1259,16 @@ export class WmsService {
    * 与调用方同一事务（传入 manager），保证收货确认与库存入账原子一致。
    * 数量保留最多三位小数；物料/SKU 身份从统一主数据解析。
    */
+  async assertPurchaseReceiptWarehouseCompany(manager: EntityManager, warehouseCode: string, companyCode?: string) {
+    await this.lockWarehouseCompany(manager, warehouseCode, companyCode);
+  }
+
   async inboundFromReceipt(
     manager: EntityManager,
     ctx: {
       refNo: string;             // 收货单号（→ inv_ledger.ref_no 可追溯）
       warehouseCode?: string;
+      companyCode?: string;
       storeCode?: string;
       operator?: string;
       inboundDate?: string | null;
@@ -1299,7 +1304,7 @@ export class WmsService {
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
     await this.assertPurchaseReceiptWarehouseUsage(manager, warehouseCode);
     await this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
-    const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
+    const companyCode = await this.lockWarehouseCompany(manager, warehouseCode, ctx.companyCode);
     const batchNos: string[] = [];
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
@@ -1317,6 +1322,9 @@ export class WmsService {
         it.skuCode !== undefined ? 'SKU' : this.nonEmptyString(it.itemType),
         companyCode,
       );
+      if (ctx.companyCode && it.unit !== identity.unit) {
+        throw new BadRequestException(`采购收货物料 ${suppliedCode} 的收货单位须与库存基础单位 ${identity.unit} 一致`);
+      }
       const productCode = identity.productCode;
       const skuCode = identity.skuCode;
       const inventoryClass = resolveInventoryClass(identity.gradeCode);

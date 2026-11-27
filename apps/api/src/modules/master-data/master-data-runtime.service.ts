@@ -1,3 +1,4 @@
+import { supplierVisibility } from './supplier-visibility';
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -501,6 +502,29 @@ export class MasterDataRuntimeService {
     return errors;
   }
 
+  private async supplierReadScope(params: unknown[]) {
+    const user = this.cls.get('user');
+    if (!user) return '1=1';
+    const scope = await this.dataScope.resolve(
+      String(user.userId ?? user.id ?? user.sub ?? ''), user.roles ?? [user.role], 'MENU_MD_SUPPLIER',
+    );
+    if (scope.isGlobal) return '1=1';
+    const companyParam = `$${params.length + 1}`;
+    const projectParam = `$${params.length + 2}`;
+    params.push(scope.allowedCompanyCodes, scope.allowedProjectCodes);
+    return supplierVisibility('base', companyParam, projectParam);
+  }
+
+  private filterSupplierBankFields<T extends Record<string, any>>(row: T): T {
+    const user = this.cls.get('user');
+    if (!user || (user.roles ?? [user.role]).includes('ROLE_ADMIN')) return row;
+    const publicRow = { ...row };
+    for (const field of ['bank_name', 'bank_account_no', 'bank_account_name', 'bank_swift']) {
+      delete publicRow[field];
+    }
+    return publicRow;
+  }
+
   /**
    * G71：解析当前用户对该实体的公司可见范围。
    *   返回 'ALL'（无 company 维度 / 全局 / 内部调用）
@@ -575,10 +599,12 @@ export class MasterDataRuntimeService {
     const allowed = await this.allowedCompanies(c);
     if (allowed === 'DENY') return [];
     if (allowed !== 'ALL') { params.push(allowed); where.push(`base.${c.companyCol} = ANY($${params.length})`); }
+    if (type === 'supplier') where.push(await this.supplierReadScope(params));
     if (opts.status) { params.push(opts.status); where.push(`base.status = $${params.length}`); }
     if (opts.keyword) { params.push(`%${opts.keyword}%`); where.push(`(base.${c.codeCol} ILIKE $${params.length} OR base.${c.nameCol} ILIKE $${params.length})`); }
     const sql = `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY base.updated_at DESC NULLS LAST LIMIT ${Math.min(opts.limit ?? 200, 1000)}`;
-    return this.ds.query(sql, params);
+    const rows = await this.ds.query(sql, params);
+    return type === 'supplier' ? rows.map((row: Record<string, unknown>) => this.filterSupplierBankFields(row)) : rows;
   }
 
   /** One statement keeps page, total and status counts on the same database snapshot. */
@@ -639,9 +665,11 @@ export class MasterDataRuntimeService {
 
   async get(type: string, code: string): Promise<any> {
     const c = this.cfg(type);
+    const params = [code];
+    const visible = type === 'supplier' ? await this.supplierReadScope(params) : '1=1';
     const [row] = await this.ds.query(
-      `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} WHERE base.${c.codeCol} = $1 LIMIT 1`,
-      [code],
+      `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} WHERE base.${c.codeCol}  = $1 AND (${visible}) LIMIT 1`,
+      params,
     );
     if (!row) throw new NotFoundException(`主数据不存在：${type}/${code}`);
     // G71：公司越权读保护（同时护住 update/transition——二者内部调 get）。
@@ -653,7 +681,7 @@ export class MasterDataRuntimeService {
         throw new NotFoundException(`主数据不存在：${type}/${code}`);
       }
     }
-    return row;
+    return type === 'supplier' ? this.filterSupplierBankFields(row) : row;
   }
 
   /**
@@ -829,11 +857,12 @@ export class MasterDataRuntimeService {
         );
         crId = Number(cr.id);
         // 启动审批（引擎建实例 + 派审批人；通过后回写 status + 触发 onApproved 把变更应用回主表）
-        await this.approval.startApproval({
+        const instance = await this.approval.startApproval({
           bizType: FIELD_CHANGE_BIZ, bizId: String(crId), bizNo: `${c.objectType}/${code}`, amount: 0,
-          companyCode: before.company_code ?? undefined,
+          companyCode: before.owner_company_code ?? before.company_code ?? undefined,
           subject: `财务敏感字段变更审批：${before[c.nameCol] ?? code}（${sensLabel}）`,
         }, mgr);
+        if (type === 'supplier' && !instance) throw new BadRequestException('供应商敏感字段须人工审核');
       });
       await this.audit.log({
         objectType: c.objectType, objectCode: code, action: 'UPDATE',
@@ -845,6 +874,7 @@ export class MasterDataRuntimeService {
         message: `财务敏感字段（${sensLabel}）变更已提交审批，通过后生效；原值在通过前保持有效。`,
       };
     } catch (e: any) {
+      if (type === 'supplier') throw new BadRequestException('供应商敏感字段未生效，请检查审批配置后重试');
       // 降级：审批链未配置/启动失败 → 直接落库不丢编辑，审计标注（事务已回滚，变更请求未残留）
       this.logger.warn(`[MdRuntime] ${FIELD_CHANGE_BIZ} 启动失败，降级直接落库：${e?.message}`);
       await this.applyCols(c, code, sensitiveChanges);
@@ -886,13 +916,13 @@ export class MasterDataRuntimeService {
     if (!rule.from.includes(cur)) throw new BadRequestException(`当前状态 ${cur} 不允许执行 ${action}`);
     if (!VALID_STATUS.includes(rule.to)) throw new BadRequestException('非法目标状态');
 
-    if (action === 'archive' && ['MATERIAL','PRODUCT'].includes(c.objectType)) {
+    if (action === 'archive' && ['MATERIAL','PRODUCT','SUPPLIER'].includes(c.objectType)) {
       return this.ds.transaction(async manager => {
         const [locked] = await manager.query(`SELECT status FROM ${c.table} WHERE ${c.codeCol}=$1 FOR UPDATE NOWAIT`, [code]);
         if (!locked || !rule.from.includes(locked.status)) throw new BadRequestException('主数据状态已变化，请刷新');
         await this.refs.lockArchiveReferences(c.objectType, manager);
         const report = await this.refs.compute(c.objectType, code, manager);
-        if (report.isReferenced) throw new BadRequestException(`归档被阻断：${code} 仍被 ${report.totalReferences} 处业务引用`);
+        if (report.isReferenced) throw new BadRequestException(c.objectType === 'SUPPLIER' ? '供应商仍被业务单据引用，无法归档' : `归档被阻断：${code} 仍被 ${report.totalReferences} 处业务引用`);
         await manager.query(`UPDATE ${c.table} SET status='ARCHIVED',updated_at=NOW() WHERE ${c.codeCol}=$1`, [code]);
         await manager.query(`INSERT INTO mst_audit_trail (object_type,object_code,action,before_json,after_json,operator,reason)
           VALUES ($1,$2,'ARCHIVE',$3::jsonb,$4::jsonb,$5,$6)`,

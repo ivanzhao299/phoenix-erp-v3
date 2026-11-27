@@ -63,14 +63,14 @@ export class InitController {
 
   // POST /api/v2/procurement/init/batches/:id/import
   @Post('batches/:id/import')
-  @RequireMenu('MENU_PRC2_INIT', 'C')
+  @RequireMenu('MENU_PRC2_INIT', 'E')
   importBatch(@Param('id') id: string) {
     return this.svc.importBatch(id);
   }
 
   // POST /api/v2/procurement/init/batches/:id/cancel
   @Post('batches/:id/cancel')
-  @RequireMenu('MENU_PRC2_INIT', 'C')
+  @RequireMenu('MENU_PRC2_INIT', 'D')
   cancelBatch(@Param('id') id: string) {
     return this.svc.cancelBatch(id);
   }

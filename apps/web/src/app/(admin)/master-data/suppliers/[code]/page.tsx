@@ -1,17 +1,6 @@
 "use client";
 
-/**
- * 供应商全景详情页 — 路由式全宽多页签（照抄客户全景详情页）
- * 范本：master-data/customers/[code]/page.tsx
- *
- * 4 个页签（各接口独立 try/catch，失败/空均给友好空态，绝不白屏）：
- *   1. 基本信息  GET /master-data/runtime/supplier（按 supplier_code 匹配）
- *   2. 采购单    GET /v2/procurement/orders?supplierCode=...
- *   3. 应付      GET /v2/finance/ap?supplierCode=...（不支持则空态）
- *   4. 引用      GET /master-data/references/SUPPLIER/{code}
- */
-
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { EntityWorkspace, Panel, DataTableV3 } from "@/components/design-system";
@@ -24,9 +13,40 @@ import { Building2, ShoppingCart, Receipt, Link2, FileText } from "lucide-react"
 import s from "@/components/ui/admin-ui.module.css";
 
 // ── 工具：从各种响应 shape 里取数组 ───────────────────────────────────
-const toArr = (v: any): any[] =>
-  Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
-const yuan = (v: any) => (v == null || v === "" ? "—" : `¥${Number(v).toLocaleString("zh-CN")}`);
+const formatMoney = (amount: unknown, currency: string) =>
+  amount == null || amount === "" ? "—" : `${currency} ${Number(amount).toLocaleString()}`;
+const pageSize = 20;
+interface PageResult<T> { items: T[]; total: number }
+interface OrderRow {
+  id: string; poNo: string; createdAt: string; totalAmount: number; currencyCode: string; status: string;
+}
+interface ApRow {
+  id: string; ap_no: string; invoice_date: string; due_date: string;
+  amount_original: number; balance_amount_original: number; currency_code: string; status: string;
+}
+function useSupplierDocuments<T>(route: string, code: string, visible: boolean) {
+  const [pagination, setPagination] = useState({ code, page: 1 });
+  const page = pagination.code === code ? pagination.page : 1;
+  const [retry, setRetry] = useState(0);
+  const [result, setResult] = useState<{ key: string; data?: PageResult<T>; error?: boolean }>();
+  const key = `${code}/${page}/${retry}`;
+  useEffect(() => {
+    if (!visible || !code) return;
+    let current = true;
+    const query = new URLSearchParams({ supplierCode: code, page: String(page), pageSize: String(pageSize) });
+    request<PageResult<T>>(`${route}?${query}`, { silent: true })
+      .then(data => { if (current) setResult({ key, data }); })
+      .catch(() => { if (current) setResult({ key, error: true }); });
+    return () => { current = false; };
+  }, [route, code, page, key, visible]);
+  const ready = visible && result?.key === key ? result : undefined;
+  return {
+    rows: ready?.data?.items ?? [], total: ready?.data?.total ?? 0, error: ready?.error,
+    loading: visible && !ready, page, setPage: (next: number) => setPagination({ code, page: next }),
+    retry: () => setRetry(value => value + 1),
+  };
+}
+
 const dateStr = (v: any) => (v ? new Date(v).toLocaleDateString("zh-CN") : "—");
 
 // 状态徽章
@@ -56,86 +76,35 @@ export default function SupplierDetailPage() {
   const code = decodeURIComponent(String(params?.code || ""));
 
   const [info, setInfo] = useState<any>(null);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [apRows, setApRows] = useState<any[]>([]);
+  const ordersPage = useSupplierDocuments<OrderRow>('/v2/procurement/orders', code, canView && canViewPurchaseOrders);
+  const apPage = useSupplierDocuments<ApRow>('/v2/finance/ap/invoices', code, canView && canViewAp);
+  const orders = ordersPage.rows;
+  const apRows = apPage.rows;
   const [refs, setRefs] = useState<{ total: number; items: RefItem[] }>({ total: 0, items: [] });
   const [loading, setLoading] = useState(true);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!canView || !code) return;
+    let current = true;
+    const supplierCode = encodeURIComponent(code);
+    request<Record<string, unknown>>(`/master-data/runtime/supplier/${supplierCode}`)
+      .then(row => { if (current) setInfo(row); })
+      .catch(() => { if (current) setInfo(null); })
+      .finally(() => { if (current) setLoading(false); });
+    request<{ totalReferences: number; references: RefItem[] }>(
+      `/master-data/references/SUPPLIER/${supplierCode}`, { silent: true },
+    ).then(report => { if (current) setRefs({ total: report.totalReferences, items: report.references }); })
+      .catch(() => { if (current) setRefs({ total: 0, items: [] }); });
+    return () => { current = false; };
+  }, [code, canView]);
 
-    // 1) 基本信息：runtime/supplier 全量（26 条全字段）
-    //    code 字段为 supplier_code（兜底 supplier_no/code）
-    const matchCode = (x: any) => String(x.supplier_code ?? x.supplier_no ?? x.code) === code;
-    (async () => {
-      try {
-        const r = await request<any>(`/master-data/runtime/supplier`);
-        const list = toArr(r);
-        let found = list.find(matchCode) || null;
-        if (!found) {
-          // 兜底：仅 ACTIVE 简化版
-          const r2 = await request<any>(`/master-data/runtime/supplier/active`).catch(() => null);
-          found = toArr(r2).find(matchCode) || null;
-        }
-        setInfo(found);
-      } catch {
-        setInfo(null);
-      }
-    })();
-
-    // 2) 采购单：跨采购域页签仅在持 MENU_PRC2_ORDER 时展示/请求。
-    if (canViewPurchaseOrders) {
-      (async () => {
-        try {
-          const r = await request<any>(`/v2/procurement/orders?supplierCode=${encodeURIComponent(code)}&limit=100`);
-          setOrders(toArr(r));
-        } catch {
-          setOrders([]);
-        }
-      })();
-    } else {
-      setOrders([]);
-    }
-
-    // 3) 应付：跨财务域页签仅在持 MENU_FIN2_AP 时展示/请求。
-    if (canViewAp) {
-      (async () => {
-        try {
-          const r = await request<any>(`/v2/finance/ap?supplierCode=${encodeURIComponent(code)}&pageSize=100`);
-          setApRows(toArr(r));
-        } catch {
-          setApRows([]);
-        }
-      })();
-    } else {
-      setApRows([]);
-    }
-
-    // 4) 引用
-    (async () => {
-      try {
-        const r = await request<{ totalReferences: number; references: RefItem[] }>(
-          `/master-data/references/SUPPLIER/${encodeURIComponent(code)}`,
-        );
-        setRefs({ total: r?.totalReferences ?? 0, items: Array.isArray(r?.references) ? r.references : [] });
-      } catch {
-        setRefs({ total: 0, items: [] });
-      }
-    })();
-
-    setLoading(false);
-  }, [code, canViewAp, canViewPurchaseOrders]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
-
-  // ── 汇总 ───────────────────────────────────────────────────────────
-  const orderTotal = useMemo(
-    () => orders.reduce((sum, o) => sum + Number(o.total_amount ?? o.totalAmount ?? 0), 0),
-    [orders],
-  );
-  const apBalance = useMemo(
-    () => apRows.reduce((sum, a) => sum + Number(a.balance_amount_original ?? a.balance_amount ?? 0), 0),
-    [apRows],
+  const documentFooter = (result: ReturnType<typeof useSupplierDocuments>) => (
+    result.error ? <div role="alert">{t('md.document_load_failed', '单据加载失败')} <button onClick={result.retry}>{t('md.retry', '重试')}</button></div>
+      : result.total > pageSize && <div className={s.pagination}>
+        <button disabled={result.page <= 1 || result.loading} onClick={() => result.setPage(result.page - 1)}>{t('prc2.prev_page', '上一页')}</button>
+        <span>{result.page} / {Math.ceil(result.total / pageSize)}</span>
+        <button disabled={result.page * pageSize >= result.total || result.loading} onClick={() => result.setPage(result.page + 1)}>{t('prc2.next_page', '下一页')}</button>
+      </div>
   );
 
   // ── 权限门控 ───────────────────────────────────────────────────────
@@ -214,22 +183,23 @@ export default function SupplierDetailPage() {
       icon={<ShoppingCart size={14} />}
       extra={
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{orders.length}</b> {t('md.unit_order','单')} · {t('md.subtotal','合计')}{" "}
-          <b style={{ color: "var(--text-primary)" }}>{yuan(orderTotal)}</b>
+          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{ordersPage.total}</b> {t('md.unit_order','单')}
         </span>
       }
     >
       <DataTableV3
         rows={orders}
-        rowKey={(r, i) => r.id ?? r.order_no ?? i}
+        loading={ordersPage.loading}
+        rowKey={(r, i) => r.id ?? r.poNo ?? i}
         emptyText={t('md.empty_purchase_orders','暂无采购单')}
         columns={[
-          { key: "order_no", title: t('md.doc_no','单号'), render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.order_no ?? "—"}</code> },
-          { key: "created_at", title: t('md.date','日期'), type: "date" },
-          { key: "total_amount", title: t('md.amount','金额'), type: "money", align: "right" },
+          { key: "poNo", title: t('md.doc_no','单号'), render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.poNo ?? "—"}</code> },
+          { key: "createdAt", title: t('md.date','日期'), type: "date" },
+          { key: "totalAmount", title: t('md.amount','金额'), render: row => formatMoney(row.totalAmount, row.currencyCode), align: "right" },
           { key: "status", title: t('md.status','状态'), type: "status", align: "center" },
         ]}
       />
+      {documentFooter(ordersPage)}
     </Panel>
   );
 
@@ -240,24 +210,25 @@ export default function SupplierDetailPage() {
       icon={<Receipt size={14} />}
       extra={
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{apRows.length}</b> {t('md.unit_pen','笔')} · {t('md.unpaid_balance','未付余额')}{" "}
-          <b style={{ color: apBalance > 0 ? "var(--status-warning)" : "var(--text-primary)" }}>{yuan(apBalance)}</b>
+          {t('md.total_count_prefix','共')} <b style={{ color: "var(--color-primary)" }}>{apPage.total}</b> {t('md.unit_pen','笔')}
         </span>
       }
     >
       <DataTableV3
         rows={apRows}
+        loading={apPage.loading}
         rowKey={(r, i) => r.id ?? r.ap_no ?? i}
         emptyText={t('md.empty_ap','暂无应付')}
         columns={[
           { key: "ap_no", title: t('md.ap_no','应付单号'), render: (r) => <code style={{ color: "var(--color-primary)" }}>{r.ap_no ?? "—"}</code> },
           { key: "invoice_date", title: t('md.invoice_date','开票日期'), type: "date" },
           { key: "due_date", title: t('md.due_date','到期日'), type: "date" },
-          { key: "amount_original", title: t('md.ap_amount','应付金额'), type: "money", align: "right" },
-          { key: "balance_amount_original", title: t('md.unpaid_balance','未付余额'), type: "money", align: "right" },
+          { key: "amount_original", title: t('md.ap_amount','应付金额'), render: row => formatMoney(row.amount_original, row.currency_code), align: "right" },
+          { key: "balance_amount_original", title: t('md.unpaid_balance','未付余额'), render: row => formatMoney(row.balance_amount_original, row.currency_code), align: "right" },
           { key: "status", title: t('md.status','状态'), type: "status", align: "center" },
         ]}
       />
+      {documentFooter(apPage)}
     </Panel>
   );
 
@@ -326,7 +297,7 @@ export default function SupplierDetailPage() {
             key: "orders",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                {t('md.tab_purchase_orders','采购单')} {orders.length > 0 && <Count n={orders.length} />}
+                {t('md.tab_purchase_orders','采购单')} {orders.length > 0 && <Count n={ordersPage.total} />}
               </span>
             ),
             content: ordersTab,
@@ -335,7 +306,7 @@ export default function SupplierDetailPage() {
             key: "ap",
             label: (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                {t('md.tab_ap','应付')} {apRows.length > 0 && <Count n={apRows.length} />}
+                {t('md.tab_ap','应付')} {apRows.length > 0 && <Count n={apPage.total} />}
               </span>
             ),
             content: apTab,

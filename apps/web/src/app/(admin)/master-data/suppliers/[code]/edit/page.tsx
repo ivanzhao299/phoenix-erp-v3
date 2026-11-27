@@ -10,9 +10,6 @@ import { SUPPLIER_FIELDS } from "../../_fields";
 /**
  * g200p-2:编辑供应商全屏页
  */
-const toArr = (v: any): any[] =>
-  Array.isArray(v) ? v : (v?.data ?? v?.items ?? v?.list ?? v?.rows ?? []);
-
 export default function SupplierEditPage() {
   const { t } = useLanguage();
   const params = useParams();
@@ -24,16 +21,8 @@ export default function SupplierEditPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await request<any>(`/master-data/runtime/supplier`);
-        const list = toArr(r);
-        const match = (x: any) => String(x.supplier_code ?? x.code) === code;
-        let found = list.find(match) || null;
-        if (!found) {
-          const r2 = await request<any>(`/master-data/runtime/supplier/active`).catch(() => null);
-          found = toArr(r2).find(match) || null;
-        }
-        if (!found) setNotFound(true);
-        else setRow(found);
+        const found = await request<Record<string, unknown>>(`/master-data/runtime/supplier/${encodeURIComponent(code)}`);
+        setRow(found);
       } catch {
         setNotFound(true);
       } finally {

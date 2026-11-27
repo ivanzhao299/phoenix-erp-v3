@@ -1,3 +1,7 @@
+import { ClsService } from 'nestjs-cls';
+import { hasPerm } from '../../../auth/permissions.util';
+import { DataScopeService } from '../../org/services/data-scope.service';
+import { isShareholderSelfScope, shareholderOwnerPredicate } from './shareholder-fund-visibility';
 import { Injectable } from '@nestjs/common';
 import { DataSource }  from 'typeorm';
 import { QueryDashboardDto } from '../dto/query-dashboard.dto';
@@ -8,105 +12,89 @@ export class DashboardService {
   constructor(
     private readonly ds: DataSource,
     private readonly scopeHelper: DataScopeHelper,
+    private readonly cls: ClsService,
+    private readonly dataScope: DataScopeService,
   ) {}
 
-  // ── 1. KPI 汇总 ──────────────────────────────────────────────────────────────
+  private async scopeFor(menu: string, offset: number, alias?: string) {
+    const user = this.cls.get('user');
+    if (!hasPerm(user?.permissions, menu, 'V')
+      && !(user?.roles ?? [user?.role]).includes('ROLE_ADMIN')) return null;
+    const scope = await this.dataScope.resolve(String(user.userId ?? user.id), user.roles ?? [user.role], menu);
+    const prefix = alias ? `${alias}.` : '';
+    if (menu === 'MENU_PRC2_FUND' && isShareholderSelfScope(scope)) {
+      return { sql: shareholderOwnerPredicate(`${prefix}shareholder_id`, `$${offset + 1}`), params: [scope.userId] };
+    }
+    return this.scopeHelper.buildRawCondition({
+      companyAlias: `${prefix}company_code`, projectAlias: `${prefix}project_code`,
+    }, offset, scope);
+  }
+
   async getSummary(q: QueryDashboardDto) {
-    const cc = q.companyCode ?? null;
-    const df = q.dateFrom   ?? null;
-    const dt = q.dateTo     ?? null;
-
-    // ── RBAC-2：为每类查询构建数据范围条件 ─────────────────────────────────────
-    // 3-param queries (cc, df, dt)
-    const scope3 = this.scopeHelper.buildRawCondition({ companyAlias: 'company_code' }, 3);
-    // 1-param queries (cc only)
-    const scope1 = this.scopeHelper.buildRawCondition({ companyAlias: 'company_code' }, 1);
-    // ────────────────────────────────────────────────────────────────────────────
-
-    const [[po], [ap], [pay], [fund], [ship], [pr], [poPend]] = await Promise.all([
-      this.ds.query(`
-        SELECT COUNT(*) AS po_count, COALESCE(SUM(total_amount), 0) AS po_amount
-        FROM prc2_purchase_orders
-        WHERE status NOT IN ('CANCELLED')
-          AND ($1::varchar IS NULL OR company_code = $1)
-          AND ($2::date IS NULL OR created_at::date >= $2::date)
-          AND ($3::date IS NULL OR created_at::date <= $3::date)
-          AND (${scope3.sql})
-      `, [cc, df, dt, ...scope3.params]),
-
-      this.ds.query(`
-        SELECT
-          COALESCE(SUM(CASE WHEN status IN ('OPEN','PARTIAL') THEN balance_amount_original ELSE 0 END), 0) AS ap_open,
-          COALESCE(SUM(CASE WHEN status = 'PAID' THEN amount_original ELSE 0 END), 0) AS ap_paid
-        FROM prc2_ap_ledger
-        WHERE ($1::varchar IS NULL OR company_code = $1)
-          AND ($2::date IS NULL OR created_at::date >= $2::date)
-          AND ($3::date IS NULL OR created_at::date <= $3::date)
-          AND (${scope3.sql})
-      `, [cc, df, dt, ...scope3.params]),
-
-      this.ds.query(`
-        SELECT COALESCE(SUM(amount_base), 0) AS payment_amount
-        FROM prc2_payments
-        -- G152：已付金额只能算"真正执行付款(PAID)"的单。原把 APPROVED(已审批未出款)也算成
-        --   已付，且 EXECUTED/CONFIRMED 在付款单生命周期里并不存在(执行态=PAID，见 payments.service)
-        --   → 看板出现"应付未减、已付却已满、股东资金为 0"的自相矛盾。统一改 status='PAID'。
-        WHERE status = 'PAID'
-          AND ($1::varchar IS NULL OR company_code = $1)
-          AND ($2::date IS NULL OR payment_date >= $2::date)
-          AND ($3::date IS NULL OR payment_date <= $3::date)
-          AND (${scope3.sql})
-      `, [cc, df, dt, ...scope3.params]),
-
-      this.ds.query(`
-        SELECT COALESCE(SUM(amount_base), 0) AS fund_amount, COUNT(*) AS fund_count
-        FROM prc2_shareholder_funds
-        WHERE ($1::varchar IS NULL OR company_code = $1)
-          AND ($2::date IS NULL OR occurred_date >= $2::date)
-          AND ($3::date IS NULL OR occurred_date <= $3::date)
-          AND (${scope3.sql})
-      `, [cc, df, dt, ...scope3.params]),
-
-      this.ds.query(`
-        SELECT
-          COUNT(*) AS total_count,
-          SUM(CASE WHEN status NOT IN ('ARRIVED','CANCELLED') THEN 1 ELSE 0 END) AS in_transit_count,
-          SUM(CASE WHEN customs_required = true THEN 1 ELSE 0 END) AS cross_border_count
-        FROM prc2_shipments
-        WHERE ($1::varchar IS NULL OR company_code = $1)
-          AND (${scope1.sql})
-      `, [cc, ...scope1.params]),
-
-      this.ds.query(`
-        SELECT COUNT(*) AS pending_pr_count
-        FROM prc2_purchase_requests
-        WHERE status = 'SUBMITTED'
-          AND ($1::varchar IS NULL OR company_code = $1)
-          AND (${scope1.sql})
-      `, [cc, ...scope1.params]),
-
-      this.ds.query(`
-        SELECT COUNT(*) AS pending_po_count
-        FROM prc2_purchase_orders
-        WHERE approval_status = 'PENDING_APPROVAL'
-          AND ($1::varchar IS NULL OR company_code = $1)
-          AND (${scope1.sql})
-      `, [cc, ...scope1.params]),
+    const filters = [q.companyCode ?? null, q.dateFrom ?? null, q.dateTo ?? null];
+    const [order, request, payment, fund, shipment] = await Promise.all([
+      this.scopeFor('MENU_PRC2_ORDER', 3), this.scopeFor('MENU_PRC2_REQUEST', 3),
+      this.scopeFor('MENU_PRC2_PAYMENT', 3), this.scopeFor('MENU_PRC2_FUND', 3),
+      this.scopeFor('MENU_PRC2_SHIPMENT', 3),
     ]);
+    const [orders, requests, ap, payments, funds, shipments] = await Promise.all([
+      order ? this.ds.query(`
+        SELECT currency_code, COUNT(*)::int AS count, SUM(total_amount) AS amount,
+          COUNT(*) FILTER (WHERE status IN ('SUBMITTED','PENDING_APPROVAL'))::int AS pending
+        FROM prc2_purchase_orders
+        WHERE status <> 'CANCELLED' AND ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR created_at::date >= $2) AND ($3::date IS NULL OR created_at::date <= $3)
+          AND (${order.sql})
+        GROUP BY currency_code ORDER BY currency_code
+      `, [...filters, ...order.params]) : null,
+      request ? this.ds.query(`
+        SELECT COUNT(*)::int AS pending FROM prc2_purchase_requests
+        WHERE status IN ('SUBMITTED','PENDING_APPROVAL') AND ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR created_at::date >= $2) AND ($3::date IS NULL OR created_at::date <= $3)
+          AND (${request.sql})
+      `, [...filters, ...request.params]) : null,
+      payment ? this.ds.query(`
+        SELECT currency_code, SUM(balance_amount_original) AS amount FROM prc2_ap_ledger
+        WHERE status IN ('OPEN','PARTIAL','PARTIALLY_PAID') AND balance_amount_original > 0
+          AND ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR created_at::date >= $2) AND ($3::date IS NULL OR created_at::date <= $3)
+          AND (${payment.sql})
+        GROUP BY currency_code ORDER BY currency_code
+      `, [...filters, ...payment.params]) : null,
+      payment ? this.ds.query(`
+        SELECT currency_code, SUM(amount_original) AS amount FROM prc2_payments
+        WHERE status IN ('PAID','EXECUTED') AND ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR payment_date >= $2) AND ($3::date IS NULL OR payment_date <= $3)
+          AND (${payment.sql})
+        GROUP BY currency_code ORDER BY currency_code
+      `, [...filters, ...payment.params]) : null,
+      fund ? this.ds.query(`
+        SELECT currency_code, COUNT(*)::int AS count, SUM(amount_original) AS amount FROM prc2_shareholder_funds
+        WHERE ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR occurred_date >= $2) AND ($3::date IS NULL OR occurred_date <= $3)
+          AND (${fund.sql})
+        GROUP BY currency_code ORDER BY currency_code
+      `, [...filters, ...fund.params]) : null,
+      shipment ? this.ds.query(`
+        SELECT COUNT(*)::int AS count,
+          COUNT(*) FILTER (WHERE status IN ('IN_TRANSIT','CUSTOMS_CLEARING'))::int AS active
+        FROM prc2_shipments
+        WHERE ($1::text IS NULL OR company_code = $1)
+          AND ($2::date IS NULL OR created_at::date >= $2) AND ($3::date IS NULL OR created_at::date <= $3)
+          AND (${shipment.sql})
+      `, [...filters, ...shipment.params]) : null,
+    ]);
+    const amounts = (rows: { currency_code: string; amount: string }[] | null) =>
+      rows?.map(row => ({ currencyCode: row.currency_code, amount: Number(row.amount) })) ?? null;
+    const count = (rows: Record<string, number>[] | null, field: string) =>
+      rows?.reduce((total, row) => total + Number(row[field] ?? 0), 0) ?? null;
 
     return {
-      poCount:                Number(po.po_count),
-      poAmount:               Number(po.po_amount),
-      apOpenAmount:           Number(ap.ap_open),
-      apPaidAmount:           Number(ap.ap_paid),
-      paymentAmount:          Number(pay.payment_amount),
-      shareholderFundAmount:  Number(fund.fund_amount),
-      shareholderFundCount:   Number(fund.fund_count),
-      shipmentTotalCount:     Number(ship.total_count),
-      shipmentInTransitCount: Number(ship.in_transit_count),
-      shipmentCrossBorderCount: Number(ship.cross_border_count),
-      pendingPrCount:         Number(pr.pending_pr_count),
-      pendingPoApprovalCount: Number(poPend.pending_po_count),
+      poCount: count(orders, 'count'), poByCurrency: amounts(orders),
+      pendingPrCount: count(requests, 'pending'), pendingPoApprovalCount: count(orders, 'pending'),
+      apByCurrency: amounts(ap), paymentByCurrency: amounts(payments), fundByCurrency: amounts(funds),
+      shareholderFundCount: count(funds, 'count'),
+      shipmentTotalCount: count(shipments, 'count'), shipmentInTransitCount: count(shipments, 'active'),
     };
   }
 
@@ -127,7 +115,7 @@ export class DashboardService {
         COALESCE(SUM(amount_original), 0)              AS amount,
         currency_code
       FROM prc2_ap_ledger
-      WHERE status IN ('OPEN','PARTIAL')
+      WHERE status IN ('OPEN','PARTIAL','PARTIALLY_PAID')
         AND ($1::varchar IS NULL OR company_code = $1)
         AND (${scope.sql})
       GROUP BY bucket, currency_code
@@ -156,9 +144,8 @@ export class DashboardService {
 
   // ── 3. 项目成本 ──────────────────────────────────────────────────────────────
   async getProjectCost(q: QueryDashboardDto) {
-    const scope = this.scopeHelper.buildRawCondition(
-      { companyAlias: 'po.company_code', projectAlias: 'po.project_code' }, 4,
-    );
+    const scope = await this.scopeFor('MENU_PRC2_ORDER', 4, 'po');
+    if (!scope) return [];
     const rows = await this.ds.query(`
       SELECT
         po.project_code,
@@ -168,12 +155,9 @@ export class DashboardService {
         po.currency_code,
         COUNT(DISTINCT po.id)                               AS po_count,
         COALESCE(SUM(po.total_amount), 0)                  AS po_amount,
-        COALESCE(SUM(ap.paid_amount_original), 0)          AS paid_amount,
-        COALESCE(SUM(ap.balance_amount_original), 0)       AS balance,
         MAX(bp.budget_amount)                              AS budget_amount,
         MAX(bp.budget_currency)                            AS budget_currency
       FROM prc2_purchase_orders po
-      LEFT JOIN prc2_ap_ledger ap ON ap.po_id = po.id
       LEFT JOIN biz_projects bp ON bp.project_code = po.project_code AND bp.deleted_at IS NULL
       WHERE po.status NOT IN ('CANCELLED')
         AND ($1::varchar IS NULL OR po.company_code = $1)
@@ -194,8 +178,6 @@ export class DashboardService {
       currencyCode: r.currency_code ?? 'CNY',
       poCount:      Number(r.po_count),
       poAmount:     Number(r.po_amount),
-      paidAmount:   Number(r.paid_amount),
-      balance:      Number(r.balance),
       budgetAmount:   r.budget_amount != null ? Number(r.budget_amount) : null,
       budgetCurrency: r.budget_currency ?? null,
     }));
@@ -215,7 +197,7 @@ export class DashboardService {
       FROM prc2_payments
       -- G153：付款趋势同 G152——只算真正执行付款(PAID)。原 EXECUTED/CONFIRMED/APPROVED 使
       --   付款变 PAID 后趋势查不到任何数据(看板"付款趋势"恒为空)；G152 的 replace 因缩进差异漏改此处。
-      WHERE status = 'PAID'
+      WHERE status IN ('PAID','EXECUTED')
         AND ($2::varchar IS NULL OR company_code = $2)
         AND ($3::date IS NULL OR payment_date >= $3::date)
         AND ($4::date IS NULL OR payment_date <= $4::date)
@@ -236,7 +218,8 @@ export class DashboardService {
 
   // ── 5. 股东资金汇总 ──────────────────────────────────────────────────────────
   async getShareholderSummary(q: QueryDashboardDto) {
-    const scope = this.scopeHelper.buildRawCondition({ companyAlias: 'company_code' }, 3);
+    const scope = await this.scopeFor('MENU_PRC2_FUND', 3);
+    if (!scope) return [];
     const rows = await this.ds.query(`
       SELECT
         shareholder_name,
@@ -272,7 +255,7 @@ export class DashboardService {
         status,
         COUNT(*)                                                                  AS cnt,
         SUM(CASE WHEN customs_required = true THEN 1 ELSE 0 END)                 AS cross_border_cnt,
-        SUM(CASE WHEN status NOT IN ('ARRIVED','CANCELLED') THEN 1 ELSE 0 END) AS active_cnt
+        SUM(CASE WHEN status IN ('IN_TRANSIT','CUSTOMS_CLEARING') THEN 1 ELSE 0 END) AS active_cnt
       FROM prc2_shipments
       WHERE ($1::varchar IS NULL OR company_code = $1)
         AND ($2::date IS NULL OR created_at::date >= $2::date)
@@ -293,7 +276,8 @@ export class DashboardService {
 
   // ── 7. 供应商绩效 ────────────────────────────────────────────────────────────
   async getSupplierPerformance(q: QueryDashboardDto) {
-    const scope = this.scopeHelper.buildRawCondition({ companyAlias: 'po.company_code' }, 4);
+    const scope = await this.scopeFor('MENU_PRC2_ORDER', 4, 'po');
+    if (!scope) return [];
     const rows = await this.ds.query(`
       WITH aggregate_by_supplier AS (
         SELECT po.supplier_code,
@@ -301,24 +285,24 @@ export class DashboardService {
           MAX(po.supplier_name)                            AS supplier_snapshot_name,
           COUNT(DISTINCT po.id)                            AS po_count,
           COALESCE(SUM(po.total_amount), 0)                AS po_amount,
-          COALESCE(SUM(po.received_qty), 0)                AS received_qty,
-          COALESCE(SUM(po.paid_amount), 0)                 AS paid_amount,
-          COALESCE(SUM(ap.balance_amount_original), 0)     AS open_ap_amount
+          COALESCE(SUM(po.received_qty), 0)                AS received_qty
         FROM prc2_purchase_orders po
-        LEFT JOIN prc2_ap_ledger ap ON ap.po_id = po.id AND ap.status IN ('OPEN','PARTIAL')
-        WHERE po.status NOT IN ('CANCELLED')
+        WHERE po.status IN ('APPROVED','PARTIALLY_RECEIVED','RECEIVED','PARTIALLY_PAID','PAID','CLOSED')
         AND ($1::varchar IS NULL OR po.company_code = $1)
         AND ($2::varchar IS NULL OR po.supplier_code = $2)
         AND ($3::date IS NULL OR po.created_at::date >= $3::date)
         AND ($4::date IS NULL OR po.created_at::date <= $4::date)
         AND (${scope.sql})
         GROUP BY po.supplier_code, po.currency_code
+      ), ranked AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY currency_code ORDER BY po_amount DESC, supplier_code) AS rank
+        FROM aggregate_by_supplier
       )
       SELECT a.*, s.supplier_name, s.supplier_name_en, s.supplier_name_lo
-      FROM aggregate_by_supplier a
+      FROM ranked a
       LEFT JOIN prc2_suppliers s ON s.supplier_code = a.supplier_code
-      ORDER BY a.po_amount DESC NULLS LAST
-      LIMIT 20
+      WHERE a.rank <= 20
+      ORDER BY a.currency_code, a.rank
     `, [q.companyCode ?? null, q.supplierCode ?? null, q.dateFrom ?? null, q.dateTo ?? null, ...scope.params]);
 
     return rows.map((r: Record<string, string>) => ({
@@ -331,8 +315,6 @@ export class DashboardService {
       poCount:       Number(r.po_count),
       poAmount:      Number(r.po_amount),
       receivedQty:   Number(r.received_qty),
-      paidAmount:    Number(r.paid_amount),
-      openApAmount:  Number(r.open_ap_amount),
     }));
   }
 }

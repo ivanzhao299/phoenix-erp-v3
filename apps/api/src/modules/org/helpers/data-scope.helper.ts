@@ -95,8 +95,8 @@ export class DataScopeHelper {
       siteAlias?: string;
     },
     paramOffset: number,
+    scope = this.cls.get<DataScopeContext | undefined>('dataScope'),
   ): { sql: string; params: unknown[] } {
-    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     if (!scope || scope.isGlobal) return { sql: '1=1', params: [] };
 
     const { companyAlias = 'company_code', projectAlias = 'project_code' } = opts;
