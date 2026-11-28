@@ -10,6 +10,8 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     const sku = { sku_code: 'SKU', product_code: 'PRODUCT', grade_code: 'L', spec_code: 'SPEC',
       variety_code: 'VAR', product_variety_code: 'VAR', status: 'ACTIVE',today:'2026-11-11',effective_date:null,expire_date:null };
     const query = jest.fn(async (sql: string): Promise<any[]> => {
+      // The conflict lookup reads inventory and joins packing lineage in the same query.
+      if (sql.includes('SELECT b.batch_no FROM inv_batches b')) return [];
       if (sql.includes('FROM pkg_packing_records')) return [record];
       if (sql.includes('FROM inv_batches') || sql.includes('FROM inv_ledger')) return [];
       if (sql.includes('FROM pkg_work_shifts')) return [{ site_id: record.site_id, egg_date: record.egg_date, is_test: false }];
@@ -41,9 +43,10 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
   it('forwards authoritative company/date and variety snapshot through the caller transaction', async () => {
     const { service, ds, eggInv, modeSvc } = setup();
     await expect(service.completeTerminalPacking('PKG-1', { ...location, manager: ds })).resolves.toMatchObject({ totalInbound: 30, skippedByMode: false });
-    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM', companyCode: 'COMP' }, ds);
+    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM', companyCode: 'COMP' }, ds, { failClosed: true });
     expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({ companyCode: 'COMP', eggDate: '2026-08-06', postingDate:'2026-08-07', varietyCode: 'VAR', sourceProfileRefs: [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }], productCode: 'PRODUCT', skuCode: 'SKU', specCode: 'SPEC', qty: 30, collectionBatchRef: 'SHIFT-9', ...location }), ds);
     expect(ds.query).toHaveBeenCalledWith(expect.stringContaining('FROM md_sku_org_scope'), ['SKU', 'COMP', 'FARM', 'SITE']);
+    expect(ds.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO brd_egg_day_routes'), ['COMP', '2026-08-06', ['HOUSE'], 'PACKAGING']);
   });
   it('TEMP mode does not write packaging inventory', async () => {
     const { service, eggInv } = setup('TEMP_PRODUCTION_INBOUND');
