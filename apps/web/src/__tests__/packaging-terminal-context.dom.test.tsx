@@ -7,7 +7,16 @@ import type { PackagingWorkQueueResponse } from '@/lib/packaging-api';
 const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as {id:string;permissions?:string[]}, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), ready: vi.fn(), submit: vi.fn(), close: vi.fn(), queue: vi.fn<() => Promise<PackagingWorkQueueResponse>>(async()=>({items:[],counts:{},nextCursor:null})), queueSites: vi.fn(async()=>[{siteCode:'SITE-1',siteName:'Site 1'}]), t: (_key: string, text: string) => text }));
 vi.mock('@/lib/packing-history-api',async original=>({...await original<object>(),packingHistoryRequest:mocks.report}));
 vi.mock('@/contexts/AuthContext', async original => ({...await original<object>(), useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
-vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
+vi.mock('@/contexts/LanguageContext', async () => {
+  const { default: zh } = await import('@/locales/zh.json');
+  const queueTabs: Readonly<Record<string, string>> = {
+    'terminal.queue.CURRENT': zh['terminal.queue.CURRENT'],
+    'terminal.queue.CARRYOVER': zh['terminal.queue.CARRYOVER'],
+    'terminal.queue.REVIEW': zh['terminal.queue.REVIEW'],
+  };
+  const translate = (key: string, fallback: string) => queueTabs[key] ?? mocks.t(key, fallback);
+  return { useLanguage: () => ({ t: translate, lang: 'zh', setAppLanguage: vi.fn() }) };
+});
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
 vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<object>(), usePackagingDicts: () => ({dicts:{}}) }));
@@ -39,6 +48,7 @@ function save(value: unknown = candidate) { localStorage.setItem('phoenix_termin
 async function render(full=true) { await act(async () => { root.render(full ? <Layout><Probe/><Page/></Layout> : <TerminalContextProvider><Probe/><Page/></TerminalContextProvider>); }); }
 async function fullscreen(on:boolean) { await act(async()=>{ Object.defineProperty(document,'fullscreenElement',{configurable:true,value:on?document.documentElement:null}); document.dispatchEvent(new Event('fullscreenchange')); }); }
 beforeEach(()=>{ localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks(); mocks.auth.user={id:'7'}; mocks.auth.loading=false;
+  mocks.queue.mockReset().mockResolvedValue({items:[],counts:{},nextCursor:null});
   mocks.exact.mockImplementation(async id=>raw(id));
   mocks.summary.mockImplementation(async (_d,id)=>({shift:raw(id),receivedQty:30,receivedWeight:1,gradingOutputs:{},shiftPackedBoxes:1,shiftPackedEggs:30,shiftWarehousedBoxes:0,shiftWarehousedPallets:0,openExceptionCount:0,closedExceptionCount:0}));
   mocks.report.mockImplementation(async path=>path.startsWith('history?')?{items:[],totalMatching:0,hasMore:false}:({gradingEggs:0,shiftId:new URLSearchParams(path.split('?')[1]).get('shiftId'),dateFrom:'2026-09-10',totalBoxes:1,totalEggs:30,committedBoxes:0}));
@@ -108,6 +118,7 @@ it('discards an old pagination response after switching queue bucket',async()=>{
   await act(async()=>more?.dispatchEvent(new Event('click',{bubbles:true})));
   expect(mocks.queue).toHaveBeenCalledTimes(2);
   const carry=[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('跨班待办'));
+  expect(carry).toBeDefined();
   await act(async()=>carry?.dispatchEvent(new Event('click',{bubbles:true})));
   expect(mocks.queue).toHaveBeenCalledTimes(3);
   expect(host.textContent).toContain('CARRY-1');
