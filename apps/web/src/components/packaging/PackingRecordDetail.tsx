@@ -240,6 +240,6 @@ function RecordBody({d,reload,actorId,identityKey}:{d:any;actorId:string;identit
    {group.batchNo} · {t('packaging.originalPostedQuantity','原入账')} {group.qty} · {t('packaging.receiptLedger','流水')} {group.ledgerId} · {group.warehouseCode} / {group.locationCode}
  </p>)}
  </section>}
- <h2>原入账与当前库存</h2><p>原入账：{d.inventory.postingQuality}；当前库存：{d.inventory.currentInventoryQuality}</p>{d.inventory.batches.map((b:any)=><p key={b.id}>{b.batch_no} · 当前实存 {b.qty} / 当前可用 {b.qty_available} · {b.warehouse_code} / {b.location_code}</p>)}{d.inventory.ledger.map((l:any)=><p key={l.id}>流水 {l.id} · {l.change_type} · {l.qty_change} · {l.log_date}</p>)}{message&&<p role="alert">{message}</p>}<h2>事件证据</h2>{d.events.map((e:any)=><p key={e.id}>{e.event_type} · {e.server_at} · 操作者 {e.actor_id}</p>)}
+ <h2>{t('ui.原入账与当前库存','原入账与当前库存')}</h2><p>{t('ui.原入账','原入账')}：{d.inventory.postingQuality}；{t('ui.当前库存','当前库存')}：{d.inventory.currentInventoryQuality}</p>{d.inventory.batches.map((b:any)=><p key={b.id}>{b.batch_no} · {t('ui.当前实存','当前实存')} {b.qty} / 当前可用 {b.qty_available} · {b.warehouse_code} / {b.location_code}</p>)}{d.inventory.ledger.map((l:any)=><p key={l.id}>流水 {l.id} · {l.change_type} · {l.qty_change} · {l.log_date}</p>)}{message&&<p role="alert">{message}</p>}<h2>事件证据</h2>{d.events.map((e:any)=><p key={e.id}>{e.event_type} · {e.server_at} · 操作者 {e.actor_id}</p>)}
  </>;
 }

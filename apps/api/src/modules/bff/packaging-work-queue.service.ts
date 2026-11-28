@@ -103,7 +103,10 @@ export class PackagingWorkQueueService {
     const afterKindBind = `$${params.length + 2}`;
     const afterIdBind = `$${params.length + 3}`;
     const limitBind = `$${params.length + 4}`;
-    const sql = `WITH site_packings AS MATERIALIZED (
+    const sql = `WITH site_farm AS MATERIALIZED (
+      SELECT farm_code,company_code,status,NULLIF(to_jsonb(f)->>'mapped_site_code','') mapped_site_code
+      FROM brd_farms f WHERE farm_code=$1
+    ), site_packings AS MATERIALIZED (
       SELECT p.* FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id
       WHERE ws.site_id=$1 AND NOT ws.is_test AND NOT p.is_test AND p.status='ACTIVE'
     ), packing_by_grade AS MATERIALIZED (
@@ -129,7 +132,7 @@ export class PackagingWorkQueueService {
       WHERE ws.site_id=$1 AND NOT ws.is_test AND NOT s.is_test
     ), temp_stock_origins AS MATERIALIZED (
       SELECT DISTINCT b.egg_date,origin.house_code
-      FROM inv_batches b JOIN brd_farms f ON f.farm_code=$1 AND f.company_code=b.company_code
+      FROM inv_batches b JOIN site_farm f ON f.company_code=b.company_code
       JOIN site_source_days days ON days.production_date=b.egg_date
       LEFT JOIN LATERAL (
         SELECT btrim(house_code) AS house_code
@@ -141,7 +144,7 @@ export class PackagingWorkQueueService {
       SELECT expected.id,
         BOOL_OR(pg.is_test OR pg.status IS DISTINCT FROM 'ACTIVE' OR ${sourceOwnerMismatch}) invalid,
         BOOL_OR(cutover.id IS NOT NULL OR day_route.entry_mode='TEMP_PRODUCTION' OR temp.egg_date IS NOT NULL) competing_route
-      FROM expected_packing_grades expected JOIN brd_farms f ON f.farm_code=expected.site_id
+      FROM expected_packing_grades expected JOIN site_farm f ON f.farm_code=expected.site_id
       LEFT JOIN pkg_grading_records pg ON pg.code=expected.code
       LEFT JOIN pkg_grading_source_links gl ON gl.grading_id=pg.id
       LEFT JOIN pkg_source_batches ss ON ss.id=gl.source_batch_id
@@ -160,10 +163,10 @@ export class PackagingWorkQueueService {
       )
     ), source_candidates AS MATERIALIZED (
       SELECT s.*,ws.status shift_status,ws.production_date shift_date, f.company_code,
-        NULLIF(to_jsonb(f)->>'mapped_site_code','') official_site_code,
+        f.mapped_site_code official_site_code,
         mode.mode inventory_mode,cutover.state cutover_state,cutover.first_production_date
       FROM pkg_source_batches s JOIN pkg_work_shifts ws ON ws.id=s.shift_id AND NOT ws.is_test
-      JOIN brd_houses h ON h.house_code=s.house_code JOIN brd_farms f ON f.farm_code=h.farm_code AND f.farm_code=ws.site_id
+      JOIN brd_houses h ON h.house_code=s.house_code JOIN site_farm f ON f.farm_code=h.farm_code AND f.farm_code=ws.site_id
       LEFT JOIN LATERAL (SELECT mode FROM inv_source_mode WHERE (scope_level='SITE' AND scope_code=ws.site_id)
         OR (scope_level='COMPANY' AND scope_code=f.company_code) OR (scope_level='GROUP' AND scope_code='ALL')
         ORDER BY CASE scope_level WHEN 'SITE' THEN 1 WHEN 'COMPANY' THEN 2 ELSE 3 END LIMIT 1) mode ON true
@@ -257,7 +260,7 @@ export class PackagingWorkQueueService {
         CASE WHEN ${bucketBind}::text='CURRENT' THEN '/terminal/packaging/packing' ELSE NULL END,
         f.company_code,ws.site_id,NULL::text,NULL::text,NULL::text
       FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id AND NOT ws.is_test
-      JOIN brd_farms f ON f.farm_code=ws.site_id
+      JOIN site_farm f ON f.farm_code=ws.site_id
       LEFT JOIN packing_by_grade used ON used.code=g.code
       CROSS JOIN LATERAL (
         SELECT g.total_output-COALESCE(used.packed_qty,0) qty,
@@ -282,7 +285,7 @@ export class PackagingWorkQueueService {
           WHEN ${bucketBind}::text='CURRENT' THEN 'Awaiting handover' ELSE 'Closed shift carryover' END,
         '/terminal/packaging/history/'||p.code,f.company_code,ws.site_id,NULL::text,NULL::text,
         CASE WHEN ${bucketBind}::text='REVIEW' THEN 'PARTIAL_HANDOVER' ELSE 'VIEW' END
-      FROM eligible_packing p JOIN pkg_work_shifts ws ON ws.id=p.shift_id JOIN brd_farms f ON f.farm_code=ws.site_id
+      FROM eligible_packing p JOIN pkg_work_shifts ws ON ws.id=p.shift_id JOIN site_farm f ON f.farm_code=ws.site_id
       LEFT JOIN LATERAL (
         SELECT COALESCE(jsonb_agg(to_jsonb(b)),'[]'::jsonb) rows FROM inv_batches b
         WHERE ${bucketBind}::text='REVIEW' AND (b.packaging_batch_ref=p.code OR b.source_no=p.code)
@@ -331,15 +334,14 @@ export class PackagingWorkQueueService {
       const visibleRoutes = await this.history.em.query(`SELECT s.id::text id FROM pkg_source_batches s
         JOIN pkg_work_shifts ws ON ws.id=s.shift_id AND ws.site_id=$3
         JOIN brd_houses h ON h.house_code=s.house_code JOIN brd_farms f ON f.farm_code=h.farm_code
-        JOIN brd_farms sf ON sf.farm_code=f.farm_code
         JOIN wms_warehouses w ON w.company_code=f.company_code AND w.status='ACTIVE' AND w.type='EGG_FARM'
-          AND w.domain='OPERATIONAL' AND (to_jsonb(w)->>'site_code' IS NULL OR to_jsonb(w)->>'site_code'=to_jsonb(sf)->>'mapped_site_code')
+          AND w.domain='OPERATIONAL' AND (to_jsonb(w)->>'site_code' IS NULL OR to_jsonb(w)->>'site_code'=to_jsonb(f)->>'mapped_site_code')
           AND ($8::boolean OR w.warehouse_code=ANY($7::text[]))
         LEFT JOIN production_cutover_scopes cs ON cs.company_code=f.company_code AND cs.house_code=s.house_code AND cs.state='ACTIVE'
           AND s.production_date>=cs.first_production_date
         LEFT JOIN production_inventory_domains d ON d.scope_id=cs.id AND d.company_code=f.company_code AND d.warehouse_code=w.warehouse_code
         WHERE ((s.id=ANY($1::bigint[]) AND d.scope_id IS NOT NULL)
-          OR (s.id=ANY($2::bigint[]) AND COALESCE(cs.id::text,'')=''))
+          OR (s.id=ANY($2::bigint[]) AND cs.id IS NULL))
           AND ($4::boolean OR (f.company_code=ANY($5::text[]) AND f.farm_code=ANY($6::text[])))`,
         [formalCandidates.map(x => x.entity_id),legacyCandidates.map(x => x.entity_id),siteCode,
           !!productionScope.isGlobal,productionScope.allowedCompanyCodes || [],productionScope.allowedFarmCodes || [],

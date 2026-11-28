@@ -31,8 +31,8 @@ export default function TerminalDashboard() {
     Promise.allSettled([packagingApi.getShiftSummary(shift.productionDate,String(shift.id)),packingHistoryRequest(`reports/production-summary?${q}`)]).then(([shiftResult,reportResult])=>{
       if(!active)return;
       const errors:string[]=[];
-      if(shiftResult.status==='rejected')errors.push(shiftResult.reason?.message||'接收指标加载失败');
-      if(reportResult.status==='rejected')errors.push(reportResult.reason?.message||'生产指标加载失败');
+      if(shiftResult.status==='rejected')errors.push(shiftResult.reason?.message||t('ui.接收指标加载失败', '接收指标加载失败'));
+      if(reportResult.status==='rejected')errors.push(reportResult.reason?.message||t('ui.生产指标加载失败', '生产指标加载失败'));
       setMetrics({ key: metricsRequestKey, data: {
         receivedQty: shiftResult.status === 'fulfilled' ? Number(shiftResult.value.receivedQty || 0) : 0,
         warehousedBoxes: reportResult.status === 'fulfilled' ? Number(reportResult.value.committedBoxes || 0) : 0,
@@ -321,7 +321,7 @@ export default function TerminalDashboard() {
           </div>
         </div>
 
-        {metricsError && <p role="status" style={{ margin: 0, color: 'var(--status-warning)' }}>部分生产指标暂不可用：{metricsError} <button type="button" onClick={() => setMetricsRetry(x => x + 1)}>重试指标</button></p>}
+        {metricsError && <p role="status" style={{ margin: 0, color: 'var(--status-warning)' }}>{t('ui.部分生产指标暂不可用', '部分生产指标暂不可用：')}{metricsError} <button type="button" onClick={() => setMetricsRetry(x => x + 1)}>{t('ui.重试指标', '重试指标')}</button></p>}
 
         {hydrated && identityKey ? <PackagingWorkQueue
           key={selectionKey}

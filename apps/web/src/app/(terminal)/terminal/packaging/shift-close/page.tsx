@@ -324,27 +324,27 @@ export default function ShiftClosePage() {
 
           {/* 来源勾稽：保留批次级已知损耗，并显式标注历史分配与其他损耗未知。 */}
           {summary.sourceReconciliation.length > 0 && <div style={{ gridColumn: '1 / -1', background: T.CARD, borderRadius: 12, padding: 16, border: `1px solid ${T.BOR}` }}>
-            <div style={{ fontSize: 12, color: T.MUT, marginBottom: 10, fontWeight: 600 }}>来源批次勾稽</div>
+            <div style={{ fontSize: 12, color: T.MUT, marginBottom: 10, fontWeight: 600 }}>{t('ui.来源批次勾稽', '来源批次勾稽')}</div>
             <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead><tr>{['来源批次','接收','RAW回执','脏蛋','裂纹蛋','分级投入','未分级余量','分配状态','其他损耗'].map(label => <th key={label} style={{ textAlign: 'left', color: T.MUT, padding: '6px 8px' }}>{label}</th>)}</tr></thead>
+              <thead><tr>{[t('ui.来源批次','来源批次'),t('ui.接收','接收'),t('ui.RAW回执','RAW回执'),t('ui.脏蛋','脏蛋'),t('ui.裂纹蛋','裂纹蛋'),t('ui.分级投入','分级投入'),t('ui.未分级余量','未分级余量'),t('ui.分配状态','分配状态'),t('ui.其他损耗','其他损耗')].map(label => <th key={label} style={{ textAlign: 'left', color: T.MUT, padding: '6px 8px' }}>{label}</th>)}</tr></thead>
               <tbody>{summary.sourceReconciliation.map(row => <tr key={row.batchCode}>
                 <td style={{ padding: '6px 8px', color: T.TXT }}>{row.batchCode}</td>
                 <td style={{ padding: '6px 8px', color: T.TXT }}>{row.receivedQty}</td>
-                <td style={{ padding: '6px 8px', color: row.rawReceiptStatus === 'ROUTE_CONFLICT_WITH_GRADING' || row.rawReceiptStatus === 'RAW_OVER_ALLOCATED' || row.rawReceiptStatus === 'SCHEMA_UNAVAILABLE' ? '#E7A944' : T.TXT }}>{row.rawReceiptQty === null ? '不可用' : `${row.rawReceiptQty}${row.rawOverAllocatedQty > 0 ? `（超额${row.rawOverAllocatedQty}）` : ''}${row.routeConflict ? '（双路径）' : ''}`}</td>
+                <td style={{ padding: '6px 8px', color: row.rawReceiptStatus === 'ROUTE_CONFLICT_WITH_GRADING' || row.rawReceiptStatus === 'RAW_OVER_ALLOCATED' || row.rawReceiptStatus === 'SCHEMA_UNAVAILABLE' ? '#E7A944' : T.TXT }}>{row.rawReceiptQty === null ? t('ui.不可用','不可用') : `${row.rawReceiptQty}${row.rawOverAllocatedQty > 0 ? `（${t('ui.超额','超额')}${row.rawOverAllocatedQty}）` : ''}${row.routeConflict ? t('ui.双路径','（双路径）') : ''}`}</td>
                 <td style={{ padding: '6px 8px', color: T.TXT }}>{row.dirtyQty}</td>
                 <td style={{ padding: '6px 8px', color: T.TXT }}>{row.crackedQty}</td>
                 <td style={{ padding: '6px 8px', color: T.TXT }}>{row.gradingInputQty}</td>
-                <td style={{ padding: '6px 8px', color: T.TXT }}>{row.ungradedQty === null ? '未知' : row.ungradedQty}</td>
-                <td style={{ padding: '6px 8px', color: row.allocationStatus === 'EXACT' ? T.TXT : '#E7A944' }}>{row.allocationStatus === 'EXACT' ? '精确' : '历史分配未知'}</td>
-                <td style={{ padding: '6px 8px', color: '#E7A944' }}>{row.otherLossStatus === 'NOT_RECORDED' ? '未记录' : row.otherLossStatus}</td>
+                <td style={{ padding: '6px 8px', color: T.TXT }}>{row.ungradedQty === null ? t('ui.未知','未知') : row.ungradedQty}</td>
+                <td style={{ padding: '6px 8px', color: row.allocationStatus === 'EXACT' ? T.TXT : '#E7A944' }}>{row.allocationStatus === 'EXACT' ? t('ui.精确','精确') : t('ui.历史分配未知','历史分配未知')}</td>
+                <td style={{ padding: '6px 8px', color: '#E7A944' }}>{row.otherLossStatus === 'NOT_RECORDED' ? t('ui.未记录','未记录') : row.otherLossStatus}</td>
               </tr>)}</tbody>
             </table></div>
             <div style={{ marginTop: 10, fontSize: 12, color: T.MUT }}>
-              跨班包装 {summary.exactCrossShiftPackedEggs.toLocaleString()} 枚（单一分级来源）；多来源无法准确拆分 {summary.ambiguousCrossShiftPackedEggs.toLocaleString()} 枚。该统计不回写已封存交班凭据。
+              {t('ui.跨班包装','跨班包装')} {summary.exactCrossShiftPackedEggs.toLocaleString()} {t('ui.枚','枚')}（{t('ui.单一分级来源','单一分级来源')}）；{t('ui.多来源无法准确拆分','多来源无法准确拆分')} {summary.ambiguousCrossShiftPackedEggs.toLocaleString()} {t('ui.枚','枚')}。{t('ui.该统计不回写已封存交班凭据','该统计不回写已封存交班凭据。')}
             </div>
-            <div style={{ marginTop: 6, fontSize: 12, color: T.MUT }}>本班实际交库 {summary.handlingHandoverBoxes} 箱 / {summary.handlingHandoverEggs.toLocaleString()} 枚；未能唯一归属处理班次的原单 {summary.unassignedHandoverBoxes} 箱单独列示。</div>
-            {summary.reconciliationConflict && <div role="alert" style={{ marginTop: 6, fontSize: 12, color: '#E7A944' }}>来源存在超额分配、RAW 双路径冲突或回执结构不可用，核实前不能交班。</div>}
-            {summary.ambiguousCrossShiftPackings.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#E7A944' }}>多来源记录（仅提示，不重复计入精确量）：{summary.ambiguousCrossShiftPackings.map(p => `${p.code} ${p.quantity}枚 [${(p.grading_codes || []).join(', ')}]`).join('；')}</div>}
+            <div style={{ marginTop: 6, fontSize: 12, color: T.MUT }}>{t('ui.本班实际交库','本班实际交库')} {summary.handlingHandoverBoxes} {t('ui.箱','箱')} / {summary.handlingHandoverEggs.toLocaleString()} {t('ui.枚','枚')}；{t('ui.未能唯一归属处理班次的原单','未能唯一归属处理班次的原单')} {summary.unassignedHandoverBoxes} {t('ui.箱单独列示','箱单独列示。')}</div>
+            {summary.reconciliationConflict && <div role="alert" style={{ marginTop: 6, fontSize: 12, color: '#E7A944' }}>{t('ui.来源存在超额分配RAW双路径冲突或回执结构不可用核实前不能交班','来源存在超额分配、RAW 双路径冲突或回执结构不可用，核实前不能交班。')}</div>}
+            {summary.ambiguousCrossShiftPackings.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: '#E7A944' }}>{t('ui.多来源记录仅提示不重复计入精确量','多来源记录（仅提示，不重复计入精确量）：')}{summary.ambiguousCrossShiftPackings.map(p => `${p.code} ${p.quantity}枚 [${(p.grading_codes || []).join(', ')}]`).join('；')}</div>}
           </div>}
 
           {/* 包装入库 */}

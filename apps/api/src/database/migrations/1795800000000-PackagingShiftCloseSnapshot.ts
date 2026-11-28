@@ -5,7 +5,15 @@ export class PackagingShiftCloseSnapshot1795800000000 implements MigrationInterf
   name = 'PackagingShiftCloseSnapshot1795800000000';
 
   async up(runner: QueryRunner): Promise<void> {
+    // Older installations already have the audit table. The migration-only chain
+    // must also provide it before attaching the snapshot trigger and reference.
     await runner.query(`
+      CREATE TABLE IF NOT EXISTS pkg_audit_logs (
+        id serial PRIMARY KEY,
+        entity_type varchar(50), entity_id varchar(100), action varchar(50),
+        before_data text, after_data text, reason text, operator_id integer,
+        terminal_id varchar(80), created_at timestamp DEFAULT now()
+      );
       ALTER TABLE pkg_work_shifts ADD COLUMN close_snapshot_id bigint;
       ALTER TABLE pkg_exceptions ADD COLUMN shift_id bigint,
         ADD COLUMN related_kind text, ADD COLUMN related_id text;
@@ -28,6 +36,7 @@ export class PackagingShiftCloseSnapshot1795800000000 implements MigrationInterf
   }
 
   async down(runner: QueryRunner): Promise<void> {
+    // Retain audit rows and their base table on a schema rollback.
     await runner.query(`
       DROP TRIGGER trg_pkg_shift_close_snapshot ON pkg_audit_logs;
       DROP FUNCTION guard_pkg_shift_close_snapshot();

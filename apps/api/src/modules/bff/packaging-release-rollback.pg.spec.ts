@@ -145,7 +145,7 @@ import { PackagingTerminalBffController } from './bff.controller';
     }
   });
 
-  it('applies and rolls back the real snapshot migration in an isolated schema', async () => {
+  it.each([false, true])('applies and rolls back the snapshot migration with existing audit table = %s', async existingAuditTable => {
     const url = process.env.PACKAGING_P1_ROLLBACK_DATABASE_URL;
     const parsed = url ? new URL(url) : null;
     if (!parsed || !['127.0.0.1', 'localhost'].includes(parsed.hostname) || parsed.port !== '55432' ||
@@ -161,8 +161,11 @@ import { PackagingTerminalBffController } from './bff.controller';
       await runner.connect();
       await runner.query(`SET search_path TO ${schema}`);
       await runner.query(`CREATE TABLE pkg_work_shifts(id bigint PRIMARY KEY);
-        CREATE TABLE pkg_exceptions(id bigserial PRIMARY KEY,status text,related_batch_id text);
-        CREATE TABLE pkg_audit_logs(id bigserial PRIMARY KEY,action text,entity_type text,after_data text)`);
+        CREATE TABLE pkg_exceptions(id bigserial PRIMARY KEY,status text,related_batch_id text)`);
+      if (existingAuditTable) {
+        await runner.query(`CREATE TABLE pkg_audit_logs(id bigserial PRIMARY KEY,action text,entity_type text,after_data text)`);
+        await runner.query(`INSERT INTO pkg_audit_logs(id,action,entity_type,after_data) VALUES (71,'OPEN','WORK_SHIFT','unchanged')`);
+      }
       await migration.up(runner);
       await runner.query(`INSERT INTO pkg_work_shifts(id) VALUES (71);
         INSERT INTO pkg_audit_logs(action,entity_type,after_data) VALUES ('CLOSE_SNAPSHOT','WORK_SHIFT','immutable');
@@ -174,7 +177,10 @@ import { PackagingTerminalBffController } from './bff.controller';
         WHERE table_schema=$1 AND ((table_name='pkg_work_shifts' AND column_name='close_snapshot_id') OR
         (table_name='pkg_exceptions' AND column_name IN ('shift_id','related_kind','related_id')))` , [schema]);
       expect(columns.n).toBe(0);
-      expect((await runner.query(`SELECT count(*)::int n FROM pkg_audit_logs`))[0].n).toBe(1);
+      expect(await runner.query(`SELECT action,after_data FROM pkg_audit_logs ORDER BY id`)).toEqual([
+        {action:'CLOSE_SNAPSHOT',after_data:'immutable'},
+        ...(existingAuditTable ? [{action:'OPEN',after_data:'unchanged'}] : []),
+      ]);
     } finally {
       await runner.query(`SET search_path TO public`).catch(() => undefined);
       await runner.release();

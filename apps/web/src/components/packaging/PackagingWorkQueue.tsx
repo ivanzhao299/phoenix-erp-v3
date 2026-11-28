@@ -7,10 +7,10 @@ import { usePermission } from '@/hooks/usePermission';
 import { packagingApi, type PackagingWorkQueueBucket, type PackagingWorkQueueItem, type PackagingWorkQueueSite } from '@/lib/packaging-api';
 import { queueProductionHref } from '@/lib/packaging-queue-navigation';
 
-const BUCKETS: { id: PackagingWorkQueueBucket; label: string }[] = [
-  { id: 'CURRENT', label: '本班待办' },
-  { id: 'CARRYOVER', label: '跨班待办' },
-  { id: 'REVIEW', label: '待复核' },
+const BUCKETS: { id: PackagingWorkQueueBucket }[] = [
+  { id: 'CURRENT' },
+  { id: 'CARRYOVER' },
+  { id: 'REVIEW' },
 ];
 
 export default function PackagingWorkQueue({ shiftId, defaultSiteCode, identityKey }: { shiftId?: string; defaultSiteCode?: string; identityKey: string }) {
@@ -129,15 +129,15 @@ export default function PackagingWorkQueue({ shiftId, defaultSiteCode, identityK
     return canViewProductionInbound ? queueProductionHref(item.href, item.action) : undefined;
   };
 
-  return <section aria-label="包装待办队列" style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, minHeight: 180 }}>
+  return <section aria-label={t('ui.队列标签', '包装待办队列')} style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, minHeight: 180 }}>
     <header style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div style={{ fontSize: 18, fontWeight: 750, color: 'var(--text-primary)' }}>{t('terminal.queueTitle', '包装作业队列')}</div>
       {!shiftId && <div style={{ width: 260 }}><select aria-label={t('terminal.queueSite', '场站')} value={siteCode} onChange={e => setSelectedSiteCode(e.target.value)} disabled={!sitesReady || !!sitesError} style={{ width: '100%', minHeight: 38 }}><option value="">{!sitesReady ? t('terminal.queueSitesLoading', '正在读取授权场站…') : t('terminal.queueSelectSite', '选择授权场站')}</option>{sites.map(s => <option key={s.siteCode} value={s.siteCode}>{s.siteName}（{s.siteCode}）</option>)}</select></div>}
       {shiftId && <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{t('terminal.queueOpenShiftReadOnly', '当前开放班次 · 只读查看')}</span>}
       <button type="button" onClick={() => setReload(v => v + 1)} disabled={!siteCode || loading || loadingMore} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>{t('terminal.queueRefresh', '刷新')}</button>
     </header>
-    <nav aria-label="队列分类" style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
-      {BUCKETS.map(tab => <button key={tab.id} type="button" onClick={() => setBucket(tab.id)} aria-pressed={bucket === tab.id} disabled={tab.id === 'CURRENT' && !shiftId} style={{ padding: '8px 12px', border: 0, borderBottom: bucket === tab.id ? '3px solid var(--color-accent, #0f766e)' : '3px solid transparent', background: 'transparent', color: bucket === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: bucket === tab.id ? 700 : 500, cursor: tab.id === 'CURRENT' && !shiftId ? 'not-allowed' : 'pointer', opacity: tab.id === 'CURRENT' && !shiftId ? .45 : 1 }}>{t(`terminal.queue.${tab.id}`, tab.label)}</button>)}
+    <nav aria-label={t('ui.队列分类', '队列分类')} style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
+      {BUCKETS.map(tab => <button key={tab.id} type="button" onClick={() => setBucket(tab.id)} aria-pressed={bucket === tab.id} disabled={tab.id === 'CURRENT' && !shiftId} style={{ padding: '8px 12px', border: 0, borderBottom: bucket === tab.id ? '3px solid var(--color-accent, #0f766e)' : '3px solid transparent', background: 'transparent', color: bucket === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: bucket === tab.id ? 700 : 500, cursor: tab.id === 'CURRENT' && !shiftId ? 'not-allowed' : 'pointer', opacity: tab.id === 'CURRENT' && !shiftId ? .45 : 1 }}>{t(`terminal.queue.${tab.id}`, tab.id === 'CURRENT' ? 'Current shift' : tab.id === 'CARRYOVER' ? 'Carryover' : 'Review')}</button>)}
     </nav>
     {!shiftId && sitesError ? <p role="alert">{sitesError} <button type="button" onClick={() => setSitesReload(x => x + 1)}>{t('terminal.queueRetry', '重试')}</button></p>
       : !shiftId && sitesReady && sites.length === 0 ? <p>{t('terminal.queueNoAuthorizedSites', '当前账号没有可查看的场站。')}</p>
