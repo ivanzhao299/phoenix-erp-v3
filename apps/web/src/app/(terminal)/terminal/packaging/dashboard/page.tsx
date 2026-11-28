@@ -10,6 +10,7 @@ import { packagingApi } from '@/lib/packaging-api';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
+import PackagingWorkQueue from '@/components/packaging/PackagingWorkQueue';
 export default function TerminalDashboard() {
   const {
     t
@@ -17,25 +18,37 @@ export default function TerminalDashboard() {
   const router = useRouter();
   const {
     openExceptionCount,
-    ctx, hydrated, identityKey
+    ctx, hydrated, identityKey, contextError
   } = useTerminalContext();
-  const [summary, setSummary] = useState({ receivedQty: 0, warehousedBoxes: 0,packedBoxes:0,gradingEggs:0 });
-  const [loading, setLoading] = useState(true);
-  const [loadError,setLoadError]=useState(''),[loadedKey,setLoadedKey]=useState('');
+  const [metrics, setMetrics] = useState<{ key: string; data: { receivedQty: number; warehousedBoxes: number; packedBoxes: number; gradingEggs: number }; error: string }>({ key: '', data: { receivedQty: 0, warehousedBoxes: 0, packedBoxes: 0, gradingEggs: 0 }, error: '' });
+  const [metricsRetry,setMetricsRetry]=useState(0);
   const shift=ctx.currentShift,selectionKey=`${identityKey}:${shift?.id}:${shift?.productionDate}`;
+  const metricsRequestKey = `${selectionKey}:${metricsRetry}`;
   useEffect(() => {
-    let active=true;setLoadedKey('');setLoadError('');
-    if(!hydrated||!shift?.id||!shift.productionDate){setLoading(false);return()=>{active=false;};}
-    setLoading(true);
+    let active=true;
+    if(!hydrated||!shift?.id||!shift.productionDate)return()=>{active=false;};
     const q=new URLSearchParams({dateFrom:shift.productionDate,dateTo:shift.productionDate,aggregation:'SHIFT',shiftId:String(shift.id)});
-    Promise.all([packagingApi.getShiftSummary(shift.productionDate,String(shift.id)),packingHistoryRequest(`reports/production-summary?${q}`)]).then(([data,report])=>{
-      if(active){setSummary({receivedQty:Number(data.receivedQty||0),warehousedBoxes:report.committedBoxes,packedBoxes:report.totalBoxes,gradingEggs:report.gradingEggs});setLoadedKey(selectionKey);}
-    }).catch(e=>{if(active)setLoadError(e.message);}).finally(()=>{if(active)setLoading(false);});
+    Promise.allSettled([packagingApi.getShiftSummary(shift.productionDate,String(shift.id)),packingHistoryRequest(`reports/production-summary?${q}`)]).then(([shiftResult,reportResult])=>{
+      if(!active)return;
+      const errors:string[]=[];
+      if(shiftResult.status==='rejected')errors.push(shiftResult.reason?.message||t('ui.接收指标加载失败', '接收指标加载失败'));
+      if(reportResult.status==='rejected')errors.push(reportResult.reason?.message||t('ui.生产指标加载失败', '生产指标加载失败'));
+      setMetrics({ key: metricsRequestKey, data: {
+        receivedQty: shiftResult.status === 'fulfilled' ? Number(shiftResult.value.receivedQty || 0) : 0,
+        warehousedBoxes: reportResult.status === 'fulfilled' ? Number(reportResult.value.committedBoxes || 0) : 0,
+        packedBoxes: reportResult.status === 'fulfilled' ? Number(reportResult.value.totalBoxes || 0) : 0,
+        gradingEggs: reportResult.status === 'fulfilled' ? Number(reportResult.value.gradingEggs || 0) : 0,
+      }, error: [...new Set(errors)].join('；') });
+    });
     return()=>{active=false;};
-  }, [hydrated,selectionKey,shift?.id,shift?.productionDate]);
+  }, [hydrated,metricsRequestKey,shift?.id,shift?.productionDate]);
   const {
     dicts
   } = usePackagingDicts(['PKG_PACK_SPEC']);
+  const metricsCurrent = metrics.key === metricsRequestKey;
+  const loading = Boolean(hydrated && shift?.id && shift.productionDate && !metricsCurrent);
+  const metricsError = metricsCurrent ? metrics.error : '';
+  const summary = metricsCurrent ? metrics.data : { receivedQty: 0, warehousedBoxes: 0, packedBoxes: 0, gradingEggs: 0 };
   const gradedTotal = summary.gradingEggs;
   const packedBoxes = summary.packedBoxes;
 
@@ -105,7 +118,6 @@ export default function TerminalDashboard() {
     path: '/terminal/packaging/exceptions',
     desc: openExceptionCount > 0 ? `${openExceptionCount} ${t('ui.条未处理', '条未处理')}` : t('ui.快速上报', '快速上报')
   }];
-  if(loadedKey!==selectionKey)return <main><p role={loadError?'alert':'status'}>{loadError||(loading?'正在读取指定班次':'请选择班次')}</p><Link href="/terminal/packaging/history">查询包装历史</Link></main>;
   return <div style={{
     height: '100%',
     display: 'flex',
@@ -117,7 +129,7 @@ export default function TerminalDashboard() {
       {/* Body */}
       <div style={{
       flex: 1,
-      overflow: 'hidden',
+      overflowY: 'auto',
       minHeight: 0,
       padding: '16px 20px',
       display: 'flex',
@@ -126,6 +138,7 @@ export default function TerminalDashboard() {
     }}>
 
         {/* 班次状态卡 */}
+        {contextError && <div role="alert" style={{ color: 'var(--status-danger)', background: 'var(--status-danger-bg-faint)', padding: 12, borderRadius: 8 }}>{contextError}</div>}
         {ctx.currentShift?.status === 'OPEN' ? <div style={{
         background: 'var(--status-success-bg-medium)',
         borderRadius: 12,
@@ -280,7 +293,7 @@ export default function TerminalDashboard() {
                 color: !loading && step.value > 0 ? step.color : T.BOR,
                 fontVariantNumeric: 'tabular-nums'
               }}>
-                    {loading ? '—' : step.value.toLocaleString()}
+                    {loading || !metricsCurrent ? '—' : step.value.toLocaleString()}
                   </div>
                   <div style={{
                 fontSize: 15,
@@ -308,16 +321,26 @@ export default function TerminalDashboard() {
           </div>
         </div>
 
+        {metricsError && <p role="status" style={{ margin: 0, color: 'var(--status-warning)' }}>{t('ui.部分生产指标暂不可用', '部分生产指标暂不可用：')}{metricsError} <button type="button" onClick={() => setMetricsRetry(x => x + 1)}>{t('ui.重试指标', '重试指标')}</button></p>}
+
+        {hydrated && identityKey ? <PackagingWorkQueue
+          key={selectionKey}
+          identityKey={identityKey}
+          shiftId={ctx.currentShift?.status === 'OPEN' ? String(ctx.currentShift.id) : undefined}
+          defaultSiteCode={ctx.currentShift?.siteId}
+        /> : <div role="status">正在核验终端身份与班次上下文…</div>}
+        <div><Link href="/terminal/packaging/history">查询包装历史</Link></div>
+
         {/* Action buttons — 3 columns × 2 rows */}
         <div style={{
-        flex: 1,
+        flex: '0 0 auto',
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gridTemplateRows: 'repeat(2, 1fr)',
+        gridTemplateRows: 'repeat(2, minmax(130px, 1fr))',
         gap: 14,
-        minHeight: 0
+        minHeight: 280
       }}>
-          {ACTIONS.map(action => <button type="button" key={action.path} onClick={() => router.push(action.path)} style={{
+          {ACTIONS.map(action => <button type="button" key={action.path} disabled={ctx.currentShift?.status !== 'OPEN'} onClick={() => router.push(action.path)} style={{
           background: T.CARD,
           border: `2px solid ${action.color}33`,
           borderRadius: 18,
@@ -327,7 +350,8 @@ export default function TerminalDashboard() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 10,
-          cursor: 'pointer',
+          cursor: ctx.currentShift?.status === 'OPEN' ? 'pointer' : 'not-allowed',
+          opacity: ctx.currentShift?.status === 'OPEN' ? 1 : .48,
           transition: 'all 0.15s',
           position: 'relative'
         }} onPointerDown={e => {

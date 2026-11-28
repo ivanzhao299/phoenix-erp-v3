@@ -5,6 +5,7 @@ import {packingHistoryRequest,packingIdentity} from '@/lib/packing-history-api';
 
 export function usePackingRecord(packingCode:string){
   const {user}=useAuth();
+  const actorId=String(user?.userId??user?.id??user?.user_id??'');
   const identity=packingIdentity(user);
   const key=`${identity}:${packingCode}`;
   const [attempt,setAttempt]=useState(0);
@@ -18,5 +19,5 @@ export function usePackingRecord(packingCode:string){
     return()=>{current=false;abort.abort();};
   },[key,attempt]); // identity + code + explicit refresh; current shift never participates.
   return {data:state.key===key?state.data:null,error:state.key===key?state.error:'',loading:!!user&&!!packingCode&&(state.key!==key||(!state.data&&!state.error)),
-    identityKey:key,reload:useCallback(()=>setAttempt(n=>n+1),[])};
+    actorId,identityKey:key,reload:useCallback(()=>setAttempt(n=>n+1),[])};
 }

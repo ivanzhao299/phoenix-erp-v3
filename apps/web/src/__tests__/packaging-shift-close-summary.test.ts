@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const page = fs.readFileSync(
   path.join(process.cwd(), 'src/app/(terminal)/terminal/packaging/shift-close/page.tsx'),
@@ -11,7 +12,7 @@ const css = fs.readFileSync(
   'utf8',
 );
 const adminReportPage = fs.readFileSync(
-  path.join(process.cwd(), 'src/app/(admin)/packaging/daily-report/page.tsx'),
+  path.join(process.cwd(), 'src/components/packaging/PackingProductionReport.tsx'),
   'utf8',
 );
 
@@ -41,9 +42,10 @@ describe('BUG-20260722-0004 交班汇总', () => {
   });
 
   it('PC 包装日报保留服务端分级产出并使用主数据名称', () => {
-    expect(adminReportPage).toContain('item.gradingOutputs');
-    expect(adminReportPage).toContain('item.shiftPackedEggs');
+    expect(adminReportPage).toContain('report.gradingOutputs');
+    expect(adminReportPage).toContain('record.totalEggs');
     expect(adminReportPage).toContain('productGrades.map');
-    expect(adminReportPage).not.toContain('by_grade: []');
+    expect(adminReportPage).toContain('grade.grade_name || grade.grade_code');
+    expect(readFileSync(path.join(process.cwd(), 'src/app/(admin)/packaging/daily-report/page.tsx'), 'utf8')).toContain('<PackingProductionReport');
   });
 });

@@ -4,7 +4,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
 import { PackagingHistoryService } from './packaging-history.service';
-import { PackagingBoxService } from './packaging-box.service';
+import { normalizedPackingCode, PackagingBoxService } from './packaging-box.service';
 import { PackagingWorkflowPolicy } from './packaging-workflow-policy';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service';
@@ -24,7 +24,9 @@ export class PackagingHandoverService {
       const d:any=await this.history.detail(code,req,em);
       const events=await em.query(`SELECT id::text,event_type,actor_id::text,server_at,box_id,session_id,payload FROM pkg_packing_events WHERE packing_id=$1 ORDER BY server_at,id`,[d.record.id]);
       const boxes=await em.query(`SELECT b.id "boxId",b.output_ordinal "outputOrdinal",b.box_ordinal "boxOrdinal",b.original_qty "originalQty",
-        COALESCE(jsonb_agg(jsonb_build_object('code',c.normalized_code,'kind',c.kind,'status',c.status,'resolution',r.state)) FILTER(WHERE c.id IS NOT NULL),'[]') labels
+        COALESCE(jsonb_agg(jsonb_build_object('code',c.normalized_code,'kind',c.kind,'status',c.status,'resolution',r.state,
+          'boundToBox',COALESCE(c.status='ACTIVE' AND r.state='BOUND' AND r.owner_box_id=b.id,false)))
+          FILTER(WHERE c.id IS NOT NULL),'[]') labels
         FROM pkg_packing_boxes b LEFT JOIN pkg_packing_code_claims c ON c.box_id=b.id LEFT JOIN pkg_packing_code_registry r ON r.normalized_code=c.normalized_code
         WHERE b.packing_id=$1 GROUP BY b.id ORDER BY b.output_ordinal,b.box_ordinal`,[d.record.id]);
       const receipt=events.find((e:any)=>e.event_type==='COMMIT_RECEIPT');
@@ -34,16 +36,47 @@ export class PackagingHandoverService {
         d.receipt={state:'RECORDED',evidence:[receipt]};
       }
       d.boxes=boxes.map((b:any)=>({...b,printBlockedReason:packingPrintBlocked(events,b.boxId)?'打印结果未知，请先查询并核实原打印请求':null}));d.events=events;d.identityStatus=boxes.length===d.record.totalBoxes?'REGISTERED':'UNREGISTERED';
-      d.policy=await this.policy.get(d.ownership.companyCode,d.ownership.siteCode);
+      d.policy=await this.policy.get(d.ownership.companyCode,d.ownership.siteCode,em,Boolean(db));
       d.revision=packingHash({originalRevision:d.revision,policyVersion:d.policy.version,sources:d.sources});
+      // A resumed workstation can combine per-box evidence from several live
+      // sessions. Keep the latest valid session at the round level for new
+      // scans, and preserve the originating session on every recovered proof.
+      const now=Date.now();
+      const recovery:any={actorId:this.actor(req),serverNow:new Date(now).toISOString(),revision:d.revision,rounds:{LABEL_CHECK:null,HANDOVER:null}};
+      if(d.identityStatus==='REGISTERED'){
+        const labelsByBox=new Map<string,Set<string>>(d.boxes.map((b:any)=>[b.boxId,new Set<string>(b.labels
+          .filter((label:any)=>label.boundToBox).map((label:any)=>label.code))]));
+        const eligible=(purpose:'LABEL_CHECK'|'HANDOVER')=>events.filter((e:any)=>e.event_type==='VERIFICATION_SESSION'
+          &&e.actor_id===recovery.actorId&&e.payload?.purpose===purpose&&e.payload?.targetRevision===d.revision
+          &&Date.parse(e.payload.expiresAt)>now).reverse();
+        for(const purpose of ['LABEL_CHECK','HANDOVER'] as const){
+          const sessions=eligible(purpose),byId=new Map(sessions.map((s:any)=>[s.id,s]));
+          const scans=events.filter((e:any)=>e.event_type==='BOX_VERIFIED'&&e.actor_id===recovery.actorId
+            &&e.payload?.purpose===purpose&&e.payload?.targetRevision===d.revision&&byId.has(e.session_id)
+            &&labelsByBox.has(e.box_id)).reverse();
+          const valid:any={};
+          for(const scan of scans){
+            if(Object.prototype.hasOwnProperty.call(valid,scan.box_id))continue;
+            const session:any=byId.get(scan.session_id);
+            try{
+              if(labelsByBox.get(scan.box_id)?.has(normalizedPackingCode(scan.payload?.labelCode)))
+                valid[scan.box_id]={eventId:scan.id,sessionId:session.id,expiresAt:session.payload.expiresAt};
+            }catch{/* Stale, void, or ambiguous aliases are not recoverable. */}
+          }
+          if(sessions.length){const latest:any=sessions[0];recovery.rounds[purpose]={sessionId:latest.id,expiresAt:latest.payload.expiresAt,scans:valid};}
+        }
+      }
+      d.verificationRecovery=recovery;
       const reasons=d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放').length?d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放'):d.record.recordStatus!=='ACTIVE'?['原单已作废']:d.record.productionDate>d.shift.productionDate?['原单日期不一致']:
         d.handover.quality!=='VERIFIED'?d.handover.issues:[];
-      for(const [key,action] of [['registerBoxes','REGISTER'],['print','PRINT'],['confirm','CONFIRM']]){
+      for(const [key,action] of [['registerBoxes','REGISTER'],['print','PRINT'],['voidLabel','VOID'],['confirm','CONFIRM']]){
         let actionReasons=[...reasons];try{await this.history.scope(req,true);this.policy.assert(d.policy,action);}catch{actionReasons.push('无操作权限或工作流未开放');}
         if(key!=='registerBoxes' && d.identityStatus!=='REGISTERED')actionReasons.push('箱身份待核实');
         if(key==='confirm' && d.handover.state!=='PENDING')actionReasons.push('本单已有入账或交接证据');
         d.actions[key]={allowed:!actionReasons.length,reasons:actionReasons};
       }
+      let printResultAllowed=false;try{await this.history.scope(req,true);printResultAllowed=true;}catch{/* Read access does not imply result-writing permission. */}
+      d.actions.printResult={allowed:printResultAllowed,reasons:printResultAllowed?[]:['无操作权限']};
       return d;
     };
     return db?read(db):this.history.em.transaction('REPEATABLE READ',async em=>{await em.query('SET TRANSACTION READ ONLY');return read(em);});
@@ -79,7 +112,7 @@ export class PackagingHandoverService {
       const [prior]=await db.query(`SELECT o.*,e.payload FROM pkg_packing_operations o LEFT JOIN pkg_packing_events e ON e.id=o.result_event_id
         WHERE o.actor_id=$1 AND o.action=$2 AND o.idempotency_key=$3`,[actor,action,key]);
       if(prior){if(prior.state!=='COMMITTED'||!prior.result_event_id||!prior.payload)throw new ConflictException('OPERATION_INCOMPLETE');if(prior.payload_hash!==payloadHash||String(prior.packing_id)!==r.id)throw new ConflictException('IDEMPOTENCY_CONFLICT');return {...prior.payload,eventId:prior.result_event_id,operationId:prior.id};}
-      const d=await this.detail(code,req,db),policy=await this.policy.get(r.company_code,r.site_id);
+      const d=await this.detail(code,req,db),policy=d.policy;
       if(action!=='PRINT_RESULT'){
         this.policy.assert(policy,action);
         validatePackingCommand(action,body);
@@ -139,9 +172,19 @@ export class PackagingHandoverService {
         const renderPayload={packingCode:code,productionDate:r.production_date,labelCode:body.labelCode,qty:box.original_qty};
         eventId=await emit('PRINT_REQUEST',{labelCode:body.labelCode,printType:body.printType,reason:body.reason||null,copies:1,templateVersion:body.templateVersion,renderPayload,renderHash:packingHash(renderPayload)},box.id);
       }else if(action==='PRINT_RESULT'){
-        const [request]=await db.query(`SELECT id FROM pkg_packing_events WHERE id=$1 AND packing_id=$2 AND actor_id=$3 AND event_type='PRINT_REQUEST'`,[uuid(body.requestId),r.id,actor]);
+        const [request]=await db.query(`SELECT id FROM pkg_packing_events WHERE id=$1 AND packing_id=$2 AND actor_id=$3 AND event_type='PRINT_REQUEST' FOR UPDATE`,[uuid(body.requestId),r.id,actor]);
         if(!request||!['DISPATCHED','FAILED','UNKNOWN'].includes(body.type))throw new BadRequestException('INVALID_PRINT_RESULT');
-        eventId=await emit('PRINT_RESULT',{requestId:request.id,type:body.type,clientOccurredAt:body.clientOccurredAt||null});
+        const previousResults=await db.query(`SELECT id,payload FROM pkg_packing_events WHERE packing_id=$1 AND event_type='PRINT_RESULT'
+          AND payload->>'requestId'=$2 ORDER BY server_at,id`,[r.id,request.id]);
+        if(previousResults.length){
+          const priorType=previousResults.at(-1).payload?.type;
+          // UNKNOWN is only cleared by an explicit physical check. Terminal
+          // results cannot be revised under another idempotency key.
+          if(priorType!=='UNKNOWN'||body.type==='UNKNOWN')throw new ConflictException('PRINT_RESULT_ALREADY_RECORDED');
+          if(!body.physicalVerification||!String(body.reconciliationReason||'').trim())throw new ConflictException('PRINT_RESULT_RECONCILIATION_REQUIRED');
+        }
+        eventId=await emit('PRINT_RESULT',{requestId:request.id,type:body.type,clientOccurredAt:body.clientOccurredAt||null,
+          ...(body.physicalVerification?{physicalVerification:body.physicalVerification,reconciliationReason:body.reconciliationReason.trim()}: {})});
       }else if(action==='VOID'){
         const box=await this.boxes.resolve(db,r.id,body.labelCode);
         const claims=await db.query(`SELECT normalized_code FROM pkg_packing_code_claims WHERE box_id=$1 AND status='ACTIVE' ORDER BY normalized_code`,[box.id]);
@@ -160,23 +203,20 @@ export class PackagingHandoverService {
         await db.query('UPDATE pkg_packing_records SET business_revision=business_revision+1 WHERE id=$1',[r.id]);
       }else if(action==='CONFIRM'){
         if(d.handover.state!=='PENDING')throw new ConflictException('EVIDENCE_PARTIAL');
-        if(await this.inventory.getTerminalInventoryMode(code,{companyCode:r.company_code})!=='PACKAGING_INBOUND')throw new ConflictException('TEMP_EXACT_HANDOVER_UNSUPPORTED');
         if(body.productionDate!==r.production_date||String(body.shiftId)!==r.shift_id)throw new ConflictException('ORIGINAL_DATE_REQUIRED');
         const expected=d.boxes.map((b:any)=>b.boxId).sort();
         if(!expected.length||expected.length!==Number(r.total_boxes)||!Array.isArray(body.boxIds)
           ||JSON.stringify([...body.boxIds].sort())!==JSON.stringify(expected))throw new BadRequestException('INVALID_BOX_SET');
         const scans=await db.query(`SELECT e.*,s.payload session_payload FROM pkg_packing_events e JOIN pkg_packing_events s ON s.id=e.session_id
-          WHERE e.id=ANY($1::uuid[]) AND e.packing_id=$2 AND e.actor_id=$3 AND e.event_type='BOX_VERIFIED'`,[body.verificationIds||[],r.id,actor]);
+          WHERE e.id=ANY($1::uuid[]) AND e.packing_id=$2 AND e.actor_id=$3 AND s.actor_id=$3 AND s.event_type='VERIFICATION_SESSION' AND e.event_type='BOX_VERIFIED'`,[body.verificationIds||[],r.id,actor]);
         if(scans.length!==expected.length||new Set(scans.map((s:any)=>s.box_id)).size!==expected.length
-          ||scans.some((s:any)=>!expected.includes(s.box_id)||s.payload.purpose!=='HANDOVER'||s.session_payload.targetRevision!==d.revision||Date.parse(s.session_payload.expiresAt)<=Date.now()))throw new ConflictException('HANDOVER_VERIFICATION_REQUIRED');
+          ||scans.some((s:any)=>!expected.includes(s.box_id)||s.payload.purpose!=='HANDOVER'||s.payload.targetRevision!==d.revision
+            ||s.session_payload.purpose!=='HANDOVER'||s.session_payload.targetRevision!==d.revision||!Number.isFinite(Date.parse(s.session_payload.expiresAt))||Date.parse(s.session_payload.expiresAt)<=Date.now()))throw new ConflictException('HANDOVER_VERIFICATION_REQUIRED');
         for(const scan of scans){const resolved=await this.boxes.resolve(db,r.id,scan.payload.labelCode);if(resolved.id!==scan.box_id)throw new ConflictException('LABEL_UNRESOLVABLE');}
-        for(const box of d.boxes){
-          const checks=await db.query(`SELECT 1 FROM pkg_packing_events e JOIN pkg_packing_events s ON s.id=e.session_id WHERE e.packing_id=$1 AND e.box_id=$2
-            AND e.actor_id=$3 AND e.event_type='BOX_VERIFIED' AND e.payload->>'purpose'='LABEL_CHECK' AND s.payload->>'targetRevision'=$4
-            AND (s.payload->>'expiresAt')::timestamptz>now()`,[r.id,box.boxId,actor,d.revision]);
-          const requests=await db.query(`SELECT 1 FROM pkg_packing_events WHERE packing_id=$1 AND box_id=$2 AND event_type='PRINT_REQUEST'`,[r.id,box.boxId]);
-          if(!checks.length||!requests.length)throw new ConflictException('LABEL_VERIFICATION_REQUIRED');
-        }
+        const checked=d.verificationRecovery.rounds.LABEL_CHECK?.scans??{};
+        const requested=new Set(d.events.filter((event:any)=>event.event_type==='PRINT_REQUEST').map((event:any)=>event.box_id));
+        if(expected.some((boxId:string)=>!requested.has(boxId)||!(Date.parse(checked[boxId]?.expiresAt)>Date.now())))
+          throw new ConflictException('LABEL_VERIFICATION_REQUIRED');
         if(!completePackingSources(r))throw new ConflictException('SOURCE_NOT_READY');
         const [place]=await db.query(`SELECT l.location_code,w.warehouse_code,w.company_code FROM wms_locations l JOIN wms_warehouses w ON w.warehouse_code=l.warehouse_code
           WHERE l.location_code=$1 AND w.warehouse_code=$2 AND l.status IN ('NORMAL','EMPTY','OCCUPIED') AND w.status='ACTIVE' FOR SHARE OF l,w`,[body.locationCode,body.warehouseCode]);
@@ -196,16 +236,41 @@ export class PackagingHandoverService {
           if(!identity||registered.length!==o.boxes||registered.some((b:any)=>packingHash(b.identity)!==packingHash(identity)||b.qty!==o.eggs/o.boxes||!expected.includes(b.boxId)))throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
           return {outputOrdinal,qty:o.eggs,boxes:o.boxes,...identity,provenance:'REGISTRATION_RESOLUTION'};
         });
-        const result=await this.inventory.completeTerminalPacking(code,{outputBindings,companyCode:r.company_code,warehouseCode:place.warehouse_code,locationCode:place.location_code,manager:db});
+        const result=await this.inventory.completeTerminalPacking(code,{outputBindings,companyCode:r.company_code,warehouseCode:place.warehouse_code,locationCode:place.location_code,manager:db,requireInventory:true});
         if(result.skippedByMode||result.totalInbound!==Number(r.total_eggs))throw new ConflictException('INVENTORY_NOT_COMMITTED');
         const handoverCode=`WH-${randomUUID()}`;
         await db.query(`INSERT INTO pkg_handover_records(code,shift_id,packing_code,boxes_json,box_count,pallet_code,location,receiver,production_date)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[handoverCode,r.shift_id,code,JSON.stringify(expected),expected.length,body.palletCode||'',place.location_code,receiver.real_name,r.production_date]);
-        const groups=await db.query(`SELECT b.batch_no "batchNo",b.sku_code "skuCode",b.spec_code "specCode",b.product_code "productCode",b.qty::int qty,
+        const postedGroups=await db.query<Array<{
+          batchNo:string;skuCode:string;specCode:string;productCode:string;qty:number;
+          ledgerId:string;companyCode:string;warehouseCode:string;locationCode:string;
+        }>>(`SELECT b.batch_no "batchNo",b.sku_code "skuCode",b.spec_code "specCode",b.product_code "productCode",b.qty::int qty,
           l.id::text "ledgerId",l.company_code "companyCode",l.warehouse_code "warehouseCode",l.location_code "locationCode"
           FROM inv_batches b JOIN inv_ledger l ON l.batch_no=b.batch_no AND l.ref_no=$1 AND l.change_type='PACKAGING_INBOUND' WHERE b.packaging_batch_ref=$1`,[code]);
-        if(groups.length!==result.batches.length||groups.reduce((n:number,g:any)=>n+g.qty,0)!==Number(r.total_eggs))throw new ConflictException('EVIDENCE_CONFLICT');
+        const mappedOutputs=new Set<number>();
+        const groups=postedGroups.map(group=>{
+          const members=outputBindings.filter(output=>output.skuCode===group.skuCode&&output.specCode===group.specCode&&output.productCode===group.productCode);
+          if(!members.length||members.reduce((total,output)=>total+output.qty,0)!==group.qty||
+            members.some(output=>mappedOutputs.has(output.outputOrdinal)))throw new ConflictException('EVIDENCE_CONFLICT');
+          const outputOrdinals=members.map(output=>output.outputOrdinal);
+          for(const ordinal of outputOrdinals)mappedOutputs.add(ordinal);
+          return {...group,outputOrdinals};
+        });
+        if(groups.length!==result.batches.length||mappedOutputs.size!==outputBindings.length||
+          groups.reduce((n,g)=>n+g.qty,0)!==Number(r.total_eggs))throw new ConflictException('EVIDENCE_CONFLICT');
+        // The original shift remains the owner of the packed order. Only an
+        // unambiguous live shift on that same physical line owns the handover.
+        const handlingShifts=await db.query<Array<{id:string}>>(`SELECT candidate.id::text
+          FROM pkg_work_shifts original JOIN pkg_work_shifts candidate
+            ON candidate.site_id=original.site_id AND candidate.line_id=original.line_id
+          WHERE original.id=$1 AND NULLIF(original.line_id,'') IS NOT NULL
+            AND candidate.status='OPEN' AND NOT candidate.is_test
+            AND candidate.production_date>=original.production_date
+            AND candidate.opened_at<=clock_timestamp()
+          ORDER BY candidate.id LIMIT 2`,[r.shift_id]);
+        const handlingShiftId=handlingShifts.length===1?handlingShifts[0].id:null;
         eventId=await emit('COMMIT_RECEIPT',{handoverCode,operationId:op,expectedRevision:body.expectedRevision,committed:true,receiptState:'RECORDED',groups,outputBindings,boxIds:expected,
+          originalShiftId:r.shift_id,handlingShiftId,
           originalHash:packingHash({date:r.production_date,outputs:r.batches_json,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes)}),
           receiverUserId:receiver.user_id,receiverNameSnapshot:receiver.real_name,recordedBy:actor,recordedAt:new Date().toISOString(),mode:'PACKAGING_INBOUND'});
       }else throw new BadRequestException('INVALID_ACTION');

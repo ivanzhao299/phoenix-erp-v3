@@ -69,6 +69,7 @@ export default function ExceptionsPage() {
         quantity: Number(form.quantity) || undefined,
         description: form.description,
         relatedBatchId: form.batchId,
+        shiftId: ctx.currentShift?.status === 'OPEN' ? ctx.currentShift.id : undefined,
         reportedBy: user?.name || user?.username || t('ui.当前用户', '当前用户'),
         status: 'REPORTED'
       });

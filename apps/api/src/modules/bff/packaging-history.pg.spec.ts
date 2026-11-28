@@ -1,7 +1,12 @@
+import {PackagingTerminalBffController} from './bff.controller';
+import {InventorySourceModeService} from '../sales-v2/services/inventory-source-mode.service';
+import {ProductionInboundService} from '../sales-v2/services/production-inbound.service';
+import {OrgOwnershipService} from '../org/services/org-ownership.service';
+import {SkuAvailabilityService} from '../product-master/services/sku-availability.service';
 import {reviewEvidenceFixture} from './packaging-review.fixture';
 import {packingEvidence} from './packaging-evidence.service';
 import {TraceabilityService} from '../traceability/traceability.service';
-import {DataSource} from 'typeorm';
+import {DataSource,EntityManager} from 'typeorm';
 import {randomUUID} from 'crypto';
 import {PackagingHistoryService,historyDate} from './packaging-history.service';
 import {PackagingHandoverService} from './packaging-handover.service';
@@ -61,6 +66,141 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    const [row]=await ds.query('SELECT packing_posting_state($1::jsonb,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb) state',[x.record,[],ledger,x.handovers,x.receipt].map(v=>JSON.stringify(v)));
    expect(row.state).toBe(expected);
  });
+ it.each(['PACKAGING','TEMP_PRODUCTION'] as const)('serializes actual %s posting, competing entry and audited mode change', async firstMode => {
+   await ds.query("UPDATE wms_warehouses SET type='EGG_FARM' WHERE warehouse_code=$1",[f.warehouse]);
+   const prepared = await prepare();
+   const confirmationKey = randomUUID();
+   const req = {...f.req,headers:{'idempotency-key':confirmationKey}};
+   const commandBody = {...prepared,contractVersion:2,packingCode:f.prefix};
+   const temporary = {houseCode:f.house,warehouseCode:f.warehouse,locationCode:f.location,eggDate:prepared.productionDate,
+     items:f.outputs.map(o=>({grade:o.grade,spec:o.specId,qty:o.eggs}))};
+   const cls = {get:(key:string)=>key==='dataScope'?f.scope:{username:f.prefix}} as never;
+   const governance = new InventorySourceModeService(ds,{get:(key:string)=>key==='dataScope'?{isGlobal:true}:{username:f.prefix}} as never);
+   const realMode = new InventorySourceModeService(ds,cls);
+   const egg = new EggInventoryService(ds,cls);
+   const inventory = new PackagingInventoryIntegrationService(ds,cls,egg,realMode);
+   const scopeProvider = {resolve:async()=>f.scope};
+   const openingMode = firstMode==='PACKAGING'?'PACKAGING_INBOUND':'TEMP_PRODUCTION_INBOUND';
+   const upcomingMode = firstMode==='PACKAGING'?'TEMP_PRODUCTION_INBOUND':'PACKAGING_INBOUND';
+   const assess = (newMode:typeof openingMode) => governance.assessSwitchRisk('SITE',f.farm,newMode);
+   const switchMode = (newMode:typeof openingMode,riskDigest:string) => governance.switchMode({
+     scopeLevel:'SITE',scopeCode:f.farm,newMode,confirmRisk:true,riskDigest,requestKey:randomUUID(),
+   });
+   if (firstMode==='TEMP_PRODUCTION') {
+     await switchMode(openingMode,(await assess(openingMode)).riskDigest);
+   } else {
+     await ds.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code=$1",[f.farm]);
+     const groupMode = await governance.resolveMode({});
+     expect((await assess(upcomingMode)).currentMode).toBe(groupMode);
+     await ds.query("INSERT INTO inv_source_mode(scope_level,scope_code,mode) VALUES ('COMPANY',$1,'PACKAGING_INBOUND')",[f.company]);
+   }
+   const plannedSwitch = await assess(upcomingMode);
+   expect(plannedSwitch).toMatchObject({currentMode:openingMode,canSwitch:true});
+
+   let releaseCommit!:()=>void;
+   let ready!:(pid:number)=>void;
+   const release = new Promise<void>(resolve => { releaseCommit=resolve; });
+   const readyToCommit = new Promise<number>(resolve => { ready=resolve; });
+   async function holdTransaction<T>(run:(manager:EntityManager)=>Promise<T>) {
+     return ds.transaction(async manager => {
+       const result = await run(manager);
+       const [row] = await manager.query('SELECT pg_backend_pid() AS pid');
+       ready(row.pid);
+       await release;
+       return result;
+     });
+   }
+   const paused = <T extends DataSource | EntityManager>(target:T):T => new Proxy(target,{
+     get(obj,key){if(key==='transaction')return holdTransaction;const value=Reflect.get(obj,key);return typeof value==='function'?value.bind(obj):value;},
+   });
+   const makePack = (em:EntityManager) => {
+     const scopedHistory = new PackagingHistoryService(em,scopeProvider as never);
+     const handover = new PackagingHandoverService(scopedHistory,new PackagingBoxService(),policy,inventory);
+     return new PackagingTerminalBffController(em,inventory,scopeProvider as never,handover);
+   };
+   const makeTemp = (source:DataSource) => new ProductionInboundService(
+     source,cls,egg,realMode,new OrgOwnershipService(ds.manager),new SkuAvailabilityService(ds),
+   );
+   const pack = makePack(ds.manager);
+   const temp = makeTemp(ds);
+   const postPack = () => pack.confirmHandover(commandBody,req);
+   const postTemp = () => temp.recordProductionInbound(temporary);
+   const posting = firstMode==='PACKAGING'
+     ? makePack(paused(ds.manager)).confirmHandover(commandBody,req)
+     : makeTemp(paused(ds)).recordProductionInbound(temporary);
+   const pending = posting.then(value=>({value}),error=>({error}));
+   const competitors: Promise<unknown>[] = [];
+   try {
+     const pid = await Promise.race([readyToCommit,pending.then(outcome=>{
+       if ('error' in outcome) throw outcome.error;
+       throw new Error('Posting committed before the concurrency barrier');
+     })]);
+     const competing = (firstMode==='PACKAGING'?postTemp():postPack()).then(value=>({value}),error=>({error}));
+     const switching = switchMode(upcomingMode,plannedSwitch.riskDigest).then(value=>({value}),error=>({error}));
+     competitors.push(competing,switching);
+     const observed = new Set<string>();
+     const expectedWaits = firstMode==='PACKAGING'?['entry','switch']:['switch'];
+     for (let attempt=0;attempt<120;attempt++) {
+       const active = await ds.query(`SELECT query FROM pg_stat_activity
+         WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid))`,[pid]);
+       for (const row of active) {
+         if (row.query.includes('phoenix:daily-house')) observed.add('entry');
+         if (row.query.includes('LOCK TABLE inv_source_mode')) observed.add('switch');
+       }
+       if (expectedWaits.every(wait=>observed.has(wait))) break;
+       await new Promise(resolve=>setTimeout(resolve,15));
+     }
+     expect([...observed].sort()).toEqual(expect.arrayContaining(expectedWaits));
+     releaseCommit();
+     expect(await pending).toHaveProperty('value');
+     expect(await competing).toHaveProperty('error');
+     const switchResult = await switching;
+     // The first stock movement may invalidate the reviewed risk snapshot. A
+     // fresh review may change configuration, while the physical route stays fixed.
+     if ('error' in switchResult) {
+       expect(switchResult.error).toMatchObject({status:409});
+       await switchMode(upcomingMode,(await assess(upcomingMode)).riskDigest);
+     }
+     await expect(firstMode==='PACKAGING'?postTemp():postPack()).rejects.toThrow('另一入库路径');
+
+     const evidence = await ds.query<Array<{batch_no:string;source_type:string;qty:number;ledger_id:string;change_type:string;qty_change:number}>>(`SELECT b.batch_no,b.source_type,b.qty::int AS qty,l.id::text AS ledger_id,
+       l.change_type,l.qty_change::int AS qty_change FROM inv_batches b
+       JOIN inv_ledger l ON l.batch_no=b.batch_no WHERE b.company_code=$1 ORDER BY b.qty DESC`,[f.company]);
+     expect(evidence).toHaveLength(2);
+     expect(evidence.map(r=>[r.source_type,r.qty,r.change_type,r.qty_change])).toEqual(
+       [30,20].map(qty=>[firstMode,qty,openingMode,qty]),
+     );
+     expect(await ds.query(`SELECT entry_mode FROM brd_egg_day_routes WHERE company_code=$1 AND house_code=$2 AND production_date=$3`,
+       [f.company,f.house,prepared.productionDate])).toEqual([{entry_mode:firstMode}]);
+     const [operation] = await ds.query(`SELECT e.payload FROM pkg_packing_events e WHERE e.packing_id=$1 AND e.event_type='COMMIT_RECEIPT'`,[f.packingId]);
+     expect(await counts()).toEqual(firstMode==='PACKAGING'?{batches:2,ledger:2,handovers:1}:{batches:0,ledger:0,handovers:0});
+     if (firstMode==='PACKAGING') {
+       expect(operation.payload.groups.map((group:any)=>[group.batchNo,group.ledgerId,group.qty]).sort()).toEqual(
+         evidence.map(row=>[row.batch_no,row.ledger_id,row.qty]).sort());
+       await expect(postPack()).resolves.toMatchObject({data:{handoverCode:operation.payload.handoverCode}});
+     } else {
+       expect(operation).toBeUndefined();
+       const result = await temp.temporaryAvailability(f.house,prepared.productionDate);
+       expect(result).toMatchObject({priorInbound:expect.arrayContaining(evidence.map(row=>expect.objectContaining({batchNo:row.batch_no,originalQty:row.qty})))});
+     }
+   } finally {
+     releaseCommit();
+     await Promise.allSettled([pending,...competitors]);
+   }
+ },25000);
+ it.each([0,1,2])('keeps the original shift and counts only one identifiable open line shift (%s eligible)',async eligible=>{
+   const lineCode=f.prefix+'-LINE';
+   await ds.query('UPDATE pkg_work_shifts SET line_id=$2 WHERE id=$1',[f.shiftId,lineCode]);
+   const inserted=await ds.query<Array<{id:string}>>(`INSERT INTO pkg_work_shifts(shift_code,production_date,site_id,line_id,status)
+     SELECT $1||'-'||n,'2026-01-03',$2,$3,'OPEN' FROM generate_series(1,$4::int) n RETURNING id::text`,
+   [f.prefix+'-NEXT',f.farm,lineCode,eligible]);
+   const body=await prepare();
+   const result=await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);
+   expect(result.originalShiftId).toBe(f.shiftId);
+   expect(result.handlingShiftId).toBe(eligible===1?inserted[0].id:null);
+   expect(await ds.query('SELECT shift_id::text FROM pkg_handover_records WHERE packing_code=$1',[f.prefix])).toEqual([{shift_id:f.shiftId}]);
+   expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ });
  it('reads CLOSED original record and only its linked sources without writing identities',async()=>{const d=await workflow.detail(f.prefix,f.req);expect(d.record).toMatchObject({productionDate:'2026-01-02',totalEggs:50,totalBoxes:2});expect(d.shift.status).toBe('CLOSED');expect(d.sources).toHaveLength(1);expect(d.boxes).toEqual([]);expect(d.handover.state).toBe('PENDING');});
  it('denies empty company/farm scope without leaking totalMatching',async()=>{f.scope.allowedCompanyCodes=[];expect((await history.list({},f.req)).totalMatching).toBe(0);await expect(workflow.detail(f.prefix,f.req)).rejects.toThrow('RECORD_NOT_ACCESSIBLE');});
  it('rejects invalid calendar date and altered cursor',async()=>{expect(()=>historyDate('2026-02-30')).toThrow();await expect(history.list({cursor:'garbage'},f.req)).rejects.toThrow();});
@@ -74,12 +214,38 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    await command('PRINT_RESULT',{requestId:request.eventId,type:'UNKNOWN'});
    for(const printType of ['NORMAL','REPRINT'])await expect(command('PRINT',{...body,printType,reason:'TEST retry'})).rejects.toThrow('PRINT_RESULT_UNRESOLVED');
    expect((await workflow.detail(f.prefix,f.req)).events.filter((e:any)=>e.event_type==='PRINT_REQUEST')).toHaveLength(1);
-   await command('PRINT_RESULT',{requestId:request.eventId,type:'FAILED'});
+   await expect(command('PRINT_RESULT',{requestId:request.eventId,type:'FAILED'})).rejects.toThrow('PRINT_RESULT_RECONCILIATION_REQUIRED');
+   const failedResult={requestId:request.eventId,type:'FAILED',physicalVerification:'CONFIRMED_ABSENT',reconciliationReason:'TEST operator inspected printer output tray'};
+   const resultKey=randomUUID();
+   const reconciled=await command('PRINT_RESULT',failedResult,resultKey);
+   expect(await command('PRINT_RESULT',failedResult,resultKey)).toEqual(reconciled);
+   await expect(command('PRINT_RESULT',{requestId:request.eventId,type:'DISPATCHED',physicalVerification:'CONFIRMED_PRESENT',reconciliationReason:'TEST contradictory second result'}))
+     .rejects.toThrow('PRINT_RESULT_ALREADY_RECORDED');
    await expect(command('PRINT',{...body,printType:'REPRINT',reason:'TEST known failure'})).resolves.toHaveProperty('eventId');
+   const otherBox=(await workflow.detail(f.prefix,f.req)).boxes[1],otherLabel=otherBox.labels.find((l:any)=>l.kind==='CANONICAL').code;
+   const ordinaryRequest=await command('PRINT',{boxId:otherBox.boxId,labelCode:otherLabel,printType:'NORMAL',copies:1,templateVersion:'TEST'});
+   await expect(command('PRINT_RESULT',{requestId:ordinaryRequest.eventId,type:'DISPATCHED'})).resolves.toHaveProperty('eventId');
  });
  it('Q gate rejects registration with no business changes',async()=>{const old=await policy.get(f.company,f.farm);policy.get=()=>({...old,Q:false,H:false});await expect(register()).rejects.toThrow('WORKFLOW_NOT_READY');expect((await workflow.detail(f.prefix,f.req)).boxes).toHaveLength(0);});
  it('commits original CLOSED date and all groups exactly once under concurrent retry',async()=>{const body=await prepare(),key=randomUUID();const r=await Promise.all([1,2].map(()=>workflow.command('CONFIRM',f.prefix,key,body,f.req)));expect(r[0]).toEqual(r[1]);expect(r[0].receiptState).toBe('RECORDED');expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
  await ds.query('UPDATE inv_batches SET qty_available=0 WHERE packaging_batch_ref=$1',[f.prefix]);expect((await workflow.detail(f.prefix,f.req)).handover.state).toBe('COMMITTED');expect(await workflow.command('CONFIRM',f.prefix,key,body,f.req)).toEqual(r[0]);});
+ it('stores every output ordinal on its exact posted group including multiple outputs that share a batch',async()=>{
+   const [first,second]=f.outputs;
+   f.outputs=[first,{...first},second];
+   await ds.query('UPDATE pkg_source_batches SET received_qty=80 WHERE batch_code=$1',[f.prefix]);
+   await ds.query('UPDATE pkg_grading_records SET total_output=80 WHERE code=$1',[f.prefix]);
+   await ds.query('UPDATE pkg_grading_source_links l SET input_qty=80 FROM pkg_grading_records g WHERE l.grading_id=g.id AND g.code=$1',[f.prefix]);
+   await ds.query('UPDATE pkg_packing_records SET batches_json=$2,total_eggs=80,total_boxes=3 WHERE id=$1',[f.packingId,JSON.stringify(f.outputs)]);
+   const body=await prepare(),key=randomUUID();
+   const receipt=await workflow.command('CONFIRM',f.prefix,key,body,f.req);
+   expect(receipt.groups).toEqual(expect.arrayContaining([
+     expect.objectContaining({skuCode:first.skuCode,qty:60,outputOrdinals:[0,1],batchNo:expect.any(String),ledgerId:expect.any(String)}),
+     expect.objectContaining({skuCode:second.skuCode,qty:20,outputOrdinals:[2],batchNo:expect.any(String),ledgerId:expect.any(String)}),
+   ]));
+   expect(receipt.groups).toHaveLength(2);
+   expect((await workflow.command('CONFIRM',f.prefix,key,body,f.req)).groups).toEqual(receipt.groups);
+   expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ });
  it('same operation key cannot change receiver',async()=>{const body=await prepare(),key=randomUUID();await workflow.command('CONFIRM',f.prefix,key,body,f.req);await expect(workflow.command('CONFIRM',f.prefix,key,{...body,receiverUserId:'999'},f.req)).rejects.toThrow('IDEMPOTENCY_CONFLICT');expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});});
  it('rejects missing HANDOVER scans, wrong date and receiver without inventory',async()=>{const body=await prepare();for(const changed of [{verificationIds:[]},{productionDate:'2026-01-03'},{receiverUserId:'99999999'}])await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),{...body,...changed},f.req)).rejects.toThrow();expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});});
  it('keeps events append-only at database level',async()=>{await register();await expect(ds.query("UPDATE pkg_packing_events SET payload='{}' WHERE packing_id=$1",[f.packingId])).rejects.toThrow('PACKING_EVENTS_APPEND_ONLY');});
@@ -97,6 +263,20 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    expect(daily.days).toMatchObject([{date:'2026-01-02',totalEggs:50},{date:'2026-01-03',totalEggs:0}]);
  });
  it('reports exact original day quantities independently of current inventory',async()=>{const report=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'SHIFT',shiftId:f.shiftId},f.req);expect(report).toMatchObject({totalEggs:50,totalBoxes:2,basis:'TERMINAL_RECORDS'});});
+ it('adds scoped shift grading outputs to the canonical daily summary without changing posting totals',async()=>{
+   const other=await packingHistoryFixture(ds);
+   await ds.query(`UPDATE pkg_grading_records SET outputs_json=$2::jsonb WHERE code=$1`,[f.prefix,JSON.stringify({GRADE_5:30,GRADE_4:20})]);
+   await ds.query(`UPDATE pkg_grading_records SET outputs_json=$2::jsonb WHERE code=$1`,[other.prefix,JSON.stringify({GRADE_0:50})]);
+   const daily=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'},f.req);
+   expect(daily).toMatchObject({totalEggs:50,totalBoxes:2,shiftPackedEggs:50,gradingOutputs:{GRADE_5:30,GRADE_4:20},records:[{code:f.prefix}]});
+   expect(daily.records).toHaveLength(1);
+   const shift=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'SHIFT',shiftId:f.shiftId},f.req);
+   expect(shift).toMatchObject({totalEggs:50,totalBoxes:2,shiftPackedEggs:50,gradingOutputs:{GRADE_5:30,GRADE_4:20},records:[{code:f.prefix}]});
+   expect(shift.records).toHaveLength(1);
+   await ds.query("UPDATE pkg_packing_records SET status='VOID' WHERE id=$1",[f.packingId]);
+   const gradingOnly=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'},f.req);
+   expect(gradingOnly).toMatchObject({totalEggs:0,gradingEggs:50,gradingOutputs:{GRADE_5:30,GRADE_4:20},records:[]});
+ });
  it('SQL list, detail and summary retain the same committed snapshot after current quantity evolution',async()=>{
    const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);
    await ds.query('UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE packaging_batch_ref=$1',[f.prefix]);
@@ -175,11 +355,12 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    const [today]=await ds.query('SELECT CURRENT_DATE::text date');
    for(const table of ['pkg_packing_records','pkg_grading_records','pkg_source_batches'])await ds.query(`UPDATE ${table} SET production_date=$2 WHERE shift_id=$1`,[f.shiftId,today.date]);
    await ds.query('UPDATE pkg_work_shifts SET production_date=$2 WHERE id=$1',[f.shiftId,today.date]);
+   await ds.query("UPDATE wms_warehouses SET type='EGG_FARM' WHERE warehouse_code=$1",[f.warehouse]);
    const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);const before=await workflow.detail(f.prefix,f.req);
    const [order]=await ds.query(`INSERT INTO sal_sales_orders(order_no,company_code) VALUES($1,$2) RETURNING id::text`,[f.prefix,f.company]);
    for(const o of f.outputs)await ds.query(`INSERT INTO sal_order_items(sales_order_id,product_code,sku_code,qty,unit_price,amount) VALUES($1,$2,$3,$4,1,$4)`,[order.id,f.prefix,o.skuCode,o.eggs]);
    const [delivery]=await ds.query(`INSERT INTO sal_delivery_orders(delivery_no,company_code) VALUES($1,$2) RETURNING id::text`,[f.prefix,f.company]);
-   const inv=new EggInventoryService(ds,{get:()=>({username:f.prefix})} as any);
+   const inv=new EggInventoryService(ds,{get:(key:string)=>key==='dataScope'?f.scope:{username:f.prefix}} as any);
    await ds.transaction(async db=>{await inv.reserveInventory(order.id,f.prefix,f.company,db,f.warehouse);await inv.confirmOutbound(order.id,f.prefix,f.company,f.prefix,delivery.id,50,db);});
    const after=await workflow.detail(f.prefix,f.req);expect(after.handover).toMatchObject({state:'COMMITTED',currentInventoryQuality:'UNKNOWN'});expect(after.inventory.batches.every((b:any)=>Number(b.qty)===0&&Number(b.qty_available)===0)).toBe(true);
    expect(after.receipt.evidence[0].payload).toEqual(before.receipt.evidence[0].payload);
@@ -260,6 +441,47 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    expect(await history.summary(q,f.req)).toMatchObject({totalEggs:100,totalBoxes:4,gradingEggs:100});
    expect(await history.summary({...q,aggregation:'SHIFT',shiftId:f.shiftId},f.req)).toMatchObject({totalEggs:50,totalBoxes:2});
    await ds.query(`UPDATE pkg_packing_records SET status='VOID' WHERE id=$1`,[other.packingId]);expect(await history.summary(q,f.req)).toMatchObject({totalEggs:50,totalBoxes:2,voidCount:1});
+ });
+ it('authorizes exact shift reports through any complete menu scope',async()=>{
+   const denied={...f.scope,allowedCompanyCodes:[],allowedFarmCodes:[],allowedWarehouseCodes:[]};
+   const granted={...f.scope};
+   const scopes={resolve:async(_id:string,_roles:string[],menu:string)=>menu==='MENU_PKG_OP'?denied:granted};
+   const scoped=new PackagingHistoryService(ds.manager,scopes as any);
+   const req={...f.req,user:{...f.req.user,permissions:['MENU_PKG_OP:V','MENU_PKG_MGR:V']}};
+   const report=await scoped.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'SHIFT',shiftId:f.shiftId},req);
+   expect(report).toMatchObject({totalEggs:50,totalBoxes:2,shiftIds:[f.shiftId]});
+ });
+ it('reports original production date separately from the shift date',async()=>{
+   await ds.query('UPDATE pkg_work_shifts SET production_date=$2 WHERE id=$1',[f.shiftId,'2026-01-03']);
+   await ds.query('UPDATE pkg_packing_records SET production_date=$2 WHERE id=$1',[f.packingId,'2026-01-02']);
+   const report=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-03',aggregation:'DAY'},f.req);
+   expect(report.records[0]).toMatchObject({shiftId:f.shiftId,shiftDate:'2026-01-03',productionDate:'2026-01-02'});
+   expect(report.days).toContainEqual({date:'2026-01-02',totalEggs:50,totalBoxes:2});
+ });
+ it('holds pending handover after a site mode switch when original day has a TEMP route',async()=>{
+   await ds.query(`INSERT INTO brd_egg_day_routes(company_code,house_code,production_date,entry_mode) VALUES($1,$2,'2026-01-02','TEMP_PRODUCTION')`,[f.company,f.house]);
+   const switched=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'},f.req);
+   expect(switched.records[0]).toMatchObject({inventoryMode:'PACKAGING_INBOUND',handoverEligible:false});
+ });
+ it('holds pending handover when TEMP stock for the original day has no identifiable house',async()=>{
+   const body=await prepare();
+   await ds.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,source_type,source_no,egg_date,qty,qty_available)
+     VALUES($1,$2,$3,'TEMP_PRODUCTION','TEMP-2026-01-02-UNKNOWN','2026-01-02',50,50)`,[f.prefix+'-TEMP-UNKNOWN',f.company,f.warehouse]);
+   const unknownOrigin=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'},f.req);
+   expect(unknownOrigin.records[0]).toMatchObject({inventoryMode:'PACKAGING_INBOUND',handoverEligible:false});
+   await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)).rejects.toThrow('同一产蛋来源已有另一入库路径');
+   const [counts]=await ds.query(`SELECT (SELECT count(*)::int FROM inv_batches WHERE packaging_batch_ref=$1) batches,
+     (SELECT count(*)::int FROM inv_ledger WHERE ref_no=$1) ledger,
+     (SELECT count(*)::int FROM pkg_packing_events WHERE packing_id=$2 AND event_type='COMMIT_RECEIPT') receipts`,[f.prefix,f.packingId]);
+   expect(counts).toEqual({batches:0,ledger:0,receipts:0});
+ });
+ it('checks immutable receipt warehouse scope even after its current batch and ledger evidence is gone',async()=>{
+   const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);
+   await ds.query('DELETE FROM inv_ledger WHERE ref_no=$1',[f.prefix]);
+   await ds.query('DELETE FROM inv_batches WHERE packaging_batch_ref=$1',[f.prefix]);
+   const restricted={...f.scope,allowedWarehouseCodes:[]};
+   const scoped=new PackagingHistoryService(ds.manager,{resolve:async()=>restricted} as any);
+   expect(await scoped.rows(restricted,ds.manager,f.prefix)).toHaveLength(0);
  });
  it('registers 101 boxes with distinct stable canonical identities',async()=>{
    const output={...f.outputs[0],boxes:101,eggs:3030};await ds.query('UPDATE pkg_packing_records SET batches_json=$2,total_boxes=101,total_eggs=3030 WHERE id=$1',[f.packingId,JSON.stringify([output])]);

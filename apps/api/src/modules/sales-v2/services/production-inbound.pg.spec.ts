@@ -359,7 +359,9 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-SHARED' }),
       service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'DAILY-2026-10-17-HOUSE-B-SHARED' }),
       core.createProductionBatch(direct),
-      db.transaction(manager => core.createProductionBatch({ ...direct, sourceType: 'PACKAGING',
+      // Share the date's numbering sequence without competing for HOUSE-A's stock route.
+      db.transaction(manager => core.createProductionBatch({ ...direct, houseCode: 'HOUSE-A2',
+        sourceProfileCode: 'PROFILE-A2', productCode: 'PRD-STD', skuCode: 'SKU-STD', varietyCode: null, sourceType: 'PACKAGING',
         ledgerChangeType: 'PACKAGING_INBOUND', packagingBatchRef: 'FIXTURE-PKG' }, manager)),
     ]);
     expect(results).toHaveLength(4);
@@ -412,8 +414,13 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       return (packing as any).createSaleableBatch('COMP-A','2026-11-11','GRADE_1',50,'FIXTURE-PACKING',null,'LOOSE','SKU-GRADE_1','PRD-EGG-RAW','EGG_RED',
         [{profileCode:'PROFILE-A',houseCode:'HOUSE-A'}],'AVAILABLE',{manager,warehouseCode:'WH-A',locationCode:'LOC-A'});
     });
-    const results=await Promise.allSettled([production,packaged]);expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
-    const failure=results.find(r=>r.status==='rejected') as PromiseRejectedResult;expect(String(failure.reason.message)).toContain('两路重复入账');
+    const results = await Promise.allSettled([production, packaged]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const failure = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+    expect(failure.reason).toMatchObject({
+      status: 409,
+      message: expect.stringMatching(/^同一产蛋来源.*另一入库路径.*禁止(?:两路重复入账|重复入库)$/),
+    });
     expect(await counts()).toEqual({batches:1,events:1});
     expect(Number((await db.query('SELECT COUNT(*) AS n FROM inv_flock_source_links'))[0].n)).toBe(1);
     expect((await db.query('SELECT quantity FROM brd_egg_source_receipts'))).toHaveLength(1);

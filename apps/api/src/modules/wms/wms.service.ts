@@ -2585,6 +2585,10 @@ export class WmsService {
     const empty = { totalCount: 0, activeCount: 0, totalQtyKg: 0, expiringCount: 0, gradeBuckets: { AA: 0, A: 0, B: 0, C: 0 }, recent: [] as any[] };
     try {
       const scope = this.warehouseScope('b.warehouse_code', 0);
+      const dataScope = this.cls.get<DataScopeContext>('dataScope');
+      const companyParam = `$${scope.params.length + 1}::text[]`;
+      const params = [...scope.params, dataScope?.isGlobal ? null : dataScope?.allowedCompanyCodes ?? []];
+      const company = `(${companyParam} IS NULL OR b.company_code=ANY(${companyParam}))`;
       const rows: any[] = await this.em.query(
         `SELECT b.*,
                 COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
@@ -2596,8 +2600,8 @@ export class WmsService {
            LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
-          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${officialInventoryPredicate('b')} AND ${scope.sql}`,
-        scope.params,
+          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${officialInventoryPredicate('b')} AND ${scope.sql} AND ${company}`,
+        params,
       );
       const isActive = (s?: string) => !s || s === 'AVAILABLE' || s === 'LOCKED';
       const remainingDays = (b: any): number | null => {

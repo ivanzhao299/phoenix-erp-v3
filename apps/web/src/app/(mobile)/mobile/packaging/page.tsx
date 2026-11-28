@@ -500,4 +500,4 @@ function LegacyMobilePackagingPage() {
   );
 }
 
-export default function ProductionReportRoute(){return <PackingProductionReport/>;}
+export default function ProductionReportRoute(){return <PackingProductionReport historyPath="/terminal/packaging/history"/>;}

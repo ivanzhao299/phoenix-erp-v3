@@ -6,6 +6,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useDictOptions } from "@/hooks/useDictOptions";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
+import TraceabilityLabelResult from "@/components/traceability/TraceabilityLabelResult";
 
 /**
  * 全链追溯（R5 统一追溯 Runtime）
@@ -153,7 +154,9 @@ export default function TraceabilityPage() {
     try {
       const r = await request<any>(`/traceability/${entry.path}/${encodeURIComponent(value.trim())}`);
       setData(r);
-      if (r && r.found === false) setError(r.denied ? r.reason || t('ui.无权查看','无权查看') : t('ui.未找到追溯记录','未找到追溯记录'));
+      if (r && r.found === false) setError(r.registryState === 'RETIRED'
+        ? t('ui.箱码已作废', '箱码已作废')
+        : r.denied ? r.reason || t('ui.无权查看','无权查看') : t('ui.未找到追溯记录','未找到追溯记录'));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('ui.查询失败','查询失败'));
     } finally {
@@ -445,7 +448,7 @@ export default function TraceabilityPage() {
           fontSize: 13
         }}>{t('ui.暂无关联库存批次（可能尚未分配/出库）','暂无关联库存批次（可能尚未分配/出库）')}</div>}
             </>}
-          {data.entry === "label" && <>{<Section icon={<Tag size={14} />} title={t('ui.标签','标签')}><KV k={t('ui.标签号','标签号')} v={data.label?.label_no} /><KV k={t('ui.库存批次','库存批次')} v={data.label?.batch_no} /><KV k={t('ui.打印时间','打印时间')} v={data.label?.printed_at} /></Section>}{renderTree(data.trace)}</>}
+          {data.entry === "label" && <TraceabilityLabelResult data={data} />}
           {data.entry === "customer" && <>
               <Section icon={<Users size={14} />} title={`${t('ui.客户','客户')} ${data.key} · ${t('ui.历史订单','历史订单')}`}>
                 <Table rows={data.orders} cols={[{

@@ -13,6 +13,8 @@ import { FarmController } from '../farm/farm.controller';
 import { FarmService } from '../farm/farm.service';
 import { InventorySourceController } from '../sales-v2/controllers/inventory-source.controller';
 import { ProductionInboundService } from '../sales-v2/services/production-inbound.service';
+import { GovernPackagingGradingSubmissions1789012800000 } from '../../database/migrations/1789012800000-GovernPackagingGradingSubmissions';
+import { ProtectPackagingVoidAndTestIsolation1789099201000 } from '../../database/migrations/1789099201000-ProtectPackagingVoidAndTestIsolation';
 import { EggSourceProfiles1794400001000 } from '../../database/migrations/1794400001000-EggSourceProfiles';
 import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
@@ -99,6 +101,11 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      CREATE TABLE IF NOT EXISTS brd_egg_day_routes (
+        company_code text NOT NULL, house_code text NOT NULL, production_date date NOT NULL,
+        entry_mode text NOT NULL CHECK (entry_mode IN ('TEMP_PRODUCTION','PACKAGING')),
+        PRIMARY KEY(company_code,house_code,production_date)
+      );
       -- SkuAvailabilityService SKU 就绪链所需主数据（g202 末态）
       ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS org_context_required boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS effective_date date, ADD COLUMN IF NOT EXISTS expire_date date;
       CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text, unit text, unit_zh text, variety_code text);
@@ -127,8 +134,11 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     {
       const sourceRunner = db.createQueryRunner();
       await sourceRunner.connect();
-      try { if (!(await sourceRunner.hasTable('md_egg_source_profiles'))) await new EggSourceProfiles1794400001000().up(sourceRunner); }
-      finally { await sourceRunner.release(); }
+      try {
+        if (!(await sourceRunner.hasTable('md_egg_source_profiles'))) await new EggSourceProfiles1794400001000().up(sourceRunner);
+        if (!(await sourceRunner.hasTable('pkg_grading_source_links'))) await new GovernPackagingGradingSubmissions1789012800000().up(sourceRunner);
+        if (!(await sourceRunner.hasTable('pkg_packing_records'))) await new ProtectPackagingVoidAndTestIsolation1789099201000().up(sourceRunner);
+      } finally { await sourceRunner.release(); }
     }
     await db.query(`INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚',NULL) ON CONFLICT DO NOTHING;
       INSERT INTO product_grades VALUES ('GRADE_1','ACTIVE',1,true) ON CONFLICT DO NOTHING;
@@ -198,7 +208,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
 
   afterAll(async () => { await app?.close(); await db?.destroy(); });
   beforeEach(async () => {
-    await db.query('TRUNCATE brd_daily_logs, inv_ledger, inv_batches RESTART IDENTITY');
+    await db.query('TRUNCATE brd_daily_logs, inv_ledger, inv_batches, brd_egg_day_routes RESTART IDENTITY');
     await db.query("UPDATE fixture_users SET store_code='LPH_FARM_A' WHERE id=40101");
     users.forEach(user => scopes.invalidate(String(user.id)));
   });
@@ -368,6 +378,8 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect(new Set(retry.batches.map((row:{batchNo:string})=>row.batchNo)).size).toBe(1);
     expect((await db.query('SELECT count(*)::int AS count FROM inv_batches'))[0].count).toBe(1);
     expect((await db.query('SELECT count(*)::int AS count FROM inv_ledger'))[0].count).toBe(1);
+    expect(await db.query('SELECT company_code,house_code,production_date::text,entry_mode FROM brd_egg_day_routes'))
+      .toEqual([{ company_code:'COMP-A', house_code:'HOUSE-A', production_date:businessDate, entry_mode:'TEMP_PRODUCTION' }]);
     expect((await read(40101,query).expect(200)).body.data).toEqual(saved);
     expect((await read(40103,query).expect(200)).body.data).toEqual([]);
     await request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(40101),{type:'bearer'})

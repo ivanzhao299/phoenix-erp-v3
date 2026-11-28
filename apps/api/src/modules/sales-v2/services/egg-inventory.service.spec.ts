@@ -1032,6 +1032,7 @@ describe('EggInventoryService getInventoryValuation (INV-401)', () => {
     const query = jest.fn(async () => [
       { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'VALUABLE', qty: 100, total_cost: 250.5, batch_count: 2 },
       { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'FROZEN_LIKE', qty: 10, total_cost: 12, batch_count: 1 },
+      { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-PACK', bucket: 'COST_PENDING', qty: 30, total_cost: null, batch_count: 1 },
     ]);
     const clsGet = jest.fn((key: string) => (key === 'dataScope'
       ? { isGlobal: false, allowedCompanyCodes: ['COMP-A'] }
@@ -1047,6 +1048,8 @@ describe('EggInventoryService getInventoryValuation (INV-401)', () => {
     // INV-203 口径：排除 legacy_source 旧库存
     expect(String(sql)).toContain('b.legacy_source IS NULL');
     expect(String(sql)).toContain('SUM(b.qty * b.unit_cost)');
+    expect(String(sql)).toContain("COALESCE(to_jsonb(b)->>'source_type','') <> 'PACKAGING'");
+    expect(String(sql)).toContain("packaging_cost_q.cost_status='CONFIRMED'");
     expect(String(sql)).toMatch(/GROUP BY b\.company_code, b\.warehouse_code/);
     // scope 过滤与仓库过滤均走绑定参数（$1 公司数组 / $2 仓库）
     expect(params[0]).toEqual(['COMP-A']);
@@ -1054,9 +1057,11 @@ describe('EggInventoryService getInventoryValuation (INV-401)', () => {
     // 分桶汇总
     expect(result.summary.valuable).toEqual({ qty: 100, totalCost: 250.5, batchCount: 2 });
     expect(result.summary.frozenLike).toEqual({ qty: 10, totalCost: 12, batchCount: 1 });
-    expect(result.rows).toHaveLength(2);
+    expect(result.rows).toHaveLength(3);
     expect(result.rows[0].bucket).toBe('VALUABLE');
     expect(result.rows[1].bucket).toBe('FROZEN_LIKE');
+    expect(result.rows[2]).toMatchObject({bucket:'COST_PENDING',qty:30,totalCost:null,batchCount:1});
+    expect(result.summary.costPending).toEqual({qty:30,batchCount:1});
   });
 
   it('fails closed to an empty summary when a scoped user requests an out-of-scope company', async () => {

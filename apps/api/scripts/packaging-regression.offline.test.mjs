@@ -13,12 +13,14 @@ const root=path.resolve(directory,'../../..');
 const source=fs.readFileSync(path.join(directory,'packaging-regression.sh'),'utf8');
 const setup=source.slice(0,source.indexOf('cyan "▶ T1:'));
 const apiRequire=createRequire(path.join(root,'apps/api/package.json'));
+const generatedHouse='HSE-0123456789ABCDEF0123';
 const mock=`#!/usr/bin/env node
 const fs=require('node:fs');const path=require('node:path');
 const args=process.argv.slice(2),tool=path.basename(process.argv[1]);
 fs.appendFileSync(process.env.MOCK_RECORD,JSON.stringify({tool,args})+'\\n');
 if(tool==='psql') {
  if(process.env.SQL_FAIL) {console.error('offline SQL failure');process.exit(3);}
+ if(args.includes('-c')&&args[args.indexOf('-c')+1].includes("shobj_description(oid,'pg_database')")) {console.log('phoenix-ci-breeding-regression');process.exit(0);}
  const sql=args[args.indexOf('-c')+1];
  if(sql.includes('FROM sys_organizations')) console.log(process.env.ORG_CONTEXT??'COMP-TEST|SITE-TEST');
  else if(sql.includes('SELECT COUNT(*) FROM pkg_shifts')) console.log(process.env.SOURCE_COUNT??'2');
@@ -34,7 +36,8 @@ if(calls.length===Number(process.env.FAIL_AT||0)) {
 if(url.endsWith('/packaging/shifts')) {
  const id=process.env.DUPLICATE_SHIFT?'17':(calls.length===3?'17':'18');
  console.log(JSON.stringify({code:200,data:{id:Number(id)}}));
-} else console.log('{"msg":"Created successfully"}');
+} else if(url.endsWith('/crud/brd_houses')) console.log(JSON.stringify({houseCode:'${generatedHouse}'}));
+else console.log('{"msg":"Created successfully"}');
 process.stdout.write('201');
 `;
 function runSetup(overrides={}) {
@@ -43,10 +46,11 @@ function runSetup(overrides={}) {
   for(const tool of ['curl','psql']) fs.writeFileSync(path.join(tmp,tool),mock,{mode:0o700});
   const record=path.join(tmp,'calls.jsonl');
   const env={...process.env,PATH:tmp+path.delimiter+process.env.PATH,PSQL:path.join(tmp,'psql'),
-   MOCK_RECORD:record,API_URL:'http://offline.invalid',DB_NAME:'packaging_offline_db'};
+   MOCK_RECORD:record,API_URL:'http://127.0.0.1:3100',DB_NAME:'phoenix_erp',CI:'true',PGHOST:'127.0.0.1'};
+  delete env.PGPORT;
   for(const key of ['SQL_FAIL','ORG_CONTEXT','SOURCE_COUNT','FAIL_AT','TRANSPORT_FAIL','DUPLICATE_SHIFT']) delete env[key];
   Object.assign(env,overrides);
-  const result=spawnSync('bash',['-c',setup],{env,encoding:'utf8',timeout:15000});
+  const result=spawnSync('bash',['-c',setup],{env,encoding:'utf8',timeout:15000,cwd:root});
   assert.ifError(result.error);
   const rows=fs.existsSync(record)?fs.readFileSync(record,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
   return {result,rows,payloads:rows.filter(row=>row.tool==='curl'&&row.args.includes('-d')&&!row.args.some(arg=>arg.endsWith('/auth/login')))
@@ -84,7 +88,7 @@ function realGuard() {
 }
 function guardFixture(payloads,profiles=[],batches=[]) {
  const farm=payloads.find(row=>row.route.endsWith('/brd_farms')).body;
- const house=payloads.find(row=>row.route.endsWith('/brd_houses')).body;
+ const house={...payloads.find(row=>row.route.endsWith('/brd_houses')).body,house_code:generatedHouse};
  const shifts=payloads.filter(row=>row.route.endsWith('/packaging/shifts')).map((row,index)=>({...row.body,id:17+index}));
  const rows=[];
  const Guard=realGuard();
@@ -113,7 +117,7 @@ test('setup creates farm/house plus two distinct real legacy shifts without prin
  for(const retired of ['company_code','site_code','store_code']) assert(!(retired in f.house));
  assert.deepEqual(f.shifts.map(shift=>shift.house_code),[f.house.house_code,f.house.house_code]);
  for(const row of rows.filter(row=>row.tool==='psql')) {
-  assert(row.args.includes('packaging_offline_db'));assert(row.args.includes('ON_ERROR_STOP=1'));
+  assert(row.args.includes('phoenix_erp'));assert(row.args.includes('ON_ERROR_STOP=1'));
  }
 });
 test('the real legacy gate accepts the persisted unconfigured setup and linked PACKING sources',async()=>{

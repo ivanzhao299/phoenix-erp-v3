@@ -308,6 +308,12 @@ export const featureMigrations = Object.freeze([
     effective_name: 'EnsureFinanceApPaymentAllocations1795719000000',
     timestamp: 1795719000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795800000000-PackagingShiftCloseSnapshot.js',
+    class_name: 'PackagingShiftCloseSnapshot1795800000000',
+    effective_name: 'PackagingShiftCloseSnapshot1795800000000',
+    timestamp: 1795800000000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

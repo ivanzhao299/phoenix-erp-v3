@@ -1,3 +1,4 @@
+import { claimInitialEggInventoryRoute } from './initial-egg-inventory-route';
 import { resolvePackagingIdentity, resolvePackagingSourceContext, PackagingIdentity } from '../../bff/packaging-readiness';
 import { assertPackingCanEnterInventory, lockPacking } from '../../bff/packaging-protection';
 import { Injectable, Logger, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
@@ -192,10 +193,14 @@ export class PackagingInventoryIntegrationService {
 
     // 包装完成遵守库存来源模式互斥：TEMP 模式由日产蛋入库负责库存，
     // 成品交接只落交接记录；PACKAGING 模式才由本链路生成可售库存。
+    const switchScopes = await db.query(`SELECT state FROM production_cutover_scopes
+      WHERE company_code=$1 AND house_code=ANY($2::text[])
+      ORDER BY id FOR SHARE`, [companyCode, context.houseCodes]);
+    if (switchScopes.some((scope: { state: string }) => scope.state !== 'DRAFT')) {
+      throw new ConflictException('包装来源已进入正式切换范围，请按正式生产流程核对原单');
+    }
     const modeScope = { siteCode: context.farmCode, companyCode };
-    const mode = opts?.manager
-      ? await this.modeSvc.resolveMode(modeScope, opts.manager)
-      : await this.modeSvc.resolveMode(modeScope);
+    const mode = await this.modeSvc.resolveMode(modeScope, db, { failClosed: true });
     if (mode !== 'PACKAGING_INBOUND' && !opts?.requireInventory) {
       this.logger.log(`[PkgInv] 包装批次 ${refNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
       return {
@@ -206,6 +211,7 @@ export class PackagingInventoryIntegrationService {
     }
     if (mode !== 'PACKAGING_INBOUND') throw new ConflictException('当前来源模式禁止包装生成库存');
 
+    await claimInitialEggInventoryRoute(db, context, 'PACKAGING');
     const eggDate = opts.eggDate;
     const collectionRef = opts?.collectionRef ?? null;
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }> = [];
@@ -314,7 +320,7 @@ export class PackagingInventoryIntegrationService {
    */
   async completeTerminalPacking(
     packingCode: string,
-    opts?: { companyCode?: string; warehouseCode?: string; locationCode?: string; manager?: EntityManager; outputBindings?: Array<PackagingIdentity & {outputOrdinal:number;qty:number;boxes:number}> },
+    opts?: { companyCode?: string; warehouseCode?: string; locationCode?: string; manager?: EntityManager; requireInventory?: boolean; outputBindings?: Array<PackagingIdentity & {outputOrdinal:number;qty:number;boxes:number}> },
   ): Promise<{
     refNo: string;
     idempotent: boolean;
@@ -373,6 +379,7 @@ export class PackagingInventoryIntegrationService {
       siteCode: rec.site_id ?? null,
       eggDate,
       postingDate:clock.day,
+      requireInventory: opts.requireInventory,
       collectionRef,
       warehouseCode: opts?.warehouseCode,
       locationCode: opts?.locationCode,

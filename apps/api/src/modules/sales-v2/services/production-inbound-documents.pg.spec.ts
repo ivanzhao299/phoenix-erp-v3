@@ -42,7 +42,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     evidenceFileIds:['FILE-HANDOVER'],items:[{ gradeCode,quantity,specCode:'LOOSE' }] });
   beforeAll(async () => {
     const parsed = new URL(url!);
-    if (parsed.hostname !== '127.0.0.1' || !['/installments_fixture','/phoenix_temp_reversal_fixture'].includes(parsed.pathname)) throw new Error('Owned loopback fixture required');
+    if (parsed.hostname !== '127.0.0.1' || !['/installments_fixture','/phoenix_temp_reversal_fixture','/packaging_p4_cost'].includes(parsed.pathname)) throw new Error('Owned loopback fixture required');
     db = await new DataSource({ type:'postgres',url,entities:[],synchronize:false,migrationsRun:false,installExtensions:false,
       extra:{ options:`-c search_path=${schema}`,max:10 } }).initialize();
     const [{ server_version:version }] = await db.query('SHOW server_version');
@@ -719,9 +719,10 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       const value=await inv.getInventoryValuation({companyCode:'COMP-A',warehouseCode:'WH-A'});
       expect(value.summary.costPending).toEqual({qty:80,batchCount:1});
       expect(value.rows[0].totalCost).toBeNull();
-      const kpis=await new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-A',warehouseCode:'WH-A'});
+      const analyticsScope={isGlobal:false,scopeLevel:'COMPANY',allowedCompanyCodes:['COMP-A'],allowedWarehouseCodes:['WH-A']} as any;
+      const kpis=await new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-A',warehouseCode:'WH-A'},analyticsScope);
       expect(kpis.capitalOccupation).toBeNull();expect(kpis.costPendingBatches).toBe(1);expect(kpis.costPendingQuantity).toBe(80);
-      expect((await new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-B',warehouseCode:'WH-A'})).capitalOccupation).toBe(0);
+      await expect(new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-B',warehouseCode:'WH-A'},analyticsScope)).rejects.toThrow();
     } finally { await db.query('UPDATE inv_batches SET unit_cost=0; ALTER TABLE inv_batches ALTER COLUMN unit_cost SET NOT NULL'); }
   });
 
@@ -737,6 +738,11 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     expect((await db.query("SELECT cost_change::numeric AS value FROM inv_ledger WHERE change_type='PRODUCTION_INBOUND_REVERSAL'"))[0].value).toBe('0.000000');
     await expect(db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
       VALUES($1,'COMP-A','WH-A','PRODUCTION_INBOUND_REVERSAL',-20,0,$2)`,[line.batch_no,r.document_no])).rejects.toThrow('COST_CLEARANCE_HOLD');
+  });
+  it('does not treat an ordinary packaging default zero as documented cost', async () => {
+    const [row] = await db.query(`SELECT ${officialInventoryCostKnownPredicate('packaging')} AS cost_known
+      FROM (VALUES($1::text,0::numeric,'PACKAGING'::text)) AS packaging(batch_no,unit_cost,source_type)`, [`PACKAGING-DEFAULT-ZERO-${randomUUID()}`]);
+    expect(row.cost_known).toBe(false);
   });
   it('invalidates an approved reversal when qualification changes with the same unit cost',async()=>{
     const original=await ready();await post(original);

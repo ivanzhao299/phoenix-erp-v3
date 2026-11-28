@@ -36,3 +36,43 @@ describe('SalesAnalyticsService price anomaly read contract', () => {
     expect(params).toEqual([0.07, 12, ['COMP-A']]);
   });
 });
+
+
+describe('SalesAnalyticsService inventory turnover scope', () => {
+  it('intersects an explicit company filter with both company and warehouse scope on every query', async () => {
+    const ds = { query: jest.fn(async () => [{}]) };
+    const cls = { get: jest.fn(() => ({
+      isGlobal: false,
+      allowedCompanyCodes: ['COMP-A', 'COMP-B'],
+      allowedWarehouseCodes: ['WH-A'],
+    })) };
+    const service = new SalesAnalyticsService(ds as never, cls as never);
+
+    await service.getInventoryTurnover('COMP-A');
+
+    expect(ds.query).toHaveBeenCalledTimes(4);
+    for (const [sql, params] of ds.query.mock.calls as unknown as [string, unknown[]][]) {
+      expect(sql).toContain('company_code = ANY(');
+      expect(sql).toContain('warehouse_code = ANY(');
+      expect(params).toEqual([['COMP-A', 'COMP-B'], ['WH-A'], 'COMP-A']);
+    }
+  });
+
+  it('returns empty scoped metrics when the requested company or warehouse scope is unavailable', async () => {
+    const ds = { query: jest.fn(async () => [{}]) };
+    const cls = { get: jest.fn(() => ({
+      isGlobal: false,
+      allowedCompanyCodes: ['COMP-A'],
+      allowedWarehouseCodes: [],
+    })) };
+    const service = new SalesAnalyticsService(ds as never, cls as never);
+
+    await service.getInventoryTurnover('COMP-B');
+
+    expect(ds.query).toHaveBeenCalledTimes(4);
+    for (const [sql, params] of ds.query.mock.calls as unknown as [string, unknown[]][]) {
+      expect(sql).toContain('AND 1=0');
+      expect(params).toEqual([]);
+    }
+  });
+});

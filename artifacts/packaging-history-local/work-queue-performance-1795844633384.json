@@ -1,0 +1,226 @@
+{
+  "generatedAt": "2026-11-28T05:43:53.383Z",
+  "identity": {
+    "database": "packaging_queue_perf",
+    "version": 180006
+  },
+  "fixture": {
+    "prefix": "TEST-9765ea",
+    "farm": "TEST-9765ea-F",
+    "shiftId": "773",
+    "syntheticScale": 5000
+  },
+  "sourceBefore": {
+    "apps/api/src/modules/bff/packaging-work-queue.service.ts": "9fd22ed8e0496e6d1b529924c590758bd1aa08601989e923894e5f7939059cc6",
+    "apps/api/src/modules/bff/packaging-history.service.ts": "0a8aed9cb55137496d7eb9109b590cd8b645bdc3391d82796d96e49a35413eab",
+    "apps/api/src/modules/sales-v2/services/initial-egg-inventory-route.ts": "a99c8dab6ad571a27053d4a6e0b2796c798bd673b3416315fb8658bc4f846cd9"
+  },
+  "sourceAfter": {
+    "apps/api/src/modules/bff/packaging-work-queue.service.ts": "9fd22ed8e0496e6d1b529924c590758bd1aa08601989e923894e5f7939059cc6",
+    "apps/api/src/modules/bff/packaging-history.service.ts": "0a8aed9cb55137496d7eb9109b590cd8b645bdc3391d82796d96e49a35413eab",
+    "apps/api/src/modules/sales-v2/services/initial-egg-inventory-route.ts": "a99c8dab6ad571a27053d4a6e0b2796c798bd673b3416315fb8658bc4f846cd9"
+  },
+  "sourceUnchanged": true,
+  "actual": [
+    {
+      "waiting_sources": 5000,
+      "graded_sources": 5000,
+      "gradings": 5000,
+      "packings": 5000,
+      "source_links": 5000,
+      "partial_handovers": 2000
+    }
+  ],
+  "workloadMix": {
+    "waitingSourceBatches": {
+      "count": 5000,
+      "quantityEach": 50,
+      "unit": "eggs"
+    },
+    "gradingSourceBatches": {
+      "count": 5000,
+      "quantityEach": 50,
+      "unit": "eggs"
+    },
+    "gradingRecords": {
+      "count": 5000,
+      "outputEach": 50,
+      "unit": "eggs"
+    },
+    "packingRecords": {
+      "count": 5000,
+      "quantityEach": 50,
+      "boxesEach": 2
+    },
+    "partialHandoverRecords": 2000,
+    "pendingHandoverRecords": 3000
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "logicalCpus": 20,
+    "concurrency": 1
+  },
+  "cacheNote": "25 sequential samples per page type, first sample reported separately, remaining 24 determine p95. Local PG and OS caches are warm, no cold-disk claim.",
+  "limits": {
+    "warmP95Ms": 1000,
+    "queueSqlQueriesPerPage": 1
+  },
+  "measurements": {
+    "carryover-first-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 271.96,
+      "p95Ms": 255.12,
+      "p99Ms": 256.72,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "carryover-next-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 254.51,
+      "p95Ms": 274.24,
+      "p99Ms": 275.92,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "carryover-first-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 253.62,
+      "p95Ms": 258.33,
+      "p99Ms": 263.83,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "carryover-next-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 253.65,
+      "p95Ms": 262.55,
+      "p99Ms": 267.29,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "current-first-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 259.77,
+      "p95Ms": 274.57,
+      "p99Ms": 280.77,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "current-next-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 267.02,
+      "p95Ms": 269.35,
+      "p99Ms": 273.1,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "current-first-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 267.49,
+      "p95Ms": 278.86,
+      "p99Ms": 281.59,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "current-next-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 277.39,
+      "p95Ms": 280.98,
+      "p99Ms": 283.15,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "review-first-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 458.53,
+      "p95Ms": 464.74,
+      "p99Ms": 465.58,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "review-next-25": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 445.39,
+      "p95Ms": 451.65,
+      "p99Ms": 454.47,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "review-first-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 444.71,
+      "p95Ms": 448.89,
+      "p99Ms": 456.51,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "review-next-100": {
+      "samples": 25,
+      "sqlQueriesPerPage": 1,
+      "firstMs": 438.38,
+      "p95Ms": 450.89,
+      "p99Ms": 461.56,
+      "statementCountsPerRequest": [
+        1
+      ]
+    },
+    "production-summary-1day": {
+      "samples": 25,
+      "firstMs": 303.58,
+      "p95Ms": 317.65,
+      "p99Ms": 329.52
+    },
+    "production-summary-7day": {
+      "samples": 25,
+      "firstMs": 295.54,
+      "p95Ms": 317.11,
+      "p99Ms": 318.73
+    }
+  },
+  "reportStatementCounts": {
+    "production-summary-1day": [
+      7
+    ],
+    "production-summary-7day": [
+      7
+    ]
+  },
+  "reportDataStatementCounts": {
+    "production-summary-1day": [
+      2
+    ],
+    "production-summary-7day": [
+      2
+    ]
+  },
+  "reportStatementCountNote": "Expected total is 7 TypeORM statements including transaction/session control; SELECT/WITH data statement counts are reported separately.",
+  "reportQueryCountStable": true,
+  "maxP95ByPageSize": {
+    "25": 464.74,
+    "100": 450.89
+  },
+  "passed": true
+}

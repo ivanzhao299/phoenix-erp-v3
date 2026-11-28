@@ -3,6 +3,7 @@ import { PackagingBoxService } from './packaging-box.service';
 import { PackagingWorkflowPolicy } from './packaging-workflow-policy';
 import { PackagingHistoryController } from './packaging-history.controller';
 import { PackagingHistoryService } from './packaging-history.service';
+import { PackagingWorkQueueService } from './packaging-work-queue.service';
 import {FarmModule} from '../farm/farm.module';
 import { Module } from '@nestjs/common';
 import {
@@ -22,7 +23,7 @@ import { SalesV2Module } from '../sales-v2/sales-v2.module'; // P1C：包装收�
  */
 @Module({
   imports: [SalesV2Module,FarmModule], // P1C：注入 PackagingInventoryIntegrationService（单向依赖，无循环）
-  providers: [PackagingHistoryService, PackagingHandoverService, PackagingBoxService, PackagingWorkflowPolicy],
+  providers: [PackagingHistoryService, PackagingWorkQueueService, PackagingHandoverService, PackagingBoxService, PackagingWorkflowPolicy],
   controllers: [
     PackagingHistoryController,
     DashboardBffController,

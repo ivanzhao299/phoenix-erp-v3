@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Egg, Save, RefreshCw, AlertTriangle, Package, FileDown } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from 'next/navigation';
 import { usePermission } from "@/hooks/usePermission";
 import { useProductGrades } from "@/hooks/useProductGrades";
 import { useEggSourceProfile, varietyShortLabel } from "@/hooks/useEggSourceProfile";
@@ -13,6 +14,7 @@ import { validateProductionInboundPayload, type InboundReceipt } from '@/lib/pro
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HouseSelector, WarehouseSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { dailyReportInboundIdempotencyKey } from '@/lib/breeding-daily';
+import { productionQueueRange, type ProductionQueueRange } from '@/lib/packaging-queue-navigation';
 
 /**
  * 日产蛋入库（库存来源模式治理 P1A · 临时生产入库）
@@ -31,14 +33,20 @@ function today() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 }
 export default function DailyInboundPage() {
-  const {user}=usePermission('MENU_PROD_INBOUND');
-  return <DailyInboundForm key={String(user.userId??user.id??user.username??'')} />;
+  return <Suspense fallback={null}><DailyInboundEntry /></Suspense>;
+}
+function DailyInboundEntry() {
+  const {user,canView}=usePermission('MENU_PROD_INBOUND');
+  const params=useSearchParams();
+  const range=canView ? productionQueueRange(params) : null;
+  const entry=range?.action==='LEGACY_TEMP_INBOUND' ? range : null;
+  return <DailyInboundForm key={JSON.stringify([user.userId??user.id??user.username??'',entry])} entry={entry} />;
 }
 type ArrivalAvailability = ProductionInboundAvailability & {
   priorInbound?: { batchNo: string; warehouseCode: string; locationCode: string; originalQty: number | null; currentQty: number }[];
 };
 
-function DailyInboundForm() {
+function DailyInboundForm({entry}:{entry:ProductionQueueRange|null}) {
   const { t } = useLanguage();
   const {
     canView,
@@ -50,10 +58,10 @@ function DailyInboundForm() {
     () => Object.fromEntries(productGrades.map(g => [g.grade_code, g.grade_name])),
     [productGrades]
   );
-  const [eggDate, setEggDate] = useState(today());
-  const [houseCode, setHouseCode] = useState("");
-  const [companyCode, setCompanyCode] = useState("");
-  const [siteCode, setSiteCode] = useState("");
+  const [eggDate, setEggDate] = useState(() => entry?.eggDate ?? today());
+  const [houseCode, setHouseCode] = useState(entry?.houseCode ?? '');
+  const [companyCode, setCompanyCode] = useState(entry?.companyCode ?? '');
+  const [siteCode, setSiteCode] = useState(entry?.siteCode ?? '');
   const [ownershipError, setOwnershipError] = useState("");
   const [warehouseCode, setWarehouseCode] = useState("");
   const [locationCode, setLocationCode] = useState("");
@@ -249,7 +257,7 @@ function DailyInboundForm() {
         lineHeight: 1.5
       }}>
             <strong>{t('breeding.packagingModeOn', '已启用包装入库模式（PACKAGING_INBOUND）')}</strong><br />
-            {t('breeding.packagingModeDesc', '不允许直接生成库存。请通过「包装作业中心」完成 集蛋 → 分级 → 包装 → 自动入库。')}
+            {t('breeding.packagingModeDesc', '请在包装作业中心完成集蛋、分级和包装。逐箱核验并确认交库后入库。')}
             {modeBasis&&<div>{modeBasis}</div>}
           </div>
           <Link href="/packaging" style={{

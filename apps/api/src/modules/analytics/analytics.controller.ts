@@ -38,7 +38,8 @@ export class AnalyticsController {
   @Get('group') @UseGuards(DataScopeGuard) group_(@Query() q: any,@Req() req:any) { return this.group.compute(q,req.dataScope); }
   @Get('finance')       finance_(@Query() q: any) { return this.finance.compute(q); }
   @Get('sales')         sales_(@Query() q: any) { return this.sales.compute(q); }
-  @Get('inventory')     inventory_(@Query() q: any) { return this.inventory.compute(q); }
+  @Get('inventory') @UseGuards(DataScopeGuard)
+  inventory_(@Query() q: any, @Req() req: any) { return this.inventory.compute(q, req.dataScope); }
   @Get('production') @UseGuards(DataScopeGuard) production_(@Query() q: any, @Req() req: any) { return this.production.compute(q, deriveOrgScope(req)); }
   @Get('shareholders')  shareholders_(@Query() q: any) { return this.shareholders.compute(q); }
   @Get('exceptions')    exceptions_() { return this.exceptions.list(); }

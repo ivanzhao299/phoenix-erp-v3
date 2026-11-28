@@ -39,7 +39,7 @@ describe('PRINT command wiring without DB (mock transaction)',()=>{
 describe('operation response completeness (pure controller)',()=>{
  it.each([null,[],false,'wrong'].map(result=>({result})))('never reports a committed operation with invalid result %j',async ({result})=>{
   const {PackagingHistoryController}=await import('./packaging-history.controller');
-  const controller=new PackagingHistoryController({detail:async()=>({record:{id:'1'}}),em:{query:async()=>[{state:'COMMITTED',eventId:'e',result}]}} as any,{} as any);
+  const controller=new PackagingHistoryController({detail:async()=>({record:{id:'1'}}),em:{query:async()=>[{state:'COMMITTED',eventId:'e',result}]}} as any,{} as any,{} as any);
   await expect(controller.operation('12345678-1234-4123-8123-123456789abc',{packingCode:'TEST',action:'CONFIRM'},{user:{id:'1'}})).rejects.toThrow('OPERATION_INCOMPLETE');
  });
 });

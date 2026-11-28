@@ -6,10 +6,10 @@ export interface PackingPolicy { version:string; R:boolean; B:boolean; P:boolean
 @Injectable()
 export class PackagingWorkflowPolicy {
  constructor(@InjectEntityManager() private readonly em?:EntityManager){}
- get(companyCode:string,siteCode:string):PackingPolicy|Promise<PackingPolicy> {
+ get(companyCode:string,siteCode:string,manager=this.em,lock=false):PackingPolicy|Promise<PackingPolicy> {
   const disabled:PackingPolicy={version:'disabled',R:false,B:false,P:false,V:false,H:false,Q:false,encodingVersion:null,receiptMode:'C'};
-  if(!this.em)return disabled;
-  return this.em.query(`SELECT config_json FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=$1 AND status='ACTIVE'`,[`${companyCode}:${siteCode}`]).then(rows=>{
+  if(!manager)return disabled;
+  return manager.query(`SELECT config_json FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=$1 AND status='ACTIVE'${lock?' FOR SHARE':''}`,[`${companyCode}:${siteCode}`]).then(rows=>{
    if(rows.length!==1)return disabled;
    const p=rows[0].config_json;
    if(!p||p.companyCode!==companyCode||p.siteCode!==siteCode||p.receiptMode!=='C'||typeof p.version!=='string'

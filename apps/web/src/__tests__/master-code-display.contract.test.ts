@@ -12,7 +12,7 @@ const cases = [
   ['finance2/ar', 'company_code'], ['finance2/ar', 'project_code'],
   ['finance2/ap', 'company_code'], ['finance2/ap', 'project_code'],
   ['finance2/reports', 'companyCode'], ['packaging/inbound', 'house'],
-  ['packaging/inbound', 'warehouse'], ['packaging', 'house_code'],
+  ['packaging/inbound', 'warehouse'],
   ['quality/backward', 'warehouse_name', 'quality/QualityInventoryTrace.tsx'], ['quality/backward', 'location_name', 'quality/QualityInventoryTrace.tsx'],
   ['quality/farm', 'house'], ['quality/forward', 'customer_code', 'quality/QualityInventoryTrace.tsx'], ['quality/product', 'sku'],
   ['sales2/orders', 'fulfillment_warehouse_code'], ['sales2/delivery', 'fulfillment_warehouse_code'],

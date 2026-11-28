@@ -81,7 +81,7 @@ describe('ProductionInboundService master-data resolution', () => {
               selected = rows;
               return rows;
             }
-            if (sql.includes('pg_advisory_xact_lock') || sql.includes('FROM inv_batches') || sql.includes('to_regclass')) return [];
+            if (sql.includes('pg_advisory_xact_lock') || sql.includes('FROM inv_batches') || sql.includes('to_regclass') || sql.includes('brd_egg_day_routes')) return [];
             return await query(sql, values);
           } };
           return run(manager);

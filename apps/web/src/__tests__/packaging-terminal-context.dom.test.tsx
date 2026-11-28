@@ -3,21 +3,32 @@ import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' }, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), ready: vi.fn(), submit: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
+import type { PackagingWorkQueueResponse } from '@/lib/packaging-api';
+const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as {id:string;permissions?:string[]}, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), ready: vi.fn(), submit: vi.fn(), close: vi.fn(), queue: vi.fn<() => Promise<PackagingWorkQueueResponse>>(async()=>({items:[],counts:{},nextCursor:null})), queueSites: vi.fn(async()=>[{siteCode:'SITE-1',siteName:'Site 1'}]), t: (_key: string, text: string) => text }));
 vi.mock('@/lib/packing-history-api',async original=>({...await original<object>(),packingHistoryRequest:mocks.report}));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
-vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
+vi.mock('@/contexts/AuthContext', async original => ({...await original<object>(), useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
+vi.mock('@/contexts/LanguageContext', async () => {
+  const { default: zh } = await import('@/locales/zh.json');
+  const queueTabs: Readonly<Record<string, string>> = {
+    'terminal.queue.CURRENT': zh['terminal.queue.CURRENT'],
+    'terminal.queue.CARRYOVER': zh['terminal.queue.CARRYOVER'],
+    'terminal.queue.REVIEW': zh['terminal.queue.REVIEW'],
+  };
+  const translate = (key: string, fallback: string) => queueTabs[key] ?? mocks.t(key, fallback);
+  return { useLanguage: () => ({ t: translate, lang: 'zh', setAppLanguage: vi.fn() }) };
+});
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
 vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<object>(), usePackagingDicts: () => ({dicts:{}}) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades: [{ grade_code:'GRADE_5', grade_name:'5号蛋' }] }) }));
-vi.mock('@/lib/packaging-api', async original => ({ ...await original<object>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:mocks.ready, submitPacking:mocks.submit, getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
+vi.mock('@/lib/packaging-api', async original => ({ ...await original<object>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getWorkQueue:mocks.queue, getWorkQueueSites:mocks.queueSites, getSupervisors:vi.fn(async()=>[]), getReadyCombinations:mocks.ready, submitPacking:mocks.submit, getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
 vi.mock('@/components/terminal/TerminalNumPadPanel', () => ({
   default: ({ onChange, disabled }: { onChange: (value:string)=>void; disabled:boolean }) =>
     <button type="button" disabled={disabled} onClick={()=>onChange('1')}>填一箱</button>,
 }));
 import Layout from '@/app/(terminal)/layout';
 import Page from '@/app/(terminal)/terminal/packaging/shift-close/page';
+import PackagingWorkQueue from '@/components/packaging/PackagingWorkQueue';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root, host: HTMLDivElement;
@@ -27,7 +38,7 @@ const candidate = {
   siteId:'SITE-1', lineId:'LINE-1', operatorIds:['operator-1'], terminalId:'terminal-1', openedAt:'2026-09-10T00:00:00Z',
 };
 const raw = (id='56', status='OPEN') => ({id,shift_code:`S${id}`,status,date_text:'2026-09-10',is_test:false});
-function deferred() { let resolve!: (v: unknown)=>void, reject!: (v: unknown)=>void; const promise = new Promise<unknown>((a,b)=>{ resolve=a;reject=b; }); return {promise,resolve,reject}; }
+function deferred<T=unknown>() { let resolve!: (v: T)=>void, reject!: (v: unknown)=>void; const promise = new Promise<T>((a,b)=>{ resolve=a;reject=b; }); return {promise,resolve,reject}; }
 function Probe() {
   const value = useTerminalContext();
   React.useEffect(() => { contextRef.current = value; }, [value]);
@@ -37,6 +48,7 @@ function save(value: unknown = candidate) { localStorage.setItem('phoenix_termin
 async function render(full=true) { await act(async () => { root.render(full ? <Layout><Probe/><Page/></Layout> : <TerminalContextProvider><Probe/><Page/></TerminalContextProvider>); }); }
 async function fullscreen(on:boolean) { await act(async()=>{ Object.defineProperty(document,'fullscreenElement',{configurable:true,value:on?document.documentElement:null}); document.dispatchEvent(new Event('fullscreenchange')); }); }
 beforeEach(()=>{ localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks(); mocks.auth.user={id:'7'}; mocks.auth.loading=false;
+  mocks.queue.mockReset().mockResolvedValue({items:[],counts:{},nextCursor:null});
   mocks.exact.mockImplementation(async id=>raw(id));
   mocks.summary.mockImplementation(async (_d,id)=>({shift:raw(id),receivedQty:30,receivedWeight:1,gradingOutputs:{},shiftPackedBoxes:1,shiftPackedEggs:30,shiftWarehousedBoxes:0,shiftWarehousedPallets:0,openExceptionCount:0,closedExceptionCount:0}));
   mocks.report.mockImplementation(async path=>path.startsWith('history?')?{items:[],totalMatching:0,hasMore:false}:({gradingEggs:0,shiftId:new URLSearchParams(path.split('?')[1]).get('shiftId'),dateFrom:'2026-09-10',totalBoxes:1,totalEggs:30,committedBoxes:0}));
@@ -93,6 +105,40 @@ it('unmounted request completion cannot pollute a new fullscreen page',async()=>
 });
 
 it('has no business request with no saved selection',async()=>{await render();await fullscreen(true);expect(mocks.summary).not.toHaveBeenCalled();expect(mocks.active).not.toHaveBeenCalled();expect(host.textContent).toContain('当前无开放班次');});
+it('discards an old pagination response after switching queue bucket',async()=>{
+  const oldPage=deferred<PackagingWorkQueueResponse>();
+  const row=(code:string)=>({kind:'SOURCE' as const,code,shiftId:'56',productionDate:'2026-09-10',quantity:5,unit:'eggs',action:'GRADE',reason:'Awaiting grading'});
+  mocks.queue.mockResolvedValueOnce({items:[row('CURRENT-1')],counts:{SOURCE:2},nextCursor:'cursor-1'});
+  mocks.queue.mockReturnValueOnce(oldPage.promise);
+  mocks.queue.mockResolvedValueOnce({items:[row('CARRY-1')],counts:{SOURCE:1},nextCursor:null});
+  await act(async()=>root.render(<PackagingWorkQueue identityKey="user-7" shiftId="56" defaultSiteCode="SITE-1"/>));
+  expect(mocks.queue).toHaveBeenCalledTimes(1);
+  const more=[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('加载更多'));
+  expect(more).toBeDefined();
+  await act(async()=>more?.dispatchEvent(new Event('click',{bubbles:true})));
+  expect(mocks.queue).toHaveBeenCalledTimes(2);
+  const carry=[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('跨班待办'));
+  expect(carry).toBeDefined();
+  await act(async()=>carry?.dispatchEvent(new Event('click',{bubbles:true})));
+  expect(mocks.queue).toHaveBeenCalledTimes(3);
+  expect(host.textContent).toContain('CARRY-1');
+  await act(async()=>oldPage.resolve({items:[row('STALE-PAGE')],counts:{SOURCE:99},nextCursor:null}));
+  expect(host.textContent).not.toContain('STALE-PAGE');
+  expect(host.textContent).toContain('CARRY-1');
+});
+it('links only accessible production handoffs and keeps the exact source in the destination URL',async()=>{
+  const route='/breeding/production-inbound?queueAction=FORMAL_RAW&companyCode=C1&siteCode=SITE-1&houseCode=H1&eggDate=2026-09-10&sourceBatchCode=SRC-RAW';
+  mocks.queue.mockResolvedValueOnce({items:[
+    {kind:'SOURCE',code:'SRC-RAW',shiftId:'56',productionDate:'2026-09-10',quantity:30,unit:'eggs',action:'FORMAL_RAW',reason:'',href:route+'&documentId=ignored'},
+    {kind:'SOURCE',code:'SRC-TEMP',shiftId:'56',productionDate:'2026-09-10',quantity:30,unit:'eggs',action:'LEGACY_TEMP_INBOUND',reason:'',href:'/breeding/production-inbound?queueAction=LEGACY_TEMP_INBOUND&companyCode=C1&siteCode=SITE-1&houseCode=H1&eggDate=2026-09-10'},
+  ],counts:{SOURCE:2},nextCursor:null});
+  const renderQueue=()=>act(async()=>root.render(<PackagingWorkQueue identityKey="user-7" shiftId="56" defaultSiteCode="SITE-1"/>));
+  await renderQueue();
+  expect(host.querySelectorAll('a')).toHaveLength(0);
+  mocks.auth.user={id:'7',permissions:['MENU_PROD_INBOUND:V']};
+  await renderQueue();
+  expect([...host.querySelectorAll('a')].map(link=>link.getAttribute('href'))).toEqual([route]);
+});
 it.each([{id:'999'}, {date_text:'2026-09-08'}, {is_test:true}])('rejects an authority mismatch %j',async(patch)=>{save();mocks.exact.mockResolvedValue({...raw(),...patch});await render();await fullscreen(true);expect(mocks.active).not.toHaveBeenCalled();expect(host.textContent).toContain('不匹配');});
 it('StrictMode effect replay never emits undefined/NaN requests',async()=>{save();await act(async()=>root.render(<React.StrictMode><Layout><Probe/><Page/></Layout></React.StrictMode>));await fullscreen(true);expect(mocks.active.mock.calls.every(([id])=>id===56)).toBe(true);expect(host.textContent).not.toContain('失败');});
 it('a late result for the previous summary cannot hide the current failed summary',async()=>{save();const old=deferred();mocks.summary.mockReturnValueOnce(old.promise);await render();await fullscreen(true);mocks.summary.mockRejectedValueOnce(new Error('CURRENT failure'));await fullscreen(false);await fullscreen(true);await act(async()=>old.resolve({shiftId:56,productionDate:'2026-09-10',outputs:{GRADE_5:999}}));expect(host.textContent).toContain('CURRENT failure');expect(host.textContent).not.toContain('999');});
@@ -109,6 +155,18 @@ const consumers: Record<string, () => Promise<{ default: React.ComponentType }>>
   'source-receive': () => import('@/app/(terminal)/terminal/packaging/source-receive/page'),
   'warehouse-handover': () => import('@/app/(terminal)/terminal/packaging/warehouse-handover/page'),
 };
+it('keeps the current work queue and operational entry available when production metrics fail',async()=>{
+  const Dashboard=(await consumers.dashboard()).default;
+  save();
+  mocks.report.mockRejectedValueOnce(new Error('Metrics temporarily unavailable'));
+  await act(async()=>root.render(<Layout><Probe/><Dashboard/></Layout>));
+  await fullscreen(true);
+  expect(host.textContent).toContain('Metrics temporarily unavailable');
+  expect(host.textContent).toContain('包装作业队列');
+  const receive=[...host.querySelectorAll('button')].find(button=>button.textContent?.includes('集蛋接收'));
+  expect(receive?.disabled).toBe(false);
+  expect(mocks.queue).toHaveBeenCalledWith({bucket:'CURRENT',siteCode:'SITE-1',shiftId:'56',pageSize:25});
+});
 it('packing requests combinations only for the authoritative active grading source set',async()=>{
   const Packing=(await consumers.packing()).default;
   mocks.active.mockResolvedValue({shiftId:56,productionDate:'2026-09-10',eggDate:'2026-09-10',eggDates:['2026-09-10'],outputs:{GRADE_5:30},remaining:{GRADE_5:30},packed:{},gradingCodes:['GR-A','GR-B']});

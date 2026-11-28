@@ -8,6 +8,7 @@ import { hasPerm } from '../../auth/permissions.util';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { packagingTestMode } from './packaging-protection';
 import { gradingSourceDayMatches, linkedGradingSources } from './packaging-readiness';
+import { identifiableEggStockHouse, initialEggStockHouseReferences } from '../sales-v2/services/initial-egg-inventory-route';
 
 export function historyDate(value: unknown): string {
   const v = String(value);
@@ -50,6 +51,12 @@ export class PackagingHistoryService {
           OR NOT (x->>'companyCode'=ANY($${i+1}::text[]) AND x->>'siteCode'=ANY($${i+2}::text[])))
         AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(inv.rows || led.rows) x WHERE x->>'company_code' IS NULL OR x->>'warehouse_code' IS NULL
           OR NOT (x->>'company_code'=ANY($${i+1}::text[]) AND x->>'warehouse_code'=ANY($${i+3}::text[])))
+        AND (receipt.payload IS NULL OR (jsonb_typeof(receipt.payload->'groups')='array'
+          AND jsonb_array_length(receipt.payload->'groups')>0
+          AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(receipt.payload->'groups')='array'
+            THEN receipt.payload->'groups' ELSE '[]'::jsonb END) x
+            WHERE x->>'companyCode' IS NULL OR x->>'warehouseCode' IS NULL
+              OR NOT (x->>'companyCode'=ANY($${i+1}::text[]) AND x->>'warehouseCode'=ANY($${i+3}::text[])))))
         AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(ho.rows) x LEFT JOIN wms_locations loc ON loc.location_code=x->>'location'
           LEFT JOIN wms_warehouses wh ON wh.warehouse_code=loc.warehouse_code
           WHERE wh.company_code IS NULL OR NOT(wh.company_code=ANY($${i+1}::text[]) AND wh.warehouse_code=ANY($${i+3}::text[])))))`;
@@ -65,13 +72,35 @@ export class PackagingHistoryService {
         WHERE audit.entity_type='PACKING_RECORD' AND audit.entity_id=p.code
         AND audit.action='CROSS_SHIFT_GRADING_CONSUME' AND NULLIF(btrim(audit.reason),'') IS NOT NULL
         AND evidence.payload->>'shiftId'=p.shift_id::text AND evidence.payload->'gradingCodes'=p.grading_codes_json) AS cross_shift_authorized,
-      COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
+      COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,
+      ${page?.report ? `(mode.mode='PACKAGING_INBOUND' AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(src.rows)='array' THEN src.rows ELSE '[]'::jsonb END) x
+        LEFT JOIN production_cutover_scopes cutover ON cutover.company_code=f.company_code
+          AND cutover.house_code=x->>'houseCode' AND cutover.state<>'DRAFT'
+        LEFT JOIN brd_egg_day_routes day_route ON day_route.company_code=f.company_code
+          AND day_route.house_code=x->>'houseCode' AND day_route.production_date=(x->>'sourceProductionDate')::date
+        WHERE cutover.id IS NOT NULL OR day_route.entry_mode='TEMP_PRODUCTION' OR EXISTS (
+          SELECT 1 FROM inv_batches temp_batch
+          WHERE temp_batch.source_type='TEMP_PRODUCTION' AND temp_batch.company_code=f.company_code
+            AND temp_batch.egg_date=(x->>'sourceProductionDate')::date
+            AND EXISTS (
+              SELECT 1 FROM (VALUES (1)) check_origin(marker)
+              LEFT JOIN LATERAL (
+                SELECT btrim(house_code) AS house_code
+                FROM (${initialEggStockHouseReferences('temp_batch', 'temp_batch.egg_date')}) refs
+                WHERE ${identifiableEggStockHouse}
+              ) origin ON true
+              WHERE origin.house_code IS NULL OR origin.house_code=x->>'houseCode'
+            )
+        )
+      ))` : 'NULL::boolean'} AS handover_eligible,
+      ${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('gradingId',g.id::text,'gradingCode',g.code,
         'sourceBatchId',s.id::text,'sourceBatchCode',s.batch_code,'houseCode',s.house_code,'siteCode',sf.farm_code,
         'companyCode',sf.company_code,'sourceOriginalQty',s.received_qty,'allocationQty',NULL,'precision','RELATED_ONLY',
-        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',(CASE WHEN ${gradingSourceDayMatches} THEN g.production_date END)::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
+        'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',(CASE WHEN ${gradingSourceDayMatches} THEN g.production_date END)::text,'sourceProductionDate',s.production_date::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
         FROM pkg_grading_records g LEFT JOIN pkg_work_shifts ws ON ws.id=g.shift_id
         LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
         LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id LEFT JOIN brd_houses sh ON sh.house_code=s.house_code
@@ -186,8 +215,15 @@ export class PackagingHistoryService {
     await em.query('SET TRANSACTION READ ONLY');
     const selected=await this.rows(scope,em,undefined,{q,cursor:null,size:100,report:true});
     if(q.aggregation==='SHIFT'){
+      const shiftScopes:DataScopeContext[]=(scope as any).alternatives||[scope];
+      const shiftParams:any[]=[q.shiftId];
+      const shiftVisibility=shiftScopes.map(s=>{
+        shiftParams.push(s.isGlobal,s.allowedCompanyCodes,s.allowedFarmCodes);
+        const i=shiftParams.length-2;
+        return `($${i} OR (f.company_code=ANY($${i+1}::text[]) AND ws.site_id=ANY($${i+2}::text[])))`;
+      }).join(' OR ');
       const [shift]=await em.query(`SELECT ws.production_date::text date FROM pkg_work_shifts ws JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id WHERE ws.id=$1 AND NOT ws.is_test
-        AND ($2 OR (f.company_code=ANY($3::text[]) AND ws.site_id=ANY($4::text[])))`,[q.shiftId,scope.isGlobal,scope.allowedCompanyCodes,scope.allowedFarmCodes]);
+        AND (${shiftVisibility})`,shiftParams);
       if(!shift)throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
       if(shift.date<from||shift.date>to)throw new BadRequestException('SHIFT_DATE_MISMATCH');
     }
@@ -199,19 +235,30 @@ export class PackagingHistoryService {
         LEFT JOIN brd_houses bh ON bh.house_code=sb.house_code LEFT JOIN ${OrgOwnershipService.FARM_TABLE} bf ON bf.farm_code=bh.farm_code WHERE sl.grading_id=g.id
         AND (bf.company_code IS NULL OR bf.farm_code IS NULL OR NOT(bf.company_code=ANY($${i+1}::text[]) AND bf.farm_code=ANY($${i+2}::text[]))))))`;
     }).join(' OR ');
-    const [grading]=await em.query(`SELECT COALESCE(sum(g.total_output),0)::bigint::text qty FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
+    const [grading]=await em.query(`WITH scoped_grading AS MATERIALIZED (
+      SELECT g.total_output,g.outputs_json FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
       JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id WHERE NOT g.is_test AND NOT ws.is_test AND g.status='ACTIVE'
       AND (CASE WHEN $3::bigint IS NOT NULL THEN ws.production_date ELSE g.production_date END) BETWEEN $1::date AND $2::date
       AND ($3::bigint IS NULL OR (ws.id=$3::bigint AND ${linkedGradingSources}))
-      AND ($4::text IS NULL OR f.company_code=$4) AND ($5::text IS NULL OR ws.site_id=$5) AND (${visibility})`,params);
+      AND ($4::text IS NULL OR f.company_code=$4) AND ($5::text IS NULL OR ws.site_id=$5) AND (${visibility})
+    ), by_grade AS (
+      SELECT grade, SUM(CASE WHEN btrim(quantity) ~ '^[0-9]+([.][0-9]+)?$' THEN btrim(quantity)::numeric END) AS qty
+      FROM scoped_grading sg CROSS JOIN LATERAL jsonb_each_text(
+        CASE WHEN jsonb_typeof(sg.outputs_json)='object' THEN sg.outputs_json ELSE '{}'::jsonb END
+      ) AS output(grade,quantity) GROUP BY grade
+    )
+    SELECT (SELECT COALESCE(sum(total_output),0)::text FROM scoped_grading) AS qty,
+      COALESCE(jsonb_object_agg(grade,qty) FILTER (WHERE qty IS NOT NULL),'{}'::jsonb) AS outputs,
+      COALESCE(sum(qty),0)::text AS explained_qty FROM by_grade`,params);
     const active=selected.filter(r=>r.status==='ACTIVE'),days=[];
-    const records=active.map(r=>{const evidence=packingEvidence(r,r.inventory,r.ledger,r.handovers,r.commit_receipt);if(r.inventory_mode==='TEMP_PRODUCTION_INBOUND'&&evidence.state==='PENDING'){evidence.quality='UNKNOWN';evidence.issues=['TEMP 来源仅场日汇总，精确原单交接未支持'];}return {code:r.code,shiftId:r.shift_id,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:{records:r.handovers,...evidence},inventoryMode:r.inventory_mode};});
+    const records=active.map(r=>{const evidence=packingEvidence(r,r.inventory,r.ledger,r.handovers,r.commit_receipt);if(r.inventory_mode==='TEMP_PRODUCTION_INBOUND'&&evidence.state==='PENDING'){evidence.quality='UNKNOWN';evidence.issues=['TEMP 来源仅场日汇总，精确原单交接未支持'];}return {code:r.code,shiftId:r.shift_id,shiftDate:r.shift_date,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:{records:r.handovers,...evidence},inventoryMode:r.inventory_mode,handoverEligible:r.handover_eligible===true};});
     for(let date=from;date<=to;date=new Date(Date.parse(date)+86400000).toISOString().slice(0,10)){
       const records=active.filter(r=>(q.aggregation==='SHIFT'?r.shift_date:r.production_date)===date);days.push({date,totalEggs:records.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:records.reduce((n,r)=>n+Number(r.total_boxes),0)});
     }
     return {basis:'TERMINAL_RECORDS',aggregation:q.aggregation,shiftId:q.aggregation==='SHIFT'?q.shiftId:null,dateFrom:from,dateTo:to,shiftIds:[...new Set(selected.map(r=>r.shift_id))],
       totalEggs:active.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:active.reduce((n,r)=>n+Number(r.total_boxes),0),voidCount:selected.length-active.length,
-      gradingEggs:Number(grading.qty),unassigned:{state:'NOT_ATTRIBUTABLE',count:null,message:'无班次或权威场归属的历史异常单不计入；本范围无法安全归属，不推断为零'},
+      shiftPackedEggs:active.reduce((n,r)=>n+Number(r.total_eggs),0),
+      gradingEggs:Number(grading.qty),gradingOutputs:Number(grading.explained_qty)===Number(grading.qty)?grading.outputs:null,unassigned:{state:'NOT_ATTRIBUTABLE',count:null,message:'无班次或权威场归属的历史异常单不计入；本范围无法安全归属，不推断为零'},
       committedBoxes:records.filter(r=>r.handover.state==='COMMITTED').reduce((n,r)=>n+r.totalBoxes,0),days,records};
     });
   }

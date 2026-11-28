@@ -1,3 +1,6 @@
+import { PackagingShiftCloseSnapshot1795800000000 } from '../../database/migrations/1795800000000-PackagingShiftCloseSnapshot';
+import { claimInitialEggInventoryRoute } from '../sales-v2/services/initial-egg-inventory-route';
+import { InventorySourceModeService } from '../sales-v2/services/inventory-source-mode.service';
 import { DataSource } from 'typeorm';
 import { PackagingTerminalBffController } from './bff.controller';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service';
@@ -20,6 +23,10 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.initialize();await ds.query(`CREATE SCHEMA ${schema}`);
     expect(Number((await ds.query('SHOW server_version_num'))[0].server_version_num)).toBeGreaterThanOrEqual(180000);
     await ds.query(`
+      CREATE TABLE production_cutover_scopes(id serial PRIMARY KEY,company_code text,house_code text,state text);
+      CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text,PRIMARY KEY(scope_level,scope_code));
+      INSERT INTO inv_source_mode VALUES('COMPANY','COMP','PACKAGING_INBOUND');
+      CREATE TABLE brd_egg_day_routes(company_code text,house_code text,production_date date,entry_mode text,PRIMARY KEY(company_code,house_code,production_date));
       CREATE TABLE mst_products(product_code text PRIMARY KEY,status text,unit text,unit_zh text);
       CREATE TABLE product_grades(grade_code text PRIMARY KEY,status text,is_saleable boolean,is_storable boolean,sort_order integer);
       CREATE TABLE packaging_specs(spec_code text PRIMARY KEY,spec_name text,status text,qty_per_unit integer,base_unit text,display_unit text);
@@ -91,6 +98,176 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
   afterEach(async()=>{await ds?.destroy();});
   async function counts(){return (await ds.query('SELECT (SELECT count(*)::int FROM inv_batches) batches,(SELECT count(*)::int FROM inv_ledger) ledgers,(SELECT count(*)::int FROM pkg_handover_records) handovers'))[0];}
   const zero={batches:0,ledgers:0,handovers:0};
+  it.each(['FENCED','ACTIVE','SUSPENDED'])('holds ordinary packing when its source is %s', async state => {
+    await ds.query("INSERT INTO production_cutover_scopes(company_code,house_code,state) VALUES ('COMP','HOUSE',$1)", [state]);
+    await expect(controller.confirmHandover(body, req)).rejects.toThrow('正式切换范围');
+    expect(await counts()).toEqual(zero);
+    expect(await ds.query('SELECT * FROM brd_egg_day_routes')).toEqual([]);
+  });
+
+  it('blocks packaging after a depleted temporary source that predates the route table', async () => {
+    await ds.query(`INSERT INTO inv_batches(batch_no,company_code,egg_date,source_type,collection_batch_ref,qty,qty_available)
+      VALUES ('TEMP-ORIGINAL','COMP','2026-09-09','TEMP_PRODUCTION','HOUSE-HOUSE',0,0)`);
+    await expect(controller.confirmHandover(body, req)).rejects.toThrow('已有另一入库路径');
+    expect(await counts()).toEqual({ batches: 1, ledgers: 0, handovers: 0 });
+    expect(await ds.query('SELECT * FROM brd_egg_day_routes')).toEqual([]);
+  });
+
+  it('blocks temporary first writes after packaging even if older packaged stock is already sold', async () => {
+    await controller.confirmHandover(body, req);
+    await ds.query("UPDATE inv_batches SET qty=0,qty_available=0,source_profile_snapshot=NULL");
+    await ds.query('DELETE FROM brd_egg_day_routes');
+    await expect(ds.transaction(async manager => {
+      await manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext('HOUSE'))");
+      await claimInitialEggInventoryRoute(manager, { companyCode: 'COMP', houseCodes: ['HOUSE'], eggDate: '2026-09-09' }, 'TEMP_PRODUCTION');
+    })).rejects.toThrow('已有另一入库路径');
+    expect(await counts()).toEqual({ batches: 1, ledgers: 1, handovers: 1 });
+  });
+
+  it.each([true, false])('serializes mode changes with stock writes (switch first=%s)', async switchFirst => {
+    const cls = { get: (key: string) => key === 'dataScope' ? scope : { username: 'local-tester' } };
+    const mode = new InventorySourceModeService(ds, cls as never);
+    const integration = new PackagingInventoryIntegrationService(ds, cls as never, new EggInventoryService(ds, cls as never), mode);
+    const change = ds.createQueryRunner();
+    const packing = ds.createQueryRunner();
+    await Promise.all([change.connect(),packing.connect()]);
+    await Promise.all([change.startTransaction(),packing.startTransaction()]);
+    const waitForBlock = async (waiting: number, blocking: number) => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const [row] = await ds.query('SELECT $2=ANY(pg_blocking_pids($1)) AS waiting', [waiting, blocking]);
+        if (row.waiting) return;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      throw new Error('Expected cross-transaction lock wait was not observed');
+    };
+    const [[{pid:changePid}],[{pid:packingPid}]] = await Promise.all([
+      change.query('SELECT pg_backend_pid() pid'), packing.query('SELECT pg_backend_pid() pid'),
+    ]);
+    const post = () => integration.completeTerminalPacking(body.packingCode, { warehouseCode: 'WH', locationCode: 'LOC', manager: packing.manager, requireInventory: true });
+    const switchMode = async () => {
+      await change.query('LOCK TABLE inv_source_mode IN SHARE ROW EXCLUSIVE MODE');
+      await change.query("UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND' WHERE scope_code='COMP'");
+    };
+    try {
+      if (switchFirst) {
+        await switchMode();
+        const rejected = expect(post()).rejects.toThrow('当前来源模式禁止包装生成库存');
+        await waitForBlock(packingPid, changePid);
+        await change.commitTransaction();
+        await rejected;
+        await packing.rollbackTransaction();
+        expect(await counts()).toEqual(zero);
+      } else {
+        await expect(post()).resolves.toMatchObject({ totalInbound: 30 });
+        const switching = switchMode();
+        await waitForBlock(changePid, packingPid);
+        await packing.commitTransaction();
+        await switching;
+        await change.commitTransaction();
+        expect(await counts()).toEqual({ batches: 1, ledgers: 1, handovers: 0 });
+      }
+    } finally {
+      for (const runner of [change, packing]) {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+      }
+    }
+  });
+
+  it('authorizes close, requires a fresh preview, and replays its immutable snapshot after handover', async () => {
+    await ds.query(`ALTER TABLE pkg_work_shifts ADD COLUMN closed_at timestamp, ADD COLUMN updated_at timestamp, ADD COLUMN variance_reason text;
+      ALTER TABLE pkg_grading_records ADD COLUMN total_output integer NOT NULL DEFAULT 50;
+      ALTER TABLE pkg_grading_source_links ADD COLUMN input_qty integer;
+      ALTER TABLE pkg_source_batches ADD COLUMN total_qty integer DEFAULT 120, ADD COLUMN dirty_qty integer DEFAULT 10,
+        ADD COLUMN cracked_qty integer DEFAULT 5;
+      UPDATE pkg_grading_source_links SET input_qty=50;
+      CREATE TABLE production_raw_receipts(id text PRIMARY KEY,source_batch_id bigint,state text);
+      CREATE TABLE production_raw_receipt_segments(id text PRIMARY KEY,receipt_id text,quantity integer,grade_code text);
+      ALTER TABLE pkg_audit_logs ADD COLUMN id serial PRIMARY KEY;
+      CREATE TABLE pkg_exceptions (id serial PRIMARY KEY, status text, related_batch_id text)`);
+    await expect(controller.closeShift('1', {}, req)).rejects.toMatchObject({ status: 503 });
+    const migration = new PackagingShiftCloseSnapshot1795800000000();
+    const runner = ds.createQueryRunner();
+    await runner.connect();
+    try {
+      await migration.up(runner);
+    } finally {
+      await runner.release();
+    }
+    const attempted = {previewVersion:'stale'};
+    const allowed = scope;
+    scope = {...allowed, allowedFarmCodes:[]};
+    await expect(controller.closeShift('1', attempted, req)).rejects.toThrow('无权');
+    scope = allowed;
+    await expect(controller.closeShift('1', attempted, req)).rejects.toThrow('重新预览');
+    await ds.query("INSERT INTO pkg_exceptions(status,related_batch_id,shift_id) VALUES ('REPORTED','1',NULL)");
+    await expect(controller.closeShift('1', {}, req)).rejects.toThrow('未结');
+    await ds.query("UPDATE pkg_exceptions SET status='CLOSED'");
+    const [first, replay] = await Promise.all([controller.closeShift('1', {}, req), controller.closeShift('1', {}, req)]);
+    expect(first.data).toMatchObject({pendingOriginalCodes:['PKG-LOCAL'], handedOverBoxes:0});
+    expect(replay.data).toEqual(first.data);
+    await controller.confirmHandover(body, req);
+    expect((await controller.closeShift('1', {}, req)).data).toEqual(first.data);
+    await expect(ds.query("UPDATE pkg_audit_logs SET after_data='{}' WHERE action='CLOSE_SNAPSHOT'")).rejects.toThrow('IMMUTABLE');
+    expect(await ds.query("SELECT count(*)::integer n FROM pkg_audit_logs WHERE action='CLOSE_SNAPSHOT'")).toEqual([{n:1}]);
+    const rollbackRunner = ds.createQueryRunner(); await rollbackRunner.connect();
+    try { await migration.down(rollbackRunner); } finally { await rollbackRunner.release(); }
+    expect((await controller.closeShift('1', {}, req)).data).toEqual(first.data);
+  });
+
+  it('reconciles source loss, exact grading allocation, legacy unknown allocation, and downstream cross-shift packing once', async () => {
+    await ds.query(`ALTER TABLE pkg_grading_records ADD COLUMN total_output integer NOT NULL DEFAULT 50;
+      ALTER TABLE pkg_grading_source_links ADD COLUMN input_qty integer;
+      ALTER TABLE pkg_source_batches ADD COLUMN total_qty integer DEFAULT 120, ADD COLUMN dirty_qty integer DEFAULT 10,
+        ADD COLUMN cracked_qty integer DEFAULT 5;
+      CREATE TABLE pkg_exceptions(id serial PRIMARY KEY,status text,related_batch_id text);
+      UPDATE pkg_grading_source_links SET input_qty=50;
+      INSERT INTO pkg_source_batches(id,house_code,shift_id,production_date,batch_status,is_test,received_qty,batch_code,total_qty,dirty_qty,cracked_qty)
+        VALUES(2,'HOUSE',1,'2026-09-09','RECEIVED',false,30,'SRC-LEGACY',30,2,1),
+          (3,'HOUSE',1,'2026-09-09','RECEIVED',false,40,'SRC-RAW',40,10,0),
+          (4,'HOUSE',1,'2026-09-09','RECEIVED',false,40,'SRC-ROUTE-CONFLICT',40,0,0);
+      INSERT INTO pkg_grading_source_links(grading_id,source_batch_id,input_qty) VALUES(1,2,NULL);
+      INSERT INTO pkg_grading_source_links(grading_id,source_batch_id,input_qty) VALUES(1,4,20);
+      INSERT INTO pkg_work_shifts VALUES(2,'SHIFT-2','FARM','2026-09-10','OPEN',false);
+      INSERT INTO pkg_grading_records(id,code,shift_id,production_date,status,is_test,outputs_json,total_output)
+        VALUES(2,'GR-2',2,'2026-09-10','ACTIVE',false,'{"GRADE_5":20}',20);
+      CREATE TABLE production_raw_receipts(id text PRIMARY KEY,source_batch_id bigint,state text);
+      CREATE TABLE production_raw_receipt_segments(id text PRIMARY KEY,receipt_id text,quantity integer,grade_code text);
+      INSERT INTO production_raw_receipts VALUES('RAW-3',3,'POSTED'),('RAW-4',4,'POSTED');
+      INSERT INTO production_raw_receipt_segments VALUES('RAW-SEG-3-A','RAW-3',30,'GRADE_5'),('RAW-SEG-3-B','RAW-3',10,'DIRTY'),
+        ('RAW-SEG-4','RAW-4',50,'GRADE_5');
+      INSERT INTO pkg_packing_records(code,shift_id,production_date,status,is_test,grading_code,grading_codes_json,total_eggs,total_boxes)
+        VALUES('PKG-CROSS-EXACT',2,'2026-09-10','ACTIVE',false,'GR','["GR"]',30,1),
+          ('PKG-CROSS-MIXED',2,'2026-09-10','ACTIVE',false,'GR','["GR","GR-2"]',20,1);
+      CREATE TABLE pkg_packing_events(id text PRIMARY KEY,packing_id integer,event_type text,server_at timestamp,payload jsonb);
+      INSERT INTO pkg_packing_events(id,packing_id,event_type,server_at,payload)
+        SELECT 'EV-'||code,id,'COMMIT_RECEIPT',NOW(),
+          CASE WHEN code='PKG-LOCAL' THEN '{"originalShiftId":"1","boxIds":["BOX-OLD"],"groups":[{"qty":30}]}'::jsonb
+          ELSE jsonb_build_object('originalShiftId','1','handlingShiftId','2','boxIds',jsonb_build_array('BOX-'||code),'groups',jsonb_build_array(jsonb_build_object('qty',total_eggs))) END
+        FROM pkg_packing_records WHERE code IN ('PKG-LOCAL','PKG-CROSS-EXACT','PKG-CROSS-MIXED')`);
+    await ds.query(`ALTER TABLE pkg_work_shifts ADD COLUMN closed_at timestamp, ADD COLUMN updated_at timestamp, ADD COLUMN variance_reason text;
+      ALTER TABLE pkg_audit_logs ADD COLUMN id serial PRIMARY KEY`);
+    const migration = new PackagingShiftCloseSnapshot1795800000000();
+    const runner = ds.createQueryRunner(); await runner.connect();
+    try { await migration.up(runner); } finally { await runner.release(); }
+    const facts = await (controller as any).shiftCloseFacts('1', ds.manager);
+    expect(facts.summary.source_reconciliation).toEqual(expect.arrayContaining([
+      expect.objectContaining({batchCode:'SRC-LOCAL-1',receivedQty:120,dirtyQty:10,crackedQty:5,
+        gradingInputQty:50,expectedGradableQty:105,ungradedQty:55,allocationStatus:'EXACT',otherLossQty:null,rawReceiptQty:0}),
+      expect.objectContaining({batchCode:'SRC-LEGACY',gradingInputQty:0,allocationStatus:'LEGACY_ALLOCATION_UNKNOWN',
+        ungradedQty:null,otherLossStatus:'NOT_RECORDED',rawReceiptQty:0}),
+      expect.objectContaining({batchCode:'SRC-RAW',rawReceiptQty:40,rawReceiptGradableQty:30,ungradedQty:0,routeConflict:false}),
+      expect.objectContaining({batchCode:'SRC-ROUTE-CONFLICT',rawReceiptQty:50,rawOverAllocatedQty:10,routeConflict:true,rawReceiptStatus:'ROUTE_CONFLICT_WITH_GRADING'}),
+    ]));
+    expect(Number(facts.summary.attributed_grading_input_qty)).toBe(70);
+    expect(Number(facts.summary.exact_cross_shift_packed_qty)).toBe(30);
+    expect(Number(facts.summary.ambiguous_cross_shift_packed_qty)).toBe(20);
+    expect(facts.summary.ambiguous_cross_shift_packings).toEqual([expect.objectContaining({code:'PKG-CROSS-MIXED',quantity:'20',grading_codes:['GR','GR-2']})]);
+    expect(facts.summary.unassigned_handover_boxes).toBe(1);
+    expect(await (controller as any).shiftHandoverFacts('2',ds.manager)).toEqual({handlingBoxes:2,handlingEggs:50,unassignedBoxes:0,unassignedEggs:0});
+    await expect(controller.closeShift('1', {}, req)).rejects.toThrow('双路径冲突');
+  });
+
   it('posts prior-day eggs on the actual handover date without changing batch provenance',async()=>{
     await ds.query(`UPDATE pkg_work_shifts SET production_date='2026-09-10';
       UPDATE pkg_source_batches SET production_date='2026-09-10',lay_date='2026-09-09';`);
