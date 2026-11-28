@@ -9,7 +9,7 @@ import {ProductionAnalyticsService} from '../analytics/services/production-analy
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { linkedGradingSources, listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -1499,22 +1499,206 @@ export class PackagingTerminalBffController {
     });
   }
 
+  private async readShiftCloseSnapshot(snapshotId: unknown, shiftId: unknown, db = this.em) {
+    const rows = snapshotId
+      ? await db.query(`SELECT after_data FROM pkg_audit_logs
+          WHERE id=$1 AND entity_type='WORK_SHIFT' AND entity_id=$2 AND action='CLOSE_SNAPSHOT'`, [snapshotId, String(shiftId)])
+      : await db.query(`SELECT after_data FROM pkg_audit_logs
+          WHERE entity_type='WORK_SHIFT' AND entity_id=$1 AND action='CLOSE_SNAPSHOT' ORDER BY id LIMIT 2`, [String(shiftId)]);
+    if (!rows.length && !snapshotId) return null;
+    if (rows.length !== 1 || !rows[0]?.after_data) throw new ConflictException('班次交接凭据不完整或存在重复');
+    let snapshot: any;
+    try { snapshot = typeof rows[0].after_data === 'string' ? JSON.parse(rows[0].after_data) : rows[0].after_data; }
+    catch { throw new ConflictException('班次交接凭据格式无效'); }
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) || String(snapshot.shiftId) !== String(shiftId)) {
+      throw new ConflictException('班次交接凭据格式无效');
+    }
+    return snapshot;
+  }
+
+  private async shiftCloseFacts(id: string, manager: EntityManager) {
+    const [exceptions] = await manager.query(`SELECT COUNT(*)::int count FROM pkg_exceptions e
+      WHERE e.status NOT IN ('CLOSED','CANCELLED')
+        AND (e.shift_id=$1 OR (e.shift_id IS NULL AND $1=(
+          SELECT CASE WHEN count(DISTINCT match.shift_id)=1 THEN min(match.shift_id) END FROM (
+            SELECT s.shift_id FROM pkg_source_batches s WHERE NOT s.is_test AND e.related_batch_id IN (s.batch_code,s.id::text)
+            UNION ALL SELECT p.shift_id FROM pkg_packing_records p WHERE NOT p.is_test AND e.related_batch_id IN (p.code,p.id::text)
+          ) match)))`, [id]);
+    const [summary] = await manager.query(`SELECT
+      COALESCE((SELECT SUM(received_qty) FROM pkg_source_batches WHERE shift_id=$1 AND NOT is_test AND batch_status<>'VOID'),0)::bigint received_qty,
+      COALESCE((SELECT SUM(COALESCE((to_jsonb(s)->>'dirty_qty')::int,0)+COALESCE((to_jsonb(s)->>'cracked_qty')::int,0))
+        FROM pkg_source_batches s WHERE s.shift_id=$1 AND NOT s.is_test AND s.batch_status<>'VOID'),0)::bigint recorded_non_gradable_qty,
+      COALESCE((SELECT SUM((to_jsonb(link)->>'input_qty')::int)
+        FROM pkg_grading_source_links link JOIN pkg_source_batches src ON src.id=link.source_batch_id
+        JOIN pkg_grading_records g ON g.id=link.grading_id
+        WHERE g.shift_id=$1 AND NOT src.is_test AND src.batch_status<>'VOID'
+          AND NOT g.is_test AND g.status='ACTIVE'),0)::bigint attributed_grading_input_qty,
+      COALESCE((SELECT SUM(total_output) FROM pkg_grading_records WHERE shift_id=$1 AND NOT is_test AND status='ACTIVE'),0)::bigint graded_qty,
+      COALESCE((SELECT SUM(total_eggs) FROM pkg_packing_records WHERE shift_id=$1 AND NOT is_test AND status='ACTIVE'),0)::bigint packed_qty,
+      COALESCE((SELECT SUM(box_count) FROM pkg_handover_records WHERE shift_id=$1),0)::bigint handed_over_boxes,
+      ARRAY(SELECT p.code FROM pkg_packing_records p WHERE p.shift_id=$1 AND NOT p.is_test AND p.status='ACTIVE'
+        AND NOT EXISTS (SELECT 1 FROM pkg_handover_records h WHERE h.packing_code=p.code)
+        AND NOT EXISTS (SELECT 1 FROM inv_batches b WHERE b.packaging_batch_ref=p.code OR b.source_no=p.code)
+        AND NOT EXISTS (SELECT 1 FROM inv_ledger l WHERE l.ref_no=p.code) ORDER BY p.code) pending_codes,
+      (SELECT md5(COALESCE(string_agg(p.code||':'||p.status||':'||p.total_eggs::text,';' ORDER BY p.id),'')) FROM pkg_packing_records p WHERE p.shift_id=$1 AND NOT p.is_test) packing_version`, [id]);
+    const sourceRows = await manager.query(`SELECT s.id, s.batch_code, s.source_inbound_no,
+      COALESCE(NULLIF(s.total_qty,0),s.received_qty,0)::bigint total_qty,
+      COALESCE(s.received_qty,0)::bigint received_qty,
+      COALESCE(s.dirty_qty,0)::bigint dirty_qty, COALESCE(s.cracked_qty,0)::bigint cracked_qty,
+      COALESCE(linked.input_qty,0)::bigint graded_input_qty, linked.has_legacy_allocation,
+      COALESCE(linked.has_active_links,false) has_active_links
+      FROM pkg_source_batches s LEFT JOIN LATERAL (
+        SELECT SUM((to_jsonb(l)->>'input_qty')::bigint) input_qty,
+          COUNT(*)>0 has_active_links,
+          BOOL_OR(to_jsonb(l)->>'input_qty' IS NULL) has_legacy_allocation
+        FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id
+        WHERE l.source_batch_id=s.id AND g.status='ACTIVE' AND NOT g.is_test
+      ) linked ON TRUE
+      WHERE s.shift_id=$1 AND NOT s.is_test AND s.batch_status<>'VOID' ORDER BY s.id`, [id]);
+    const sourceReconciliation = sourceRows.map((row: any) => {
+      const total = Number(row.total_qty) || 0;
+      const dirty = Number(row.dirty_qty) || 0;
+      const cracked = Number(row.cracked_qty) || 0;
+      const graded = Number(row.graded_input_qty) || 0;
+      const expectedGradable = Math.max(0, total - dirty - cracked);
+      const overAllocated = Math.max(0, graded - expectedGradable);
+      return { sourceBatchId: Number(row.id), batchCode: row.batch_code,
+        sourceInboundNo: row.source_inbound_no, receivedQty: Number(row.received_qty) || 0,
+        dirtyQty: dirty, crackedQty: cracked, gradingInputQty: graded,
+        expectedGradableQty: expectedGradable, overAllocatedQty: overAllocated,
+        ungradedQty: row.has_legacy_allocation || overAllocated > 0 ? null : Math.max(0, expectedGradable - graded),
+        allocationStatus: overAllocated > 0 ? 'OVER_ALLOCATED' : row.has_legacy_allocation ? 'LEGACY_ALLOCATION_UNKNOWN' : 'EXACT',
+        otherLossQty: null, otherLossStatus: 'NOT_RECORDED' };
+    });
+    const [rawSchema] = await manager.query(`SELECT to_regclass('production_raw_receipts') receipt,
+      to_regclass('production_raw_receipt_segments') segments`);
+    if (rawSchema?.receipt && rawSchema?.segments) {
+      const rawRows = await manager.query<Array<{source_batch_id:number;raw_receipt_qty:string;raw_receipt_gradable_qty:string}>>(`SELECT r.source_batch_id::int source_batch_id,
+        SUM(seg.quantity)::bigint raw_receipt_qty,
+        SUM(seg.quantity) FILTER (WHERE seg.grade_code NOT IN ('DIRTY','BROKEN'))::bigint raw_receipt_gradable_qty
+        FROM production_raw_receipts r JOIN production_raw_receipt_segments seg ON seg.receipt_id=r.id
+        WHERE r.state='POSTED' AND r.source_batch_id=ANY($1::bigint[])
+        GROUP BY r.source_batch_id`, [sourceRows.map((row: any) => row.id)]);
+      const rawBySource = new Map<number,{total:number;gradable:number}>(rawRows.map((row: any) => [Number(row.source_batch_id), {
+        total: Number(row.raw_receipt_qty), gradable: Number(row.raw_receipt_gradable_qty) || 0,
+      }]));
+      for (const row of sourceReconciliation) {
+        const raw = rawBySource.get(row.sourceBatchId);
+        row.rawReceiptQty = raw?.total ?? 0;
+        row.rawReceiptGradableQty = raw?.gradable ?? 0;
+        const source = sourceRows.find((candidate: any) => Number(candidate.id) === row.sourceBatchId);
+        row.rawOverAllocatedQty = Math.max(0, row.rawReceiptGradableQty - row.expectedGradableQty);
+        row.routeConflict = row.rawReceiptQty > 0 && Boolean(source?.has_active_links);
+        row.rawReceiptStatus = row.routeConflict ? 'ROUTE_CONFLICT_WITH_GRADING'
+          : row.rawOverAllocatedQty > 0 ? 'RAW_OVER_ALLOCATED'
+          : row.rawReceiptQty > 0 ? 'POSTED_SEGMENTS' : 'NO_POSTED_RECEIPT';
+        if (!row.routeConflict && row.rawOverAllocatedQty === 0 && !source?.has_legacy_allocation && row.ungradedQty !== null) {
+          row.ungradedQty = Math.max(0, row.ungradedQty - row.rawReceiptGradableQty);
+        } else if (row.routeConflict || row.rawOverAllocatedQty > 0) row.ungradedQty = null;
+      }
+    } else {
+      for (const row of sourceReconciliation) {
+        row.rawReceiptQty = null;
+        row.rawReceiptGradableQty = null;
+        row.rawReceiptStatus = 'SCHEMA_UNAVAILABLE';
+        row.routeConflict = false;
+      }
+    }
+    const [downstream] = await manager.query(`SELECT
+      COALESCE(SUM(p.total_eggs) FILTER (WHERE p.shift_id<>$1 AND COALESCE(NULLIF(jsonb_array_length(COALESCE(p.grading_codes_json,'[]'::jsonb)),0),CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN 1 ELSE 0 END)=1),0)::bigint exact_cross_shift_packed_qty,
+      COALESCE(SUM(p.total_eggs) FILTER (WHERE p.shift_id<>$1 AND COALESCE(NULLIF(jsonb_array_length(COALESCE(p.grading_codes_json,'[]'::jsonb)),0),CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN 1 ELSE 0 END)>1),0)::bigint ambiguous_cross_shift_packed_qty
+      FROM pkg_packing_records p WHERE NOT p.is_test AND p.status='ACTIVE'
+        AND EXISTS (SELECT 1 FROM pkg_grading_records g WHERE g.shift_id=$1 AND NOT g.is_test
+          AND g.status='ACTIVE' AND (p.grading_code=g.code OR COALESCE(p.grading_codes_json,'[]'::jsonb) ? g.code))`, [id]);
+    const ambiguousCrossShiftPackings = await manager.query(`SELECT p.code, p.total_eggs::bigint quantity,
+      COALESCE(NULLIF(p.grading_codes_json,'[]'::jsonb),CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN jsonb_build_array(p.grading_code) ELSE '[]'::jsonb END) grading_codes
+      FROM pkg_packing_records p WHERE p.shift_id<>$1 AND NOT p.is_test AND p.status='ACTIVE'
+        AND jsonb_array_length(COALESCE(NULLIF(p.grading_codes_json,'[]'::jsonb),
+          CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN jsonb_build_array(p.grading_code) ELSE '[]'::jsonb END))>1
+        AND EXISTS (SELECT 1 FROM pkg_grading_records g WHERE g.shift_id=$1 AND NOT g.is_test AND g.status='ACTIVE'
+          AND (p.grading_code=g.code OR COALESCE(p.grading_codes_json,'[]'::jsonb) ? g.code)) ORDER BY p.code`, [id]);
+    const handoverFacts = await this.shiftHandoverFacts(id, manager);
+    const openExceptions = Number(exceptions.count);
+    const version = createHash('sha256').update(JSON.stringify({ id, summary, sourceReconciliation,
+      downstream, ambiguousCrossShiftPackings, handoverFacts, openExceptions })).digest('hex');
+    return { summary: { ...summary, source_reconciliation: sourceReconciliation,
+      exact_cross_shift_packed_qty: downstream.exact_cross_shift_packed_qty,
+      ambiguous_cross_shift_packed_qty: downstream.ambiguous_cross_shift_packed_qty,
+      ambiguous_cross_shift_packings: ambiguousCrossShiftPackings,
+      handling_handover_boxes: handoverFacts.handlingBoxes,
+      handling_handover_eggs: handoverFacts.handlingEggs,
+      unassigned_handover_boxes: handoverFacts.unassignedBoxes,
+      unassigned_handover_eggs: handoverFacts.unassignedEggs }, openExceptions, version };
+  }
+
+  private async shiftHandoverFacts(id: string, manager: EntityManager) {
+    const [schema] = await manager.query(`SELECT to_regclass('pkg_packing_events') events`);
+    if (!schema?.events) return { handlingBoxes: 0, handlingEggs: 0, unassignedBoxes: 0, unassignedEggs: 0 };
+    const [row] = await manager.query(`WITH receipts AS (
+      SELECT DISTINCT ON (p.id) p.id, p.shift_id::text original_shift_id, e.payload
+      FROM pkg_packing_events e JOIN pkg_packing_records p ON p.id=e.packing_id
+      WHERE e.event_type='COMMIT_RECEIPT' AND NOT p.is_test AND p.status='ACTIVE'
+        AND (p.shift_id::text=$1 OR e.payload->>'handlingShiftId'=$1)
+      ORDER BY p.id,e.server_at DESC,e.id DESC
+    ), totals AS (
+      SELECT r.*, jsonb_array_length(COALESCE(r.payload->'boxIds','[]'::jsonb))::int boxes,
+        COALESCE((SELECT SUM((g->>'qty')::bigint) FROM jsonb_array_elements(COALESCE(r.payload->'groups','[]'::jsonb)) g),0)::bigint eggs
+      FROM receipts r
+    ) SELECT
+      COALESCE(SUM(boxes) FILTER (WHERE payload->>'handlingShiftId'=$1),0)::bigint handling_boxes,
+      COALESCE(SUM(eggs) FILTER (WHERE payload->>'handlingShiftId'=$1),0)::bigint handling_eggs,
+      COALESCE(SUM(boxes) FILTER (WHERE original_shift_id=$1 AND NULLIF(payload->>'handlingShiftId','') IS NULL),0)::bigint unassigned_boxes,
+      COALESCE(SUM(eggs) FILTER (WHERE original_shift_id=$1 AND NULLIF(payload->>'handlingShiftId','') IS NULL),0)::bigint unassigned_eggs
+      FROM totals`, [String(id)]);
+    return { handlingBoxes: Number(row.handling_boxes) || 0, handlingEggs: Number(row.handling_eggs) || 0,
+      unassignedBoxes: Number(row.unassigned_boxes) || 0, unassignedEggs: Number(row.unassigned_eggs) || 0 };
+  }
+
   @Post('shifts/:id/close')
   @RequireMenu('MENU_PKG_OP', 'E', ['MENU_PROD_COLLECTION'])
   async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const isTest = packagingTestMode(req);
     if (isTest) throw new BadRequestException('测试班次必须使用 test/shifts/:id/end 受控结束');
     return this.em.transaction(async manager => {
-    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
-    const [existing] = await manager.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1 AND is_test = ${isTest} FOR UPDATE`, [id]);
-    if (!existing) return { code: 404, msg: '班次不存在' };
-    if (existing.status === 'CLOSED') return { code: 200, msg: '该班次已交班' };
-    await manager.query(
-      `UPDATE pkg_work_shifts SET status='CLOSED', closed_at=NOW(), variance_reason=$1, updated_at=NOW()
-       WHERE id=$2`,
-      [body.varianceReason || '', id],
-    ).catch((e: any) => { throw new Error(e.message); });
-    return { code: 200, msg: '交班成功' };
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+      const shift = await this.exactShift(id, req, undefined, manager);
+      const [existing] = await manager.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1 AND is_test = ${isTest} FOR UPDATE`, [id]);
+      if (!existing) return { code: 404, msg: '班次不存在' };
+      if (existing.status === 'CLOSED') {
+        const snapshot = await this.readShiftCloseSnapshot(shift.close_snapshot_id, id, manager);
+        return { code: 200, msg: '该班次已交班', data: snapshot ?? {
+          shiftId: Number(id), productionDate: shift.date_text, snapshotState: 'LEGACY_NOT_RECORDED',
+        } };
+      }
+      if (existing.status !== 'OPEN') throw new ConflictException('仅开放班次可以交班');
+      if (!Object.prototype.hasOwnProperty.call(shift, 'close_snapshot_id')) {
+        throw new ServiceUnavailableException('交班凭据结构正在升级，请稍后重试');
+      }
+      const { summary, openExceptions, version } = await this.shiftCloseFacts(id, manager);
+      if (summary.source_reconciliation.some((source: any) => source.overAllocatedQty > 0
+        || source.rawOverAllocatedQty > 0 || source.routeConflict || source.rawReceiptStatus === 'SCHEMA_UNAVAILABLE')) {
+        throw new ConflictException('来源数量存在超分级或 RAW 与包装分级双路径冲突，请核对原始回执');
+      }
+      if (openExceptions > 0) throw new ConflictException('本班仍有未结且可归属的异常，完成处置后再交班');
+      if (body.previewVersion !== undefined && body.previewVersion !== version) {
+        throw new ConflictException('班次数据已变更，请重新预览后交班');
+      }
+      const actor = req.user?.userId ?? req.user?.id ?? req.user?.user_id;
+      const snapshot = { shiftId: Number(id), productionDate: shift.date_text, capturedAt: new Date().toISOString(),
+        recordedBy: String(actor), varianceReason: String(body.varianceReason || ''), previewVersion: version,
+        receivedQty: Number(summary.received_qty), recordedNonGradableQty: Number(summary.recorded_non_gradable_qty),
+        attributedGradingInputQty: Number(summary.attributed_grading_input_qty),
+        sourceReconciliation: summary.source_reconciliation,
+        gradedQty: Number(summary.graded_qty), packedQty: Number(summary.packed_qty),
+        exactCrossShiftPackedQty: Number(summary.exact_cross_shift_packed_qty),
+        ambiguousCrossShiftPackedQty: Number(summary.ambiguous_cross_shift_packed_qty),
+        handedOverBoxes: Number(summary.handed_over_boxes), pendingOriginalCodes: summary.pending_codes,
+        openAttributableExceptions: 0, unattributedExceptions: 'NOT_COUNTED' };
+      const [audit] = await manager.query(`INSERT INTO pkg_audit_logs(entity_type,entity_id,action,after_data,reason,operator_id)
+        VALUES('WORK_SHIFT',$1,'CLOSE_SNAPSHOT',$2,$3,$4) RETURNING id`, [id, JSON.stringify(snapshot), snapshot.varianceReason, actor]);
+      await manager.query(`UPDATE pkg_work_shifts SET status='CLOSED', closed_at=NOW(), variance_reason=$1,
+        close_snapshot_id=$2, updated_at=NOW() WHERE id=$3`, [snapshot.varianceReason, audit.id, id]);
+      return { code: 200, msg: '交班成功', data: snapshot };
     });
   }
 
@@ -1826,7 +2010,7 @@ export class PackagingTerminalBffController {
     await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
     // 同舍允许多次采集；更正必须精确落到来源批次，禁止合并或清零同舍其他批次。
     const rows: any[] = await manager.query(
-      `SELECT id, batch_code, total_qty, dirty_qty, cracked_qty, received_qty
+      `SELECT id, batch_code, shift_id, total_qty, dirty_qty, cracked_qty, received_qty
        FROM pkg_source_batches
        WHERE id = $1 AND house_code = $2 AND production_date = $3
          AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED','VOID') AND is_test = ${isTest}
@@ -1834,6 +2018,9 @@ export class PackagingTerminalBffController {
       [sourceBatchId, houseCode, date],
     );
     if (rows.length === 0) throw new BadRequestException('未找到该来源批次');
+    const shift = await this.exactShift(rows[0].shift_id, req, undefined, manager);
+    if (shift.status !== 'OPEN') throw new ConflictException('已关班来源须通过逆向业务更正');
+
 
     const [used] = await manager.query(`SELECT 1 FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id WHERE l.source_batch_id=$1 AND g.status='ACTIVE' AND g.is_test=${isTest} LIMIT 1`, [sourceBatchId]);
     if (used) throw new ConflictException('已分级来源不能直接更正，请先走逆向业务');
@@ -1947,23 +2134,29 @@ export class PackagingTerminalBffController {
     const testReferences = await this.em.query(`SELECT id FROM pkg_source_batches WHERE (batch_code=$1 OR id::text=$1) AND is_test=true UNION ALL SELECT id FROM pkg_packing_records WHERE (code=$1 OR id::text=$1) AND is_test=true`, [related]);
     if (testReferences.length) throw new ConflictException('测试链不能写入真实异常记录');
     const reportedBy = req.user?.name || req.user?.username || '';
-    const reporterId = req.user?.userId || req.user?.id || req.user?.user_id;
 
-    await this.em.query(
-      `INSERT INTO pkg_exceptions
-       (exception_type, severity, related_batch_id, quantity, description,
-        reported_by, status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'REPORTED',NOW(),NOW())`,
-      [
-        body.type || body.exception_type || 'OTHER',
-        body.severity || 'MEDIUM',
-        body.relatedBatchId || body.related_batch_id || body.batchId || '',
-        body.quantity || 0,
-        body.description || '',
-        reportedBy,
-      ],
-    ).catch((e: any) => { throw new Error(e.message); });
-
+    await this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+      const refs = related ? await manager.query(`SELECT shift_id, 'SOURCE' AS kind, id::text FROM pkg_source_batches
+        WHERE NOT is_test AND (batch_code=$1 OR id::text=$1)
+        UNION ALL SELECT shift_id, 'PACKING', id::text FROM pkg_packing_records
+        WHERE NOT is_test AND (code=$1 OR id::text=$1)`, [related]) : [];
+      if (refs.length > 1) throw new ConflictException('异常关联原记录有歧义');
+      const shiftId = refs[0]?.shift_id ?? body.shiftId;
+      if (refs.length && body.shiftId !== undefined && String(body.shiftId) !== String(shiftId)) {
+        throw new ConflictException('异常与原记录班次不一致');
+      }
+      if (shiftId !== undefined && shiftId !== null) {
+        const shift = await this.exactShift(shiftId, req, undefined, manager);
+        if (shift.status !== 'OPEN') throw new ConflictException('已关班次请从原单走历史核对');
+      }
+      await manager.query(`INSERT INTO pkg_exceptions
+        (exception_type,severity,related_batch_id,quantity,description,reported_by,status,created_at,updated_at,shift_id,related_kind,related_id)
+        VALUES ($1,$2,$3,$4,$5,$6,'REPORTED',NOW(),NOW(),$7,$8,$9)`, [
+        body.type || body.exception_type || 'OTHER', body.severity || 'MEDIUM', related, body.quantity || 0,
+        body.description || '', reportedBy, shiftId ?? null, refs[0]?.kind ?? null, refs[0]?.id ?? null,
+      ]);
+    });
     return { code: 200, msg: '异常已上报' };
   }
 
@@ -2056,6 +2249,13 @@ export class PackagingTerminalBffController {
       ? await this.exactShift(shiftId, req, date)
       : (await this.em.query(`SELECT * FROM pkg_work_shifts WHERE production_date=$1 AND is_test=$2 ORDER BY opened_at DESC LIMIT 1`, [targetDate, isTest]))[0];
     if (shiftRow && shiftId === undefined) await this.exactShift(shiftRow.id, req);
+    const closeSnapshot = shiftRow?.status === 'CLOSED'
+      ? await this.readShiftCloseSnapshot(shiftRow.close_snapshot_id, shiftRow.id)
+      : null;
+    const closePreview = requestedShiftId !== null && !isTest && shiftRow?.status === 'OPEN'
+      && Object.prototype.hasOwnProperty.call(shiftRow, 'close_snapshot_id')
+      ? await this.em.transaction('REPEATABLE READ', manager => this.shiftCloseFacts(String(shiftRow.id), manager))
+      : null;
     if (!shiftRow) {
       const scope = await this.packagingScope(req);
       if (!scope.isGlobal) throw new ForbiddenException('未选择可访问的班次');
@@ -2150,9 +2350,21 @@ export class PackagingTerminalBffController {
       [{ boxes: 0, pallets: 0 }],
     );
 
+    const [crossShiftRow] = shiftIdNum ? await this.em.query(`SELECT
+      COALESCE(SUM(p.total_eggs) FILTER (WHERE COALESCE(NULLIF(jsonb_array_length(COALESCE(p.grading_codes_json,'[]'::jsonb)),0),CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN 1 ELSE 0 END)=1),0)::int exact_qty,
+      COALESCE(SUM(p.total_eggs) FILTER (WHERE COALESCE(NULLIF(jsonb_array_length(COALESCE(p.grading_codes_json,'[]'::jsonb)),0),CASE WHEN NULLIF(p.grading_code,'') IS NOT NULL THEN 1 ELSE 0 END)>1),0)::int ambiguous_qty
+      FROM pkg_packing_records p WHERE p.shift_id<>$1 AND p.status='ACTIVE' AND NOT p.is_test
+        AND EXISTS (SELECT 1 FROM pkg_grading_records g WHERE g.shift_id=$1 AND g.status='ACTIVE' AND NOT g.is_test
+          AND (p.grading_code=g.code OR COALESCE(p.grading_codes_json,'[]'::jsonb) ? g.code))`, [shiftIdNum]) : [{exact_qty:0,ambiguous_qty:0}];
+    const handlingSummary = shiftIdNum ? await this.shiftHandoverFacts(String(shiftIdNum), this.em)
+      : {handlingBoxes:0,handlingEggs:0,unassignedBoxes:0,unassignedEggs:0};
+
     return {
       code: 200,
       data: {
+        ...(closePreview ? { closePreviewVersion: closePreview.version, closeOpenExceptionCount: closePreview.openExceptions,
+          closePreview: closePreview.summary } : {}),
+        ...(closeSnapshot ? { closeSnapshot } : {}),
         shift: shiftRow || null,
         receivedQty: Number(recvRow?.qty) || 0,
         receivedWeight: Number(recvRow?.weight) || 0,
@@ -2162,6 +2374,12 @@ export class PackagingTerminalBffController {
         gradedQty: Object.values(gradingOutputs).reduce((sum, qty) => sum + qty, 0),
         shiftPackedBoxes: Number(packRow?.boxes) || 0,
         shiftPackedEggs:  Number(packRow?.eggs)  || 0,
+        exactCrossShiftPackedEggs: Number(crossShiftRow?.exact_qty) || 0,
+        ambiguousCrossShiftPackedEggs: Number(crossShiftRow?.ambiguous_qty) || 0,
+        handlingHandoverBoxes: handlingSummary.handlingBoxes,
+        handlingHandoverEggs: handlingSummary.handlingEggs,
+        unassignedHandoverBoxes: handlingSummary.unassignedBoxes,
+        unassignedHandoverEggs: handlingSummary.unassignedEggs,
         shiftLabelCount: Number(labelRow?.count) || 0,
         shiftWarehousedBoxes: Number(handoverRow?.boxes) || 0,
         shiftWarehousedPallets: Number(handoverRow?.pallets) || 0,
@@ -2489,6 +2707,9 @@ export class PackagingTerminalBffController {
       for (const row of houses) await this.assertActiveHouseScope(String(row.house_code));
       await assertNoPackingDownstream(manager, code);
       if (p.status === 'VOID') return { code: 200, data: { code, status: 'VOID', idempotentReplay: true } };
+      const shift = await this.exactShift(p.shift_id, req, undefined, manager);
+      if (shift.status !== 'OPEN') throw new ConflictException('已关班包装须通过逆向业务作废');
+
       await manager.query(`UPDATE pkg_packing_records SET status='VOID',void_reason=$2,voided_at=NOW(),voided_by=$3 WHERE code=$1`, [code, reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
       await manager.query(`INSERT INTO pkg_audit_logs (entity_type,entity_id,action,before_data,after_data,reason,operator_id)
         VALUES ('PACKING_RECORD',$1,'VOID',$2,$3,$4,$5)`, [code, JSON.stringify(p), JSON.stringify({ status: 'VOID', isTest }), reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
@@ -2696,8 +2917,6 @@ export class PackagingTerminalBffController {
   async confirmHandover(@Body() body: Record<string, any>, @Req() req?: any) {
     if (body.contractVersion === 2 && this.historyWorkflow) return { code: 200, data: await this.historyWorkflow.command('CONFIRM', body.packingCode, req.headers['idempotency-key'], body, req) };
     if (this.historyWorkflow) {
-      const d = await this.historyWorkflow.detail(String(body.packingCode || ''), req);
-      if (d.identityStatus !== 'REGISTERED') throw new ConflictException('BOX_IDENTITY_UNRESOLVED');
       return { code: 200, data: await this.historyWorkflow.compatConfirm(body, req) };
     }
     const isTest = packagingTestMode(req);
@@ -2752,12 +2971,9 @@ export class PackagingTerminalBffController {
           for (const row of sources) await this.assertActiveHouseScope(row.house_code);
         }
         const inventory = await this.pkgInv.completeTerminalPacking(packingCode, {
-          companyCode, warehouseCode: place.warehouse_code, locationCode: location, manager,
+          companyCode, warehouseCode: place.warehouse_code, locationCode: location, manager, requireInventory: true,
         });
-        if (inventory.skippedByMode) {
-          const temp = await this.pkgInv.verifyTerminalTempEvidence(packingCode, manager);
-          if (inventory.mode !== 'TEMP_PRODUCTION_INBOUND' || !temp.ok) throw new ConflictException('TEMP 上游库存证据未对平，禁止交接');
-        } else if (Number(inventory.totalInbound) !== Number(packing.total_eggs) || (prior && !inventory.idempotent)) {
+        if (inventory.skippedByMode || Number(inventory.totalInbound) !== Number(packing.total_eggs) || (prior && !inventory.idempotent)) {
           throw new ConflictException('库存与包装或既有交接证据不一致');
         }
         const code = prior?.code || `WH-${randomUUID()}`;

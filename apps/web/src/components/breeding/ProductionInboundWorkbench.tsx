@@ -20,6 +20,7 @@ import s from './ProductionInboundWorkbench.module.css';
 import RawCollectionReceipts,{RawCollectionSourcePicker,type RawSource} from './RawCollectionReceipts';
 import ProductionStockTrace, {type TraceFilter} from './ProductionStockTrace';
 import InventoryConversions from './InventoryConversions';
+import { productionQueueRange, type ProductionQueueRange } from '@/lib/packaging-queue-navigation';
 
 const endpoint='/v2/inventory/production-inbound-documents';
 const businessDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
@@ -85,6 +86,8 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const {codeMap:shifts}=useDictOptions('PRODUCTION_REPORT_SHIFT');
   const [form,setForm]=useState<Form>(emptyForm);const [restoredKey,setRestoredKey]=useState('');const [snapshotKey,setSnapshotKey]=useState('');const [scope,setScope]=useState('');const [rangeStatus,setRangeStatus]=useState<'idle'|'loading'|'verified'|'refreshing'|'failed'>('idle');
   const [rawSources,setRawSources]=useState<RawSource[]>([]);
+  const [queueEntry,setQueueEntry]=useState<ProductionQueueRange|null>(null);
+  const queueRawPrefilled=useRef(false);
   const [balance,setBalance]=useState<Balance|null>(null);
   const [balanceOutsideScope,setBalanceOutsideScope]=useState(false);const [handovers,setHandovers]=useState<Handover[]>([]);const [documents,setDocuments]=useState<Document[]>([]);
   const [selected,setSelected]=useState<Document|null>(null);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
@@ -202,8 +205,17 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
             setDraftConflict(prior);
           }
         } else if(params.has('houseCode')&&params.has('companyCode')){
+          const linked=productionQueueRange(params);
+          const entry=linked?.action==='LEGACY_TEMP_INBOUND'?null:linked;
+          const prior=cached?.form;
+          if(entry&&prior?.intentKey&&(prior.items.length>0||prior.handoverRef||prior.remark||prior.evidenceFileIds.length>0)){
+            sessionStorage.setItem(prefix+prior.intentKey,JSON.stringify(prior));
+            if(!saved.some(form=>form.intentKey===prior.intentKey))saved.push(prior);
+          }
+          setQueueEntry(entry);
+          queueRawPrefilled.current=false;
           setForm({...emptyForm(),intentKey:key(),companyCode:params.get('companyCode')!,houseCode:params.get('houseCode')!,
-            warehouseCode:params.get('warehouseCode')??'',eggDate:params.get('eggDate')??businessDay()});
+            siteCode:entry?.siteCode??'',warehouseCode:entry?'':params.get('warehouseCode')??'',eggDate:params.get('eggDate')??businessDay()});
         } else {
           setForm(cached?.form??{...emptyForm(),intentKey:key()});
         }
@@ -240,11 +252,19 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       setDocuments(docs.filter(d=>!form.warehouseCode||d.payload.warehouseCode===form.warehouseCode));
       setHandovers(receipts.filter(h=>!form.warehouseCode||h.payload.warehouseCode===form.warehouseCode));
       setBalance(stockResult?.stock??null);setBalanceOutsideScope(!!stockResult?.outside);setRawSources(raw);setScope(state);setSnapshotKey(rangeKey);setRangeStatus('verified');
+      if(!queueRawPrefilled.current&&queueEntry?.action==='FORMAL_RAW'&&state==='ACTIVE'&&stockResult?.stock
+        &&queueEntry.companyCode===form.companyCode&&queueEntry.houseCode===form.houseCode&&queueEntry.eggDate===form.eggDate){
+        const matches=raw.filter(source=>source.batch_code===queueEntry.sourceBatchCode);
+        if(matches.length===1){
+          queueRawPrefilled.current=true;
+          setForm(current=>current.rawCollectionSourceId?current:{...current,rawCollectionSourceId:matches[0].id});
+        }
+      }
     } catch (e) {
       if(turn!==generation.current)return;
       setRangeStatus('failed');setError(e instanceof Error?e.message:String(e));
     }
-  },[restored,form.companyCode,form.houseCode,form.eggDate,form.warehouseCode,rangeKey]);
+  },[restored,form.companyCode,form.houseCode,form.eggDate,form.warehouseCode,queueEntry,rangeKey]);
   useEffect(()=>{let alive=true;Promise.resolve().then(()=>{if(alive)void refresh();});return()=>{alive=false;};},[refresh,rangeVersion]);
 
   useEffect(()=>{let alive=true;Promise.resolve().then(async()=>{
@@ -363,6 +383,8 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   return <main className={s.page}>
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
     <PageHeader title={t('productionInstallments.title','正式分次生产入库')} subtitle={t('productionInstallments.subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
+    {queueEntry?.action==='FORMAL_RAW'&&queueEntry.companyCode===form.companyCode&&queueEntry.houseCode===form.houseCode&&queueEntry.eggDate===form.eggDate&&
+      <p role="status" className={s.notice}>{t('terminal.queueRawSourceInstruction','请先选择授权的交库仓库并核对原始收蛋来源。')} <strong>{queueEntry.sourceBatchCode}</strong></p>}
     <div className={s.actions}><Link href={mobile?"/mobile/production-cutovers":"/breeding/production-cutovers"}>{t('productionCutover.title','正式库存切换盘点')}</Link><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{t('productionInstallments.daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{t('productionInstallments.legacy','历史入库资料')}</Link>}
       <button disabled={busy} onClick={()=>setRangeVersion(n=>n+1)}>{t('common.refresh','刷新')}</button>{p.canCreate&&<button disabled={busy} onClick={newIntent}>{t('productionInstallments.new','新交接意图')}</button>}</div>
     <nav className={s.actions} aria-label={t('productionJobs.tasks')}>

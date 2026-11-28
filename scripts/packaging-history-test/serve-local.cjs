@@ -3,7 +3,7 @@ const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypt
 const root=path.resolve(__dirname,'../..');
 fs.writeFileSync(path.join(root,'artifacts/packaging-history-local/api-start-revision-'+Date.now()+'.json'),JSON.stringify(require('./revision.cjs').capture(),null,2));
 for(const key of Object.keys(process.env))if(!['PATH','LANG','LC_ALL','TZ'].includes(key))delete process.env[key];
-Object.assign(process.env,{NODE_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'55432',DB_USER:'postgres',DB_NAME:'packaging_history_test',DB_PASSWORD:'',JWT_SECRET:crypto.randomBytes(32).toString('hex'),ENABLE_DEV_LOGIN:'false'});
+Object.assign(process.env,{NODE_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'55432',DB_USER:'postgres',DB_NAME:'packaging_history_test',DB_PASSWORD:'',JWT_SECRET:crypto.randomBytes(32).toString('hex'),ENABLE_DEV_LOGIN:'false',PACKAGING_LOCAL_TEST_BACKGROUND_PASS_THROUGH:'1'});
 const connect=net.Socket.prototype.connect;
 net.Socket.prototype.connect=function(...args){let a=args[0];if(Array.isArray(a))a=a[0];
  const host=typeof a==='object'?a.host:typeof args[1]==='string'?args[1]:'localhost';
@@ -24,6 +24,13 @@ require(root+'/apps/api/node_modules/reflect-metadata');
  const app=await NestFactory.create(AppModule,{logger:false,abortOnError:false});
  const ds=app.get(DataSource);const [r]=await ds.query("SELECT current_database() db,current_setting('server_version_num') version");
  if(r.db!=='packaging_history_test'||Number(r.version)<180000)throw Error('ISOLATION_REQUIRED');
+ if(process.env.NODE_ENV!=='test'||process.env.PACKAGING_LOCAL_TEST_BACKGROUND_PASS_THROUGH!=='1')throw Error('TEST_ADMISSION_OVERRIDE_REQUIRED');
+ // This local browser fixture has no root-owned read-only control mount. Keep
+ // all application routes real, while bypassing only BackgroundTaskService admission
+ // after the database identity above proves this process targets the synthetic PG18 DB.
+ const {BackgroundTaskService}=require(root+'/apps/api/src/modules/background-control/background-task.service.ts');
+ const background=app.get(BackgroundTaskService);
+ background.run=async(_name,_kind,work)=>work();
  await require(root+'/apps/api/src/common/guards/menu-registry.service.ts').hydrateMenuRegistry(ds.manager);
  const {PackagingWorkflowPolicy}=require(root+'/apps/api/src/modules/bff/packaging-workflow-policy.ts');
  const policy=app.get(PackagingWorkflowPolicy);const disabled=policy.get.bind(policy);

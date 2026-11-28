@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-11-28T05:44:57.447Z",
+  "environment": {
+    "database": "packaging_queue_perf",
+    "postgresVersion": 180006,
+    "syntheticScale": 5000,
+    "host": "127.0.0.1",
+    "concurrency": 1,
+    "samplesPerOperation": 26,
+    "excludedWarmupSamples": 1,
+    "cacheState": "warm local PostgreSQL and application caches"
+  },
+  "measuredThrough": "real AppModule HTTP, JWT strategy, MenuGuard, DataScope and queue SQL",
+  "thresholdP95Ms": 1000,
+  "fixture": {
+    "prefix": "TEST-9765ea",
+    "farm": "TEST-9765ea-F",
+    "shiftId": "773",
+    "counts": {
+      "waiting_sources": 5000,
+      "gradings": 5000,
+      "packings": 5000,
+      "partial_handovers": 2000
+    }
+  },
+  "sourceBefore": {
+    "apps/api/src/modules/bff/packaging-work-queue.service.ts": "9fd22ed8e0496e6d1b529924c590758bd1aa08601989e923894e5f7939059cc6",
+    "apps/api/src/modules/bff/packaging-history.service.ts": "0a8aed9cb55137496d7eb9109b590cd8b645bdc3391d82796d96e49a35413eab",
+    "apps/api/src/modules/sales-v2/services/initial-egg-inventory-route.ts": "a99c8dab6ad571a27053d4a6e0b2796c798bd673b3416315fb8658bc4f846cd9"
+  },
+  "sourceAfter": {
+    "apps/api/src/modules/bff/packaging-work-queue.service.ts": "9fd22ed8e0496e6d1b529924c590758bd1aa08601989e923894e5f7939059cc6",
+    "apps/api/src/modules/bff/packaging-history.service.ts": "0a8aed9cb55137496d7eb9109b590cd8b645bdc3391d82796d96e49a35413eab",
+    "apps/api/src/modules/sales-v2/services/initial-egg-inventory-route.ts": "a99c8dab6ad571a27053d4a6e0b2796c798bd673b3416315fb8658bc4f846cd9"
+  },
+  "sourceUnchanged": true,
+  "measurements": {
+    "current-first-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 341.37,
+      "p95Ms": 286.26,
+      "p99Ms": 292.35,
+      "responseCounts": {
+        "SOURCE": 5000,
+        "PACKING": 3001
+      }
+    },
+    "current-next-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 277.69,
+      "p95Ms": 282.69,
+      "p99Ms": 283.32,
+      "responseCounts": {
+        "SOURCE": 5000,
+        "PACKING": 3001
+      }
+    },
+    "carryover-first-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 259.64,
+      "p95Ms": 270.62,
+      "p99Ms": 272.51,
+      "responseCounts": {
+        "SOURCE": 5000,
+        "PACKING": 3001
+      }
+    },
+    "carryover-next-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 257.69,
+      "p95Ms": 274.55,
+      "p99Ms": 280.03,
+      "responseCounts": {
+        "SOURCE": 5000,
+        "PACKING": 3001
+      }
+    },
+    "review-first-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 449.11,
+      "p95Ms": 471.28,
+      "p99Ms": 474.01,
+      "responseCounts": {
+        "PACKING": 2000
+      }
+    },
+    "review-next-25": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 444.61,
+      "p95Ms": 455.77,
+      "p99Ms": 460.64,
+      "responseCounts": {
+        "PACKING": 2000
+      }
+    },
+    "carryover-first-100": {
+      "samples": 26,
+      "httpRequestsPerPage": 1,
+      "firstMs": 258.15,
+      "p95Ms": 270.77,
+      "p99Ms": 281.7,
+      "responseCounts": {
+        "SOURCE": 5000,
+        "PACKING": 3001
+      }
+    }
+  },
+  "passed": true
+}

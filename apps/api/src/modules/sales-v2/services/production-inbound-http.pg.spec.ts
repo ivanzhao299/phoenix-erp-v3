@@ -302,6 +302,52 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const ready=(await api(1,'post',`/${d.id}/ready`).send({version:d.version,submitKey:randomUUID()}).expect(201)).body;
     return {p,ready,file,handover};
   }
+  it.each(['formal-first','legacy-first'])('crosses a formal installment with legacy TEMP posting (%s) without double posting',async order=>{
+    const {ready}=await signedDraft(100),gate=db.createQueryRunner();await gate.connect();await gate.startTransaction();
+    const [{pid}]=await gate.query('SELECT pg_backend_pid() pid');
+    await gate.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext('HOUSE-A'))");
+    const formal=()=>api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash});
+    const legacy=()=>request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(8),{type:'bearer'}).send({
+      eggDate:day,houseCode:'HOUSE-A',companyCode:'COMP-A',siteCode:'SITE-A',warehouseCode:'WH-A',locationCode:'LOC-A',
+      items:[{grade:'GRADE_1',qty:1}],
+    });
+    const observeWait=async(target:number)=>{
+      let waiting=false;
+      for(let i=0;i<100;i++){
+        const [{n}]=await db.query("SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND cardinality(pg_blocking_pids(pid))>0 AND $1=ANY(pg_blocking_pids(pid))",[pid]);
+        if(n>=target){waiting=true;break;}
+        await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      return waiting;
+    };
+    let first:Promise<request.Response>|undefined,second:Promise<request.Response>|undefined;const waits:boolean[]=[];
+    try{
+      first=(order==='formal-first'?formal():legacy()).then(r=>r);waits.push(await observeWait(1));
+      second=(order==='formal-first'?legacy():formal()).then(r=>r);waits.push(await observeWait(2));
+      await gate.commitTransaction();
+      const responses=await Promise.all([first,second]);
+      expect(responses.map(r=>r.status)).toEqual(order==='formal-first'?[201,409]:[409,201]);
+      expect(responses[order==='formal-first'?0:1].body).toMatchObject({totalInbound:100});
+      expect(waits).toEqual([true,true]);
+    }finally{
+      if(gate.isTransactionActive)await gate.rollbackTransaction();await Promise.allSettled([first,second].filter(Boolean) as Promise<request.Response>[]);await gate.release();
+    }
+    const [facts]=await db.query(`SELECT (SELECT count(*)::int FROM inv_batches) batches,(SELECT count(*)::int FROM inv_ledger) ledger,
+      (SELECT count(*)::int FROM production_inbound_documents WHERE state='POSTED') posted,
+      (SELECT count(*)::int FROM production_inbound_lines) lines,(SELECT COALESCE(SUM(quantity),0)::int FROM production_inbound_allocations WHERE direction=1) allocated,
+      (SELECT COALESCE(SUM(qty),0)::int FROM inv_batches) stock_qty,(SELECT count(*)::int FROM brd_egg_day_routes) routes`);
+    expect(facts).toMatchObject({batches:1,ledger:1,posted:1,lines:1,allocated:100,stock_qty:100,routes:1});
+    const [batch]=await db.query('SELECT source_type,source_no,collection_batch_ref,qty::text qty FROM inv_batches');
+    expect(batch).toMatchObject({source_type:'TEMP_PRODUCTION',collection_batch_ref:'HOUSE-HOUSE-A',qty:'100'});
+    const [ledger]=await db.query('SELECT change_type,qty_change::text qty,ref_no FROM inv_ledger');
+    expect(ledger).toMatchObject({change_type:'TEMP_PRODUCTION_INBOUND',qty:'100'});
+    const [doc]=await db.query('SELECT receipt FROM production_inbound_documents WHERE state=\'POSTED\'');
+    expect(doc.receipt).toMatchObject({totalInbound:100,batches:[expect.objectContaining({quantity:100})]});
+    expect(await db.query("SELECT entry_mode FROM brd_egg_day_routes WHERE company_code='COMP-A' AND house_code='HOUSE-A' AND production_date=$1",[day]))
+      .toEqual([{entry_mode:'TEMP_PRODUCTION'}]);
+    expect(await db.query('SELECT source_key,quantity,entry_mode FROM brd_egg_source_receipts'))
+      .toEqual([expect.objectContaining({quantity:100,entry_mode:'TEMP_PRODUCTION'})]);
+  });
   it('T08/T09 returns structured day conflicts, requires create and edit, and replays an authorized posted receipt',async()=>{
     const previous=(await db.query(`SELECT ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-1)::text AS day`))[0].day;
     const clock=jest.spyOn(postingClock,'singaporeBusinessDate').mockReturnValue(previous);

@@ -18,6 +18,7 @@ describe('WmsService inventory read queries', () => {
         if (key === 'dataScope') {
           return {
             isGlobal: false,
+            allowedCompanyCodes: ['COMP-A'],
             allowedWarehouseCodes: ['LPH_MS_EGG_SALES'],
           };
         }
@@ -256,8 +257,9 @@ describe('WmsService inventory read queries', () => {
 
     expect(em.query).toHaveBeenCalledWith(
       expect.stringContaining('COALESCE(b.qty_available, b.qty, 0) > 0'),
-      [['LPH_MS_EGG_SALES']],
+      [['LPH_MS_EGG_SALES'], ['COMP-A']],
     );
+    expect(em.query.mock.calls[0][0]).toContain('b.company_code=ANY($2::text[])');
     expect(em.query.mock.calls[0][0]).toContain('LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code');
   });
 

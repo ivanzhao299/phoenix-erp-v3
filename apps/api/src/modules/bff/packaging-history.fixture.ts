@@ -2,8 +2,11 @@ import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 /** The source-profile migration is not globally applied: DDL is limited to the authorized test DB. */
 export async function ensurePackagingSourceProfileSchema(ds: DataSource) {
+  const options = ds.options;
+  const host = options.type === 'postgres' ? (options.url ? new URL(options.url).hostname : options.host) : undefined;
+  if (process.env.NODE_ENV !== 'test' || !host || !['localhost','127.0.0.1'].includes(host)) throw Error('ISOLATED_TEST_DATABASE_REQUIRED');
   const [database] = await ds.query('SELECT current_database() AS name');
-  if (process.env.NODE_ENV !== 'test' || database.name !== 'packaging_history_test') throw Error('ISOLATED_TEST_DATABASE_REQUIRED');
+  if (!['packaging_history_test','inventory_validation'].includes(database.name)) throw Error('ISOLATED_TEST_DATABASE_REQUIRED');
   await ds.query(`CREATE TABLE IF NOT EXISTS md_egg_source_profiles(
     profile_code varchar(64) PRIMARY KEY,company_code varchar(64) NOT NULL,farm_code varchar(64) NOT NULL,site_code varchar(64) NOT NULL,house_code varchar(64) NOT NULL,
     product_mode varchar(16) NOT NULL CHECK(product_mode IN ('STANDARD','VARIANT')),variety_code varchar(64),effective_date date NOT NULL,expire_date date,status varchar(16) NOT NULL DEFAULT 'ACTIVE',
@@ -15,7 +18,7 @@ export async function ensurePackagingSourceProfileSchema(ds: DataSource) {
 }
 /** Isolated fixture only: no existing/production authentication artifacts. */
 export async function packingHistoryFixture(ds:DataSource){
-  if(process.env.NODE_ENV!=='test'||ds.options.database!=='packaging_history_test')throw Error('ISOLATED_TEST_DATABASE_REQUIRED');
+  if(process.env.NODE_ENV!=='test'||!['packaging_history_test','inventory_validation'].includes(String(ds.options.database)))throw Error('ISOLATED_TEST_DATABASE_REQUIRED');
   await ensurePackagingSourceProfileSchema(ds);
   const prefix=`TEST-${randomUUID().slice(0,6)}`,company=`${prefix}-C`,farm=`${prefix}-F`,house=`${prefix}-H`,warehouse=`${prefix}-W`,location=`${prefix}-L`;
   const variety=`${prefix}-VAR`,breed=`${prefix}-BREED`;
@@ -31,6 +34,10 @@ export async function packingHistoryFixture(ds:DataSource){
   await ds.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES($1,$2,$3,$3,$4,'STANDARD',$5,'2025-01-01')`,[`${prefix}-PROFILE`,company,farm,house,commercialVariety]);
   await ds.query(`INSERT INTO brd_houses(house_code,farm_code,status) VALUES($1,$2,'ACTIVE')`,[house,farm]);
   await ds.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date) VALUES($1,$2,$3,$4,'LAYING','2025-01-01','2025-01-01')`,[`${prefix}-FLOCK`,house,farm,breed]);
+  await ds.query(`INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
+    VALUES($1,$1,repeat('f',64),'BASELINE',$2,$3,$4,'2025-01-01','{}','POSTED','packaging-history-fixture')`,[prefix,company,farm,house]);
+  await ds.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
+    VALUES($1,$2,$3,$4,$5,$5,'2025-01-01',1000,$1)`,[prefix,`${prefix}-FLOCK`,house,company,farm]);
   await ds.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,status) VALUES($1,$1,$2,'ACTIVE')`,[warehouse,company]);
   await ds.query(`INSERT INTO wms_locations(location_code,location_name,warehouse_code,status) VALUES($1,$1,$2,'NORMAL')`,[location,warehouse]);
   await ds.query(`INSERT INTO inv_source_mode(scope_level,scope_code,mode) VALUES('SITE',$1,'PACKAGING_INBOUND')`,[farm]);
@@ -42,8 +49,8 @@ export async function packingHistoryFixture(ds:DataSource){
   await ds.query(`INSERT INTO mst_products(product_code,status,variety_code,unit,unit_zh) VALUES($1,'ACTIVE',$2,'枚','枚')`,[prefix,commercialVariety]);
   const outputs:any[]=[];
   for(const qty of [30,20]){
-    const grade=`${prefix}-G${qty}`,spec=`${prefix}-S${qty}`,sku=`${prefix}-SKU${qty}`;
-    await ds.query(`INSERT INTO product_grades(grade_code,grade_name,status,is_saleable,is_storable) VALUES($1,$1,'ACTIVE',true,true)`,[grade]);
+    const grade=qty===30?'GRADE_5':'GRADE_4',spec=`${prefix}-S${qty}`,sku=`${prefix}-SKU${qty}`;
+    await ds.query(`INSERT INTO product_grades(grade_code,grade_name,status,is_saleable,is_storable) VALUES($1,$1,'ACTIVE',true,true) ON CONFLICT (grade_code) DO NOTHING`,[grade]);
     await ds.query(`INSERT INTO packaging_specs(spec_code,spec_name,qty_per_unit,base_unit,display_unit) VALUES($1,$1,$2,'枚','箱')`,[spec,qty]);
     await ds.query(`INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES($1,$2,$3,$4,$5,'ACTIVE')`,[sku,prefix,grade,spec,commercialVariety]);
     await ds.query(`INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,status,sale_enabled,stock_enabled) VALUES($1,'COMPANY',$2,'ACTIVE',true,true)`,[sku,company]);

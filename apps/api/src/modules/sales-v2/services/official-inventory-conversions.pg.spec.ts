@@ -294,12 +294,21 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     const r=await service.post(a.id,a.submit_key,a.content_hash);
     expect((await db.query('SELECT status,qty_available FROM inv_batches WHERE batch_no=$1',[r.batches[0].batchNo]))[0]).toEqual({status:'QUARANTINE',qty_available:'0'});
   });
-  it('serializes actual RAW consumption by two independent posting transactions',async()=>{
-    const s=await source(),a=await approved(plan(s.segments[0].id,70)),b=await approved(plan(s.segments[0].id,60));
+  it.each([60,40])('serializes two real conversions of 60 + %s against one 100-egg RAW segment',async second=>{
+    const s=await source(),segment=s.segments[0].id;
+    const a=await approved(plan(segment,60)),b=await approved(plan(segment,second));
     const result=await Promise.allSettled([service.post(a.id,a.submit_key,a.content_hash),service.post(b.id,b.submit_key,b.content_hash)]);
-    expect(result.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(result.filter(r=>r.status==='rejected')).toHaveLength(1);
-    const [{used}]=await db.query('SELECT sum(quantity)::int AS used FROM production_conversion_inputs');expect([60,70]).toContain(used);
-    expect(await counts()).toEqual({batches:1,ledger:1,inputs:1,outputs:1});
+    const accepted=second===60?1:2,expectedQty=second===60?60:100;
+    expect(result.filter(r=>r.status==='fulfilled')).toHaveLength(accepted);
+    expect(result.filter(r=>r.status==='rejected')).toHaveLength(2-accepted);
+    const [facts]=await db.query(`SELECT
+      (SELECT sum(quantity)::int FROM production_conversion_inputs WHERE raw_segment_id=$1) used,
+      (SELECT sum(qty_change)::int FROM inv_ledger WHERE change_type='CONVERSION_IN') ledger_qty,
+      (SELECT sum(qty)::int FROM inv_batches) stock_qty,
+      (SELECT quantity::int FROM production_raw_receipt_segments WHERE id=$1) source_receipt_qty,
+      (SELECT count(*)::int FROM production_conversion_documents WHERE state='POSTED' AND receipt IS NOT NULL) receipts`,[segment]);
+    expect(facts).toEqual({used:expectedQty,ledger_qty:expectedQty,stock_qty:expectedQty,source_receipt_qty:100,receipts:accepted});
+    expect(await counts()).toEqual({batches:accepted,ledger:accepted,inputs:accepted,outputs:accepted});
   });
   it('keeps the paired debit valid inside a real PostgreSQL savepoint and rejects a duplicate conversion ledger',async()=>{
     const s=await source(),a=await approved(plan(s.segments[0].id,100,'WIP')),first=await service.post(a.id,a.submit_key,a.content_hash);

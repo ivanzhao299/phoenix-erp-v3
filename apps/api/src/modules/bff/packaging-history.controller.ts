@@ -3,16 +3,42 @@ import { BadRequestException, ConflictException, NotFoundException, Body, Contro
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PackagingHistoryService } from './packaging-history.service';
+import { PackagingWorkQueueService } from './packaging-work-queue.service';
 
 @Controller('api/packaging/terminal')
 @UseGuards(AuthGuard('jwt'),MenuGuard)
 @RequireMenu('MENU_PKG_OP','V',['MENU_PKG_MGR'])
 export class PackagingHistoryController {
-  constructor(readonly history: PackagingHistoryService, readonly workflow: PackagingHandoverService) {}
+  constructor(readonly history: PackagingHistoryService, readonly workflow: PackagingHandoverService, readonly queue: PackagingWorkQueueService) {}
+  @Get('work-queue/sites') @Header('Cache-Control','private,no-store')
+  async workQueueSites(@Req() req:any) { return {code:200,data:await this.queue.sites(req)}; }
+  @Get('work-queue') @Header('Cache-Control','private,no-store')
+  async workQueue(@Query() q: Record<string,string>, @Req() req:any) { return {code:200,data:await this.queue.list(q,req)}; }
   @Get('history') @Header('Cache-Control','private,no-store')
   async list(@Query() q: Record<string,string>,@Req() req:any){return {code:200,data:await this.history.list(q,req)};}
   @Get('history/:packingCode') @Header('Cache-Control','private,no-store')
   async detail(@Param('packingCode') code:string,@Req() req:any){return {code:200,data:await this.workflow.detail(code,req)};}
+
+  @Get('history/:packingCode/my-operation') @Header('Cache-Control','private,no-store')
+  async myOperation(@Param('packingCode') code:string,@Query() q:any,@Req() req:any){
+    if(!['PRINT','PRINT_RESULT','CONFIRM'].includes(q.action)||Object.keys(q).some(k=>!['action','requestId','boxId'].includes(k)))throw new BadRequestException('INVALID_FILTER');
+    if(q.action==='PRINT_RESULT'&&!q.requestId)throw new BadRequestException('INVALID_FILTER');
+    if(q.requestId)uuid(q.requestId);
+    if(q.boxId)uuid(q.boxId);
+    const d=await this.history.detail(code,req),actor=String(req.user.userId??req.user.id??req.user.user_id);
+    const values:any[]=[actor,d.record.id,q.action];let filter='';
+    if(q.action==='PRINT_RESULT'){values.push(q.requestId);filter=`AND e.payload->>'requestId'=$4`;}
+    else if(q.requestId){values.push(q.requestId);filter=`AND e.id=$4`;}
+    if(q.boxId){values.push(q.boxId);filter+=` AND e.box_id=$${values.length}`;}
+    const [row]=await this.history.em.query(`SELECT o.idempotency_key "idempotencyKey",o.state,e.id "eventId",e.event_type "eventType",e.payload
+      FROM pkg_packing_operations o LEFT JOIN pkg_packing_events e ON e.id=o.result_event_id AND e.operation_id=o.id
+        AND e.packing_id=o.packing_id AND e.actor_id=o.actor_id
+        AND e.event_type=CASE o.action WHEN 'PRINT' THEN 'PRINT_REQUEST' WHEN 'PRINT_RESULT' THEN 'PRINT_RESULT' WHEN 'CONFIRM' THEN 'COMMIT_RECEIPT' END
+      WHERE o.actor_id=$1 AND o.packing_id=$2 AND o.action=$3 ${filter}
+      ORDER BY COALESCE(e.server_at,o.created_at) DESC,o.created_at DESC LIMIT 1`,values);
+    if(row?.state==='COMMITTED'&&(!row.eventId||!row.payload||Array.isArray(row.payload)||typeof row.payload!=='object'))throw new ConflictException('OPERATION_INCOMPLETE');
+    return {code:200,data:row||{state:'NOT_FOUND'}};
+  }
 
   @Post('history/:packingCode/box-registration') @RequireMenu('MENU_PKG_OP','E')
   register(@Param('packingCode') code:string,@Headers('idempotency-key') key:string,@Body() body:any,@Req() req:any){return this.run('REGISTER',code,key,body,req);}

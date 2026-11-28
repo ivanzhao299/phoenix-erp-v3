@@ -24,7 +24,9 @@ export class WarehouseDailyCloseService {
 
   private scope(): DataScopeContext {
     const scope = this.cls.get<DataScopeContext>('dataScope');
-    if (!scope?.isGlobal && !scope?.allowedWarehouseCodes.length) throw new ForbiddenException('无仓库日结范围');
+    if (!scope?.isGlobal && (!scope?.allowedWarehouseCodes?.length || !scope?.allowedCompanyCodes?.length)) {
+      throw new ForbiddenException('无仓库日结范围');
+    }
     return scope;
   }
 
@@ -33,8 +35,8 @@ export class WarehouseDailyCloseService {
     const data = await this.ds.query(
       `SELECT warehouse_code,warehouse_name,company_code FROM wms_warehouses
        WHERE domain='OPERATIONAL' AND company_code IS NOT NULL AND company_code NOT IN ('','ALL')
-         AND ($1::boolean OR warehouse_code=ANY($2::text[]))
-       ORDER BY warehouse_code`, [scope.isGlobal, scope.allowedWarehouseCodes]);
+         AND ($1::boolean OR (warehouse_code=ANY($2::text[]) AND company_code=ANY($3::text[])))
+       ORDER BY warehouse_code`, [scope.isGlobal, scope.allowedWarehouseCodes, scope.allowedCompanyCodes]);
     return { code: 200, data };
   }
 
@@ -53,6 +55,7 @@ export class WarehouseDailyCloseService {
       `SELECT company_code FROM wms_warehouses WHERE warehouse_code=$1 AND domain='OPERATIONAL'
        AND company_code IS NOT NULL AND company_code NOT IN ('','ALL')`, [warehouse]);
     if (!row) throw new NotFoundException('日结作业仓不存在或公司尚未核定');
+    if (!scope.isGlobal && !scope.allowedCompanyCodes.includes(row.company_code)) throw new ForbiddenException('无该仓权限');
     return row.company_code as string;
   }
 

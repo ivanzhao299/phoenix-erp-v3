@@ -1,3 +1,4 @@
+import { claimInitialEggInventoryRoute } from './initial-egg-inventory-route';
 import { normalizeGradeQuantityMap } from '../../farm/daily-report-grades';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { SkuAvailabilityService, SkuResolveResult } from '../../product-master/services/sku-availability.service';
@@ -400,6 +401,8 @@ export class ProductionInboundService {
     const effectiveItems = [...itemMap.values()];
     if (effectiveItems.length === 0) throw new BadRequestException('至少需要一个数量大于 0 的蛋品档位');
 
+    const houseCode = dto.houseCode;
+    if (!houseCode) throw new BadRequestException('临时产蛋入库须指定唯一舍日来源');
     const context = await this.resolveMasterContext(dto);
     const { companyCode, farmCode, siteCode, warehouseCode, locationCode } = context;
 
@@ -471,6 +474,7 @@ export class ProductionInboundService {
         }
         return;
       }
+      await claimInitialEggInventoryRoute(mgr, { companyCode, houseCodes: [houseCode], eggDate: dto.eggDate }, 'TEMP_PRODUCTION');
       // Commercial source profiles preserve Mengsai STANDARD eggs and explicitly
       // map Dongpeng houses to RED/PINK, without inventing biological breed data.
       const sourceProfile = await this.skuAvailability.resolveSourceProfile({

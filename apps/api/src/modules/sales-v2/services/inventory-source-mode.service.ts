@@ -180,14 +180,21 @@ export class InventorySourceModeService {
       throw new BadRequestException(`无效模式：${newMode}，有效值：${VALID_MODES.join(' / ')}`);
     }
     const companyCode = scopeLevel === 'COMPANY' ? scopeCode : null;
-    const currentMode = await this.resolveMode({
-      siteCode: scopeLevel === 'SITE' ? scopeCode : null,
-      companyCode,
-    }, manager, { failClosed: true });
-
-    const q = async (sql: string, args: unknown[] = []) => {
-      return (manager ?? this.ds).query(sql, args);
-    };
+    const siteCode = scopeLevel === 'SITE' ? scopeCode : null;
+    const q = (sql: string, args: unknown[] = []) => (manager ?? this.ds).query(sql, args);
+    let inheritedCompany = companyCode;
+    if (siteCode) {
+      const owners = await q(
+        `SELECT company_code FROM ${OrgOwnershipService.FARM_TABLE}
+          WHERE farm_code=$1 AND status='ACTIVE'`,
+        [siteCode],
+      );
+      if (owners.length !== 1 || !owners[0].company_code?.trim()) {
+        throw new BadRequestException('库存来源模式的场站缺少有效公司归属');
+      }
+      inheritedCompany = owners[0].company_code;
+    }
+    const currentMode = await this.resolveMode({ siteCode, companyCode: inheritedCompany }, manager, { failClosed: true });
 
     // 可售库存余额（非 legacy）
     const balRows = await q(

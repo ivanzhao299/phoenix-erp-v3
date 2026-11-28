@@ -2,7 +2,7 @@ import {BadRequestException} from '@nestjs/common';
 const fields:Record<string,string[]>={
  REGISTER:['registrationKind','reason','items'],SESSION:['purpose'],SCAN:['boxId','labelCode','purpose','method','sessionId'],
  PRINT:['packingCode','boxId','labelCode','printType','reason','copies','templateVersion'],
- PRINT_RESULT:['packingCode','requestId','type','clientOccurredAt'],
+ PRINT_RESULT:['packingCode','requestId','type','clientOccurredAt','physicalVerification','reconciliationReason'],
  CONFIRM:['contractVersion','packingCode','productionDate','shiftId','boxIds','verificationIds','warehouseCode','locationCode','receiverUserId','palletCode'],
  VOID:['labelCode','reason','dispositionDeclaration'],
 };
@@ -31,7 +31,19 @@ export function validatePackingCommand(action:string,body:any){
  if(action==='SCAN'){uuid(body.boxId);uuid(body.sessionId);text('labelCode');enumeration('method',['SCANNER','MANUAL']);}
  if(action==='PRINT'){uuid(body.boxId);text('labelCode');text('templateVersion');enumeration('printType',['NORMAL','REPRINT']);if(body.copies!==1)return fail();text('reason',body.printType==='REPRINT');}
  if(body.packingCode!==undefined)validatePackingCode(body.packingCode);
- if(action==='PRINT_RESULT'){uuid(body.requestId);enumeration('type',['DISPATCHED','FAILED','UNKNOWN']);if(body.clientOccurredAt!==undefined&&body.clientOccurredAt!==null&&(typeof body.clientOccurredAt!=='string'||!Number.isFinite(Date.parse(body.clientOccurredAt))))return fail();}
+ if(action==='PRINT_RESULT'){
+  uuid(body.requestId);enumeration('type',['DISPATCHED','FAILED','UNKNOWN']);
+  if(body.clientOccurredAt!==undefined&&body.clientOccurredAt!==null&&(typeof body.clientOccurredAt!=='string'||!Number.isFinite(Date.parse(body.clientOccurredAt))))return fail();
+  if(body.type==='UNKNOWN'){
+   if(body.physicalVerification!==undefined||body.reconciliationReason!==undefined)return fail();
+  }else{
+   const hasProof=body.physicalVerification!==undefined||body.reconciliationReason!==undefined;
+   if(hasProof){
+    enumeration('physicalVerification',[body.type==='DISPATCHED'?'CONFIRMED_PRESENT':'CONFIRMED_ABSENT']);
+    text('reconciliationReason');
+   }
+  }
+ }
  if(action==='VOID'){text('labelCode');text('reason');text('dispositionDeclaration');}
  if(action==='CONFIRM'){
   for(const key of ['boxIds','verificationIds']){if(!Array.isArray(body[key])||!body[key].length||body[key].length>10000||new Set(body[key]).size!==body[key].length)return fail();body[key].forEach(uuid);}

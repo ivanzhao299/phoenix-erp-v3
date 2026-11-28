@@ -708,8 +708,33 @@ export class SalesAnalyticsService {
   // ── 10. 库存周转分析 ────────────────────────────────────────────────────────
 
   async getInventoryTurnover(companyCode?: string) {
-    const { clause: ibc, params: ibp } = this.buildScope('ib', [], companyCode);
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    const buildInventoryScope = (alias: string) => {
+      const params: unknown[] = [];
+      const conditions: string[] = [];
+      if (!scope?.isGlobal) {
+        const companies = Array.isArray(scope?.allowedCompanyCodes) ? scope.allowedCompanyCodes : [];
+        const warehouses = Array.isArray(scope?.allowedWarehouseCodes) ? scope.allowedWarehouseCodes : [];
+        if (!companies.length || !warehouses.length) {
+          return { clause: 'AND 1=0', params };
+        }
+        params.push(companies);
+        conditions.push(`${alias}.company_code = ANY($${params.length}::text[])`);
+        params.push(warehouses);
+        conditions.push(`${alias}.warehouse_code = ANY($${params.length}::text[])`);
+        if (companyCode) {
+          if (!companies.includes(companyCode)) return { clause: 'AND 1=0', params: [] };
+          params.push(companyCode);
+          conditions.push(`${alias}.company_code = $${params.length}`);
+        }
+      } else if (companyCode) {
+        params.push(companyCode);
+        conditions.push(`${alias}.company_code = $${params.length}`);
+      }
+      return { clause: conditions.length ? `AND ${conditions.join(' AND ')}` : '', params };
+    };
 
+    const { clause: ibc, params: ibp } = buildInventoryScope('ib');
     const [invStats] = await this.ds.query(
       `SELECT
          COUNT(*) FILTER (WHERE status = 'AVAILABLE')                  AS active_batches,
@@ -730,12 +755,12 @@ export class SalesAnalyticsService {
                 THEN expire_date - egg_date ELSE NULL END
          )::numeric, 1)                                                AS avg_shelf_days
        FROM inv_batches ib
-       WHERE ${officialInventoryPredicate('ib')} AND 1=1 ${ibc}`,
+       WHERE ${officialInventoryPredicate('ib')} ${ibc}`,
       ibp,
     );
 
-    // 出库流水 (FIFO_OUT) 近30天
-    const { clause: lc, params: lp } = this.buildScope('il', [], companyCode);
+    // Keep the existing FIFO_OUT and reservation fields on their legacy basis.
+    const { clause: lc, params: lp } = buildInventoryScope('il');
     const [outStats] = await this.ds.query(
       `SELECT
          COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type = 'FIFO_OUT'), 0) AS total_outbound_30d,
@@ -746,8 +771,7 @@ export class SalesAnalyticsService {
       lp,
     );
 
-    // 按质量等级分布
-    const { clause: ibc2, params: ibp2 } = this.buildScope('ib2', [], companyCode);
+    const { clause: ibc2, params: ibp2 } = buildInventoryScope('ib2');
     const byGrade = await this.ds.query(
       `SELECT
          COALESCE(ib2.quality_grade, 'UNKNOWN') AS quality_grade,
@@ -760,15 +784,14 @@ export class SalesAnalyticsService {
       ibp2,
     );
 
-    // 按公司分布
-    const { clause: ibc3, params: ibp3 } = this.buildScope('ib3', [], companyCode);
+    const { clause: ibc3, params: ibp3 } = buildInventoryScope('ib3');
     const byCompany = await this.ds.query(
       `SELECT
          ib3.company_code,
          COUNT(*) FILTER (WHERE ib3.status = 'AVAILABLE') AS active_batches,
          COALESCE(SUM(ib3.qty_available) FILTER (WHERE ib3.status = 'AVAILABLE'), 0) AS qty_available
        FROM inv_batches ib3
-       WHERE ${officialInventoryPredicate('ib3')} AND 1=1 ${ibc3}
+       WHERE ${officialInventoryPredicate('ib3')} ${ibc3}
        GROUP BY ib3.company_code
        ORDER BY qty_available DESC`,
       ibp3,
@@ -783,7 +806,6 @@ export class SalesAnalyticsService {
       expiringBatches: this.n(invStats?.expiring_batches),
       expiringQty:     this.n(invStats?.expiring_qty),
       expiredBatches:  this.n(invStats?.expired_batches),
-      expiredQty:      this.n(invStats?.expired_qty),
       returnedBatches: this.n(invStats?.returned_batches),
       avgShelfDays:    this.n(invStats?.avg_shelf_days),
       totalOutbound30d: totalOutbound,

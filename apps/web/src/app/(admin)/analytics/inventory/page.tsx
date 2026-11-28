@@ -34,6 +34,17 @@ interface InvSummary {
   recent: Batch[];
 }
 
+interface InventoryInsights {
+  status: 'AVAILABLE' | 'UNAVAILABLE';
+  salesOutToAvailableStatus: 'AVAILABLE' | 'MIXED_UNITS' | 'NO_STOCK' | 'UNAVAILABLE';
+  salesOutToAvailable30Day: number | null;
+  salesOutToAvailableByUnit: Array<{ unit: string; sold30Day: number; available: number; rate: number | null }> | null;
+  otherMovementsByUnit: Array<{ unit: string; transferOut: number; saleReturn: number; otherOut: number; reserved: number; released: number }> | null;
+  costPendingBatches: number | null;
+  costPendingQuantity: number | null;
+  costPendingByUnit: Array<{ unit: string; quantity: number }> | null;
+}
+
 const EMPTY_SUMMARY: InvSummary = {
   totalCount: 0, activeCount: 0, totalQtyKg: 0, expiringCount: 0,
   gradeBuckets: { AA: 0, A: 0, B: 0, C: 0 }, recent: [],
@@ -163,7 +174,28 @@ export default function InventoryAnalyticsPage() {
     [],
     { initial: EMPTY_SUMMARY },
   );
+  const { data: insights, error: insightsError, reload: reloadInsights } = useAbortableLoad<InventoryInsights>(
+    (signal) => apiFetch<InventoryInsights>('/api/v2/analytics/inventory', signal),
+    [],
+  );
   const { activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } = data ?? EMPTY_SUMMARY;
+  const insightsAvailable = !insightsError && insights?.status === 'AVAILABLE';
+  const actualSalesRatio = insightsAvailable && insights.salesOutToAvailableStatus === 'AVAILABLE'
+    ? `${fmtNum(insights.salesOutToAvailable30Day, 2)} ${t('analytics.turns_suffix', '次')}`
+    : insightsAvailable && insights.salesOutToAvailableStatus === 'MIXED_UNITS'
+      ? t('analytics.turnover_by_unit', '按单位分别查看')
+      : insightsAvailable && insights.salesOutToAvailableStatus === 'NO_STOCK'
+        ? t('analytics.not_applicable', '不适用')
+        : t('analytics.unavailable', '不可用');
+  const ratioByUnit = insightsAvailable && insights.salesOutToAvailableStatus === 'MIXED_UNITS'
+    ? (insights.salesOutToAvailableByUnit ?? []).map(row => `${row.unit}: ${row.rate === null ? t('analytics.not_applicable', '不适用') : fmtNum(row.rate, 2)}`).join(' · ')
+    : undefined;
+  const costPendingByUnit = insightsAvailable
+    ? (insights.costPendingByUnit ?? []).filter(row => row.quantity > 0).map(row => `${row.unit}: ${fmtNum(row.quantity)}`).join(' · ')
+    : undefined;
+  const movementsByUnit = insightsAvailable
+    ? (insights.otherMovementsByUnit ?? []).map(row => `${row.unit}: ${t('analytics.transfer_short', '调拨')} ${fmtNum(row.transferOut)} · ${t('analytics.return_short', '退货')} ${fmtNum(row.saleReturn)} · ${t('analytics.other_out_short', '其他出库')} ${fmtNum(row.otherOut)} · ${t('analytics.reserved_short', '预占')} ${fmtNum(row.reserved)} · ${t('analytics.released_short', '释放')} ${fmtNum(row.released)}`).join(' / ')
+    : undefined;
 
   return (
     <div style={pageStyle}>
@@ -172,7 +204,7 @@ export default function InventoryAnalyticsPage() {
         subtitle={t("analytics.inventory_subtitle", "批次库存概览 · 等级分布 · 临期预警")}
         actions={
           <button
-            onClick={() => reload()}
+            onClick={() => { reload(); reloadInsights(); }}
             disabled={loading}
             style={{
               display: "inline-flex",
@@ -248,6 +280,33 @@ export default function InventoryAnalyticsPage() {
               value={expiringCount}
               sub={t("analytics.inventory_remaining_days_lt7", "剩余天数 < 7 天")}
               color="var(--status-danger)"
+            />
+            <StatCard
+              icon={BarChart2}
+              title={t('analytics.sales_to_available_30d', '近30日实销 / 当前可用量')}
+              value={actualSalesRatio}
+              sub={ratioByUnit ?? (insightsAvailable && insights.salesOutToAvailableStatus === 'AVAILABLE'
+                ? `${t('analytics.unit_label', '单位')}: ${insights.salesOutToAvailableByUnit?.[0]?.unit ?? '—'}`
+                : t('analytics.turnover_unavailable_hint', '统计暂不可用或当前无可用库存'))}
+              color={insightsAvailable ? 'var(--status-info)' : 'var(--status-warning)'}
+            />
+            <StatCard
+              icon={AlertCircle}
+              title={t('analytics.inventory_cost_pending', '待核库存成本')}
+              value={insightsAvailable ? fmtNum(insights.costPendingBatches, 0) : t('analytics.unavailable', '不可用')}
+              sub={insightsAvailable
+                ? costPendingByUnit || t('analytics.no_pending_cost', '无待核成本')
+                : t('analytics.turnover_unavailable_hint', '统计暂不可用或当前无可用库存')}
+              color={insightsAvailable && (insights.costPendingBatches ?? 0) > 0 ? 'var(--status-warning)' : 'var(--color-accent)'}
+            />
+            <StatCard
+              icon={AlertTriangle}
+              title={t('analytics.inventory_other_movements', '近30日其他库存流水')}
+              value={insightsAvailable ? t('analytics.by_unit', '按单位') : t('analytics.unavailable', '不可用')}
+              sub={insightsAvailable
+                ? movementsByUnit || t('analytics.no_movements', '无其他库存流水')
+                : t('analytics.turnover_unavailable_hint', '统计暂不可用或当前无可用库存')}
+              color="var(--status-warning)"
             />
           </div>
 

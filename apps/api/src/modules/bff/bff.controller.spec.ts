@@ -311,6 +311,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('SELECT DISTINCT')) return [];
         if (sql.includes('FROM pkg_source_batches')) return [{ qty: 1200, weight: 72.5 }];
         if (sql.includes('FROM pkg_exceptions')) return [{ open_count: 1, closed_count: 2 }];
+        if (sql.includes('exact_qty')) return [{ exact_qty: 60, ambiguous_qty: 20 }];
         if (sql.includes('FROM pkg_grading_records')) {
           return [
             { outputs_json: { A_LARGE: 400, A_MEDIUM: 300 } },
@@ -337,13 +338,15 @@ describe('PackagingTerminalBffController', () => {
       shiftLabelCount: 30,
       shiftWarehousedBoxes: 28,
       shiftWarehousedPallets: 2,
+      exactCrossShiftPackedEggs: 60,
+      ambiguousCrossShiftPackedEggs: 20,
     });
     const scopedCalls = em.query.mock.calls.filter(([sql]) =>
       /pkg_(source_batches|grading_records|handover_records)/.test(String(sql)) && !String(sql).includes('SELECT DISTINCT'),
     );
     const exactShiftReads = scopedCalls.filter(([sql]) => !String(sql).includes('FROM pkg_exceptions'));
-    expect(exactShiftReads).toHaveLength(3);
-    expect(exactShiftReads.map(([,params]) => params)).toEqual([[42],[42],[42]]);
+    expect(exactShiftReads).toHaveLength(4);
+    expect(exactShiftReads.map(([,params]) => params)).toEqual([[42],[42],[42],[42]]);
   });
 
   it('reports warehouse handover as committed only when handover and inventory evidence both exist', async () => {
@@ -386,8 +389,8 @@ describe('PackagingTerminalBffController', () => {
     });
   });
 
-  it.each([['PACKAGING_INBOUND', true], ['TEMP_PRODUCTION_INBOUND', true], ['TEMP_PRODUCTION_INBOUND', false]])(
-    'posts handover only after %s evidence validates (%s)', async (mode, ok) => {
+  it.each([['PACKAGING_INBOUND', true], ['TEMP_PRODUCTION_INBOUND', false]])(
+    'allows first handover only in packaging mode (%s, %s)', async (mode, ok) => {
       const em: any = { query: jest.fn(async (sql: string) => {
         if (sql.includes('SELECT p.*')) return [{ is_test:false,status:'ACTIVE',shift_id:1,production_date:'2026-07-25',total_boxes:1,total_eggs:30,grading_codes_json:['G'] }];
         if (sql.includes('FROM pkg_work_shifts')) return [{id:1,is_test:false,date_text:'2026-07-25',site_id:'F'}];
@@ -403,9 +406,10 @@ describe('PackagingTerminalBffController', () => {
       const controller = new PackagingTerminalBffController(em, pkgInv as never, houseScope as never);
       const action = controller.confirmHandover({packingCode:'PKG-TEST',boxes:['B'],location:'L',receiver:'R'}, {user:{id:1}});
       if (ok) await expect(action).resolves.toMatchObject({data:{inventoryOk:true}});
-      else await expect(action).rejects.toThrow('上游库存证据未对平');
+      else await expect(action).rejects.toThrow('库存与包装或既有交接证据不一致');
       expect(em.query.mock.calls.some(([sql]: any[]) => sql.includes('INSERT INTO pkg_handover_records'))).toBe(ok);
-      expect(pkgInv.completeTerminalPacking).toHaveBeenCalledWith('PKG-TEST', expect.objectContaining({companyCode:'COMP',warehouseCode:'W',locationCode:'L',manager:em}));
+      expect(pkgInv.completeTerminalPacking).toHaveBeenCalledWith('PKG-TEST', expect.objectContaining({companyCode:'COMP',warehouseCode:'W',locationCode:'L',manager:em,requireInventory:true}));
+      expect(pkgInv.verifyTerminalTempEvidence).not.toHaveBeenCalled();
     });
 
   it('keeps a legacy TEMP-mode handover committed after reload', async () => {

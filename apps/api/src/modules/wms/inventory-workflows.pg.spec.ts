@@ -12,10 +12,18 @@ import { SalesOrdersService } from '../sales-v2/services/sales-orders.service';
 import { QualityService } from '../quality/quality.service';
 import { readPosAllocationTrace } from '../traceability/pos-allocation-trace';
 import { readInventoryLineage, readOutboundTrace } from '../traceability/inventory-lineage';
+import { TraceabilityService } from '../traceability/traceability.service';
 import { GenericCrudController } from '../generic-crud/generic-crud.controller';
 import { GenericCrudService } from '../generic-crud/generic-crud.service';
 import { WmsService } from './wms.service';
 import { WarehouseDailyCloseService } from './warehouse-daily-close.service';
+import { InventoryAnalyticsService } from '../analytics/services/inventory-analytics.service';
+import { packingHistoryFixture } from '../bff/packaging-history.fixture';
+import { PackagingHistoryService } from '../bff/packaging-history.service';
+import { PackagingBoxService } from '../bff/packaging-box.service';
+import { PackagingHandoverService } from '../bff/packaging-handover.service';
+import { PackagingWorkflowPolicy } from '../bff/packaging-workflow-policy';
+import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service';
 
 const connection = process.env.INVENTORY_WORKFLOWS_PG_URL;
 const pg = connection ? describe : describe.skip;
@@ -32,7 +40,7 @@ pg('inventory workflows against the complete migration chain', () => {
     if (url.hostname !== '127.0.0.1' || url.pathname !== '/inventory_validation') {
       throw new Error('A dedicated loopback inventory_validation database is required');
     }
-    db = await new DataSource({ type: 'postgres', url: connection, synchronize: false, entities: [] }).initialize();
+    db = await new DataSource({ type: 'postgres', url: connection, database: 'inventory_validation', synchronize: false, entities: [] }).initialize();
     await db.query(`INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,domain)
       VALUES ($1,'Inventory validation',$2,'GENERAL','OPERATIONAL')`, [warehouse, company]);
   });
@@ -509,6 +517,141 @@ pg('inventory workflows against the complete migration chain', () => {
     expect(result.data.total).toBe(1);
     expect(result.data.rows[0]).toMatchObject({ batch_no: batch, qty: '12.000', qty_available: '0', held: 12 });
     await expect(service.queryInventoryBatches({ warehouse_code: 'INVENTORY-OTHER' })).rejects.toThrow('无权查询该仓库');
+  });
+
+  it('reconciles one 90-egg packaging movement across warehouse capture and BI before and after physical sales', async () => {
+    const packing = await packingHistoryFixture(db);
+    const closeWarehouse = packing.warehouse;
+    const company = packing.company;
+    const orderNo = 'INVENTORY-P4-PACKING-SALES';
+    const deliveryNo = 'INVENTORY-P4-PACKING-DELIVERY';
+    const packagingRef = packing.prefix;
+    const output = { ...packing.outputs[0], eggs: 90, boxes: 3 };
+    const [{ today, day, prior }] = await db.query(`SELECT
+      ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date)::text AS today,
+      ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-1)::text AS day,
+      ((clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date-2)::text AS prior`);
+    await db.query("UPDATE wms_warehouses SET type='EGG_FARM' WHERE warehouse_code=$1", [closeWarehouse]);
+    await db.query('UPDATE pkg_work_shifts SET production_date=$2 WHERE id=$1', [packing.shiftId, prior]);
+    await db.query('UPDATE pkg_source_batches SET received_qty=90,production_date=$2 WHERE batch_code=$1', [packagingRef, prior]);
+    await db.query('UPDATE pkg_grading_records SET total_output=90,production_date=$2 WHERE code=$1', [packagingRef, prior]);
+    await db.query('UPDATE pkg_grading_source_links l SET input_qty=90 FROM pkg_grading_records g WHERE l.grading_id=g.id AND g.code=$1', [packagingRef]);
+    await db.query('UPDATE pkg_packing_records SET total_eggs=90,total_boxes=3,batches_json=$2,production_date=$3 WHERE code=$1',
+      [packagingRef, JSON.stringify([output]), prior]);
+    await db.query(`UPDATE wms_close_capture_epoch SET initialized_at=clock_timestamp()-interval '2 days'`);
+    await db.query(`INSERT INTO wms_daily_close_activation
+      (company_code,warehouse_code,first_business_date,authorized_by,evidence_ref,enabled)
+      VALUES($1,$2,$3,'fixture','packaging-p4-isolated',true)`, [company, closeWarehouse, day]);
+
+    const scoped = packing.scope;
+    const actor = { get: (key: string) => key === 'dataScope' ? scoped : { userId: packing.actor, username: 'fixture' } } as any;
+    const inventory = new EggInventoryService(db, actor);
+    const close = new WarehouseDailyCloseService(db, actor);
+    const bi = new InventoryAnalyticsService(db.manager);
+    const history = new PackagingHistoryService(db.manager, { resolve: async () => scoped } as any);
+    const policy = new PackagingWorkflowPolicy(db.manager);
+    policy.get = () => ({ version:'P4-ISOLATED', R:true, B:true, P:true, V:true, H:true, Q:true,
+      encodingVersion:'PBX-v1', deviceProfile:'P4-ISOLATED-NO-PHYSICAL-DEVICE', receiptMode:'C' });
+    const workflow = new PackagingHandoverService(history, new PackagingBoxService(), policy,
+      new PackagingInventoryIntegrationService(db, actor, inventory, new InventorySourceModeService(db, actor)));
+    const command = async (action: string, body: Record<string, unknown>, key = randomUUID()) => {
+      const { revision } = await workflow.detail(packagingRef, packing.req);
+      return workflow.command(action, packagingRef, key, { expectedRevision: revision, ...body }, packing.req);
+    };
+    await command('REGISTER', { registrationKind:'FIRST_LABEL_CONFIRMED', reason:'P4 isolated warehouse reconciliation',
+      items:[1,2,3].map(boxOrdinal=>({ outputOrdinal:0, boxOrdinal, declaration:'TEST already identified' })) });
+    const { boxes } = await workflow.detail(packagingRef, packing.req);
+    const firstCode = boxes[0].labels.find((label: { kind:string }) => label.kind === 'CANONICAL').code;
+    expect(firstCode).toMatch(/^PBX-[0-9A-F]{32}$/);
+    const verificationIds: string[] = [];
+    for (const purpose of ['LABEL_CHECK','HANDOVER']) {
+      const { eventId: sessionId } = await command('SESSION', { purpose });
+      for (const box of boxes) {
+        const labelCode = box.labels.find((label: { kind:string }) => label.kind === 'CANONICAL').code;
+        if (purpose === 'LABEL_CHECK') await command('PRINT', { boxId:box.boxId, labelCode, printType:'NORMAL', copies:1, templateVersion:'TEST' });
+        const scan = await command('SCAN', { boxId:box.boxId, labelCode, purpose, method:'MANUAL', sessionId });
+        if (purpose === 'HANDOVER') verificationIds.push(scan.eventId);
+      }
+    }
+    const confirm = { productionDate:prior, shiftId:packing.shiftId, boxIds:boxes.map((box: { boxId:string })=>box.boxId).sort(),
+      verificationIds, warehouseCode:closeWarehouse, locationCode:packing.location, receiverUserId:packing.actor };
+    const handoverKey = randomUUID();
+    const receipt = await command('CONFIRM', confirm, handoverKey);
+    expect(receipt.groups).toEqual([expect.objectContaining({ qty:90, outputOrdinals:[0], skuCode:output.skuCode })]);
+    const [{ batchNo, ledgerId }] = receipt.groups;
+    const [{ id: orderId }] = await db.query(`INSERT INTO sal_sales_orders(order_no,company_code,status,fulfillment_warehouse_code)
+      VALUES($1,$2,'APPROVED',$3) RETURNING id::text`, [orderNo, company, closeWarehouse]);
+    await db.query(`INSERT INTO sal_order_items(sales_order_id,product_code,grade_code,qty,unit_price,amount)
+      VALUES($1,$2,$3,30,1,30)`, [orderId, output.productCode, output.grade]);
+    const [{ id: deliveryId }] = await db.query(`INSERT INTO sal_delivery_orders(delivery_no,company_code,status,fulfillment_warehouse_code)
+      VALUES($1,$2,'LOADED',$3) RETURNING id::text`, [deliveryNo, company, closeWarehouse]);
+    await db.query(`INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
+      VALUES($1,$2,$3,30,'LOADED')`, [deliveryId, orderId, orderNo]);
+
+    const snapshot = async () => (await db.query(`SELECT qty::int,qty_available::int FROM inv_batches WHERE batch_no=$1`, [batchNo]))[0];
+    // Shift only the dedicated fixture's capture timestamps. Posting dates remain unchanged.
+    const captureYesterday = () => db.query(`UPDATE wms_close_capture SET recorded_at=recorded_at-interval '1 day'
+      WHERE batch_no=$1 AND (recorded_at AT TIME ZONE 'Asia/Singapore')::date>$2::date`, [batchNo, day]);
+    const kpi = () => bi.compute({ companyCode: company, warehouseCode: closeWarehouse }, scoped);
+
+    await inventory.reserveInventory(orderId, orderNo, company, undefined, closeWarehouse);
+    await captureYesterday();
+    expect(await snapshot()).toEqual({ qty: 90, qty_available: 60 });
+    expect(await kpi()).toMatchObject({
+      salesOutToAvailable30Day: 0, salesOutToAvailableByUnit: [{ unit: '枚', sold30Day: 0, available: 60, rate: 0 }],
+      capitalOccupation: null, costPendingQuantity: 90,
+    });
+    const reservedPreview = await close.summary(closeWarehouse, day);
+    expect(reservedPreview.data).toMatchObject({ eligible: true, totals: { unresolved: 0 } });
+    const reservedLine = reservedPreview.data.totals!.units[0];
+    expect([reservedLine.unit, +reservedLine.inbound, +reservedLine.outbound, +reservedLine.reserved, +reservedLine.closing])
+      .toEqual(['枚', 90, 0, 30, 90]);
+
+    await inventory.confirmOutbound(orderId, orderNo, company, deliveryNo, deliveryId, 30, undefined, closeWarehouse);
+    await captureYesterday();
+    expect(await snapshot()).toEqual({ qty: 60, qty_available: 60 });
+    expect(await kpi()).toMatchObject({
+      salesOutToAvailable30Day: 0.5, salesOutToAvailableByUnit: [{ unit: '枚', sold30Day: 30, available: 60, rate: 0.5 }],
+      capitalOccupation: null, costPendingQuantity: 60,
+    });
+    const preview = await close.summary(closeWarehouse, day);
+    expect(preview.data).toMatchObject({ eligible: true, totals: { unresolved: 0, continuity_gaps: 0 } });
+    const line = preview.data.totals!.units[0];
+    expect([+line.opening, +line.inbound, +line.outbound, +line.reserved, +line.closing]).toEqual([0, 90, 30, 30, 60]);
+    const key = randomUUID();
+    const sealed = await close.close(closeWarehouse, day, preview.data.version!, key, 100);
+    expect((await close.close(closeWarehouse, day, preview.data.version!, key, 100)).data.closed).toEqual(sealed.data.closed);
+    expect((await close.summary(closeWarehouse, day)).data.closed).toEqual(sealed.data.closed);
+    const facts = await db.query(`SELECT id::text,change_type,qty_change::int,log_date::text FROM inv_ledger WHERE batch_no=$1 ORDER BY id`, [batchNo]);
+    expect(facts).toEqual([
+      { id:ledgerId, change_type: 'PACKAGING_INBOUND', qty_change: 90, log_date: today },
+      expect.objectContaining({ change_type: 'RESERVED', qty_change: -30 }),
+      expect.objectContaining({ change_type: 'FIFO_OUT', qty_change: -30 }),
+    ]);
+    expect(await readOutboundTrace(db, scoped, { orderNo })).toEqual([
+      expect.objectContaining({ batch_no: batchNo, allocated_qty: expect.anything() }),
+    ]);
+
+    const original = await workflow.detail(packagingRef, packing.req);
+    expect(original.record.productionDate).toBe(prior);
+    expect(original.receipt).toMatchObject({ state:'RECORDED', evidence:[
+      { payload:{ handoverCode:receipt.handoverCode, groups:receipt.groups } },
+    ] });
+    const trace = new TraceabilityService(db, history);
+    expect(await trace.traceByLabel(firstCode, [company], scoped)).toMatchObject({
+      found:true, outputGroup:{ batchNo, ledgerId, qty:90 }, downstream:{
+        precision:'BATCH_ALLOCATION', trace:{ sales:{ salesOrders:[
+          expect.objectContaining({ order_no:orderNo, delivery_no:deliveryNo, batch_no:batchNo }),
+        ] } },
+      },
+    });
+    const foreignCompany = { ...scoped, allowedCompanyCodes: [scope.allowedCompanyCodes[0]] };
+    const wrongCompanyClose = new WarehouseDailyCloseService(db, { get: () => foreignCompany } as any);
+    await expect(wrongCompanyClose.warehouses()).resolves.toEqual({ code: 200, data: [] });
+    await expect(wrongCompanyClose.summary(closeWarehouse, day)).rejects.toMatchObject({ status: 403 });
+    await expect(wrongCompanyClose.close(closeWarehouse, day, preview.data.version!, key, 100)).rejects.toMatchObject({ status: 403 });
+    await expect(new WarehouseDailyCloseService(db, cls).summary(closeWarehouse, day)).rejects.toMatchObject({ status: 403 });
+    await expect(bi.compute({ companyCode: company, warehouseCode: closeWarehouse }, foreignCompany)).rejects.toMatchObject({ status: 403 });
   });
 
   it('keeps a sealed snapshot across subsequent movements and counts reservations separately', async () => {

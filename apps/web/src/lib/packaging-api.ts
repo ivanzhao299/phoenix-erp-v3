@@ -52,6 +52,26 @@ export interface WarehouseHandoverStatus {
   message: string;
 }
 
+export type PackagingWorkQueueBucket = 'CURRENT' | 'CARRYOVER' | 'REVIEW';
+export interface PackagingWorkQueueItem {
+  kind: 'SOURCE' | 'GRADING' | 'PACKING';
+  code: string;
+  shiftId: string | number;
+  productionDate: string | null;
+  quantity: number | null;
+  unit: string;
+  action: string;
+  routeCode?: string | null;
+  reason: string;
+  href?: string | null;
+}
+export interface PackagingWorkQueueResponse {
+  items: PackagingWorkQueueItem[];
+  counts: Record<string, number>;
+  nextCursor: string | null;
+}
+export interface PackagingWorkQueueSite { siteCode: string; siteName: string }
+
 export function assertWarehouseHandoverCommitted(result: WarehouseHandoverResult): WarehouseHandoverResult {
   if (result?.inventoryOk !== true) {
     throw new Error(result?.message || '包装交接已记录，但库存尚未生成，请联系管理员处理。');
@@ -141,6 +161,15 @@ function requireShiftId(value: unknown): string {
 export const packagingApi = {
   // ── Terminal 上下文 ─────────────────────────────────────────────────────────
   getContext: () => request<any>('GET', '/api/packaging/terminal/context'),
+
+  getWorkQueue: (params: { bucket: PackagingWorkQueueBucket; siteCode: string; shiftId?: string | number; pageSize?: number; cursor?: string }) => {
+    const query = new URLSearchParams({ bucket: params.bucket, siteCode: params.siteCode });
+    if (params.shiftId !== undefined) query.set('shiftId', requireShiftId(params.shiftId));
+    if (params.pageSize !== undefined) query.set('pageSize', String(params.pageSize));
+    if (params.cursor) query.set('cursor', params.cursor);
+    return request<PackagingWorkQueueResponse>('GET', `/api/packaging/terminal/work-queue?${query}`);
+  },
+  getWorkQueueSites: () => request<PackagingWorkQueueSite[]>('GET', '/api/packaging/terminal/work-queue/sites'),
 
   // ── 班次 ────────────────────────────────────────────────────────────────────
   getExactShift: (id: string, date: string) => request<any>('GET', `/api/packaging/terminal/shifts/${requireShiftId(id)}/context?date=${encodeURIComponent(date)}`),
